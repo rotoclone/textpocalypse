@@ -234,7 +234,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "text-survival"
+name = "textpocalypse"
 version = "0.1.0"
 dependencies = [
  "anyhow",

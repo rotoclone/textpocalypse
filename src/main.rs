@@ -17,17 +17,18 @@ fn main() -> anyhow::Result<()> {
     world.add_player(player_id, "Player".to_string());
 
     let initial_state = world.get_state(player_id);
-    println!("You appear in {}.", initial_state.location.name);
+    println!("You appear in {}.", initial_state.location_desc.name);
 
     let mut input_buf = String::new();
     loop {
+        print!("\n> ");
         stdin().read_line(&mut input_buf)?;
         debug!("Raw input: {input_buf:?}");
         let input = input_buf.trim();
         debug!("Trimmed input: {input:?}");
 
         if let Some(action) = parse_input(input) {
-            let result = world.apply_action(player_id, action);
+            let result = world.perform_action(player_id, action);
             println!("{}", result.description);
         } else {
             println!("I don't understand that.");
