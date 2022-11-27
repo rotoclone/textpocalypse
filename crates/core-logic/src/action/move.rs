@@ -2,15 +2,7 @@ use std::collections::HashMap;
 
 use crate::{Direction, EntityId, GameMessage, LocationDescription, World};
 
-pub struct ActionResult {
-    pub messages: HashMap<EntityId, Vec<GameMessage>>,
-    pub should_tick: bool,
-}
-
-pub trait Action {
-    /// Called when the provided entity performs the action.
-    fn perform(&self, entity_id: EntityId, world: &mut World) -> ActionResult;
-}
+use super::{Action, ActionResult};
 
 #[derive(Debug)]
 pub struct Move {
@@ -49,35 +41,6 @@ impl Action for Move {
         ActionResult {
             messages,
             should_tick,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Look;
-
-impl Action for Look {
-    fn perform(&self, entity_id: EntityId, world: &mut World) -> ActionResult {
-        if !world.can_receive_messages(entity_id) {
-            return ActionResult {
-                messages: HashMap::new(),
-                should_tick: false,
-            };
-        }
-
-        let entity = world.get_entity(entity_id);
-        let current_location = world.get_location(entity.get_location_id());
-
-        ActionResult {
-            messages: [(
-                entity_id,
-                vec![GameMessage::Location(LocationDescription::from_location(
-                    current_location,
-                    world,
-                ))],
-            )]
-            .into(),
-            should_tick: false,
         }
     }
 }
