@@ -19,7 +19,7 @@ impl Action for Move {
         let mut should_tick = false;
         let can_receive_messages = world.can_receive_messages(entity_id);
 
-        if let Some(connection) = current_location.connections.get(&self.direction) {
+        if let Some(connection) = current_location.connection_in_direction(&self.direction) {
             let new_location_id = connection.location_id;
             world.move_entity(entity_id, current_location_id, new_location_id);
             should_tick = true;

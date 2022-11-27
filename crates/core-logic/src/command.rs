@@ -13,6 +13,7 @@ lazy_static! {
 pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: EntityId) {
     let read_world = world.read().unwrap();
     if let Some(action) = parse_input(&command, entity_id, &read_world) {
+        debug!("Parsed command into action: {action:?}");
         drop(read_world);
         world.write().unwrap().perform_action(entity_id, action);
     } else {
@@ -29,7 +30,6 @@ fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dy
         if let Some(dir_match) = captures.get(1) {
             if let Some(direction) = parse_direction(dir_match.as_str()) {
                 let action = action::Move { direction };
-                debug!("Parsed command into action: {action:?}");
                 return Some(Box::new(action));
             }
         }
@@ -37,7 +37,6 @@ fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dy
 
     if input == "look" {
         let action = action::Look;
-        debug!("Parsed command into action: {action:?}");
         return Some(Box::new(action));
     }
 

@@ -17,9 +17,7 @@ use std::{
     thread,
 };
 
-use core_logic::{
-    Direction, EntityId, ExitDescription, Game, GameMessage, LocationDescription, Time,
-};
+use core_logic::{Direction, ExitDescription, Game, GameMessage, LocationDescription, Time};
 
 const PROMPT: &str = "\n> ";
 const FIRST_PM_HOUR: u8 = 12;
@@ -28,8 +26,7 @@ fn main() -> Result<()> {
     env_logger::init();
 
     let game = Game::new();
-    let player_id = EntityId(0);
-    let (commands_sender, messages_receiver) = game.add_player(player_id, "Player".to_string());
+    let (commands_sender, messages_receiver) = game.add_player("Player".to_string());
 
     let quitting = Arc::new(AtomicBool::new(false));
     let quitting_for_thread = Arc::clone(&quitting);
@@ -40,7 +37,7 @@ fn main() -> Result<()> {
             let (message, game_time) = match messages_receiver.recv() {
                 Ok(x) => x,
                 Err(_) => {
-                    debug!("Message sender for player {player_id:?} has been dropped");
+                    debug!("Message sender has been dropped");
                     if quitting_for_thread.load(atomic::Ordering::Relaxed) {
                         break;
                     }

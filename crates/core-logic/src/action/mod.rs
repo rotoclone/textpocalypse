@@ -13,7 +13,7 @@ pub struct ActionResult {
     pub should_tick: bool,
 }
 
-pub trait Action {
-    /// Called when the provided entity performs the action.
+pub trait Action: std::fmt::Debug {
+    /// Called when the provided entity should perform the action.
     fn perform(&self, entity_id: EntityId, world: &mut World) -> ActionResult;
 }
