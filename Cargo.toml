@@ -13,5 +13,4 @@ core-logic = { path = "crates/core-logic" }
 anyhow = "1.0"
 log = "0.4.0"
 env_logger = "0.10.0"
-regex = "1.7.0"
-lazy_static = "1.4.0"
+crossterm = "0.25.0"

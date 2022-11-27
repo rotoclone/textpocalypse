@@ -1,71 +1,149 @@
-use std::io::stdin;
-
-use core_logic::{Action, Direction, PlayerId, World};
-use lazy_static::lazy_static;
+use anyhow::Result;
+use crossterm::{
+    cursor,
+    style::style,
+    style::{Print, Stylize},
+    terminal::{Clear, ClearType},
+    QueueableCommand,
+};
 use log::debug;
-use regex::Regex;
+use std::{
+    cmp::Ordering,
+    io::{stdin, stdout, Write},
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
+    thread,
+};
 
-lazy_static! {
-    static ref MOVE_PATTERN: Regex = Regex::new("^go (.*)").unwrap();
-}
+use core_logic::{
+    Direction, EntityId, ExitDescription, Game, GameMessage, LocationDescription, Time,
+};
 
-fn main() -> anyhow::Result<()> {
+const PROMPT: &str = "\n> ";
+const FIRST_PM_HOUR: u8 = 12;
+
+fn main() -> Result<()> {
     env_logger::init();
 
-    let mut world = World::new();
-    let player_id = PlayerId(0);
-    world.add_player(player_id, "Player".to_string());
+    let game = Game::new();
+    let player_id = EntityId(0);
+    let (commands_sender, messages_receiver) = game.add_player(player_id, "Player".to_string());
 
-    let initial_state = world.get_state(player_id);
-    println!("You appear in {}.", initial_state.location_desc.name);
+    let quitting = Arc::new(AtomicBool::new(false));
+    let quitting_for_thread = Arc::clone(&quitting);
+
+    thread::Builder::new()
+        .name("message receiver".to_string())
+        .spawn(move || loop {
+            let (message, game_time) = match messages_receiver.recv() {
+                Ok(x) => x,
+                Err(_) => {
+                    debug!("Message sender for player {player_id:?} has been dropped");
+                    if quitting_for_thread.load(atomic::Ordering::Relaxed) {
+                        break;
+                    }
+                    panic!("Disconnected from game")
+                }
+            };
+            debug!("Got message: {message:?}");
+            render_message(message, game_time).unwrap();
+        })?;
 
     let mut input_buf = String::new();
     loop {
-        print!("\n> ");
+        print!("{PROMPT}");
         stdin().read_line(&mut input_buf)?;
         debug!("Raw input: {input_buf:?}");
         let input = input_buf.trim();
         debug!("Trimmed input: {input:?}");
 
-        if let Some(action) = parse_input(input) {
-            let result = world.perform_action(player_id, action);
-            println!("{}", result.description);
-        } else {
-            println!("I don't understand that.");
+        if input == "quit" {
+            quitting.store(true, atomic::Ordering::Relaxed);
+            println!("ok bye");
+            return Ok(());
         }
+
+        commands_sender.send(input.to_string()).unwrap();
 
         input_buf.clear();
     }
 }
 
-/// Parses the provided string to an `Action`. Returns `None` if the string doesn't map to any action.
-fn parse_input(input: &str) -> Option<Action> {
-    if let Some(captures) = MOVE_PATTERN.captures(input) {
-        if let Some(dir_match) = captures.get(1) {
-            if let Some(dir) = parse_direction(dir_match.as_str()) {
-                return Some(Action::Move(dir));
-            }
-        }
-    }
+/// Renders the provided `GameMessage` to the screen
+fn render_message(message: GameMessage, time: Time) -> Result<()> {
+    let output = match message {
+        GameMessage::Message(m) => m,
+        GameMessage::Location(loc) => location_to_string(loc, time),
+        GameMessage::Error(e) => e,
+    };
+    stdout()
+        .queue(Clear(ClearType::CurrentLine))?
+        .queue(cursor::MoveToColumn(0))?
+        .queue(Print(output))?
+        .queue(Print("\n"))?
+        .queue(Print(PROMPT))?
+        .flush()?;
 
-    if input == "look" {
-        return Some(Action::Look);
-    }
-
-    None
+    Ok(())
 }
 
-/// Parses the provided string to a `Direction`. Returns `None` if the string doesn't map to any direction.
-fn parse_direction(input: &str) -> Option<Direction> {
-    match input {
-        "n" | "north" => Some(Direction::North),
-        "ne" | "northeast" => Some(Direction::NorthEast),
-        "e" | "east" => Some(Direction::East),
-        "se" | "southeast" => Some(Direction::SouthEast),
-        "s" | "south" => Some(Direction::South),
-        "sw" | "southwest" => Some(Direction::SouthWest),
-        "w" | "west" => Some(Direction::West),
-        "nw" | "northwest" => Some(Direction::NorthWest),
-        _ => None,
+/// Transforms the provided location description into a string for display.
+fn location_to_string(location: LocationDescription, time: Time) -> String {
+    let name = style(location.name).bold();
+    let time = style(format!("({})", time_to_string(time))).dark_grey();
+    let desc = location.description;
+    let exits = format!("Exits: {}", exits_to_string(location.exits));
+
+    format!("{name} {time}\n\n{desc}\n\n{exits}")
+}
+
+/// Transforms the provided time into a string for display.
+fn time_to_string(time: Time) -> String {
+    let (hour, am_pm) = match time.hour.cmp(&FIRST_PM_HOUR) {
+        Ordering::Less => (time.hour, "AM"),
+        Ordering::Equal => (time.hour, "PM"),
+        Ordering::Greater => (time.hour - FIRST_PM_HOUR, "PM"),
+    };
+    let min = time.minute;
+    let day = time.day;
+
+    format!("{hour}:{min:02} {am_pm}, Day {day}")
+}
+
+/// Transforms the provided exit descriptions into a string for display.
+fn exits_to_string(exits: Vec<ExitDescription>) -> String {
+    if exits.is_empty() {
+        return "None".to_string();
     }
+
+    exits
+        .iter()
+        .map(exit_to_string)
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+/// Transforms the provided exit description into a string for display.
+fn exit_to_string(exit: &ExitDescription) -> String {
+    let dir = style(direction_to_string(exit.direction)).bold();
+    let desc = style(format!("({})", exit.description)).dark_grey();
+
+    format!("{dir} {desc}")
+}
+
+/// Transforms the provided direction into a string for display.
+fn direction_to_string(dir: Direction) -> String {
+    match dir {
+        Direction::North => "N",
+        Direction::NorthEast => "NE",
+        Direction::East => "E",
+        Direction::SouthEast => "SE",
+        Direction::South => "S",
+        Direction::SouthWest => "SW",
+        Direction::West => "W",
+        Direction::NorthWest => "NW",
+    }
+    .to_string()
 }
