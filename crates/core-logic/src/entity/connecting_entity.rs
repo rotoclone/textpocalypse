@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -31,6 +33,8 @@ lazy_static! {
 struct Door {
     /// The name of the door.
     name: String,
+    /// Alternate names of the door.
+    aliases: HashSet<String>,
     /// The ID of the location the door is in.
     location_id: LocationId,
     /// Whether the door is currently open.
@@ -50,6 +54,10 @@ struct Door {
 impl Entity for Door {
     fn get_name(&self) -> &str {
         &self.name
+    }
+
+    fn get_aliases(&self) -> &HashSet<String> {
+        &self.aliases
     }
 
     fn get_location_id(&self) -> LocationId {

@@ -6,7 +6,9 @@ use crate::{GameMessage, LocationDescription};
 use super::{Action, ActionResult};
 
 #[derive(Debug)]
-pub struct Look;
+pub struct Look {
+    pub target_id: Option<EntityId>,
+}
 
 impl Action for Look {
     fn perform(&self, entity_id: EntityId, world: &mut World) -> ActionResult {
@@ -16,6 +18,8 @@ impl Action for Look {
                 should_tick: false,
             };
         }
+
+        //TODO handle when target_id is set
 
         let entity = world.get_entity(entity_id);
         let current_location = world.get_location(entity.get_location_id());

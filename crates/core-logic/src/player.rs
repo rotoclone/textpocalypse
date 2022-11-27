@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     action::Action,
     entity::Entity,
@@ -7,12 +9,17 @@ use crate::{
 
 pub struct Player {
     pub name: String,
+    pub aliases: HashSet<String>,
     pub location_id: LocationId,
 }
 
 impl Entity for Player {
     fn get_name(&self) -> &str {
         &self.name
+    }
+
+    fn get_aliases(&self) -> &HashSet<String> {
+        &self.aliases
     }
 
     fn get_location_id(&self) -> LocationId {

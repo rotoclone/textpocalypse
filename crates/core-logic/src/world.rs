@@ -74,7 +74,8 @@ impl World {
         self.next_entity_id += 1;
 
         self.get_location_mut(entity.get_location_id())
-            .add_entity(id);
+            .entities
+            .insert(id);
         self.entities.insert(id, entity);
 
         id
@@ -96,6 +97,18 @@ impl World {
             .as_mut()
     }
 
+    /// Finds the entity with the provided name, if it exists. The search is limited to entities in the location with the provided ID.
+    pub fn find_entity_by_name(&self, name: &str, location_id: LocationId) -> Option<EntityId> {
+        for entity_id in &self.get_location(location_id).entities {
+            let entity = self.get_entity(*entity_id);
+            if entity.get_name() == name || entity.get_aliases().contains(name) {
+                return Some(*entity_id);
+            }
+        }
+
+        None
+    }
+
     /// Moves an entity from the source location to the destination location.
     pub fn move_entity(
         &mut self,
@@ -107,10 +120,10 @@ impl World {
         entity.set_location_id(destination_location_id);
 
         let source_location = self.get_location_mut(source_location_id);
-        source_location.remove_entity(&entity_id);
+        source_location.entities.remove(&entity_id);
 
         let destination_location = self.get_location_mut(destination_location_id);
-        destination_location.add_entity(entity_id);
+        destination_location.entities.insert(entity_id);
     }
 
     /// Adds a location to the world. Returns the ID of the location.

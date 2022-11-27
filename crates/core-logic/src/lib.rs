@@ -1,6 +1,7 @@
 use flume::{Receiver, Sender};
 use log::debug;
 use std::{
+    collections::HashSet,
     sync::{Arc, RwLock},
     thread,
 };
@@ -66,6 +67,7 @@ impl Game {
         let spawn_location_id = world.spawn_location_id;
         let player_id = world.add_entity(Box::new(Player {
             name,
+            aliases: HashSet::new(),
             location_id: spawn_location_id,
         }));
         world.register_message_sender(player_id, messages_sender);

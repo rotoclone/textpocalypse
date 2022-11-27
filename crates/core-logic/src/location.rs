@@ -17,7 +17,7 @@ pub enum Direction {
 pub struct Location {
     name: String,
     description: String,
-    entities: HashSet<EntityId>,
+    pub entities: HashSet<EntityId>,
     connections: HashMap<Direction, Connection>,
 }
 
@@ -30,16 +30,6 @@ impl Location {
             entities: HashSet::new(),
             connections: HashMap::new(),
         }
-    }
-
-    /// Adds an entity to this location.
-    pub fn add_entity(&mut self, id: EntityId) {
-        self.entities.insert(id);
-    }
-
-    /// Removes an entity from this location.
-    pub fn remove_entity(&mut self, id: &EntityId) {
-        self.entities.remove(id);
     }
 
     /// Retrieves the connection in the provided direction, if there is one.

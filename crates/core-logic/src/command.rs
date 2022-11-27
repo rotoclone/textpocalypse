@@ -5,8 +5,12 @@ use std::sync::{Arc, RwLock};
 
 use crate::{action, Action, Direction, EntityId, GameMessage, World};
 
+const MOVE_DIRECTION_CAPTURE: &str = "direction";
+const LOOK_TARGET_CAPTURE: &str = "target";
+
 lazy_static! {
-    static ref MOVE_PATTERN: Regex = Regex::new("^go (.*)").unwrap();
+    static ref MOVE_PATTERN: Regex = Regex::new("^(go )?(?P<direction>.*)").unwrap();
+    static ref LOOK_PATTERN: Regex = Regex::new("^l(ook)? (at )?(?P<target>.*)").unwrap();
 }
 
 /// Handles a command from a player in the provided world
@@ -27,7 +31,7 @@ pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: En
 /// Parses the provided string to an `Action`. Returns `None` if the string doesn't map to any action.
 fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dyn Action>> {
     if let Some(captures) = MOVE_PATTERN.captures(input) {
-        if let Some(dir_match) = captures.get(1) {
+        if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
             if let Some(direction) = parse_direction(dir_match.as_str()) {
                 let action = action::Move { direction };
                 return Some(Box::new(action));
@@ -35,9 +39,18 @@ fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dy
         }
     }
 
-    if input == "look" {
-        let action = action::Look;
-        return Some(Box::new(action));
+    if let Some(captures) = LOOK_PATTERN.captures(input) {
+        if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
+            if let Some(target_id) = find_entity_by_name(target_match.as_str(), entity_id, world) {
+                let action = action::Look {
+                    target_id: Some(target_id),
+                };
+                return Some(Box::new(action));
+            }
+        } else {
+            let action = action::Look { target_id: None };
+            return Some(Box::new(action));
+        }
     }
 
     //TODO check entities in the presence of the entity
@@ -58,4 +71,14 @@ fn parse_direction(input: &str) -> Option<Direction> {
         "nw" | "northwest" => Some(Direction::NorthWest),
         _ => None,
     }
+}
+
+fn find_entity_by_name(
+    entity_name: &str,
+    looking_entity_id: EntityId,
+    world: &World,
+) -> Option<EntityId> {
+    //TODO also search the looking entity's inventory
+    let location_id = world.get_entity(looking_entity_id).get_location_id();
+    world.find_entity_by_name(entity_name, location_id)
 }

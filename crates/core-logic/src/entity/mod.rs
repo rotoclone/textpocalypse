@@ -1,10 +1,15 @@
+use std::collections::HashSet;
+
 use crate::{Action, EntityId, LocationId, World};
 
 mod connecting_entity;
 
 pub trait Entity {
-    /// Returns the name used to refer to this entity in commands.
+    /// Returns the display name of this entity.
     fn get_name(&self) -> &str;
+
+    /// Returns the set of aliases that can be used to refer to this entity in commands.
+    fn get_aliases(&self) -> &HashSet<String>;
 
     /// Returns the ID of the location this entity is in.
     fn get_location_id(&self) -> LocationId;
