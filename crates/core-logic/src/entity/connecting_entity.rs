@@ -15,7 +15,7 @@ trait ConnectingEntity {
     fn can_see_through(&self) -> bool;
 
     /// Called when an entity attempts to open this.
-    fn on_attempt_open(&mut self, entity_id: EntityId, world: &World);
+    fn on_attempt_open(&mut self, entity_id: EntityId, world: &mut World);
 
     /// Called when an entity passes through this.
     fn on_pass(&self, entity_id: EntityId, world: &World);
@@ -35,6 +35,8 @@ struct Door {
     name: String,
     /// Alternate names of the door.
     aliases: HashSet<String>,
+    /// The description of the door.
+    description: String,
     /// The ID of the location the door is in.
     location_id: LocationId,
     /// Whether the door is currently open.
@@ -51,6 +53,31 @@ struct Door {
     other_side_id: EntityId,
 }
 
+impl Door {
+    fn set_open(&mut self, new_open: bool, world: &mut World) {
+        let mut other_side = world.get_entity_mut(self.other_side_id);
+        todo!() //TODO
+    }
+
+    fn set_locked(&mut self, new_locked: bool, world: &World) {
+        todo!() //TODO
+    }
+
+    fn can_unlock(&self, entity_id: EntityId, world: &World) -> bool {
+        if self.is_unlockable {
+            return true;
+        }
+
+        /* TODO
+        if let Some(key_id) = self.key_id {
+            return world.get_inventory(entity_id).contains(key_id);
+        }
+        */
+
+        false
+    }
+}
+
 impl Entity for Door {
     fn get_name(&self) -> &str {
         &self.name
@@ -58,6 +85,10 @@ impl Entity for Door {
 
     fn get_aliases(&self) -> &HashSet<String> {
         &self.aliases
+    }
+
+    fn get_description(&self) -> &str {
+        &self.description
     }
 
     fn get_location_id(&self) -> LocationId {
@@ -88,11 +119,23 @@ impl ConnectingEntity for Door {
     }
 
     fn can_see_through(&self) -> bool {
-        false
+        self.is_open
     }
 
-    fn on_attempt_open(&mut self, entity_id: EntityId, world: &World) {
-        todo!() //TODO
+    fn on_attempt_open(&mut self, entity_id: EntityId, world: &mut World) {
+        if self.is_open {
+            return;
+        }
+
+        if self.is_locked && (self.can_unlock(entity_id, world)) {
+            self.set_locked(false, world);
+            //TODO send message about unlocking the door
+        }
+
+        if !self.is_locked {
+            self.set_open(true, world);
+            //TODO send message about opening the door
+        }
     }
 
     fn on_pass(&self, entity_id: EntityId, world: &World) {

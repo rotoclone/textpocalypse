@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use flume::Sender;
 use log::debug;
@@ -12,7 +12,7 @@ pub struct EntityId(usize);
 pub struct LocationId(usize);
 
 pub struct World {
-    entities: HashMap<EntityId, Box<dyn Entity + Send + Sync>>,
+    entities: HashMap<EntityId, Box<dyn Entity>>,
     next_entity_id: usize,
     message_senders: HashMap<EntityId, Sender<(GameMessage, Time)>>,
     locations: HashMap<LocationId, Location>,
@@ -69,7 +69,7 @@ impl World {
     }
 
     /// Adds an entity to the world. Returns the ID of the entity.
-    pub fn add_entity(&mut self, entity: Box<dyn Entity + Send + Sync>) -> EntityId {
+    pub fn add_entity(&mut self, entity: Box<dyn Entity>) -> EntityId {
         let id = EntityId(self.next_entity_id);
         self.next_entity_id += 1;
 
@@ -82,7 +82,7 @@ impl World {
     }
 
     /// Gets the entity with the provided ID. Panics if the entity isn't found.
-    pub fn get_entity(&self, entity_id: EntityId) -> &(dyn Entity + Send + Sync) {
+    pub fn get_entity(&self, entity_id: EntityId) -> &dyn Entity {
         self.entities
             .get(&entity_id)
             .unwrap_or_else(|| panic!("Invalid entity ID {entity_id:?}"))
@@ -90,7 +90,7 @@ impl World {
     }
 
     /// Gets the entity with the provided ID mutably. Panics if the entity isn't found.
-    pub fn get_entity_mut(&mut self, entity_id: EntityId) -> &mut (dyn Entity + Send + Sync) {
+    pub fn get_entity_mut(&mut self, entity_id: EntityId) -> &mut dyn Entity {
         self.entities
             .get_mut(&entity_id)
             .unwrap_or_else(|| panic!("Invalid entity ID {entity_id:?}"))
@@ -101,7 +101,7 @@ impl World {
     pub fn find_entity_by_name(&self, name: &str, location_id: LocationId) -> Option<EntityId> {
         for entity_id in &self.get_location(location_id).entities {
             let entity = self.get_entity(*entity_id);
-            if entity.get_name() == name || entity.get_aliases().contains(name) {
+            if entity.get_name().eq_ignore_ascii_case(name) || entity.get_aliases().contains(name) {
                 return Some(*entity_id);
             }
         }

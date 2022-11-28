@@ -17,7 +17,9 @@ use std::{
     thread,
 };
 
-use core_logic::{Direction, ExitDescription, Game, GameMessage, LocationDescription, Time};
+use core_logic::{
+    Direction, EntityDescription, ExitDescription, Game, GameMessage, LocationDescription, Time,
+};
 
 const PROMPT: &str = "\n> ";
 const FIRST_PM_HOUR: u8 = 12;
@@ -71,9 +73,10 @@ fn main() -> Result<()> {
 /// Renders the provided `GameMessage` to the screen
 fn render_message(message: GameMessage, time: Time) -> Result<()> {
     let output = match message {
+        GameMessage::Error(e) => e,
         GameMessage::Message(m) => m,
         GameMessage::Location(loc) => location_to_string(loc, time),
-        GameMessage::Error(e) => e,
+        GameMessage::Entity(entity) => entity_to_string(entity),
     };
     stdout()
         .queue(Clear(ClearType::CurrentLine))?
@@ -143,4 +146,12 @@ fn direction_to_string(dir: Direction) -> String {
         Direction::NorthWest => "NW",
     }
     .to_string()
+}
+
+/// Transforms the provided entity description into a string for display.
+fn entity_to_string(entity: EntityDescription) -> String {
+    let name = style(entity.name).bold();
+    let desc = entity.description;
+
+    format!("{name}\n{desc}")
 }

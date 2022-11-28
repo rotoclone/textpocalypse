@@ -13,6 +13,7 @@ mod command;
 use command::*;
 
 mod entity;
+pub use entity::EntityDescription;
 use entity::*;
 
 mod time;
@@ -34,6 +35,7 @@ use location::*;
 #[derive(Debug)]
 pub enum GameMessage {
     Location(LocationDescription),
+    Entity(EntityDescription),
     Message(String),
     Error(String),
 }
@@ -67,6 +69,7 @@ impl Game {
         let spawn_location_id = world.spawn_location_id;
         let player_id = world.add_entity(Box::new(Player {
             name,
+            description: "A human-shaped person-type thing.".to_string(),
             aliases: HashSet::new(),
             location_id: spawn_location_id,
         }));
