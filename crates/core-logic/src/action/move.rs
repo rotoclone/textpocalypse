@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{Direction, EntityId, GameMessage, LocationDescription, World};
+use hecs::Entity;
+
+use crate::{
+    can_receive_messages, move_entity, room::Room, Direction, GameMessage, Location,
+    RoomDescription, World,
+};
 
 use super::{Action, ActionResult};
 
@@ -10,24 +15,24 @@ pub struct Move {
 }
 
 impl Action for Move {
-    fn perform(&self, entity_id: EntityId, world: &mut World) -> ActionResult {
-        let entity = world.get_entity(entity_id);
+    fn perform(&self, entity_id: Entity, world: &mut World) -> ActionResult {
+        let current_room_id = world.get::<&Location>(entity_id).unwrap().id;
 
-        let current_location_id = entity.get_location_id();
-        let current_location = world.get_location(current_location_id);
+        let current_room = world.get::<&Room>(current_room_id).unwrap();
         let mut messages = HashMap::new();
         let mut should_tick = false;
-        let can_receive_messages = world.can_receive_messages(entity_id);
+        let can_receive_messages = can_receive_messages(world, entity_id);
 
-        if let Some(connection) = current_location.connection_in_direction(&self.direction) {
-            let new_location_id = connection.location_id;
-            world.move_entity(entity_id, current_location_id, new_location_id);
+        if let Some(connection) = current_room.connection_in_direction(&self.direction) {
+            let new_room_id = connection.destination_entity_id;
+            drop(current_room);
+            move_entity(world, entity_id, new_room_id);
             should_tick = true;
 
             if can_receive_messages {
-                let new_location = world.get_location(new_location_id);
-                let location_desc = LocationDescription::from_location(new_location, world);
-                messages.insert(entity_id, vec![GameMessage::Location(location_desc)]);
+                let new_room = world.get::<&Room>(new_room_id).unwrap();
+                let room_desc = RoomDescription::from_room(&new_room, world);
+                messages.insert(entity_id, vec![GameMessage::Room(room_desc)]);
             }
         } else if can_receive_messages {
             messages.insert(

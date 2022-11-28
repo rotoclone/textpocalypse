@@ -1,11 +1,14 @@
+use hecs::Entity;
 use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    action::{self, LookTarget},
-    Action, Direction, EntityId, GameMessage, World,
+    action::{self},
+    perform_action,
+    room::Room,
+    send_message, Action, Direction, GameMessage, Location, World,
 };
 
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -20,14 +23,15 @@ lazy_static! {
 }
 
 /// Handles a command from a player in the provided world
-pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: EntityId) {
+pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: Entity) {
     let read_world = world.read().unwrap();
     if let Some(action) = parse_input(&command, entity_id, &read_world) {
         debug!("Parsed command into action: {action:?}");
         drop(read_world);
-        world.write().unwrap().perform_action(entity_id, action);
+        perform_action(&mut world.write().unwrap(), entity_id, action);
     } else {
-        read_world.send_message(
+        send_message(
+            &read_world,
             entity_id,
             GameMessage::Error("I don't understand that.".to_string()),
         );
@@ -35,7 +39,7 @@ pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: En
 }
 
 /// Parses the provided string to an `Action`. Returns `None` if the string doesn't map to any action.
-fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dyn Action>> {
+fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn Action>> {
     if let Some(captures) = MOVE_PATTERN.captures(input) {
         if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
             if let Some(direction) = parse_direction(dir_match.as_str()) {
@@ -53,7 +57,7 @@ fn parse_input(input: &str, entity_id: EntityId, world: &World) -> Option<Box<dy
             }
         } else {
             let action = action::Look {
-                target: LookTarget::Location(world.get_entity(entity_id).get_location_id()),
+                target: world.get::<&Location>(entity_id).unwrap().id,
             };
             return Some(Box::new(action));
         }
@@ -82,25 +86,22 @@ fn parse_direction(input: &str) -> Option<Direction> {
 /// Finds an entity from the perspective of another entity, if it exists.
 fn find_entity_by_name(
     entity_name: &str,
-    looking_entity_id: EntityId,
+    looking_entity_id: Entity,
     world: &World,
-) -> Option<LookTarget> {
+) -> Option<Entity> {
     let entity_name = entity_name.to_lowercase();
     debug!("Finding {entity_name:?} from the perspective of {looking_entity_id:?}");
 
     if SELF_TARGET_PATTERN.is_match(&entity_name) {
-        return Some(LookTarget::Entity(looking_entity_id));
+        return Some(looking_entity_id);
     }
 
+    let room_id = world.get::<&Location>(looking_entity_id).unwrap().id;
     if HERE_TARGET_PATTERN.is_match(&entity_name) {
-        return Some(LookTarget::Location(
-            world.get_entity(looking_entity_id).get_location_id(),
-        ));
+        return Some(room_id);
     }
 
     //TODO also search the looking entity's inventory
-    let location_id = world.get_entity(looking_entity_id).get_location_id();
-    world
-        .find_entity_by_name(&entity_name, location_id)
-        .map(LookTarget::Entity)
+    let room = world.get::<&Room>(room_id).unwrap();
+    room.find_entity_by_name(&entity_name, world)
 }

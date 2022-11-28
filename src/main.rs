@@ -18,7 +18,7 @@ use std::{
 };
 
 use core_logic::{
-    Direction, EntityDescription, ExitDescription, Game, GameMessage, LocationDescription, Time,
+    Direction, EntityDescription, ExitDescription, Game, GameMessage, RoomDescription, Time,
 };
 
 const PROMPT: &str = "\n> ";
@@ -75,7 +75,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
     let output = match message {
         GameMessage::Error(e) => e,
         GameMessage::Message(m) => m,
-        GameMessage::Location(loc) => location_to_string(loc, time),
+        GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
     };
     stdout()
@@ -89,12 +89,12 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
     Ok(())
 }
 
-/// Transforms the provided location description into a string for display.
-fn location_to_string(location: LocationDescription, time: Time) -> String {
-    let name = style(location.name).bold();
+/// Transforms the provided room description into a string for display.
+fn room_to_string(room: RoomDescription, time: Time) -> String {
+    let name = style(room.name).bold();
     let time = style(format!("({})", time_to_string(time))).dark_grey();
-    let desc = location.description;
-    let exits = format!("Exits: {}", exits_to_string(location.exits));
+    let desc = room.description;
+    let exits = format!("Exits: {}", exits_to_string(room.exits));
 
     format!("{name} {time}\n\n{desc}\n\n{exits}")
 }

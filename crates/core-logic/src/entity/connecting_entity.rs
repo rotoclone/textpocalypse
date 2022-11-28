@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 
+use hecs::Entity;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::{Action, EntityId, LocationId, World};
+use crate::World;
 
-use super::Entity;
-
+/* TODO remove or adapt
 trait ConnectingEntity {
     /// Returns whether the provided entity can pass through this entity.
     fn can_pass(&self, entity_id: EntityId, world: &World) -> bool;
@@ -23,12 +23,15 @@ trait ConnectingEntity {
     /// Called when an entity attempts to pass through this but cannot.
     fn on_fail_pass(&self, entity_id: EntityId, world: &World);
 }
+*/
 
 lazy_static! {
     static ref OPEN_PATTERN: Regex = Regex::new("^open (the )?(?P<name>.*)").unwrap();
     static ref CLOSE_PATTERN: Regex = Regex::new("^close (the )?(?P<name>.*)").unwrap();
     static ref SLAM_PATTERN: Regex = Regex::new("^slam (the )?(?P<name>.*)").unwrap();
 }
+
+struct KeyId(u32);
 
 struct Door {
     /// The name of the door.
@@ -38,7 +41,7 @@ struct Door {
     /// The description of the door.
     description: String,
     /// The ID of the location the door is in.
-    location_id: LocationId,
+    location_id: Entity,
     /// Whether the door is currently open.
     is_open: bool,
     /// Whether the door is currently locked.
@@ -48,14 +51,14 @@ struct Door {
     /// Whether the door can be unlocked without a key.
     is_unlockable: bool,
     /// The ID of the key needed to lock or unlock the door, if it has a lock.
-    key_id: Option<EntityId>,
+    key_id: Option<KeyId>,
     /// The ID of the other side of the door.
-    other_side_id: EntityId,
+    other_side_id: Entity,
 }
 
 impl Door {
     fn set_open(&mut self, new_open: bool, world: &mut World) {
-        let mut other_side = world.get_entity_mut(self.other_side_id);
+        let mut other_side = world.entity(self.other_side_id).unwrap();
         todo!() //TODO
     }
 
@@ -63,7 +66,7 @@ impl Door {
         todo!() //TODO
     }
 
-    fn can_unlock(&self, entity_id: EntityId, world: &World) -> bool {
+    fn can_unlock(&self, entity_id: Entity, world: &World) -> bool {
         if self.is_unlockable {
             return true;
         }
@@ -78,6 +81,7 @@ impl Door {
     }
 }
 
+/* TODO remove or adapt
 impl Entity for Door {
     fn get_name(&self) -> &str {
         &self.name
@@ -146,3 +150,4 @@ impl ConnectingEntity for Door {
         todo!() //TODO
     }
 }
+*/
