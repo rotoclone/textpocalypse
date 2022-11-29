@@ -21,7 +21,7 @@ impl Action for Look {
             return ActionResult {
                 messages: [(
                     entity_id,
-                    vec![GameMessage::Room(RoomDescription::from_room(&room, world))],
+                    vec![GameMessage::Room(RoomDescription::from_room(room, world))],
                 )]
                 .into(),
                 should_tick: false,

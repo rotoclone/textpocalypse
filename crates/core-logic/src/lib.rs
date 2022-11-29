@@ -1,4 +1,4 @@
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::prelude::*;
 use flume::{Receiver, Sender};
 use log::debug;
 use std::{
