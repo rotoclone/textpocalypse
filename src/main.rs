@@ -64,7 +64,9 @@ fn main() -> Result<()> {
             return Ok(());
         }
 
-        commands_sender.send(input.to_string()).unwrap();
+        commands_sender
+            .send(input.to_string())
+            .expect("Command receiver should exist");
 
         input_buf.clear();
     }

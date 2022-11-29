@@ -1,9 +1,9 @@
+use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 
 use crate::{GameMessage, World};
 
 mod look;
-use hecs::Entity;
 pub use look::Look;
 
 mod r#move;

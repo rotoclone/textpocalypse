@@ -1,4 +1,4 @@
-use hecs::Entity;
+use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
@@ -57,7 +57,10 @@ fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn 
             }
         } else {
             let action = action::Look {
-                target: world.get::<&Location>(entity_id).unwrap().id,
+                target: world
+                    .get::<Location>(entity_id)
+                    .expect("Looking entity should have a location")
+                    .id,
             };
             return Some(Box::new(action));
         }
@@ -96,12 +99,17 @@ fn find_entity_by_name(
         return Some(looking_entity_id);
     }
 
-    let room_id = world.get::<&Location>(looking_entity_id).unwrap().id;
+    let room_id = world
+        .get::<Location>(looking_entity_id)
+        .expect("Looking entity should have a location")
+        .id;
     if HERE_TARGET_PATTERN.is_match(&entity_name) {
         return Some(room_id);
     }
 
     //TODO also search the looking entity's inventory
-    let room = world.get::<&Room>(room_id).unwrap();
+    let room = world
+        .get::<Room>(room_id)
+        .expect("Looking entity's location should be a room");
     room.find_entity_by_name(&entity_name, world)
 }

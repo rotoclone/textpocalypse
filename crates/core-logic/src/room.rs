@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use hecs::Entity;
+use bevy_ecs::prelude::*;
 
 use crate::{Aliases, Name, World};
 
@@ -16,7 +16,7 @@ pub enum Direction {
     NorthWest,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Component)]
 pub struct Room {
     name: String,
     description: String,
@@ -48,13 +48,13 @@ impl Room {
     /// Finds the entity with the provided name, if it exists in this room.
     pub fn find_entity_by_name(&self, name: &str, world: &World) -> Option<Entity> {
         for entity_id in &self.entities {
-            if let Ok(entity_name) = world.get::<&Name>(*entity_id) {
+            if let Some(entity_name) = world.get::<Name>(*entity_id) {
                 if entity_name.0.eq_ignore_ascii_case(name) {
                     return Some(*entity_id);
                 }
             }
 
-            if let Ok(aliases) = world.get::<&Aliases>(*entity_id) {
+            if let Some(aliases) = world.get::<Aliases>(*entity_id) {
                 if aliases.0.contains(name) {
                     return Some(*entity_id);
                 }
@@ -123,8 +123,8 @@ impl ExitDescription {
             .iter()
             .map(|(dir, connection)| {
                 let destination_room = world
-                    .get::<&Room>(connection.destination_entity_id)
-                    .unwrap();
+                    .get::<Room>(connection.destination_entity_id)
+                    .expect("Destination entity should be a room");
                 ExitDescription {
                     direction: *dir,
                     description: destination_room.name.clone(),

@@ -1,6 +1,6 @@
+use bevy_ecs::prelude::*;
 use std::collections::HashSet;
 
-use hecs::Entity;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -58,7 +58,7 @@ struct Door {
 
 impl Door {
     fn set_open(&mut self, new_open: bool, world: &mut World) {
-        let mut other_side = world.entity(self.other_side_id).unwrap();
+        let mut other_side = world.entity(self.other_side_id);
         todo!() //TODO
     }
 

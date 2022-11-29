@@ -1,3 +1,4 @@
+use bevy_ecs::system::Resource;
 use log::debug;
 
 const SECONDS_PER_MINUTE: u8 = 60;
@@ -10,7 +11,7 @@ const START_HOUR: u8 = 7;
 const START_MINUTE: u8 = 0;
 const START_SECOND: u8 = 0;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Resource)]
 pub struct Time {
     pub day: usize,
     pub hour: u8,
