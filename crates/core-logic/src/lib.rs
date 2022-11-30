@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use entity::{Door, DoorBundle};
 use flume::{Receiver, Sender};
 use log::debug;
 use std::{
@@ -34,11 +35,19 @@ pub enum GameMessage {
     Error(String),
 }
 
-#[derive(Component)]
-pub struct Name(String);
+#[derive(Component, Debug)]
+pub struct Name {
+    primary: String,
+    aliases: HashSet<String>,
+}
 
-#[derive(Component)]
-pub struct Aliases(HashSet<String>);
+impl Name {
+    /// Determines whether the provided input refers to the entity with this name.
+    pub fn matches(&self, input: &str) -> bool {
+        debug!("Checking if {input:?} matches {self:?}");
+        self.primary.eq_ignore_ascii_case(input) || self.aliases.contains(input)
+    }
+}
 
 #[derive(Component)]
 pub struct Description {
@@ -88,6 +97,10 @@ impl Game {
 
         // add the player to the world
         let mut world = self.world.write().unwrap();
+        let name_component = Name {
+            primary: name,
+            aliases: HashSet::new(),
+        };
         let desc = Description {
             short: "a person".to_string(),
             long: "A human-shaped person-type thing.".to_string(),
@@ -95,7 +108,7 @@ impl Game {
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
-        let player_id = world.spawn((Name(name), desc, message_channel)).id();
+        let player_id = world.spawn((name_component, desc, message_channel)).id();
         let spawn_room_id = find_spawn_room(&mut world);
         move_entity(&mut world, player_id, spawn_room_id);
 
@@ -126,7 +139,7 @@ impl Game {
         send_message(
             &world,
             player_id,
-            GameMessage::Room(RoomDescription::from_room(room, &world)),
+            GameMessage::Room(RoomDescription::from_room(room, player_id, &world)),
         );
 
         (commands_sender, messages_receiver)
@@ -177,6 +190,30 @@ fn add_rooms(world: &mut World) {
                 .to_string(),
         ),))
         .id();
+
+    let north_room_south_door_id = world.spawn(()).id();
+
+    let middle_room_north_door_id = world
+        .spawn(DoorBundle::new(
+            Name {
+                primary: "door to the north".to_string(),
+                aliases: ["door".to_string(), "north".to_string(), "n".to_string()].into(),
+            },
+            Door::new_closed_no_lock(Direction::North, north_room_south_door_id),
+        ))
+        .id();
+    move_entity(world, middle_room_north_door_id, middle_room_id);
+
+    world
+        .entity_mut(north_room_south_door_id)
+        .insert(DoorBundle::new(
+            Name {
+                primary: "door to the south".to_string(),
+                aliases: ["door".to_string(), "south".to_string(), "s".to_string()].into(),
+            },
+            Door::new_closed_no_lock(Direction::South, middle_room_north_door_id),
+        ));
+    move_entity(world, north_room_south_door_id, north_room_id);
 
     let mut middle_room = world
         .get_mut::<Room>(middle_room_id)

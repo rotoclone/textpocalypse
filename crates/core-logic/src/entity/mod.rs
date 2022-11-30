@@ -1,4 +1,6 @@
-mod connecting_entity;
+mod door;
+pub use door::Door;
+pub use door::DoorBundle;
 
 /* TODO remove
 pub trait EntityOld: Send + Sync {

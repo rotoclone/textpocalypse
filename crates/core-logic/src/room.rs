@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 
-use crate::{Aliases, Name, World};
+use crate::{Name, World};
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Direction {
@@ -46,16 +46,10 @@ impl Room {
     }
 
     /// Finds the entity with the provided name, if it exists in this room.
-    pub fn find_entity_by_name(&self, name: &str, world: &World) -> Option<Entity> {
+    pub fn find_entity_by_name(&self, entity_name: &str, world: &World) -> Option<Entity> {
         for entity_id in &self.entities {
-            if let Some(entity_name) = world.get::<Name>(*entity_id) {
-                if entity_name.0.eq_ignore_ascii_case(name) {
-                    return Some(*entity_id);
-                }
-            }
-
-            if let Some(aliases) = world.get::<Aliases>(*entity_id) {
-                if aliases.0.contains(name) {
+            if let Some(name) = world.get::<Name>(*entity_id) {
+                if name.matches(entity_name) {
                     return Some(*entity_id);
                 }
             }
@@ -100,8 +94,9 @@ pub struct RoomDescription {
 }
 
 impl RoomDescription {
-    /// Creates a `RoomDescription` for the provided room
-    pub fn from_room(room: &Room, world: &World) -> RoomDescription {
+    /// Creates a `RoomDescription` for the provided room from the perspective of the provided entity.
+    pub fn from_room(room: &Room, pov_entity: Entity, world: &World) -> RoomDescription {
+        //TODO include descriptions of entities in the room
         RoomDescription {
             name: room.name.clone(),
             description: room.description.clone(),

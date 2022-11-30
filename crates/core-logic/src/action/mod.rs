@@ -42,5 +42,5 @@ impl ActionResult {
 
 pub trait Action: std::fmt::Debug {
     /// Called when the provided entity should perform the action.
-    fn perform(&self, entity_id: Entity, world: &mut World) -> ActionResult;
+    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult;
 }

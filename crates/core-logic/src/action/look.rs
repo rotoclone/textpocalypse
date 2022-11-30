@@ -12,33 +12,38 @@ pub struct Look {
 }
 
 impl Action for Look {
-    fn perform(&self, entity_id: Entity, world: &mut World) -> ActionResult {
-        if !can_receive_messages(world, entity_id) {
+    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        if !can_receive_messages(world, performing_entity) {
             return ActionResult::none();
         }
 
-        if let Some(room) = world.get::<Room>(self.target) {
+        let target = world.entity(self.target);
+
+        if let Some(room) = target.get::<Room>() {
             return ActionResult {
                 messages: [(
-                    entity_id,
-                    vec![GameMessage::Room(RoomDescription::from_room(room, world))],
+                    performing_entity,
+                    vec![GameMessage::Room(RoomDescription::from_room(
+                        room,
+                        performing_entity,
+                        world,
+                    ))],
                 )]
                 .into(),
                 should_tick: false,
             };
         }
 
-        let entity = world.entity(entity_id);
-        if let Some(name) = entity.get::<Name>() {
-            let description = entity
+        if let Some(name) = target.get::<Name>() {
+            let description = target
                 .get::<Description>()
                 .map(|d| d.long.clone())
                 .unwrap_or_default();
             return ActionResult {
                 messages: [(
-                    entity_id,
+                    performing_entity,
                     vec![GameMessage::Entity(EntityDescription {
-                        name: name.0.clone(),
+                        name: name.primary.clone(),
                         description,
                     })],
                 )]
@@ -47,6 +52,6 @@ impl Action for Look {
             };
         }
 
-        ActionResult::error(entity_id, "You can't see that.".to_string())
+        ActionResult::error(performing_entity, "You can't see that.".to_string())
     }
 }

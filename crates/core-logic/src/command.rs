@@ -22,6 +22,11 @@ lazy_static! {
     static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
 }
 
+#[derive(Component)]
+pub struct CommandParser {
+    pub parse_fns: Vec<fn(Entity, &str, Entity, &World) -> Option<Box<dyn Action>>>,
+}
+
 /// Handles a command from a player in the provided world
 pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: Entity) {
     let read_world = world.read().unwrap();
@@ -40,6 +45,7 @@ pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: En
 
 /// Parses the provided string to an `Action`. Returns `None` if the string doesn't map to any action.
 fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn Action>> {
+    // moving
     if let Some(captures) = MOVE_PATTERN.captures(input) {
         if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
             if let Some(direction) = parse_direction(dir_match.as_str()) {
@@ -49,6 +55,7 @@ fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn 
         }
     }
 
+    // looking
     if let Some(captures) = LOOK_PATTERN.captures(input) {
         if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
             if let Some(target) = find_entity_by_name(target_match.as_str(), entity_id, world) {
@@ -66,7 +73,29 @@ fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn 
         }
     }
 
-    //TODO check entities in the presence of the entity
+    // custom actions for entities in the presence of the entity the command came from
+    let location_id = world
+        .get::<Location>(entity_id)
+        .expect("Entity should have a location")
+        .id;
+
+    debug!("Checking command parsers for entities in {location_id:?}");
+
+    // TODO handle entities not located in a room
+    let room = world
+        .get::<Room>(location_id)
+        .expect("Entity's location should be a room");
+
+    for found_entity in &room.entities {
+        if let Some(command_parser) = world.get::<CommandParser>(*found_entity) {
+            debug!("Checking command parser for {found_entity:?}");
+            for parse_fn in &command_parser.parse_fns {
+                if let Some(action) = parse_fn(*found_entity, input, entity_id, world) {
+                    return Some(action);
+                }
+            }
+        }
+    }
 
     None
 }
