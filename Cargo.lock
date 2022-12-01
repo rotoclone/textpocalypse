@@ -300,6 +300,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cruet"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e0d174765c7d11eb16f70a4213583aac2ca5ae1ebd1e233c6d5104bfb70fce3"
+dependencies = [
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,6 +841,7 @@ dependencies = [
  "anyhow",
  "core-logic",
  "crossterm",
+ "cruet",
  "env_logger",
  "log",
 ]

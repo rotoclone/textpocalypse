@@ -7,8 +7,10 @@ use regex::Regex;
 use crate::{
     action::{Action, ActionResult},
     command::CommandParser,
-    Direction, Name, World,
+    Direction, World,
 };
+
+use super::description::Description;
 
 const NAME_CAPTURE: &str = "name";
 
@@ -21,15 +23,15 @@ lazy_static! {
 
 #[derive(Bundle)]
 pub struct DoorBundle {
-    pub name: Name,
+    pub description: Description,
     pub door: Door,
     pub command_parser: CommandParser,
 }
 
 impl DoorBundle {
-    pub fn new(name: Name, door: Door) -> DoorBundle {
+    pub fn new(description: Description, door: Door) -> DoorBundle {
         DoorBundle {
-            name,
+            description,
             door,
             command_parser: CommandParser {
                 parse_fns: vec![Door::parse_command],
@@ -81,12 +83,14 @@ impl Door {
     ) -> Option<Box<dyn Action>> {
         debug!("Door {door_id:?} parsing command {input:?} from {commanding_entity_id:?}");
 
-        let name = world.get::<Name>(door_id).expect("Door should have a name");
+        let desc = world
+            .get::<Description>(door_id)
+            .expect("Door should have a description");
 
         // opening
         if let Some(captures) = OPEN_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                if name.matches(target_match.as_str()) {
+                if desc.matches(target_match.as_str()) {
                     let action = OpenDoorAction { door_id };
                     return Some(Box::new(action));
                 }
@@ -96,7 +100,7 @@ impl Door {
         // closing
         if let Some(captures) = CLOSE_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                if name.matches(target_match.as_str()) {
+                if desc.matches(target_match.as_str()) {
                     let action = CloseDoorAction { door_id };
                     return Some(Box::new(action));
                 }
@@ -209,8 +213,8 @@ impl Action for CloseDoorAction {
         //TODO send messages to entities on the other side of the door telling them the door closed
 
         let name = world
-            .get::<Name>(self.door_id)
-            .map_or("door", |n| &n.primary);
+            .get::<Description>(self.door_id)
+            .map_or("door", |n| &n.name);
         ActionResult::message(performing_entity, format!("You close the {name}."))
     }
 }

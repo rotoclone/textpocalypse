@@ -6,9 +6,8 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     action::{self},
-    perform_action,
-    room::Room,
-    send_message, Action, Direction, GameMessage, Location, World,
+    component::Room,
+    perform_action, send_message, Action, Direction, GameMessage, Location, World,
 };
 
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -111,6 +110,8 @@ fn parse_direction(input: &str) -> Option<Direction> {
         "sw" | "southwest" => Some(Direction::SouthWest),
         "w" | "west" => Some(Direction::West),
         "nw" | "northwest" => Some(Direction::NorthWest),
+        "u" | "up" => Some(Direction::Up),
+        "d" | "down" => Some(Direction::Down),
         _ => None,
     }
 }

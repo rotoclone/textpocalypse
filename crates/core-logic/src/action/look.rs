@@ -1,8 +1,10 @@
 use bevy_ecs::prelude::*;
 
-use crate::room::Room;
-use crate::{can_receive_messages, Description, EntityDescription, Name, World};
-use crate::{GameMessage, RoomDescription};
+use crate::{
+    can_receive_messages,
+    component::{Description, Room},
+    EntityDescription, GameMessage, RoomDescription, World,
+};
 
 use super::{Action, ActionResult};
 
@@ -34,18 +36,13 @@ impl Action for Look {
             };
         }
 
-        if let Some(name) = target.get::<Name>() {
-            let description = target
-                .get::<Description>()
-                .map(|d| d.long.clone())
-                .unwrap_or_default();
+        if let Some(desc) = target.get::<Description>() {
             return ActionResult {
                 messages: [(
                     performing_entity,
-                    vec![GameMessage::Entity(EntityDescription {
-                        name: name.primary.clone(),
-                        description,
-                    })],
+                    vec![GameMessage::Entity(EntityDescription::from_description(
+                        desc,
+                    ))],
                 )]
                 .into(),
                 should_tick: false,

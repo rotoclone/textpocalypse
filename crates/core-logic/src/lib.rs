@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::*;
-use entity::{Door, DoorBundle};
 use flume::{Receiver, Sender};
 use log::debug;
 use std::{
@@ -14,17 +13,19 @@ use action::*;
 mod command;
 use command::*;
 
-mod entity;
-pub use entity::EntityDescription;
+mod component;
+pub use component::Direction;
+pub use component::EntityDescription;
+pub use component::ExitDescription;
+pub use component::RoomConnectionEntityDescription;
+pub use component::RoomDescription;
+pub use component::RoomEntityDescription;
+pub use component::RoomLivingEntityDescription;
+pub use component::RoomObjectDescription;
+use component::*;
 
 mod time;
 pub use time::Time;
-
-mod room;
-pub use room::Direction;
-pub use room::ExitDescription;
-pub use room::RoomDescription;
-use room::*;
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug)]
@@ -35,38 +36,8 @@ pub enum GameMessage {
     Error(String),
 }
 
-#[derive(Component, Debug)]
-pub struct Name {
-    primary: String,
-    aliases: HashSet<String>,
-}
-
-impl Name {
-    /// Determines whether the provided input refers to the entity with this name.
-    pub fn matches(&self, input: &str) -> bool {
-        debug!("Checking if {input:?} matches {self:?}");
-        self.primary.eq_ignore_ascii_case(input) || self.aliases.contains(input)
-    }
-}
-
-#[derive(Component)]
-pub struct Description {
-    short: String,
-    long: String,
-}
-
-#[derive(Component)]
-pub struct Location {
-    id: Entity,
-}
-
 #[derive(Component)]
 pub struct SpawnRoom;
-
-#[derive(Component)]
-pub struct MessageChannel {
-    sender: Sender<(GameMessage, Time)>,
-}
 
 pub struct Game {
     world: Arc<RwLock<World>>,
@@ -83,7 +54,7 @@ impl Game {
     pub fn new() -> Game {
         let mut world = World::new();
         world.insert_resource(Time::new());
-        add_rooms(&mut world);
+        set_up_world(&mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -97,20 +68,19 @@ impl Game {
 
         // add the player to the world
         let mut world = self.world.write().unwrap();
-        let name_component = Name {
-            primary: name,
-            aliases: HashSet::new(),
-        };
         let desc = Description {
-            short: "a person".to_string(),
-            long: "A human-shaped person-type thing.".to_string(),
+            name: name.clone(),
+            room_name: name,
+            article: None,
+            aliases: HashSet::new(),
+            description: "A human-shaped person-type thing.".to_string(),
         };
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
-        let player_id = world.spawn((name_component, desc, message_channel)).id();
+        let player_id = world.spawn((desc, message_channel)).id();
         let spawn_room_id = find_spawn_room(&mut world);
-        move_entity(&mut world, player_id, spawn_room_id);
+        move_entity(player_id, spawn_room_id, &mut world);
 
         let player_thread_world = Arc::clone(&self.world);
 
@@ -164,7 +134,10 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
         .expect("Message receiver should exist");
 }
 
-fn add_rooms(world: &mut World) {
+fn set_up_world(world: &mut World) {
+    //
+    // rooms
+    //
     let middle_room_id = world
         .spawn((
             Room::new(
@@ -194,43 +167,98 @@ fn add_rooms(world: &mut World) {
     let north_room_south_door_id = world.spawn(()).id();
 
     let middle_room_north_door_id = world
-        .spawn(DoorBundle::new(
-            Name {
-                primary: "door to the north".to_string(),
+        .spawn((
+            Description {
+                name: "fancy door to the north".to_string(),
+                room_name: "fancy door".to_string(),
+                article: Some("a".to_string()),
                 aliases: ["door".to_string(), "north".to_string(), "n".to_string()].into(),
+                description: "A fancy-looking door.".to_string(),
             },
-            Door::new_closed_no_lock(Direction::North, north_room_south_door_id),
+            Connection {
+                direction: Direction::North,
+                destination: north_room_id,
+            },
+            OpenState {
+                open: false,
+                other_side: Some(north_room_south_door_id),
+            },
         ))
         .id();
-    move_entity(world, middle_room_north_door_id, middle_room_id);
+    move_entity(middle_room_north_door_id, middle_room_id, world);
 
-    world
-        .entity_mut(north_room_south_door_id)
-        .insert(DoorBundle::new(
-            Name {
-                primary: "door to the south".to_string(),
-                aliases: ["door".to_string(), "south".to_string(), "s".to_string()].into(),
-            },
-            Door::new_closed_no_lock(Direction::South, middle_room_north_door_id),
-        ));
-    move_entity(world, north_room_south_door_id, north_room_id);
+    world.entity_mut(north_room_south_door_id).insert((
+        Description {
+            name: "fancy door to the south".to_string(),
+            room_name: "fancy door".to_string(),
+            article: Some("a".to_string()),
+            aliases: ["door".to_string(), "south".to_string(), "s".to_string()].into(),
+            description: "A fancy-looking door.".to_string(),
+        },
+        Connection {
+            direction: Direction::South,
+            destination: middle_room_id,
+        },
+        OpenState {
+            open: false,
+            other_side: Some(middle_room_north_door_id),
+        },
+    ));
+    move_entity(north_room_south_door_id, north_room_id, world);
+
+    let middle_room_east_connection_id = world
+        .spawn(Connection {
+            direction: Direction::East,
+            destination: east_room_id,
+        })
+        .id();
+    move_entity(middle_room_east_connection_id, middle_room_id, world);
+
+    let east_room_west_connection_id = world
+        .spawn(Connection {
+            direction: Direction::West,
+            destination: middle_room_id,
+        })
+        .id();
+    move_entity(east_room_west_connection_id, east_room_id, world);
 
     let mut middle_room = world
         .get_mut::<Room>(middle_room_id)
         .expect("Middle room should be a room");
-    middle_room.connect(Direction::North, Connection::new_open(north_room_id));
-    middle_room.connect(Direction::East, Connection::new_open(east_room_id));
 
     let mut north_room = world
         .get_mut::<Room>(north_room_id)
         .expect("North room should be a room");
-    north_room.connect(Direction::South, Connection::new_open(middle_room_id));
-    north_room.connect(Direction::SouthEast, Connection::new_open(east_room_id));
 
     let mut east_room = world
         .get_mut::<Room>(east_room_id)
         .expect("East room should be a room");
-    east_room.connect(Direction::West, Connection::new_open(middle_room_id));
+
+    //
+    // objects
+    //
+
+    let small_thing_id = world
+        .spawn(Description {
+            name: "small thing".to_string(),
+            room_name: "small thing".to_string(),
+            article: Some("a".to_string()),
+            aliases: ["thing".to_string()].into(),
+            description: "Some kind of smallish thing.".to_string(),
+        })
+        .id();
+    move_entity(small_thing_id, middle_room_id, world);
+
+    let large_thing_id = world
+        .spawn(Description {
+            name: "large thing".to_string(),
+            room_name: "large thing".to_string(),
+            article: Some("a".to_string()),
+            aliases: ["thing".to_string()].into(),
+            description: "Some kind of largeish thing.".to_string(),
+        })
+        .id();
+    move_entity(large_thing_id, middle_room_id, world);
 }
 
 /// Makes the provided entity perform the provided action.
@@ -262,7 +290,7 @@ pub fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
 }
 
 /// Moves an entity to a room.
-pub fn move_entity(world: &mut World, entity_id: Entity, destination_room_id: Entity) {
+pub fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut World) {
     //TODO handle moving between non-room entities
     // remove from source room, if necessary
     if let Some(location) = world.get_mut::<Location>(entity_id) {
