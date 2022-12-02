@@ -21,9 +21,11 @@ lazy_static! {
     static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
 }
 
+type CommandParserFn = fn(Entity, &str, Entity, &World) -> Option<Box<dyn Action>>;
+
 #[derive(Component)]
 pub struct CommandParser {
-    pub parse_fns: Vec<fn(Entity, &str, Entity, &World) -> Option<Box<dyn Action>>>,
+    pub parse_fns: Vec<CommandParserFn>,
 }
 
 /// Handles a command from a player in the provided world
