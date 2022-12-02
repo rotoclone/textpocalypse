@@ -30,9 +30,10 @@ impl Action for Move {
         let can_receive_messages = can_receive_messages(world, performing_entity);
 
         if let Some((connecting_entity, connection)) =
-            current_room.get_connection_in_direction(&self.direction, &world)
+            current_room.get_connection_in_direction(&self.direction, world)
         {
-            if let Some(message) = invalid_move_message(connecting_entity, &world) {
+            //TODO if the connecting entity is closed and can be opened, try to open it first
+            if let Some(message) = invalid_move_message(connecting_entity, world) {
                 messages.insert(performing_entity, vec![message]);
             } else {
                 let new_room_id = connection.destination;
@@ -68,7 +69,7 @@ fn invalid_move_message(entity: Entity, world: &World) -> Option<GameMessage> {
     world
         .get::<OpenState>(entity)
         .map(|state| {
-            if !state.open {
+            if !state.is_open {
                 let message = world
                     .get::<Description>(entity)
                     .map_or("It's closed.".to_string(), |desc| {

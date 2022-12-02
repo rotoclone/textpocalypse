@@ -273,21 +273,32 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
 
     let mut descriptions = Vec::new();
     for (i, entity) in entities.iter().enumerate() {
-        //TODO capitalize the article if there is one, otherwise capitalize the name
         let name = if i == 0 {
-            entity.name.to_sentence_case()
+            // capitalize the article if there is one, otherwise capitalize the name
+            if let Some(article) = &entity.article {
+                format!(
+                    "{} {}",
+                    article.to_sentence_case(),
+                    style(&entity.name).bold()
+                )
+            } else {
+                style(&entity.name.to_sentence_case()).bold().to_string()
+            }
         } else {
-            entity.name.clone()
+            format!(
+                "{}{}",
+                entity
+                    .article
+                    .as_ref()
+                    .map(|a| format!("{a} "))
+                    .unwrap_or_else(|| "".to_string()),
+                style(&entity.name).bold()
+            )
         };
 
         let desc = format!(
-            "{}{} leads {}",
-            entity
-                .article
-                .as_ref()
-                .map(|a| format!("{a} "))
-                .unwrap_or_else(|| "".to_string()),
-            style(&name).bold(),
+            "{} leads {}",
+            name,
             style(direction_to_long_string(entity.direction)).bold(),
         );
         descriptions.push(desc);

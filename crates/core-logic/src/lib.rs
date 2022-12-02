@@ -178,11 +178,10 @@ fn set_up_world(world: &mut World) {
             Connection {
                 direction: Direction::North,
                 destination: north_room_id,
-            },
-            OpenState {
-                open: false,
                 other_side: Some(north_room_south_door_id),
             },
+            OpenState { is_open: false },
+            OpenState::new_command_parser(),
         ))
         .id();
     move_entity(middle_room_north_door_id, middle_room_id, world);
@@ -198,11 +197,10 @@ fn set_up_world(world: &mut World) {
         Connection {
             direction: Direction::South,
             destination: middle_room_id,
-        },
-        OpenState {
-            open: false,
             other_side: Some(middle_room_north_door_id),
         },
+        OpenState { is_open: false },
+        OpenState::new_command_parser(),
     ));
     move_entity(north_room_south_door_id, north_room_id, world);
 
@@ -210,6 +208,7 @@ fn set_up_world(world: &mut World) {
         .spawn(Connection {
             direction: Direction::East,
             destination: east_room_id,
+            other_side: None, //TODO this is a lie but it's fine because this connection has no OpenState
         })
         .id();
     move_entity(middle_room_east_connection_id, middle_room_id, world);
@@ -218,21 +217,10 @@ fn set_up_world(world: &mut World) {
         .spawn(Connection {
             direction: Direction::West,
             destination: middle_room_id,
+            other_side: None, //TODO this is a lie but it's fine because this connection has no OpenState
         })
         .id();
     move_entity(east_room_west_connection_id, east_room_id, world);
-
-    let mut middle_room = world
-        .get_mut::<Room>(middle_room_id)
-        .expect("Middle room should be a room");
-
-    let mut north_room = world
-        .get_mut::<Room>(north_room_id)
-        .expect("North room should be a room");
-
-    let mut east_room = world
-        .get_mut::<Room>(east_room_id)
-        .expect("East room should be a room");
 
     //
     // objects

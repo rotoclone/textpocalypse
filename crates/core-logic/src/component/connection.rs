@@ -7,6 +7,8 @@ pub struct Connection {
     pub direction: Direction,
     /// The ID of the room the entity connects to.
     pub destination: Entity,
+    /// The ID of the entity representing other side of the connection, if there is one.
+    pub other_side: Option<Entity>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]

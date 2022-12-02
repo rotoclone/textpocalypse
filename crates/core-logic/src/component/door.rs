@@ -12,6 +12,8 @@ use crate::{
 
 use super::description::Description;
 
+//TODO move locking and unlocking stuff to a LockedState component and remove this whole file
+
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
