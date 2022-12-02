@@ -5,7 +5,6 @@ use crate::command::CommandParser;
 
 mod door;
 pub use door::Door;
-pub use door::DoorBundle;
 
 mod description;
 pub use description::Description;

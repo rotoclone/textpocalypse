@@ -79,11 +79,16 @@ impl Action for OpenAction {
 
         if state.is_open == self.should_be_open {
             if state.is_open {
-                return ActionResult::message(performing_entity, "It's already open.".to_string());
+                return ActionResult::message(
+                    performing_entity,
+                    "It's already open.".to_string(),
+                    false,
+                );
             } else {
                 return ActionResult::message(
                     performing_entity,
                     "It's already closed.".to_string(),
+                    false,
                 );
             }
         }
@@ -98,11 +103,10 @@ impl Action for OpenAction {
             .get::<Description>(self.target)
             .map_or("it".to_string(), |n| format!("the {}", n.name));
 
-        // TODO set should_tick to true
         if self.should_be_open {
-            ActionResult::message(performing_entity, format!("You open {name}."))
+            ActionResult::message(performing_entity, format!("You open {name}."), true)
         } else {
-            ActionResult::message(performing_entity, format!("You close {name}."))
+            ActionResult::message(performing_entity, format!("You close {name}."), true)
         }
     }
 }

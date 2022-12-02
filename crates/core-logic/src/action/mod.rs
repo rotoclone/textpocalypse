@@ -24,10 +24,10 @@ impl ActionResult {
     }
 
     /// Creates an action result with a single message for an entity.
-    pub fn message(entity_id: Entity, message: String) -> ActionResult {
+    pub fn message(entity_id: Entity, message: String, should_tick: bool) -> ActionResult {
         ActionResult {
             messages: [(entity_id, vec![GameMessage::Message(message)])].into(),
-            should_tick: false,
+            should_tick,
         }
     }
 
@@ -37,6 +37,53 @@ impl ActionResult {
             messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
             should_tick: false,
         }
+    }
+
+    /// Creates an `ActionResultBuilder` with `should_tick` set to false.
+    pub fn builder_no_tick() -> ActionResultBuilder {
+        ActionResultBuilder {
+            result: ActionResult {
+                messages: HashMap::new(),
+                should_tick: false,
+            },
+        }
+    }
+
+    /// Creates an `ActionResultBuilder` with `should_tick` set to true.
+    pub fn builder_should_tick() -> ActionResultBuilder {
+        ActionResultBuilder {
+            result: ActionResult {
+                messages: HashMap::new(),
+                should_tick: false,
+            },
+        }
+    }
+}
+
+pub struct ActionResultBuilder {
+    result: ActionResult,
+}
+
+impl ActionResultBuilder {
+    /// Adds a message to be sent to an entity.
+    pub fn with_message(self, entity_id: Entity, message: String) -> ActionResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Message(message))
+    }
+
+    /// Adds an error message to be sent to an entity.
+    pub fn with_error(self, entity_id: Entity, message: String) -> ActionResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Error(message))
+    }
+
+    /// Adds a `GameMessage` to be sent to an entity.
+    fn with_game_message(mut self, entity_id: Entity, message: GameMessage) -> ActionResultBuilder {
+        self.result
+            .messages
+            .entry(entity_id)
+            .or_insert_with(Vec::new)
+            .push(message);
+
+        self
     }
 }
 
