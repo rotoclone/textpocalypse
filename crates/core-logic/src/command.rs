@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     action::{self},
-    component::Room,
+    component::{CustomCommandParser, Room},
     perform_action, send_message, Action, Direction, GameMessage, Location, World,
 };
 
@@ -19,13 +19,6 @@ lazy_static! {
     static ref LOOK_PATTERN: Regex = Regex::new("^l(ook)?( (at )?(the )?(?P<target>.*))?").unwrap();
     static ref SELF_TARGET_PATTERN: Regex = Regex::new("^(me|myself|self)$").unwrap();
     static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
-}
-
-type CommandParserFn = fn(Entity, &str, Entity, &World) -> Option<Box<dyn Action>>;
-
-#[derive(Component)]
-pub struct CommandParser {
-    pub parse_fns: Vec<CommandParserFn>,
 }
 
 /// Handles a command from a player in the provided world
@@ -88,7 +81,7 @@ fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn 
         .expect("Entity's location should be a room");
 
     for found_entity in &room.entities {
-        if let Some(command_parser) = world.get::<CommandParser>(*found_entity) {
+        if let Some(command_parser) = world.get::<CustomCommandParser>(*found_entity) {
             debug!("Checking command parser for {found_entity:?}");
             for parse_fn in &command_parser.parse_fns {
                 if let Some(action) = parse_fn(*found_entity, input, entity_id, world) {

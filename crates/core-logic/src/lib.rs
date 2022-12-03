@@ -27,6 +27,8 @@ use component::*;
 mod time;
 pub use time::Time;
 
+mod command_parser;
+
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug)]
 pub enum GameMessage {

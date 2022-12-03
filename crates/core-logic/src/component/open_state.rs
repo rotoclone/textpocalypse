@@ -8,7 +8,7 @@ use crate::{
     component::Description,
 };
 
-use super::{Connection, ParseCommand};
+use super::{Connection, ParseCustomCommand};
 
 const NAME_CAPTURE: &str = "name";
 
@@ -24,7 +24,7 @@ pub struct OpenState {
     pub is_open: bool,
 }
 
-impl ParseCommand for OpenState {
+impl ParseCustomCommand for OpenState {
     fn parse_command(
         this_entity_id: Entity,
         input: &str,

@@ -1,16 +1,9 @@
 use bevy_ecs::prelude::*;
 
 use lazy_static::lazy_static;
-use log::debug;
 use regex::Regex;
 
-use crate::{
-    action::{Action, ActionResult},
-    command::CommandParser,
-    Direction, World,
-};
-
-use super::description::Description;
+use crate::{Direction, World};
 
 //TODO move locking and unlocking stuff to a LockedState component and remove this whole file
 
