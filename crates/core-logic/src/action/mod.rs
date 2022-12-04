@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use crate::{GameMessage, World};
 
 mod look;
-pub use look::Look;
+pub use look::LookParser;
 
 mod r#move;
-pub use r#move::Move;
+pub use r#move::MoveParser;
 
 pub struct ActionResult {
     pub messages: HashMap<Entity, Vec<GameMessage>>,

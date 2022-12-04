@@ -1,7 +1,17 @@
 use bevy_ecs::prelude::*;
-use nom::{bytes::complete::take_till, character::is_space, sequence::terminated, IResult};
+use lazy_static::lazy_static;
+use log::debug;
+use regex::Regex;
 
-use crate::action::Action;
+use crate::{
+    action::Action,
+    component::{Location, Room},
+};
+
+lazy_static! {
+    static ref SELF_TARGET_PATTERN: Regex = Regex::new("^(me|myself|self)$").unwrap();
+    static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
+}
 
 pub enum CommandTargetError {
     MissingPrimaryTarget,
@@ -19,14 +29,85 @@ pub enum CorrectVerbError {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommandTargets {
-    primary: Option<CommandTarget>,
-    secondary: Option<CommandTarget>,
+    pub primary: Option<CommandTarget>,
+    pub secondary: Option<CommandTarget>,
+}
+
+impl CommandTargets {
+    /// Creates a `CommandTargets` for no targets.
+    pub fn none() -> CommandTargets {
+        CommandTargets {
+            primary: None,
+            secondary: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct CommandTarget {
-    name: String,                // TODO should this be an entity?
-    location_chain: Vec<String>, // TODO should this also be an entity?
+pub enum CommandTarget {
+    Myself,
+    Here,
+    //TODO add a Direction variant?
+    Named(CommandTargetName),
+}
+
+impl CommandTarget {
+    /// Parses the provided string to a `CommandTarget`.
+    pub fn parse(input: &str) -> CommandTarget {
+        if SELF_TARGET_PATTERN.is_match(input) {
+            return CommandTarget::Myself;
+        }
+
+        if HERE_TARGET_PATTERN.is_match(input) {
+            return CommandTarget::Here;
+        }
+
+        CommandTarget::Named(CommandTargetName {
+            name: input.to_lowercase(),
+            location_chain: Vec::new(), //TODO populate this
+        })
+    }
+
+    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
+    pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+        debug!("Finding {self:?} from the perspective of {looking_entity:?}");
+
+        match self {
+            CommandTarget::Myself => Some(looking_entity),
+            CommandTarget::Here => {
+                let location_id = world
+                    .get::<Location>(looking_entity)
+                    .expect("Looking entity should have a location")
+                    .id;
+                Some(location_id)
+            }
+            CommandTarget::Named(target_name) => {
+                target_name.find_target_entity(looking_entity, world)
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CommandTargetName {
+    pub name: String,
+    pub location_chain: Vec<String>,
+}
+
+impl CommandTargetName {
+    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
+    pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+        //TODO take location chain into account
+        //TODO also search the looking entity's inventory
+        let location_id = world
+            .get::<Location>(looking_entity)
+            .expect("Looking entity should have a location")
+            .id;
+        let room = world
+            .get::<Room>(location_id)
+            .expect("Looking entity's location should be a room");
+        room.find_entity_by_name(&self.name, world)
+    }
 }
 
 pub enum CommandError {
@@ -35,24 +116,18 @@ pub enum CommandError {
 }
 
 pub trait Command {
-    /// Converts this command to an action.
-    fn to_action(&self, world: &World) -> Result<Box<dyn Action>, CommandError>;
+    /// Converts this command to an action to be performed by the provided entity.
+    fn to_action(
+        &self,
+        commanding_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandError>;
 }
 
-struct LookCommand {
-    targets: CommandTargets,
-}
-
-impl LookCommand {
-    fn parse(input: &str) -> Result<Box<dyn Command>, CommandParseError> {
-        todo!() //TODO
-    }
-}
-
-impl Command for LookCommand {
-    fn to_action(&self, world: &World) -> Result<Box<dyn Action>, CommandError> {
-        todo!() //TODO
-    }
+pub trait CommandParser: Send + Sync {
+    /// Parses the provided input into a command.
+    /// TODO does this need to be separate from the `Command` trait, or should this just return an `Action` directly?
+    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError>;
 }
 
 /* TODO remove
@@ -79,16 +154,17 @@ pub enum InputParseError {
     NoMatchingCommand,
 }
 
-type CommandParserFn = fn(&str) -> Result<Box<dyn Command>, CommandParseError>;
-
-pub fn parse_input<'i>(
-    input: &'i str,
-    command_parsers: &[CommandParserFn],
-) -> Result<Box<dyn Command>, InputParseError> {
+pub fn parse_command<'a, I>(
+    input: &str,
+    command_parsers: I,
+) -> Result<Box<dyn Command>, InputParseError>
+where
+    I: IntoIterator<Item = &'a Box<dyn CommandParser>>,
+{
     let mut commands = Vec::new();
     let mut errors = Vec::new();
-    for parse_fn in command_parsers {
-        match parse_fn(input) {
+    for parser in command_parsers {
+        match parser.parse(input) {
             Ok(c) => commands.push(c),
             Err(e) => errors.push(e),
         }

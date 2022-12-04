@@ -2,139 +2,93 @@ use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashSet,
+    sync::{Arc, RwLock},
+};
 
 use crate::{
     action::{self},
+    command_parser::{parse_command, CommandError, InputParseError},
     component::{CustomCommandParser, Room},
-    perform_action, send_message, Action, Direction, GameMessage, Location, World,
+    perform_action, send_message, Action, Direction, GameMessage, Location, StandardCommandParsers,
+    World,
 };
 
-const MOVE_DIRECTION_CAPTURE: &str = "direction";
-const LOOK_TARGET_CAPTURE: &str = "target";
-
-lazy_static! {
-    static ref MOVE_PATTERN: Regex =
-        Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap();
-    static ref LOOK_PATTERN: Regex = Regex::new("^l(ook)?( (at )?(the )?(?P<target>.*))?").unwrap();
-    static ref SELF_TARGET_PATTERN: Regex = Regex::new("^(me|myself|self)$").unwrap();
-    static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
-}
-
-/// Handles a command from a player in the provided world
-pub fn handle_command(world: &Arc<RwLock<World>>, command: String, entity_id: Entity) {
+/// Handles input from a player.
+pub fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
     let read_world = world.read().unwrap();
-    if let Some(action) = parse_input(&command, entity_id, &read_world) {
+    if let Ok(action) = parse_input(&input, entity, &read_world) {
         debug!("Parsed command into action: {action:?}");
         drop(read_world);
-        perform_action(&mut world.write().unwrap(), entity_id, action);
+        perform_action(&mut world.write().unwrap(), entity, action);
     } else {
+        //TODO handle errors better
         send_message(
             &read_world,
-            entity_id,
+            entity,
             GameMessage::Error("I don't understand that.".to_string()),
         );
     }
 }
 
+//TODO this is a bad name for this
+enum GeneralInputParseError {
+    InputToCommand(InputParseError),
+    CommandToAction(CommandError),
+}
+
+impl From<InputParseError> for GeneralInputParseError {
+    fn from(e: InputParseError) -> Self {
+        GeneralInputParseError::InputToCommand(e)
+    }
+}
+
+impl From<CommandError> for GeneralInputParseError {
+    fn from(e: CommandError) -> Self {
+        GeneralInputParseError::CommandToAction(e)
+    }
+}
+
 /// Parses the provided string to an `Action`. Returns `None` if the string doesn't map to any action.
-fn parse_input(input: &str, entity_id: Entity, world: &World) -> Option<Box<dyn Action>> {
-    // moving
-    if let Some(captures) = MOVE_PATTERN.captures(input) {
-        if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
-            if let Some(direction) = parse_direction(dir_match.as_str()) {
-                let action = action::Move { direction };
-                return Some(Box::new(action));
-            }
+fn parse_input(
+    input: &str,
+    entity: Entity,
+    world: &World,
+) -> Result<Box<dyn Action>, GeneralInputParseError> {
+    let mut custom_parsers = Vec::new();
+    for found_entity in find_entities_in_presence_of(entity, world) {
+        if let Some(command_parser) = world.get::<CustomCommandParser>(found_entity) {
+            debug!("Found custom command parser on {found_entity:?}");
+            //TODO prevent duplicate parsers from being registered
+            custom_parsers.extend(&command_parser.parsers);
         }
     }
 
-    // looking
-    if let Some(captures) = LOOK_PATTERN.captures(input) {
-        if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
-            if let Some(target) = find_entity_by_name(target_match.as_str(), entity_id, world) {
-                let action = action::Look { target };
-                return Some(Box::new(action));
-            }
-        } else {
-            let action = action::Look {
-                target: world
-                    .get::<Location>(entity_id)
-                    .expect("Looking entity should have a location")
-                    .id,
-            };
-            return Some(Box::new(action));
-        }
-    }
+    let parsers = world
+        .resource::<StandardCommandParsers>()
+        .parsers
+        .iter()
+        .chain(custom_parsers);
 
-    // custom actions for entities in the presence of the entity the command came from
+    let command = parse_command(input, parsers)?;
+    let action = command.to_action(entity, world)?;
+
+    Ok(action)
+}
+
+/// Finds all the entities the provided entity can currently directly interact with.
+fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
     let location_id = world
-        .get::<Location>(entity_id)
+        .get::<Location>(entity)
         .expect("Entity should have a location")
         .id;
 
-    debug!("Checking command parsers for entities in {location_id:?}");
-
+    // TODO also include entities in the provided entity's inventory
     // TODO handle entities not located in a room
     let room = world
         .get::<Room>(location_id)
         .expect("Entity's location should be a room");
 
-    for found_entity in &room.entities {
-        if let Some(command_parser) = world.get::<CustomCommandParser>(*found_entity) {
-            debug!("Checking command parser for {found_entity:?}");
-            for parse_fn in &command_parser.parse_fns {
-                if let Some(action) = parse_fn(*found_entity, input, entity_id, world) {
-                    return Some(action);
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Parses the provided string to a `Direction`. Returns `None` if the string doesn't map to any direction.
-fn parse_direction(input: &str) -> Option<Direction> {
-    match input {
-        "n" | "north" => Some(Direction::North),
-        "ne" | "northeast" => Some(Direction::NorthEast),
-        "e" | "east" => Some(Direction::East),
-        "se" | "southeast" => Some(Direction::SouthEast),
-        "s" | "south" => Some(Direction::South),
-        "sw" | "southwest" => Some(Direction::SouthWest),
-        "w" | "west" => Some(Direction::West),
-        "nw" | "northwest" => Some(Direction::NorthWest),
-        "u" | "up" => Some(Direction::Up),
-        "d" | "down" => Some(Direction::Down),
-        _ => None,
-    }
-}
-
-/// Finds an entity from the perspective of another entity, if it exists.
-fn find_entity_by_name(
-    entity_name: &str,
-    looking_entity_id: Entity,
-    world: &World,
-) -> Option<Entity> {
-    let entity_name = entity_name.to_lowercase();
-    debug!("Finding {entity_name:?} from the perspective of {looking_entity_id:?}");
-
-    if SELF_TARGET_PATTERN.is_match(&entity_name) {
-        return Some(looking_entity_id);
-    }
-
-    let room_id = world
-        .get::<Location>(looking_entity_id)
-        .expect("Looking entity should have a location")
-        .id;
-    if HERE_TARGET_PATTERN.is_match(&entity_name) {
-        return Some(room_id);
-    }
-
-    //TODO also search the looking entity's inventory
-    let room = world
-        .get::<Room>(room_id)
-        .expect("Looking entity's location should be a room");
-    room.find_entity_by_name(&entity_name, world)
+    room.entities.clone()
 }

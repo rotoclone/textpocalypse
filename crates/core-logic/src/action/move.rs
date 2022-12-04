@@ -1,18 +1,56 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 use crate::{
     can_receive_messages,
+    command_parser::{Command, CommandError, CommandParseError, CommandParser},
     component::{Description, Location, OpenState, Room},
     move_entity, Direction, GameMessage, RoomDescription,
 };
 
 use super::{Action, ActionResult};
 
+const MOVE_DIRECTION_CAPTURE: &str = "direction";
+
+lazy_static! {
+    static ref MOVE_PATTERN: Regex =
+        Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap();
+}
+
+pub struct MoveParser;
+
+impl CommandParser for MoveParser {
+    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError> {
+        if let Some(captures) = MOVE_PATTERN.captures(input) {
+            if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
+                if let Some(direction) = Direction::parse(dir_match.as_str()) {
+                    return Ok(Box::new(MoveCommand { direction }));
+                }
+            }
+        }
+
+        Err(CommandParseError::WrongVerb)
+    }
+}
+
+struct MoveCommand {
+    direction: Direction,
+}
+
+impl Command for MoveCommand {
+    fn to_action(&self, _: Entity, _: &World) -> Result<Box<dyn Action>, CommandError> {
+        Ok(Box::new(Move {
+            direction: self.direction,
+        }))
+    }
+}
+
 #[derive(Debug)]
-pub struct Move {
-    pub direction: Direction,
+struct Move {
+    direction: Direction,
 }
 
 impl Action for Move {

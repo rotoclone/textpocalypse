@@ -5,6 +5,10 @@ use regex::Regex;
 
 use crate::{
     action::{Action, ActionResult},
+    command_parser::{
+        Command, CommandError, CommandParseError, CommandParser, CommandTarget, CommandTargetError,
+        CommandTargets, CorrectVerbError,
+    },
     component::Description,
 };
 
@@ -17,6 +21,68 @@ lazy_static! {
     static ref CLOSE_PATTERN: Regex = Regex::new("^close (the )?(?P<name>.*)").unwrap();
 }
 
+struct OpenParser {}
+
+impl CommandParser for OpenParser {
+    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError> {
+        if let Some(captures) = OPEN_PATTERN.captures(input) {
+            if let Some(target_match) = captures.name(NAME_CAPTURE) {
+                return Ok(Box::new(OpenCommand {
+                    target: CommandTarget::parse(target_match.as_str()),
+                    should_be_open: true,
+                }));
+            } else {
+                return Err(CommandParseError::CorrectVerb(CorrectVerbError::Target(
+                    CommandTargetError::MissingPrimaryTarget,
+                )));
+            }
+        }
+
+        if let Some(captures) = CLOSE_PATTERN.captures(input) {
+            if let Some(target_match) = captures.name(NAME_CAPTURE) {
+                return Ok(Box::new(OpenCommand {
+                    target: CommandTarget::parse(target_match.as_str()),
+                    should_be_open: false,
+                }));
+            } else {
+                return Err(CommandParseError::CorrectVerb(CorrectVerbError::Target(
+                    CommandTargetError::MissingPrimaryTarget,
+                )));
+            }
+        }
+
+        Err(CommandParseError::WrongVerb)
+    }
+}
+
+struct OpenCommand {
+    target: CommandTarget,
+    should_be_open: bool,
+}
+
+impl Command for OpenCommand {
+    fn to_action(
+        &self,
+        commanding_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandError> {
+        match &self.target {
+            CommandTarget::Myself => Err(CommandError::InvalidPrimaryTarget),
+            CommandTarget::Here => Err(CommandError::InvalidPrimaryTarget),
+            CommandTarget::Named(target) => {
+                if let Some(target) = target.find_target_entity(commanding_entity, world) {
+                    Ok(Box::new(OpenAction {
+                        target,
+                        should_be_open: self.should_be_open,
+                    }))
+                } else {
+                    Err(CommandError::InvalidPrimaryTarget)
+                }
+            }
+        }
+    }
+}
+
 /// Describes whether an entity is open or closed.
 #[derive(Component)]
 pub struct OpenState {
@@ -25,43 +91,8 @@ pub struct OpenState {
 }
 
 impl ParseCustomCommand for OpenState {
-    fn parse_command(
-        this_entity_id: Entity,
-        input: &str,
-        commanding_entity_id: Entity,
-        world: &World,
-    ) -> Option<Box<dyn Action>> {
-        debug!("Entity {this_entity_id:?} parsing command {input:?} from {commanding_entity_id:?}");
-
-        if let Some(desc) = world.get::<Description>(this_entity_id) {
-            // opening
-            if let Some(captures) = OPEN_PATTERN.captures(input) {
-                if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                    if desc.matches(target_match.as_str()) {
-                        let action = OpenAction {
-                            target: this_entity_id,
-                            should_be_open: true,
-                        };
-                        return Some(Box::new(action));
-                    }
-                }
-            }
-
-            // closing
-            if let Some(captures) = CLOSE_PATTERN.captures(input) {
-                if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                    if desc.matches(target_match.as_str()) {
-                        let action = OpenAction {
-                            target: this_entity_id,
-                            should_be_open: false,
-                        };
-                        return Some(Box::new(action));
-                    }
-                }
-            }
-        }
-
-        None
+    fn get_parser() -> Box<dyn CommandParser> {
+        Box::new(OpenParser {})
     }
 }
 
