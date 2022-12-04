@@ -1,3 +1,5 @@
+use std::{collections::HashSet, fmt::Display};
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use log::debug;
@@ -5,7 +7,8 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    component::{Location, Room},
+    component::{CustomInputParser, Location, Room},
+    StandardInputParsers,
 };
 
 lazy_static! {
@@ -13,34 +16,44 @@ lazy_static! {
     static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
 }
 
-pub enum CommandTargetError {
-    MissingPrimaryTarget,
-    MissingSecondaryTarget,
-}
-
-pub enum CommandParseError {
-    WrongVerb,
-    CorrectVerb(CorrectVerbError),
-}
-
-pub enum CorrectVerbError {
-    Target(CommandTargetError),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CommandTargets {
-    pub primary: Option<CommandTarget>,
-    pub secondary: Option<CommandTarget>,
-}
-
-impl CommandTargets {
-    /// Creates a `CommandTargets` for no targets.
-    pub fn none() -> CommandTargets {
-        CommandTargets {
-            primary: None,
-            secondary: None,
+/// Parses the provided string to an `Action`.
+pub fn parse_input(
+    input: &str,
+    source_entity: Entity,
+    world: &World,
+) -> Result<Box<dyn Action>, InputParseError> {
+    let mut custom_parsers = Vec::new();
+    for found_entity in find_entities_in_presence_of(source_entity, world) {
+        if let Some(input_parser) = world.get::<CustomInputParser>(found_entity) {
+            debug!("Found custom input parser on {found_entity:?}");
+            //TODO prevent duplicate parsers from being registered
+            custom_parsers.extend(&input_parser.parsers);
         }
     }
+
+    let parsers = world
+        .resource::<StandardInputParsers>()
+        .parsers
+        .iter()
+        .chain(custom_parsers);
+
+    parse_input_with(input, source_entity, world, parsers)
+}
+
+/// Finds all the entities the provided entity can currently directly interact with.
+fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
+    let location_id = world
+        .get::<Location>(entity)
+        .expect("Entity should have a location")
+        .id;
+
+    // TODO also include entities in the provided entity's inventory
+    // TODO handle entities not located in a room
+    let room = world
+        .get::<Room>(location_id)
+        .expect("Entity's location should be a room");
+
+    room.entities.clone()
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -49,6 +62,16 @@ pub enum CommandTarget {
     Here,
     //TODO add a Direction variant?
     Named(CommandTargetName),
+}
+
+impl Display for CommandTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandTarget::Myself => write!(f, "me"),
+            CommandTarget::Here => write!(f, "here"),
+            CommandTarget::Named(name) => write!(f, "{name}"),
+        }
+    }
 }
 
 impl CommandTarget {
@@ -94,6 +117,13 @@ pub struct CommandTargetName {
     pub location_chain: Vec<String>,
 }
 
+impl Display for CommandTargetName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //TODO include location chain
+        write!(f, "{}", self.name)
+    }
+}
+
 impl CommandTargetName {
     /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
     pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
@@ -108,26 +138,6 @@ impl CommandTargetName {
             .expect("Looking entity's location should be a room");
         room.find_entity_by_name(&self.name, world)
     }
-}
-
-pub enum CommandError {
-    InvalidPrimaryTarget,
-    InvalidSecondaryTarget,
-}
-
-pub trait Command {
-    /// Converts this command to an action to be performed by the provided entity.
-    fn to_action(
-        &self,
-        commanding_entity: Entity,
-        world: &World,
-    ) -> Result<Box<dyn Action>, CommandError>;
-}
-
-pub trait CommandParser: Send + Sync {
-    /// Parses the provided input into a command.
-    /// TODO does this need to be separate from the `Command` trait, or should this just return an `Action` directly?
-    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError>;
 }
 
 /* TODO remove
@@ -148,59 +158,63 @@ enum StandardVerb {
 }
 */
 
+/// An error while parsing input.
 pub enum InputParseError {
-    MultipleMatchingCommands(Vec<Box<dyn Command>>),
-    PartiallyMatchingCommands(Vec<CorrectVerbError>),
-    NoMatchingCommand,
+    /// The input did not correspond to any command.
+    UnknownCommand,
+    /// The input was not valid for the matched command.
+    CommandParseError {
+        /// The name of the verb corresponding to the command.
+        verb: String,
+        /// The error that occurred when parsing the input as the command.
+        error: CommandParseError,
+    },
 }
 
-pub fn parse_command<'a, I>(
+/// An error while parsing input into a specific command.
+pub enum CommandParseError {
+    /// A required target was not provided.
+    MissingTarget,
+    /// A provided target is not in the presence of the entity that provided the input.
+    TargetNotFound(CommandTarget),
+}
+
+pub trait InputParser: Send + Sync {
+    /// Parses input from the provided entity into an action.
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError>;
+}
+
+fn parse_input_with<'a, I>(
     input: &str,
-    command_parsers: I,
-) -> Result<Box<dyn Command>, InputParseError>
+    source_entity: Entity,
+    world: &World,
+    input_parsers: I,
+) -> Result<Box<dyn Action>, InputParseError>
 where
-    I: IntoIterator<Item = &'a Box<dyn CommandParser>>,
+    I: IntoIterator<Item = &'a Box<dyn InputParser>>,
 {
-    let mut commands = Vec::new();
     let mut errors = Vec::new();
-    for parser in command_parsers {
-        match parser.parse(input) {
-            Ok(c) => commands.push(c),
+    for parser in input_parsers {
+        match parser.parse(input, source_entity, world) {
+            Ok(a) => return Ok(a),
             Err(e) => errors.push(e),
         }
     }
 
-    if commands.len() == 1 {
-        return Ok(commands.into_iter().next().unwrap());
+    for error in errors {
+        match error {
+            InputParseError::UnknownCommand => (),
+            InputParseError::CommandParseError { .. } => return Err(error),
+        }
     }
 
-    if commands.len() > 1 {
-        return Err(InputParseError::MultipleMatchingCommands(commands));
-    }
-
-    let partial_matches = errors
-        .into_iter()
-        .filter_map(|e| match e {
-            CommandParseError::CorrectVerb(correct_verb_error) => Some(correct_verb_error),
-            _ => None,
-        })
-        .collect::<Vec<CorrectVerbError>>();
-
-    if !partial_matches.is_empty() {
-        return Err(InputParseError::PartiallyMatchingCommands(partial_matches));
-    }
-
-    Err(InputParseError::NoMatchingCommand)
+    Err(InputParseError::UnknownCommand)
 }
-
-/* TODO remove
-fn parse_verb<'i>(input: &'i str, custom_verbs: &[Box<dyn CustomVerb>]) -> IResult<&'i str, Verb> {
-    //TODO but some verbs can have spaces, like "look at"
-    let verb_str = take_till(|c| c == ' ')(input);
-
-    todo!() //TODO
-}
-*/
 
 /* TODO
 #[cfg(test)]

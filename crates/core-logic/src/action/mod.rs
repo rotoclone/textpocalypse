@@ -9,6 +9,9 @@ pub use look::LookParser;
 mod r#move;
 pub use r#move::MoveParser;
 
+mod open;
+pub use open::OpenParser;
+
 pub struct ActionResult {
     pub messages: HashMap<Entity, Vec<GameMessage>>,
     pub should_tick: bool,

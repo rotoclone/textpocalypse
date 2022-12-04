@@ -1,7 +1,3 @@
-use bevy_ecs::prelude::*;
-
-use crate::action::Action;
-
 mod door;
 pub use door::Door;
 
@@ -31,6 +27,6 @@ pub use connection::Direction;
 mod open_state;
 pub use open_state::OpenState;
 
-mod custom_command_parser;
-pub use custom_command_parser::CustomCommandParser;
-pub use custom_command_parser::ParseCustomCommand;
+mod custom_input_parser;
+pub use custom_input_parser::CustomInputParser;
+pub use custom_input_parser::ParseCustomInput;

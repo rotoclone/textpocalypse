@@ -7,11 +7,7 @@ use crate::{Direction, World};
 
 //TODO move locking and unlocking stuff to a LockedState component and remove this whole file
 
-const NAME_CAPTURE: &str = "name";
-
 lazy_static! {
-    static ref OPEN_PATTERN: Regex = Regex::new("^open (the )?(?P<name>.*)").unwrap();
-    static ref CLOSE_PATTERN: Regex = Regex::new("^close (the )?(?P<name>.*)").unwrap();
     static ref LOCK_PATTERN: Regex = Regex::new("^lock (the )?(?P<name>.*)").unwrap();
     static ref UNLOCK_PATTERN: Regex = Regex::new("^unlock (the )?(?P<name>.*)").unwrap();
 }

@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    component::{Connection, Description, OpenState, ParseCustomCommand, Room},
+    component::{Connection, Description, OpenState, ParseCustomInput, Room},
     move_entity, Direction, SpawnRoom,
 };
 
@@ -52,7 +52,7 @@ pub fn set_up_world(world: &mut World) {
                 other_side: Some(north_room_south_door_id),
             },
             OpenState { is_open: false },
-            OpenState::new_command_parser(),
+            OpenState::new_custom_input_parser(),
         ))
         .id();
     move_entity(middle_room_north_door_id, middle_room_id, world);
@@ -71,7 +71,7 @@ pub fn set_up_world(world: &mut World) {
             other_side: Some(middle_room_north_door_id),
         },
         OpenState { is_open: false },
-        OpenState::new_command_parser(),
+        OpenState::new_custom_input_parser(),
     ));
     move_entity(north_room_south_door_id, north_room_id, world);
 
@@ -79,7 +79,7 @@ pub fn set_up_world(world: &mut World) {
         .spawn(Connection {
             direction: Direction::East,
             destination: east_room_id,
-            other_side: None, //TODO this is a lie but it's fine because this connection has no OpenState
+            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
         })
         .id();
     move_entity(middle_room_east_connection_id, middle_room_id, world);
@@ -88,7 +88,7 @@ pub fn set_up_world(world: &mut World) {
         .spawn(Connection {
             direction: Direction::West,
             destination: middle_room_id,
-            other_side: None, //TODO this is a lie but it's fine because this connection has no OpenState
+            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
         })
         .id();
     move_entity(east_room_west_connection_id, east_room_id, world);

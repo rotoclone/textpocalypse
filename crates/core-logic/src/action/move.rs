@@ -6,8 +6,8 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    command_parser::{Command, CommandError, CommandParseError, CommandParser},
     component::{Description, Location, OpenState, Room},
+    input_parser::{InputParseError, InputParser},
     move_entity, Direction, GameMessage, RoomDescription,
 };
 
@@ -22,38 +22,26 @@ lazy_static! {
 
 pub struct MoveParser;
 
-impl CommandParser for MoveParser {
-    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError> {
+impl InputParser for MoveParser {
+    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
         if let Some(captures) = MOVE_PATTERN.captures(input) {
             if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
                 if let Some(direction) = Direction::parse(dir_match.as_str()) {
-                    return Ok(Box::new(MoveCommand { direction }));
+                    return Ok(Box::new(MoveAction { direction }));
                 }
             }
         }
 
-        Err(CommandParseError::WrongVerb)
-    }
-}
-
-struct MoveCommand {
-    direction: Direction,
-}
-
-impl Command for MoveCommand {
-    fn to_action(&self, _: Entity, _: &World) -> Result<Box<dyn Action>, CommandError> {
-        Ok(Box::new(Move {
-            direction: self.direction,
-        }))
+        Err(InputParseError::UnknownCommand)
     }
 }
 
 #[derive(Debug)]
-struct Move {
+struct MoveAction {
     direction: Direction,
 }
 
-impl Action for Move {
+impl Action for MoveAction {
     fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let current_room_id = world
             .get::<Location>(performing_entity)

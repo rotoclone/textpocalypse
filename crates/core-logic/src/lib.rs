@@ -1,9 +1,7 @@
 use bevy_ecs::prelude::*;
-use command_parser::{CommandParser, CommandTarget};
 use flume::{Receiver, Sender};
-use lazy_static::lazy_static;
+use input_parser::InputParser;
 use log::debug;
-use regex::Regex;
 use std::{
     collections::HashSet,
     sync::{Arc, RwLock},
@@ -12,9 +10,6 @@ use std::{
 
 mod action;
 use action::*;
-
-mod command;
-use command::*;
 
 mod component;
 pub use component::Direction;
@@ -30,7 +25,8 @@ use component::*;
 mod time;
 pub use time::Time;
 
-mod command_parser;
+mod input_parser;
+use input_parser::*;
 
 mod world_setup;
 use world_setup::*;
@@ -58,14 +54,18 @@ impl Default for Game {
 }
 
 #[derive(Resource)]
-struct StandardCommandParsers {
-    parsers: Vec<Box<dyn CommandParser>>,
+struct StandardInputParsers {
+    parsers: Vec<Box<dyn InputParser>>,
 }
 
-impl StandardCommandParsers {
-    pub fn new() -> StandardCommandParsers {
-        StandardCommandParsers {
-            parsers: vec![Box::new(MoveParser), Box::new(LookParser)],
+impl StandardInputParsers {
+    pub fn new() -> StandardInputParsers {
+        StandardInputParsers {
+            parsers: vec![
+                Box::new(MoveParser),
+                Box::new(LookParser),
+                Box::new(OpenParser),
+            ],
         }
     }
 }
@@ -75,7 +75,7 @@ impl Game {
     pub fn new() -> Game {
         let mut world = World::new();
         world.insert_resource(Time::new());
-        world.insert_resource(StandardCommandParsers::new());
+        world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
@@ -138,6 +138,7 @@ impl Game {
     }
 }
 
+/// Finds the ID of the single spawn room in the provided world.
 fn find_spawn_room(world: &mut World) -> Entity {
     world
         .query::<(Entity, With<SpawnRoom>)>()
@@ -146,18 +147,51 @@ fn find_spawn_room(world: &mut World) -> Entity {
         .0
 }
 
-/// Sends a message to the provided entity, if possible. Panics if the entity has no active message channel.
+/// Determines whether the provided entity has an active message channel for receiving messages.
+fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
+    world.entity(entity_id).contains::<MessageChannel>()
+}
+
+/// Sends a message to the provided entity, if possible. Panics if the entity's message receiver has been dropped.
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
-    world
-        .get::<MessageChannel>(entity_id)
-        .expect("Entity being sent a message should have a message channel")
-        .sender
-        .send((message, *world.resource::<Time>()))
-        .expect("Message receiver should exist");
+    if let Some(channel) = world.get::<MessageChannel>(entity_id) {
+        channel
+            .sender
+            .send((message, *world.resource::<Time>()))
+            .expect("Message receiver should exist");
+    }
+}
+
+/// Handles input from an entity.
+fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
+    let read_world = world.read().unwrap();
+    match parse_input(&input, entity, &read_world) {
+        Ok(action) => {
+            debug!("Parsed input into action: {action:?}");
+            drop(read_world);
+            perform_action(&mut world.write().unwrap(), entity, action);
+        }
+        Err(e) => handle_input_error(entity, e, &read_world),
+    }
+}
+
+/// Sends a message to an entity based on the provided input parsing error.
+fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
+    let message = match error {
+        InputParseError::UnknownCommand => "I don't understand that.".to_string(),
+        InputParseError::CommandParseError { verb, error } => match error {
+            CommandParseError::MissingTarget => format!("'{verb}' requires more targets."),
+            CommandParseError::TargetNotFound(t) => {
+                format!("There is no '{t}' here.")
+            }
+        },
+    };
+
+    send_message(world, entity, GameMessage::Error(message));
 }
 
 /// Makes the provided entity perform the provided action.
-pub fn perform_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
+fn perform_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
     debug!("Entity {performing_entity:?} is performing action {action:?}");
     let result = action.perform(performing_entity, world);
 
@@ -179,13 +213,8 @@ fn tick(world: &mut World) {
     //TODO perform queued actions
 }
 
-/// Determines whether the provided entity has an active message channel for receiving messages.
-pub fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
-    world.entity(entity_id).contains::<MessageChannel>()
-}
-
 /// Moves an entity to a room.
-pub fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut World) {
+fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut World) {
     //TODO handle moving between non-room entities
 
     // remove from source room, if necessary
@@ -207,4 +236,14 @@ pub fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut W
     world.entity_mut(entity_id).insert(Location {
         id: destination_room_id,
     });
+}
+
+/// Builds a string to use to refer to the provided entity.
+///
+/// For example, if the entity is named "book", this will return "the book".
+fn get_reference_name(entity: Entity, world: &World) -> String {
+    //TODO handle proper names, like names of people
+    world
+        .get::<Description>(entity)
+        .map_or("it".to_string(), |n| format!("the {}", n.name))
 }

@@ -4,15 +4,14 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    command_parser::{
-        Command, CommandError, CommandParseError, CommandParser, CommandTarget, CommandTargets,
-    },
     component::{Description, Room},
+    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     EntityDescription, GameMessage, RoomDescription, World,
 };
 
 use super::{Action, ActionResult};
 
+const LOOK_VERB_NAME: &str = "look";
 const LOOK_TARGET_CAPTURE: &str = "target";
 
 lazy_static! {
@@ -21,58 +20,47 @@ lazy_static! {
 
 pub struct LookParser;
 
-impl CommandParser for LookParser {
-    fn parse(&self, input: &str) -> Result<Box<dyn Command>, CommandParseError> {
-        if let Some(captures) = LOOK_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
-                return Ok(Box::new(LookCommand {
-                    targets: CommandTargets {
-                        primary: Some(CommandTarget::parse(target_match.as_str())),
-                        secondary: None,
-                    },
-                }));
-            } else {
-                return Ok(Box::new(LookCommand {
-                    targets: CommandTargets {
-                        primary: Some(CommandTarget::Here),
-                        secondary: None,
-                    },
-                }));
-            }
-        }
-
-        Err(CommandParseError::WrongVerb)
-    }
-}
-
-struct LookCommand {
-    targets: CommandTargets,
-}
-
-impl Command for LookCommand {
-    fn to_action(
+impl InputParser for LookParser {
+    fn parse(
         &self,
-        commanding_entity: Entity,
+        input: &str,
+        source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandError> {
-        if let Some(target) = &self.targets.primary {
-            if let Some(target_entity) = target.find_target_entity(commanding_entity, world) {
-                return Ok(Box::new(Look {
-                    target: target_entity,
-                }));
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        if let Some(captures) = LOOK_PATTERN.captures(input) {
+            // looking
+            if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
+                // looking at something specific
+                let target = CommandTarget::parse(target_match.as_str());
+                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
+                    // looking at something they can see
+                    return Ok(Box::new(LookAction {
+                        target: target_entity,
+                    }));
+                } else {
+                    return Err(InputParseError::CommandParseError {
+                        verb: LOOK_VERB_NAME.to_string(),
+                        error: CommandParseError::TargetNotFound(target),
+                    });
+                }
+            } else {
+                // just looking in general
+                if let Some(target) = CommandTarget::Here.find_target_entity(source_entity, world) {
+                    return Ok(Box::new(LookAction { target }));
+                }
             }
         }
 
-        Err(CommandError::InvalidPrimaryTarget)
+        Err(InputParseError::UnknownCommand)
     }
 }
 
 #[derive(Debug)]
-struct Look {
+struct LookAction {
     target: Entity,
 }
 
-impl Action for Look {
+impl Action for LookAction {
     fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
         if !can_receive_messages(world, performing_entity) {
             return ActionResult::none();
