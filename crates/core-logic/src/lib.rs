@@ -159,7 +159,7 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(channel) = world.get::<MessageChannel>(entity_id) {
         channel
             .sender
-            .send((message, *world.resource::<Time>()))
+            .send((message, world.resource::<Time>().clone()))
             .expect("Message receiver should exist");
     }
 }
