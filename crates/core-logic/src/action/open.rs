@@ -3,9 +3,12 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{Description, OpenState},
+    component::OpenState,
     get_reference_name,
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{
+        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
+        InputParser,
+    },
 };
 
 use super::{Action, ActionResult};
@@ -56,6 +59,10 @@ impl InputParser for OpenParser {
                 error: CommandParseError::MissingTarget,
             })
         }
+    }
+
+    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        input_formats_if_has_component::<OpenState>(entity, world, &["open <>", "close <>"])
     }
 }
 

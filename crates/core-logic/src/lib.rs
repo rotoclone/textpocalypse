@@ -12,6 +12,7 @@ mod action;
 use action::*;
 
 mod component;
+pub use component::DetailedEntityDescription;
 pub use component::Direction;
 pub use component::EntityDescription;
 pub use component::ExitDescription;
@@ -36,6 +37,7 @@ use world_setup::*;
 pub enum GameMessage {
     Room(RoomDescription),
     Entity(EntityDescription),
+    DetailedEntity(DetailedEntityDescription),
     Message(String),
     Error(String),
 }

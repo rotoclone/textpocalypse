@@ -4,9 +4,11 @@ use regex::Regex;
 
 use crate::{
     action::{Action, ActionResult},
-    component::Description,
     get_reference_name,
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{
+        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
+        InputParser,
+    },
 };
 
 use super::{Connection, ParseCustomInput};
@@ -47,6 +49,10 @@ impl InputParser for SlamParser {
         }
 
         Err(InputParseError::UnknownCommand)
+    }
+
+    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        input_formats_if_has_component::<OpenState>(entity, world, &["slam <>"])
     }
 }
 

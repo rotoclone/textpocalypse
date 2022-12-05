@@ -1,9 +1,10 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, iter::once};
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use log::debug;
 
-use crate::Direction;
+use crate::{input_parser::find_parsers_relevant_for, Direction};
 
 use super::Connection;
 
@@ -37,6 +38,8 @@ impl Description {
 pub struct EntityDescription {
     /// The name of the entity.
     pub name: String,
+    /// Other names for the entity.
+    pub aliases: Vec<String>,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
     /// The description of the entity.
@@ -48,10 +51,60 @@ impl EntityDescription {
     pub fn from_description(desc: &Description) -> EntityDescription {
         EntityDescription {
             name: desc.name.clone(),
+            aliases: build_aliases(desc),
             article: desc.article.clone(),
             description: desc.description.clone(),
         }
     }
+}
+
+fn build_aliases(desc: &Description) -> Vec<String> {
+    once(desc.room_name.clone())
+        .into_iter()
+        .chain(desc.aliases.clone().into_iter())
+        .filter(|name| name != &desc.name)
+        .collect()
+}
+
+/// The detailed description of an entity.
+#[derive(Debug)]
+pub struct DetailedEntityDescription {
+    pub basic_desc: EntityDescription,
+    /// Descriptions of the actions that can be performed on the entity.
+    pub actions: Vec<ActionDescription>,
+}
+
+impl DetailedEntityDescription {
+    /// Creates a detailed entity description for `entity` being looked at by `looking_entity`.
+    pub fn for_entity(
+        looking_entity: Entity,
+        entity: Entity,
+        desc: &Description,
+        world: &World,
+    ) -> DetailedEntityDescription {
+        DetailedEntityDescription {
+            basic_desc: EntityDescription::from_description(desc),
+            actions: build_action_descriptions(looking_entity, entity, world),
+        }
+    }
+}
+
+fn build_action_descriptions(
+    looking_entity: Entity,
+    entity: Entity,
+    world: &World,
+) -> Vec<ActionDescription> {
+    find_parsers_relevant_for(looking_entity, world)
+        .flat_map(|p| p.input_formats_for(entity, world))
+        .flatten()
+        .unique()
+        .map(|format| ActionDescription { format })
+        .collect()
+}
+
+#[derive(Debug)]
+pub struct ActionDescription {
+    pub format: String,
 }
 
 /// The description of an entity as part of a room description.

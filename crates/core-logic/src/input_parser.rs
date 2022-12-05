@@ -22,8 +22,18 @@ pub fn parse_input(
     source_entity: Entity,
     world: &World,
 ) -> Result<Box<dyn Action>, InputParseError> {
+    let parsers = find_parsers_relevant_for(source_entity, world);
+
+    parse_input_with(input, source_entity, world, parsers)
+}
+
+/// Finds all the parsers relevant for input from the provided entity.
+pub fn find_parsers_relevant_for(
+    entity: Entity,
+    world: &World,
+) -> impl Iterator<Item = &Box<dyn InputParser>> {
     let mut custom_parsers = Vec::new();
-    for found_entity in find_entities_in_presence_of(source_entity, world) {
+    for found_entity in find_entities_in_presence_of(entity, world) {
         if let Some(input_parser) = world.get::<CustomInputParser>(found_entity) {
             debug!("Found custom input parser on {found_entity:?}");
             //TODO prevent duplicate parsers from being registered
@@ -31,13 +41,11 @@ pub fn parse_input(
         }
     }
 
-    let parsers = world
+    world
         .resource::<StandardInputParsers>()
         .parsers
         .iter()
-        .chain(custom_parsers);
-
-    parse_input_with(input, source_entity, world, parsers)
+        .chain(custom_parsers)
 }
 
 /// Finds all the entities the provided entity can currently directly interact with.
@@ -187,6 +195,25 @@ pub trait InputParser: Send + Sync {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError>;
+
+    /// Returns a list of input formats that would cause valid actions to be produced by this parser if the provided entity was included as a target.
+    /// Targets in the provided formats are denoted with "<>".
+    ///
+    /// For example, if this parser returns actions that act on entities with a `Location` component, then passing in an entity with that
+    /// component might produce an output of `Some(["move <> to <>"])`, whereas passing in an entity without that component would produce `None`.
+    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>>;
+}
+
+pub fn input_formats_if_has_component<C: Component>(
+    entity: Entity,
+    world: &World,
+    formats: &[&str],
+) -> Option<Vec<String>> {
+    if world.get::<C>(entity).is_some() {
+        return Some(formats.iter().map(|s| s.to_string()).collect());
+    }
+
+    None
 }
 
 fn parse_input_with<'a, I>(

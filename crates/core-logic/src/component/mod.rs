@@ -3,6 +3,7 @@ pub use door::Door;
 
 mod description;
 pub use description::Description;
+pub use description::DetailedEntityDescription;
 pub use description::EntityDescription;
 pub use description::RoomConnectionEntityDescription;
 pub use description::RoomEntityDescription;

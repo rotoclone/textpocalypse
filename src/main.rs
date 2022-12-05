@@ -19,7 +19,7 @@ use std::{
 };
 
 use core_logic::{
-    Direction, EntityDescription, ExitDescription, Game, GameMessage,
+    DetailedEntityDescription, Direction, EntityDescription, ExitDescription, Game, GameMessage,
     RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
     RoomLivingEntityDescription, RoomObjectDescription, Time,
 };
@@ -82,6 +82,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
         GameMessage::Message(m) => m,
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
+        GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
     };
     stdout()
         .queue(Clear(ClearType::CurrentLine))?
@@ -310,9 +311,40 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
 /// Transforms the provided entity description into a string for display.
 fn entity_to_string(entity: EntityDescription) -> String {
     let name = style(entity.name).bold();
+    let aliases = if entity.aliases.is_empty() {
+        "".to_string()
+    } else {
+        style(format!(" (aka {})", entity.aliases.join(", ")))
+            .dark_grey()
+            .to_string()
+    };
     let desc = entity.description;
 
-    format!("{name}\n{desc}")
+    format!("{name}{aliases}\n{desc}")
+}
+
+/// Transforms the provided detailed entity description into a string for display.
+fn detailed_entity_to_string(entity: DetailedEntityDescription) -> String {
+    let basic_desc = Some(entity_to_string(entity.basic_desc));
+    let actions = if entity.actions.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "Actions:\n{}",
+            entity
+                .actions
+                .iter()
+                .map(|a| format!("  {}", a.format))
+                .collect::<Vec<String>>()
+                .join("\n")
+        ))
+    };
+
+    [basic_desc, actions]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<String>>()
+        .join("\n\n")
 }
 
 /// Formats a list of items into a single string.

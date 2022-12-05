@@ -68,6 +68,11 @@ pub struct ActionResultBuilder {
 }
 
 impl ActionResultBuilder {
+    /// Builds the `ActionResult`.
+    pub fn build(self) -> ActionResult {
+        self.result
+    }
+
     /// Adds a message to be sent to an entity.
     pub fn with_message(self, entity_id: Entity, message: String) -> ActionResultBuilder {
         self.with_game_message(entity_id, GameMessage::Message(message))

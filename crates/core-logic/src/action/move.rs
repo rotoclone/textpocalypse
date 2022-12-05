@@ -34,6 +34,10 @@ impl InputParser for MoveParser {
 
         Err(InputParseError::UnknownCommand)
     }
+
+    fn input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+        None
+    }
 }
 
 #[derive(Debug)]
