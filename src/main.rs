@@ -19,9 +19,9 @@ use std::{
 };
 
 use core_logic::{
-    DetailedEntityDescription, Direction, EntityDescription, ExitDescription, Game, GameMessage,
-    RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
-    RoomLivingEntityDescription, RoomObjectDescription, Time,
+    ActionDescription, DetailedEntityDescription, Direction, EntityDescription, ExitDescription,
+    Game, GameMessage, HelpMessage, RoomConnectionEntityDescription, RoomDescription,
+    RoomEntityDescription, RoomLivingEntityDescription, RoomObjectDescription, Time,
 };
 
 const PROMPT: &str = "\n> ";
@@ -80,6 +80,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
     let output = match message {
         GameMessage::Error(e) => e,
         GameMessage::Message(m) => m,
+        GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
@@ -326,25 +327,38 @@ fn entity_to_string(entity: EntityDescription) -> String {
 /// Transforms the provided detailed entity description into a string for display.
 fn detailed_entity_to_string(entity: DetailedEntityDescription) -> String {
     let basic_desc = Some(entity_to_string(entity.basic_desc));
-    let actions = if entity.actions.is_empty() {
-        None
-    } else {
-        Some(format!(
-            "Actions:\n{}",
-            entity
-                .actions
-                .iter()
-                .map(|a| format!("  {}", a.format))
-                .collect::<Vec<String>>()
-                .join("\n")
-        ))
-    };
+    let actions = action_descriptions_to_string("Actions:", &entity.actions);
 
     [basic_desc, actions]
         .into_iter()
         .flatten()
         .collect::<Vec<String>>()
         .join("\n\n")
+}
+
+/// Transforms the provided help message into a string for display.
+fn help_to_string(help: HelpMessage) -> String {
+    action_descriptions_to_string("Available actions:", &help.actions).unwrap_or_default()
+}
+
+/// Transforms the provided list of action descriptions into a string for display.
+fn action_descriptions_to_string(
+    header: &str,
+    action_descriptions: &[ActionDescription],
+) -> Option<String> {
+    if action_descriptions.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "{}\n{}",
+            header,
+            action_descriptions
+                .iter()
+                .map(|a| format!("  {}", a.format))
+                .collect::<Vec<String>>()
+                .join("\n")
+        ))
+    }
 }
 
 /// Formats a list of items into a single string.

@@ -14,6 +14,7 @@ use crate::{
 use super::{Connection, ParseCustomInput};
 
 const SLAM_VERB_NAME: &str = "slam";
+const SLAM_FORMAT: &str = "slam <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
@@ -51,8 +52,12 @@ impl InputParser for SlamParser {
         Err(InputParseError::UnknownCommand)
     }
 
-    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<OpenState>(entity, world, &["slam <>"])
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![SLAM_FORMAT.to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        input_formats_if_has_component::<OpenState>(entity, world, &[SLAM_FORMAT])
     }
 }
 

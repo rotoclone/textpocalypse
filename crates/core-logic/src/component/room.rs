@@ -2,17 +2,14 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 
-use crate::{
-    component::{Description, RoomEntityDescription},
-    Direction, World,
-};
+use crate::{component::Description, Direction, World};
 
 use super::Connection;
 
 #[derive(PartialEq, Eq, Debug, Component)]
 pub struct Room {
-    name: String,
-    description: String,
+    pub name: String,
+    pub description: String,
     pub entities: HashSet<Entity>,
 }
 
@@ -56,56 +53,5 @@ impl Room {
         }
 
         None
-    }
-}
-
-#[derive(Debug)]
-pub struct RoomDescription {
-    pub name: String,
-    pub description: String,
-    pub entities: Vec<RoomEntityDescription>,
-    pub exits: Vec<ExitDescription>,
-}
-
-impl RoomDescription {
-    /// Creates a `RoomDescription` for the provided room from the perspective of the provided entity.
-    pub fn from_room(room: &Room, pov_entity: Entity, world: &World) -> RoomDescription {
-        let entity_descriptions = room
-            .entities
-            .iter()
-            .filter(|entity| **entity != pov_entity)
-            .filter_map(|entity| RoomEntityDescription::from_entity(*entity, world))
-            .collect();
-
-        RoomDescription {
-            name: room.name.clone(),
-            description: room.description.clone(),
-            entities: entity_descriptions,
-            exits: ExitDescription::from_room(room, world),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ExitDescription {
-    pub direction: Direction,
-    pub description: String,
-}
-
-impl ExitDescription {
-    /// Creates a list of exit descriptions for the provided room
-    pub fn from_room(room: &Room, world: &World) -> Vec<ExitDescription> {
-        room.get_connections(world)
-            .iter()
-            .map(|(_, connection)| {
-                let destination_room = world
-                    .get::<Room>(connection.destination)
-                    .expect("Destination entity should be a room");
-                ExitDescription {
-                    direction: connection.direction,
-                    description: destination_room.name.clone(),
-                }
-            })
-            .collect()
     }
 }

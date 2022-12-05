@@ -12,6 +12,9 @@ pub use r#move::MoveParser;
 mod open;
 pub use open::OpenParser;
 
+mod help;
+pub use help::HelpParser;
+
 pub struct ActionResult {
     pub messages: HashMap<Entity, Vec<GameMessage>>,
     pub should_tick: bool,

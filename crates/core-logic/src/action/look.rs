@@ -16,6 +16,8 @@ use super::{Action, ActionResult};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
+const LOOK_FORMAT: &str = "look <>";
+const DETAILED_LOOK_FORMAT: &str = "examine <>";
 const LOOK_TARGET_CAPTURE: &str = "target";
 
 lazy_static! {
@@ -66,8 +68,16 @@ impl InputParser for LookParser {
         Err(InputParseError::UnknownCommand)
     }
 
-    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Description>(entity, world, &["look <>"])
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![LOOK_FORMAT.to_string(), DETAILED_LOOK_FORMAT.to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        input_formats_if_has_component::<Description>(
+            entity,
+            world,
+            &[LOOK_FORMAT, DETAILED_LOOK_FORMAT],
+        )
     }
 }
 

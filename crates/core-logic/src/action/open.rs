@@ -15,6 +15,8 @@ use super::{Action, ActionResult};
 
 const OPEN_VERB_NAME: &str = "open";
 const CLOSE_VERB_NAME: &str = "close";
+const OPEN_FORMAT: &str = "open <>";
+const CLOSE_FORMAT: &str = "close <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
@@ -61,8 +63,12 @@ impl InputParser for OpenParser {
         }
     }
 
-    fn input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<OpenState>(entity, world, &["open <>", "close <>"])
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![OPEN_FORMAT.to_string(), CLOSE_FORMAT.to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        input_formats_if_has_component::<OpenState>(entity, world, &[OPEN_FORMAT, CLOSE_FORMAT])
     }
 }
 

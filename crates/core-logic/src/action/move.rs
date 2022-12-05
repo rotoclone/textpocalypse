@@ -13,6 +13,7 @@ use crate::{
 
 use super::{Action, ActionResult};
 
+const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
 
 lazy_static! {
@@ -35,7 +36,11 @@ impl InputParser for MoveParser {
         Err(InputParseError::UnknownCommand)
     }
 
-    fn input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![MOVE_FORMAT.to_string()]
+    }
+
+    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }

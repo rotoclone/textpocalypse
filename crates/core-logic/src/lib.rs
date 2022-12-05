@@ -12,15 +12,7 @@ mod action;
 use action::*;
 
 mod component;
-pub use component::DetailedEntityDescription;
 pub use component::Direction;
-pub use component::EntityDescription;
-pub use component::ExitDescription;
-pub use component::RoomConnectionEntityDescription;
-pub use component::RoomDescription;
-pub use component::RoomEntityDescription;
-pub use component::RoomLivingEntityDescription;
-pub use component::RoomObjectDescription;
 use component::*;
 
 mod time;
@@ -32,15 +24,8 @@ use input_parser::*;
 mod world_setup;
 use world_setup::*;
 
-/// A message from the game, such as the description of a location, a message describing the results of an action, etc.
-#[derive(Debug)]
-pub enum GameMessage {
-    Room(RoomDescription),
-    Entity(EntityDescription),
-    DetailedEntity(DetailedEntityDescription),
-    Message(String),
-    Error(String),
-}
+mod game_message;
+pub use game_message::*;
 
 #[derive(Component)]
 pub struct SpawnRoom;
@@ -67,6 +52,7 @@ impl StandardInputParsers {
                 Box::new(MoveParser),
                 Box::new(LookParser),
                 Box::new(OpenParser),
+                Box::new(HelpParser),
             ],
         }
     }
