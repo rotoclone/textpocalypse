@@ -15,9 +15,7 @@ pub fn set_up_world(world: &mut World) {
     let test_handler = NotificationHandler {
         handle_fn: handle_notification,
     };
-    let mut handlers = NotificationHandlers::new();
-    handlers.add_handler(test_handler);
-    world.insert_resource(handlers);
+    NotificationHandlers::add_handler(test_handler, world);
     // TODO notification handler test ^^^
 
     //

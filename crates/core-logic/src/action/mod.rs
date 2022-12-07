@@ -101,7 +101,7 @@ impl ActionResultBuilder {
     }
 }
 
-pub trait Action: std::fmt::Debug {
+pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform the action.
     fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
