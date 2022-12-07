@@ -8,7 +8,9 @@ use crate::{
     can_receive_messages,
     component::{Description, Location, OpenState, Room},
     input_parser::{InputParseError, InputParser},
-    move_entity, Direction, GameMessage, RoomDescription,
+    move_entity,
+    notification::{BeforeActionNotification, Notification},
+    Direction, GameMessage, RoomDescription,
 };
 
 use super::{Action, ActionResult};
@@ -46,8 +48,8 @@ impl InputParser for MoveParser {
 }
 
 #[derive(Debug)]
-struct MoveAction {
-    direction: Direction,
+pub struct MoveAction {
+    pub direction: Direction,
 }
 
 impl Action for MoveAction {
@@ -96,6 +98,18 @@ impl Action for MoveAction {
             messages,
             should_tick,
         }
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }
 

@@ -1,11 +1,25 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
+    action::MoveAction,
     component::{Connection, Description, OpenState, ParseCustomInput, Room},
-    move_entity, Direction, SpawnRoom,
+    move_entity,
+    notification::{
+        BeforeActionNotification, Notification, NotificationHandler, NotificationHandlers,
+    },
+    Direction, SpawnRoom,
 };
 
 pub fn set_up_world(world: &mut World) {
+    // TODO notification handler test vvv
+    let test_handler = NotificationHandler {
+        handle_fn: handle_notification,
+    };
+    let mut handlers = NotificationHandlers::new();
+    handlers.add_handler(test_handler);
+    world.insert_resource(handlers);
+    // TODO notification handler test ^^^
+
     //
     // rooms
     //
@@ -118,4 +132,12 @@ pub fn set_up_world(world: &mut World) {
         })
         .id();
     move_entity(large_thing_id, middle_room_id, world);
+}
+
+fn handle_notification(
+    notification: &Notification<BeforeActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    //TODO
+    println!("cool, a notification: {notification:?}");
 }

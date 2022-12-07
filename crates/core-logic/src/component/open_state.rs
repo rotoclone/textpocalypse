@@ -9,6 +9,7 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
+    notification::{BeforeActionNotification, Notification},
 };
 
 use super::{Connection, ParseCustomInput};
@@ -91,6 +92,18 @@ impl Action for SlamAction {
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
             true,
         )
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }
 

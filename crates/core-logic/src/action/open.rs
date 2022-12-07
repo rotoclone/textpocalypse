@@ -9,6 +9,7 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
+    notification::{BeforeActionNotification, Notification},
 };
 
 use super::{Action, ActionResult};
@@ -124,5 +125,17 @@ impl Action for OpenAction {
         } else {
             ActionResult::message(performing_entity, format!("You close {name}."), true)
         }
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }

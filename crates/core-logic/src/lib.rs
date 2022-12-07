@@ -27,6 +27,9 @@ use world_setup::*;
 mod game_message;
 pub use game_message::*;
 
+mod notification;
+use notification::*;
+
 #[derive(Component)]
 pub struct SpawnRoom;
 
@@ -181,8 +184,8 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
 /// Makes the provided entity perform the provided action.
 fn perform_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
     debug!("Entity {performing_entity:?} is performing action {action:?}");
+    action.send_before_notification(BeforeActionNotification { performing_entity }, world);
     let result = action.perform(performing_entity, world);
-
     if result.should_tick {
         tick(world);
     }

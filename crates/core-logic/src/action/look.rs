@@ -9,6 +9,7 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
+    notification::{BeforeActionNotification, Notification},
     DetailedEntityDescription, EntityDescription, GameMessage, RoomDescription, World,
 };
 
@@ -127,5 +128,17 @@ impl Action for LookAction {
         }
 
         ActionResult::error(performing_entity, "You can't see that.".to_string())
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }

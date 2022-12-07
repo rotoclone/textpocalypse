@@ -4,6 +4,7 @@ use regex::Regex;
 
 use crate::{
     input_parser::{InputParseError, InputParser},
+    notification::{BeforeActionNotification, Notification},
     GameMessage, HelpMessage, World,
 };
 
@@ -45,5 +46,17 @@ impl Action for HelpAction {
         ActionResult::builder_no_tick()
             .with_game_message(performing_entity, message)
             .build()
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }
