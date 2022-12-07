@@ -1,8 +1,7 @@
 use bevy_ecs::prelude::*;
-use std::any::Any;
 use std::collections::HashMap;
 
-use crate::notification::{BeforeActionNotification, Notification, NotificationType};
+use crate::notification::BeforeActionNotification;
 use crate::{GameMessage, World};
 
 mod look;
@@ -13,6 +12,7 @@ pub use r#move::MoveAction;
 pub use r#move::MoveParser;
 
 mod open;
+pub use open::OpenAction;
 pub use open::OpenParser;
 
 mod help;

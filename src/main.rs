@@ -162,23 +162,6 @@ fn direction_to_short_string(dir: Direction) -> String {
     .to_string()
 }
 
-/// Transforms the provided direction into a long string for display.
-fn direction_to_long_string(dir: Direction) -> String {
-    match dir {
-        Direction::North => "north",
-        Direction::NorthEast => "northeast",
-        Direction::East => "east",
-        Direction::SouthEast => "southeast",
-        Direction::South => "south",
-        Direction::SouthWest => "southwest",
-        Direction::West => "west",
-        Direction::NorthWest => "northwest",
-        Direction::Up => "up",
-        Direction::Down => "down",
-    }
-    .to_string()
-}
-
 /// Transforms the provided entity descriptions into a string for display as part of a room description.
 fn room_entities_to_string(entities: &[RoomEntityDescription]) -> String {
     if entities.is_empty() {
@@ -298,11 +281,7 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
             )
         };
 
-        let desc = format!(
-            "{} leads {}",
-            name,
-            style(direction_to_long_string(entity.direction)).bold(),
-        );
+        let desc = format!("{} leads {}", name, style(entity.direction).bold(),);
         descriptions.push(desc);
     }
 

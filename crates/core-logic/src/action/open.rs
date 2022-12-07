@@ -74,9 +74,9 @@ impl InputParser for OpenParser {
 }
 
 #[derive(Debug)]
-struct OpenAction {
-    target: Entity,
-    should_be_open: bool,
+pub struct OpenAction {
+    pub target: Entity,
+    pub should_be_open: bool,
 }
 
 impl Action for OpenAction {

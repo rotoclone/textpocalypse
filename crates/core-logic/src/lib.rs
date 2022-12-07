@@ -68,6 +68,8 @@ impl Game {
         world.insert_resource(Time::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
+        // TODO test removing this handler
+        NotificationHandlers::add_handler(auto_open_doors, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -237,4 +239,33 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
     world
         .get::<Description>(entity)
         .map_or("it".to_string(), |n| format!("the {}", n.name))
+}
+
+fn auto_open_doors(
+    notification: &Notification<BeforeActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    if let Some(current_location) =
+        world.get::<Location>(notification.notification_type.performing_entity)
+    {
+        if let Some(room) = world.get::<Room>(current_location.id) {
+            if let Some((connecting_entity, _)) =
+                room.get_connection_in_direction(&notification.contents.direction, world)
+            {
+                if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
+                    if !open_state.is_open {
+                        //TODO queue up the action instead so it's done all proper-like
+                        perform_action(
+                            world,
+                            notification.notification_type.performing_entity,
+                            Box::new(OpenAction {
+                                target: connecting_entity,
+                                should_be_open: true,
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

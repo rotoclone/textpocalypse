@@ -31,7 +31,7 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
             let handle_fns = handlers
                 .handlers
                 .values()
-                .map(|h| h.handle_fn)
+                .cloned()
                 .collect::<Vec<HandleFn<T, C>>>();
 
             for handle_fn in handle_fns {
@@ -43,15 +43,43 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
 
 type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
 
+/* TODO remove
 pub struct NotificationHandler<T: NotificationType, C: Send + Sync> {
     pub handle_fn: HandleFn<T, C>,
 }
+*/
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync> {
     value: u64,
     _t: PhantomData<fn(T)>,
     _c: PhantomData<fn(C)>,
+}
+
+// need to manually implement traits due to https://github.com/rust-lang/rust/issues/26925
+impl<T: NotificationType, C: Send + Sync> Clone for NotificationHandlerId<T, C> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value,
+            _t: PhantomData,
+            _c: PhantomData,
+        }
+    }
+}
+
+impl<T: NotificationType, C: Send + Sync> Copy for NotificationHandlerId<T, C> {}
+
+impl<T: NotificationType, C: Send + Sync> PartialEq for NotificationHandlerId<T, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T: NotificationType, C: Send + Sync> Eq for NotificationHandlerId<T, C> {}
+
+impl<T: NotificationType, C: Send + Sync> Hash for NotificationHandlerId<T, C> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
 }
 
 impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
@@ -63,7 +91,7 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
         }
     }
 
-    fn next(self) -> NotificationHandlerId<T, C> {
+    fn next(mut self) -> NotificationHandlerId<T, C> {
         self.value += 1;
         self
     }
@@ -72,10 +100,10 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
 #[derive(Resource)]
 pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
     next_id: NotificationHandlerId<T, C>,
-    handlers: HashMap<NotificationHandlerId<T, C>, NotificationHandler<T, C>>,
+    handlers: HashMap<NotificationHandlerId<T, C>, HandleFn<T, C>>,
 }
 
-impl<T: NotificationType, C: Send + Sync> NotificationHandlers<T, C> {
+impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C> {
     fn new() -> NotificationHandlers<T, C> {
         NotificationHandlers {
             next_id: NotificationHandlerId::new(),
@@ -83,24 +111,21 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlers<T, C> {
         }
     }
 
-    fn add(&mut self, handler: NotificationHandler<T, C>) -> NotificationHandlerId<T, C> {
+    fn add(&mut self, handle_fn: HandleFn<T, C>) -> NotificationHandlerId<T, C> {
         let id = self.next_id;
-        self.handlers.insert(id, handler);
+        self.handlers.insert(id, handle_fn);
         self.next_id = self.next_id.next();
 
         id
     }
 
-    /// Registers the provided handler.
-    pub fn add_handler(
-        handler: NotificationHandler<T, C>,
-        world: &mut World,
-    ) -> NotificationHandlerId<T, C> {
-        if let Some(handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+    /// Registers the provided handler function.
+    pub fn add_handler(handler: HandleFn<T, C>, world: &mut World) -> NotificationHandlerId<T, C> {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
             return handlers.add(handler);
         }
 
-        let handlers = NotificationHandlers::new();
+        let mut handlers = NotificationHandlers::new();
         let id = handlers.add(handler);
         world.insert_resource(handlers);
 
@@ -110,8 +135,8 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlers<T, C> {
     /// Removes the handler with the provided ID.
     pub fn remove_handler(id: NotificationHandlerId<T, C>, world: &mut World) {
         let mut remove_resource = false;
-        if let Some(handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
-            handlers.remove(id);
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+            handlers.handlers.remove(&id);
 
             if handlers.handlers.is_empty() {
                 remove_resource = true;
