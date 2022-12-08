@@ -119,7 +119,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
         id
     }
 
-    /// Registers the provided handler function.
+    /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
     pub fn add_handler(handler: HandleFn<T, C>, world: &mut World) -> NotificationHandlerId<T, C> {
         if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
             return handlers.add(handler);

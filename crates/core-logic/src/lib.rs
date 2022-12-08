@@ -68,7 +68,6 @@ impl Game {
         world.insert_resource(Time::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
-        // TODO test removing this handler
         NotificationHandlers::add_handler(auto_open_doors, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
