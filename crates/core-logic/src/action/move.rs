@@ -8,7 +8,9 @@ use crate::{
     can_receive_messages,
     component::{Description, Location, OpenState, Room},
     input_parser::{InputParseError, InputParser},
-    move_entity, Direction, GameMessage, RoomDescription,
+    move_entity,
+    notification::Notification,
+    BeforeActionNotification, Direction, GameMessage, RoomDescription,
 };
 
 use super::{Action, ActionResult};
@@ -46,8 +48,8 @@ impl InputParser for MoveParser {
 }
 
 #[derive(Debug)]
-struct MoveAction {
-    direction: Direction,
+pub struct MoveAction {
+    pub direction: Direction,
 }
 
 impl Action for MoveAction {
@@ -67,7 +69,6 @@ impl Action for MoveAction {
         if let Some((connecting_entity, connection)) =
             current_room.get_connection_in_direction(&self.direction, world)
         {
-            //TODO if the connecting entity is closed and can be opened, try to open it first
             if let Some(message) = invalid_move_message(connecting_entity, world) {
                 messages.insert(performing_entity, vec![message]);
             } else {
@@ -80,7 +81,11 @@ impl Action for MoveAction {
                         .get::<Room>(new_room_id)
                         .expect("Destination entity should be a room");
                     let room_desc = RoomDescription::from_room(new_room, performing_entity, world);
-                    messages.insert(performing_entity, vec![GameMessage::Room(room_desc)]);
+                    let message = format!("You walk {}.", self.direction);
+                    messages.insert(
+                        performing_entity,
+                        vec![GameMessage::Message(message), GameMessage::Room(room_desc)],
+                    );
                 }
             }
         } else if can_receive_messages {
@@ -96,6 +101,18 @@ impl Action for MoveAction {
             messages,
             should_tick,
         }
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }
 

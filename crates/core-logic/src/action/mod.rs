@@ -1,15 +1,19 @@
 use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 
+use crate::notification::NotificationType;
+use crate::BeforeActionNotification;
 use crate::{GameMessage, World};
 
 mod look;
 pub use look::LookParser;
 
 mod r#move;
+pub use r#move::MoveAction;
 pub use r#move::MoveParser;
 
 mod open;
+pub use open::OpenAction;
 pub use open::OpenParser;
 
 mod help;
@@ -98,7 +102,14 @@ impl ActionResultBuilder {
     }
 }
 
-pub trait Action: std::fmt::Debug {
+pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform the action.
     fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult;
+
+    /// Sends a notification that this action is about to be performed.
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    );
 }

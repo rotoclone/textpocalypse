@@ -9,6 +9,8 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
+    notification::Notification,
+    BeforeActionNotification,
 };
 
 use super::{Action, ActionResult};
@@ -73,9 +75,9 @@ impl InputParser for OpenParser {
 }
 
 #[derive(Debug)]
-struct OpenAction {
-    target: Entity,
-    should_be_open: bool,
+pub struct OpenAction {
+    pub target: Entity,
+    pub should_be_open: bool,
 }
 
 impl Action for OpenAction {
@@ -124,5 +126,17 @@ impl Action for OpenAction {
         } else {
             ActionResult::message(performing_entity, format!("You close {name}."), true)
         }
+    }
+
+    fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents: self,
+        }
+        .send(world);
     }
 }

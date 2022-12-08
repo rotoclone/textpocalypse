@@ -27,6 +27,25 @@ use world_setup::*;
 mod game_message;
 pub use game_message::*;
 
+mod notification;
+use notification::*;
+
+/// A notification sent before an action is performed.
+#[derive(Debug)]
+pub struct BeforeActionNotification {
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for BeforeActionNotification {}
+
+/// A notification sent after an action is performed.
+#[derive(Debug)]
+pub struct AfterActionNotification {
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for AfterActionNotification {}
+
 #[derive(Component)]
 pub struct SpawnRoom;
 
@@ -65,6 +84,7 @@ impl Game {
         world.insert_resource(Time::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
+        NotificationHandlers::add_handler(auto_open_doors, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -181,8 +201,8 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
 /// Makes the provided entity perform the provided action.
 fn perform_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
     debug!("Entity {performing_entity:?} is performing action {action:?}");
+    action.send_before_notification(BeforeActionNotification { performing_entity }, world);
     let result = action.perform(performing_entity, world);
-
     if result.should_tick {
         tick(world);
     }
@@ -234,4 +254,34 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
     world
         .get::<Description>(entity)
         .map_or("it".to_string(), |n| format!("the {}", n.name))
+}
+
+/// Attempts to open doors automatically before an attempt is made to move through a closed one.
+fn auto_open_doors(
+    notification: &Notification<BeforeActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    if let Some(current_location) =
+        world.get::<Location>(notification.notification_type.performing_entity)
+    {
+        if let Some(room) = world.get::<Room>(current_location.id) {
+            if let Some((connecting_entity, _)) =
+                room.get_connection_in_direction(&notification.contents.direction, world)
+            {
+                if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
+                    if !open_state.is_open {
+                        //TODO queue up the action instead so it's done all proper-like
+                        perform_action(
+                            world,
+                            notification.notification_type.performing_entity,
+                            Box::new(OpenAction {
+                                target: connecting_entity,
+                                should_be_open: true,
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bevy_ecs::prelude::*;
 
 /// Describes a connection an entity makes to another room.
@@ -41,5 +43,24 @@ impl Direction {
             "d" | "down" => Some(Direction::Down),
             _ => None,
         }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            Direction::North => "north",
+            Direction::NorthEast => "northeast",
+            Direction::East => "east",
+            Direction::SouthEast => "southeast",
+            Direction::South => "south",
+            Direction::SouthWest => "southwest",
+            Direction::West => "west",
+            Direction::NorthWest => "northwest",
+            Direction::Up => "up",
+            Direction::Down => "down",
+        };
+
+        write!(f, "{string}")
     }
 }
