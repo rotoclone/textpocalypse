@@ -13,3 +13,15 @@ Goals:
 Non-goals:
 * hyper-realism
 * having as many features as possible
+* being an MMO
+
+Planned features (in no particular order):
+* base building
+* "survival needs" (hunger, thirst, etc.)
+* stats/skills
+* combat
+* crafting
+* mini-map
+* audio
+* environmental hazards (extreme cold, radiation, etc.)
+* multiplayer
