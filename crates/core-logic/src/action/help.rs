@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     input_parser::{InputParseError, InputParser},
-    notification::{BeforeActionNotification, Notification},
-    GameMessage, HelpMessage, World,
+    notification::Notification,
+    BeforeActionNotification, GameMessage, HelpMessage, World,
 };
 
 use super::{Action, ActionResult};

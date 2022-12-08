@@ -9,8 +9,8 @@ use crate::{
     component::{Description, Location, OpenState, Room},
     input_parser::{InputParseError, InputParser},
     move_entity,
-    notification::{BeforeActionNotification, Notification},
-    Direction, GameMessage, RoomDescription,
+    notification::Notification,
+    BeforeActionNotification, Direction, GameMessage, RoomDescription,
 };
 
 use super::{Action, ActionResult};

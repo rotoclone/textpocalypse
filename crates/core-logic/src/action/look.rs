@@ -9,8 +9,9 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::{BeforeActionNotification, Notification},
-    DetailedEntityDescription, EntityDescription, GameMessage, RoomDescription, World,
+    notification::Notification,
+    BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
+    RoomDescription, World,
 };
 
 use super::{Action, ActionResult};

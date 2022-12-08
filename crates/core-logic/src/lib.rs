@@ -30,6 +30,22 @@ pub use game_message::*;
 mod notification;
 use notification::*;
 
+/// A notification sent before an action is performed.
+#[derive(Debug)]
+pub struct BeforeActionNotification {
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for BeforeActionNotification {}
+
+/// A notification sent after an action is performed.
+#[derive(Debug)]
+pub struct AfterActionNotification {
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for AfterActionNotification {}
+
 #[derive(Component)]
 pub struct SpawnRoom;
 
@@ -240,6 +256,7 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
         .map_or("it".to_string(), |n| format!("the {}", n.name))
 }
 
+/// Attempts to open doors automatically before an attempt is made to move through a closed one.
 fn auto_open_doors(
     notification: &Notification<BeforeActionNotification, MoveAction>,
     world: &mut World,

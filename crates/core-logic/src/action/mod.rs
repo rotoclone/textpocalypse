@@ -1,7 +1,8 @@
 use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 
-use crate::notification::BeforeActionNotification;
+use crate::notification::NotificationType;
+use crate::BeforeActionNotification;
 use crate::{GameMessage, World};
 
 mod look;

@@ -2,25 +2,15 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 
+/// Trait for types that represent a category of notifications.
 pub trait NotificationType: Debug + Send + Sync {}
 
-#[derive(Debug)]
-pub struct BeforeActionNotification {
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for BeforeActionNotification {}
-
-#[derive(Debug)]
-pub struct AfterActionNotification {
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for AfterActionNotification {}
-
+/// A notification.
 #[derive(Debug)]
 pub struct Notification<'c, T: NotificationType, Contents> {
+    /// The type of the notification.
     pub notification_type: T,
+    /// The contents of the notification.
     pub contents: &'c Contents,
 }
 
@@ -41,6 +31,11 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
     }
 }
 
+/// An identifier for a registered notification handler.
+///
+/// This is only unique to the notification type + contents type combo.
+/// For example, the first handler registered for `BeforeActionNotification` and `MoveAction` and the first one registered for
+/// `BeforeActionNotification` and `LookAction` will both have the same internal value, just different associated types.
 pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync> {
     value: u64,
     _t: PhantomData<fn(T)>,
@@ -75,6 +70,7 @@ impl<T: NotificationType, C: Send + Sync> Hash for NotificationHandlerId<T, C> {
 }
 
 impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
+    /// Creates a new notification handler ID with the minimum starting value.
     fn new() -> NotificationHandlerId<T, C> {
         NotificationHandlerId {
             value: 0,
@@ -83,21 +79,27 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
         }
     }
 
+    /// Increments this notification handler ID's value.
     fn next(mut self) -> NotificationHandlerId<T, C> {
         self.value += 1;
         self
     }
 }
 
+/// Signature of a funtion to handle notifications.
 type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
 
+/// The set of notification handlers for a single notification type and contents type combination.
 #[derive(Resource)]
 pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
+    /// The ID to be assigned to the next registered handler.
     next_id: NotificationHandlerId<T, C>,
+    /// The handlers, keyed by their assigned IDs.
     handlers: HashMap<NotificationHandlerId<T, C>, HandleFn<T, C>>,
 }
 
 impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C> {
+    /// Creates a new, empty set of handlers.
     fn new() -> NotificationHandlers<T, C> {
         NotificationHandlers {
             next_id: NotificationHandlerId::new(),
@@ -105,6 +107,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
         }
     }
 
+    /// Adds the provided handler to this set of handlers and returns its assigned ID.
     fn add(&mut self, handle_fn: HandleFn<T, C>) -> NotificationHandlerId<T, C> {
         let id = self.next_id;
         self.handlers.insert(id, handle_fn);

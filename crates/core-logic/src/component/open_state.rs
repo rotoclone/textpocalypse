@@ -9,7 +9,8 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::{BeforeActionNotification, Notification},
+    notification::Notification,
+    BeforeActionNotification,
 };
 
 use super::{Connection, ParseCustomInput};
