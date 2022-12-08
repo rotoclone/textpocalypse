@@ -41,14 +41,6 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
     }
 }
 
-type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
-
-/* TODO remove
-pub struct NotificationHandler<T: NotificationType, C: Send + Sync> {
-    pub handle_fn: HandleFn<T, C>,
-}
-*/
-
 pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync> {
     value: u64,
     _t: PhantomData<fn(T)>,
@@ -96,6 +88,8 @@ impl<T: NotificationType, C: Send + Sync> NotificationHandlerId<T, C> {
         self
     }
 }
+
+type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
 
 #[derive(Resource)]
 pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
