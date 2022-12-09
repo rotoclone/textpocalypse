@@ -13,7 +13,10 @@ use crate::{
     BeforeActionNotification,
 };
 
-use super::{Connection, ParseCustomInput};
+use super::{
+    description::{AttributeType, DescribeAttributes},
+    AttributeDescriber, AttributeDescription, Connection, ParseCustomInput,
+};
 
 const SLAM_VERB_NAME: &str = "slam";
 const SLAM_FORMAT: &str = "slam <>";
@@ -136,5 +139,30 @@ impl OpenState {
 impl ParseCustomInput for OpenState {
     fn get_parser() -> Box<dyn InputParser> {
         Box::new(SlamParser)
+    }
+}
+
+/// Describes whether the entity is open or not.
+#[derive(Debug)]
+struct OpenStateAttributeDescriber;
+
+impl AttributeDescriber for OpenStateAttributeDescriber {
+    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription> {
+        if let Some(open_state) = world.get::<OpenState>(entity) {
+            let description = if open_state.is_open { "open" } else { "closed" };
+
+            return vec![AttributeDescription {
+                attribute_type: AttributeType::Is,
+                description: description.to_string(),
+            }];
+        }
+
+        Vec::new()
+    }
+}
+
+impl DescribeAttributes for OpenState {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(OpenStateAttributeDescriber)
     }
 }

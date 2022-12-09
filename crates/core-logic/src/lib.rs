@@ -3,7 +3,6 @@ use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
 use std::{
-    collections::HashSet,
     sync::{Arc, RwLock},
     thread,
 };
@@ -12,7 +11,8 @@ mod action;
 use action::*;
 
 mod component;
-pub use component::Direction;
+pub use component::AttributeDescription;
+pub use component::AttributeType;
 use component::*;
 
 mod time;
@@ -29,6 +29,9 @@ pub use game_message::*;
 
 mod notification;
 use notification::*;
+
+mod direction;
+pub use direction::Direction;
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]
@@ -102,8 +105,9 @@ impl Game {
             name: name.clone(),
             room_name: name,
             article: None,
-            aliases: HashSet::new(),
+            aliases: Vec::new(),
             description: "A human-shaped person-type thing.".to_string(),
+            attribute_describers: Vec::new(),
         };
         let message_channel = MessageChannel {
             sender: messages_sender,

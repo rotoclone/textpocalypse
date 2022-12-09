@@ -19,9 +19,10 @@ use std::{
 };
 
 use core_logic::{
-    ActionDescription, DetailedEntityDescription, Direction, EntityDescription, ExitDescription,
-    Game, GameMessage, HelpMessage, RoomConnectionEntityDescription, RoomDescription,
-    RoomEntityDescription, RoomLivingEntityDescription, RoomObjectDescription, Time,
+    ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
+    EntityDescription, ExitDescription, Game, GameMessage, HelpMessage,
+    RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
+    RoomLivingEntityDescription, RoomObjectDescription, Time,
 };
 
 const PROMPT: &str = "\n> ";
@@ -184,11 +185,7 @@ fn room_entities_to_string(entities: &[RoomEntityDescription]) -> String {
     let object_entities = object_entities_to_string(&object_entity_descriptions);
     let connection_entities = connection_entities_to_string(&connection_entity_descriptions);
 
-    [living_entities, object_entities, connection_entities]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<String>>()
-        .join("\n\n")
+    [living_entities, object_entities, connection_entities].join("\n\n")
 }
 
 /// Transforms the provided living entity descriptions into a string for display as part of a room description.
@@ -299,8 +296,49 @@ fn entity_to_string(entity: EntityDescription) -> String {
             .to_string()
     };
     let desc = entity.description;
+    let attributes = entity_attributes_to_string(&entity.attributes)
+        .map_or_else(|| "".to_string(), |s| format!("\n\n{s}"));
 
-    format!("{name}{aliases}\n{desc}")
+    format!("{name}{aliases}\n{desc}{attributes}")
+}
+
+/// Transforms the provided entity attribute descriptions into a string for display.
+fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<String> {
+    if attributes.is_empty() {
+        return None;
+    }
+
+    let mut is_descriptions = Vec::new();
+    let mut does_descriptions = Vec::new();
+    let mut has_descriptions = Vec::new();
+    for attribute in attributes {
+        let description = attribute.description.clone();
+        match attribute.attribute_type {
+            AttributeType::Is => is_descriptions.push(description),
+            AttributeType::Does => does_descriptions.push(description),
+            AttributeType::Has => has_descriptions.push(description),
+        }
+    }
+
+    let is_description = if is_descriptions.is_empty() {
+        None
+    } else {
+        Some(format!("It's {}.", format_list(&is_descriptions)))
+    };
+
+    let does_description = if does_descriptions.is_empty() {
+        None
+    } else {
+        Some(format!("It {}.", format_list(&does_descriptions)))
+    };
+
+    let has_description = if has_descriptions.is_empty() {
+        None
+    } else {
+        Some(format!("It has {}.", format_list(&has_descriptions)))
+    };
+
+    Some([is_description, does_description, has_description].join("\n\n"))
 }
 
 /// Transforms the provided detailed entity description into a string for display.
@@ -308,11 +346,7 @@ fn detailed_entity_to_string(entity: DetailedEntityDescription) -> String {
     let basic_desc = Some(entity_to_string(entity.basic_desc));
     let actions = action_descriptions_to_string("Actions:", &entity.actions);
 
-    [basic_desc, actions]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<String>>()
-        .join("\n\n")
+    [basic_desc, actions].join("\n\n")
 }
 
 /// Transforms the provided help message into a string for display.
@@ -365,4 +399,17 @@ fn format_list(items: &[String]) -> String {
     }
 
     string
+}
+
+trait Join<T> {
+    fn join(self, between: &str) -> T;
+}
+
+impl<const N: usize> Join<String> for [Option<String>; N] {
+    fn join(self, between: &str) -> String {
+        self.into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join(between)
+    }
 }

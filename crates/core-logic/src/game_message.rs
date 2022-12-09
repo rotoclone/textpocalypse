@@ -4,8 +4,9 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    component::{Connection, Description, Direction, Room},
+    component::{AttributeDescription, Connection, Description, Room},
     input_parser::find_parsers_relevant_for,
+    Direction,
 };
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
@@ -30,16 +31,23 @@ pub struct EntityDescription {
     pub article: Option<String>,
     /// The description of the entity.
     pub description: String,
+    /// Descriptions of dynamic attributes of the entity.
+    pub attributes: Vec<AttributeDescription>,
 }
 
 impl EntityDescription {
-    /// Creates an entity description from a `Description`.
-    pub fn from_description(desc: &Description) -> EntityDescription {
+    /// Creates an entity description for `entity`.
+    pub fn for_entity(entity: Entity, desc: &Description, world: &World) -> EntityDescription {
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
             article: desc.article.clone(),
             description: desc.description.clone(),
+            attributes: desc
+                .attribute_describers
+                .iter()
+                .flat_map(|d| d.describe(entity, world))
+                .collect(),
         }
     }
 }
@@ -69,7 +77,7 @@ impl DetailedEntityDescription {
         world: &World,
     ) -> DetailedEntityDescription {
         DetailedEntityDescription {
-            basic_desc: EntityDescription::from_description(desc),
+            basic_desc: EntityDescription::for_entity(entity, desc, world),
             actions: build_action_descriptions_for_entity(looking_entity, entity, world),
         }
     }

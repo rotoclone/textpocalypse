@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    component::{Connection, Description, OpenState, ParseCustomInput, Room},
+    component::{Connection, DescribeAttributes, Description, OpenState, ParseCustomInput, Room},
     move_entity, Direction, SpawnRoom,
 };
 
@@ -43,8 +43,12 @@ pub fn set_up_world(world: &mut World) {
                 name: "fancy door to the north".to_string(),
                 room_name: "fancy door".to_string(),
                 article: Some("a".to_string()),
-                aliases: ["door".to_string(), "north".to_string(), "n".to_string()].into(),
+                aliases: vec!["door".to_string(), "north".to_string(), "n".to_string()],
                 description: "A fancy-looking door.".to_string(),
+                attribute_describers: vec![
+                    Connection::get_attribute_describer(),
+                    OpenState::get_attribute_describer(),
+                ],
             },
             Connection {
                 direction: Direction::North,
@@ -62,8 +66,12 @@ pub fn set_up_world(world: &mut World) {
             name: "fancy door to the south".to_string(),
             room_name: "fancy door".to_string(),
             article: Some("a".to_string()),
-            aliases: ["door".to_string(), "south".to_string(), "s".to_string()].into(),
+            aliases: vec!["door".to_string(), "south".to_string(), "s".to_string()],
             description: "A fancy-looking door.".to_string(),
+            attribute_describers: vec![
+                Connection::get_attribute_describer(),
+                OpenState::get_attribute_describer(),
+            ],
         },
         Connection {
             direction: Direction::South,
@@ -102,8 +110,9 @@ pub fn set_up_world(world: &mut World) {
             name: "small thing".to_string(),
             room_name: "small thing".to_string(),
             article: Some("a".to_string()),
-            aliases: ["thing".to_string()].into(),
+            aliases: vec!["thing".to_string()],
             description: "Some kind of smallish thing.".to_string(),
+            attribute_describers: Vec::new(),
         })
         .id();
     move_entity(small_thing_id, middle_room_id, world);
@@ -113,8 +122,9 @@ pub fn set_up_world(world: &mut World) {
             name: "large thing".to_string(),
             room_name: "large thing".to_string(),
             article: Some("a".to_string()),
-            aliases: ["thing".to_string()].into(),
+            aliases: vec!["thing".to_string()],
             description: "Some kind of largeish thing.".to_string(),
+            attribute_describers: Vec::new(),
         })
         .id();
     move_entity(large_thing_id, middle_room_id, world);
