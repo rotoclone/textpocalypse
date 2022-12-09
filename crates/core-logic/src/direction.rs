@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+/// Directions in which different rooms can be connected.
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Direction {
     North,
