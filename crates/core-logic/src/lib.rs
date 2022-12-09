@@ -12,6 +12,8 @@ mod action;
 use action::*;
 
 mod component;
+pub use component::AttributeDescription;
+pub use component::AttributeType;
 pub use component::Direction;
 use component::*;
 
@@ -102,8 +104,9 @@ impl Game {
             name: name.clone(),
             room_name: name,
             article: None,
-            aliases: HashSet::new(),
+            aliases: Vec::new(),
             description: "A human-shaped person-type thing.".to_string(),
+            attribute_describers: Vec::new(),
         };
         let message_channel = MessageChannel {
             sender: messages_sender,

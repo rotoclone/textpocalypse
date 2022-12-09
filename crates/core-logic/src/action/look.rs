@@ -121,7 +121,7 @@ impl Action for LookAction {
                     world,
                 ))
             } else {
-                GameMessage::Entity(EntityDescription::from_description(desc))
+                GameMessage::Entity(EntityDescription::for_entity(self.target, desc, world))
             };
             return ActionResult::builder_no_tick()
                 .with_game_message(performing_entity, message)
