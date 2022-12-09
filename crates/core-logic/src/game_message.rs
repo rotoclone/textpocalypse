@@ -4,8 +4,9 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    component::{AttributeDescription, Connection, Description, Direction, Room},
+    component::{AttributeDescription, Connection, Description, Room},
     input_parser::find_parsers_relevant_for,
+    Direction,
 };
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.

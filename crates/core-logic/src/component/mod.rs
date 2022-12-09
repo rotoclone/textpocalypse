@@ -19,7 +19,6 @@ pub use room::Room;
 
 mod connection;
 pub use connection::Connection;
-pub use connection::Direction;
 
 mod open_state;
 pub use open_state::OpenState;

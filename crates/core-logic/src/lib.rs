@@ -3,7 +3,6 @@ use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
 use std::{
-    collections::HashSet,
     sync::{Arc, RwLock},
     thread,
 };
@@ -14,7 +13,6 @@ use action::*;
 mod component;
 pub use component::AttributeDescription;
 pub use component::AttributeType;
-pub use component::Direction;
 use component::*;
 
 mod time;
@@ -31,6 +29,9 @@ pub use game_message::*;
 
 mod notification;
 use notification::*;
+
+mod direction;
+pub use direction::Direction;
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]

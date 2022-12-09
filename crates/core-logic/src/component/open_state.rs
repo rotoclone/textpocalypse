@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    description::{self, AttributeType, DescribeAttributes},
+    description::{AttributeType, DescribeAttributes},
     AttributeDescriber, AttributeDescription, Connection, ParseCustomInput,
 };
 
