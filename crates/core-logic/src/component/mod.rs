@@ -26,10 +26,3 @@ pub use open_state::OpenState;
 mod custom_input_parser;
 pub use custom_input_parser::CustomInputParser;
 pub use custom_input_parser::ParseCustomInput;
-
-/* TODO remove?
-mod attribute_describers;
-pub use attribute_describers::AttributeDescriber;
-pub use attribute_describers::AttributeDescribers;
-pub use attribute_describers::AttributeDescription;
-*/
