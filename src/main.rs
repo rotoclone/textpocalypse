@@ -16,6 +16,7 @@ use std::{
         Arc,
     },
     thread,
+    time::Duration,
 };
 
 use core_logic::{
@@ -27,6 +28,7 @@ use core_logic::{
 
 const PROMPT: &str = "\n> ";
 const FIRST_PM_HOUR: u8 = 12;
+const MESSAGE_PRINT_DELAY: Duration = Duration::from_millis(250);
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -52,6 +54,7 @@ fn main() -> Result<()> {
             };
             debug!("Got message: {message:?}");
             render_message(message, game_time).unwrap();
+            thread::sleep(MESSAGE_PRINT_DELAY);
         })?;
 
     let mut input_buf = String::new();

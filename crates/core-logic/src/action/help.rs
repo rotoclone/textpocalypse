@@ -40,12 +40,12 @@ impl InputParser for HelpParser {
 struct HelpAction;
 
 impl Action for HelpAction {
-    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let message = GameMessage::Help(HelpMessage::for_entity(performing_entity, world));
 
-        ActionResult::builder_no_tick()
+        ActionResult::builder()
             .with_game_message(performing_entity, message)
-            .build()
+            .build_complete_no_tick()
     }
 
     fn send_before_notification(

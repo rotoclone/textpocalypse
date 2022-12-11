@@ -53,7 +53,7 @@ pub struct MoveAction {
 }
 
 impl Action for MoveAction {
-    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let current_room_id = world
             .get::<Location>(performing_entity)
             .expect("Moving entity should have a location")
@@ -100,6 +100,7 @@ impl Action for MoveAction {
         ActionResult {
             messages,
             should_tick,
+            is_complete: true,
         }
     }
 

@@ -185,6 +185,8 @@ pub enum CommandParseError {
     MissingTarget,
     /// A provided target is not in the presence of the entity that provided the input.
     TargetNotFound(CommandTarget),
+    /// Something else is wrong with a custom message.
+    Other(String),
 }
 
 pub trait InputParser: Send + Sync {
