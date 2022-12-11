@@ -90,7 +90,7 @@ struct LookAction {
 }
 
 impl Action for LookAction {
-    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         if !can_receive_messages(world, performing_entity) {
             return ActionResult::none();
         }
@@ -98,18 +98,12 @@ impl Action for LookAction {
         let target = world.entity(self.target);
 
         if let Some(room) = target.get::<Room>() {
-            return ActionResult {
-                messages: [(
+            return ActionResult::builder()
+                .with_game_message(
                     performing_entity,
-                    vec![GameMessage::Room(RoomDescription::from_room(
-                        room,
-                        performing_entity,
-                        world,
-                    ))],
-                )]
-                .into(),
-                should_tick: false,
-            };
+                    GameMessage::Room(RoomDescription::from_room(room, performing_entity, world)),
+                )
+                .build_complete_no_tick();
         }
 
         if let Some(desc) = target.get::<Description>() {
@@ -123,9 +117,9 @@ impl Action for LookAction {
             } else {
                 GameMessage::Entity(EntityDescription::for_entity(self.target, desc, world))
             };
-            return ActionResult::builder_no_tick()
+            return ActionResult::builder()
                 .with_game_message(performing_entity, message)
-                .build();
+                .build_complete_no_tick();
         }
 
         ActionResult::error(performing_entity, "You can't see that.".to_string())

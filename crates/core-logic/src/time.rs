@@ -3,13 +3,13 @@ use std::time::Duration;
 use bevy_ecs::system::Resource;
 use log::debug;
 
-const SECONDS_PER_MINUTE: u8 = 60;
-const MINUTES_PER_HOUR: u8 = 60;
-const HOURS_PER_DAY: u8 = 24;
-const SECONDS_PER_HOUR: u64 = SECONDS_PER_MINUTE as u64 * MINUTES_PER_HOUR as u64;
-const SECONDS_PER_DAY: u64 = SECONDS_PER_HOUR * HOURS_PER_DAY as u64;
+pub const SECONDS_PER_MINUTE: u8 = 60;
+pub const MINUTES_PER_HOUR: u8 = 60;
+pub const HOURS_PER_DAY: u8 = 24;
+pub const SECONDS_PER_HOUR: u64 = SECONDS_PER_MINUTE as u64 * MINUTES_PER_HOUR as u64;
+pub const SECONDS_PER_DAY: u64 = SECONDS_PER_HOUR * HOURS_PER_DAY as u64;
 
-const TICK_DURATION: Duration = Duration::from_secs(15);
+pub const TICK_DURATION: Duration = Duration::from_secs(15);
 const START_DAY: u64 = 1;
 const START_HOUR: u8 = 7;
 const START_MINUTE: u8 = 0;

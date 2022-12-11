@@ -18,9 +18,17 @@ pub use open::OpenParser;
 mod help;
 pub use help::HelpParser;
 
+mod wait;
+pub use wait::WaitParser;
+
+/// The result of a single tick of an action being performed.
 pub struct ActionResult {
+    /// Any messages that should be sent.
     pub messages: HashMap<Entity, Vec<GameMessage>>,
+    /// Whether a tick should happen due to the action being performed.
     pub should_tick: bool,
+    /// Whether the action is now complete. If this is false, `perform` will be called on the action again.
+    pub is_complete: bool,
 }
 
 impl ActionResult {
@@ -29,42 +37,32 @@ impl ActionResult {
         ActionResult {
             messages: HashMap::new(),
             should_tick: false,
+            is_complete: true,
         }
     }
 
-    /// Creates an action result with a single message for an entity.
+    /// Creates an action result with a single message for an entity, denoting that the action is complete.
     pub fn message(entity_id: Entity, message: String, should_tick: bool) -> ActionResult {
         ActionResult {
             messages: [(entity_id, vec![GameMessage::Message(message)])].into(),
             should_tick,
+            is_complete: true,
         }
     }
 
-    /// Creates an action result with a single error message for an entity.
+    /// Creates an action result with a single error message for an entity, denoting that the action is complete and a tick should not happen.
     pub fn error(entity_id: Entity, message: String) -> ActionResult {
         ActionResult {
             messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
             should_tick: false,
+            is_complete: true,
         }
     }
 
-    /// Creates an `ActionResultBuilder` with `should_tick` set to false.
-    pub fn builder_no_tick() -> ActionResultBuilder {
+    /// Creates an `ActionResultBuilder`.
+    pub fn builder() -> ActionResultBuilder {
         ActionResultBuilder {
-            result: ActionResult {
-                messages: HashMap::new(),
-                should_tick: false,
-            },
-        }
-    }
-
-    /// Creates an `ActionResultBuilder` with `should_tick` set to true.
-    pub fn builder_should_tick() -> ActionResultBuilder {
-        ActionResultBuilder {
-            result: ActionResult {
-                messages: HashMap::new(),
-                should_tick: false,
-            },
+            result: ActionResult::none(),
         }
     }
 }
@@ -74,8 +72,24 @@ pub struct ActionResultBuilder {
 }
 
 impl ActionResultBuilder {
-    /// Builds the `ActionResult`.
-    pub fn build(self) -> ActionResult {
+    /// Builds the `ActionResult`, denoting that the action has been completed and a tick should happen.
+    pub fn build_complete_should_tick(mut self) -> ActionResult {
+        self.result.should_tick = true;
+        self.result.is_complete = true;
+        self.result
+    }
+
+    /// Builds the `ActionResult`, denoting that the action has been completed and a tick should not happen.
+    pub fn build_complete_no_tick(mut self) -> ActionResult {
+        self.result.should_tick = false;
+        self.result.is_complete = true;
+        self.result
+    }
+
+    /// Builds the `ActionResult`, denoting that the action has not been completed.
+    pub fn build_incomplete(mut self) -> ActionResult {
+        self.result.should_tick = true;
+        self.result.is_complete = false;
         self.result
     }
 
@@ -102,8 +116,8 @@ impl ActionResultBuilder {
 }
 
 pub trait Action: std::fmt::Debug + Send + Sync {
-    /// Called when the provided entity should perform the action.
-    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult;
+    /// Called when the provided entity should perform one tick of the action.
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
     /// Sends a notification that this action is about to be performed.
     fn send_before_notification(

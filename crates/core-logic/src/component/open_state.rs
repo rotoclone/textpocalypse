@@ -72,7 +72,7 @@ struct SlamAction {
 }
 
 impl Action for SlamAction {
-    fn perform(&self, performing_entity: Entity, world: &mut World) -> ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let state = match world.get::<OpenState>(self.target) {
             Some(s) => s,
             None => {

@@ -74,6 +74,7 @@ impl StandardInputParsers {
                 Box::new(MoveParser),
                 Box::new(LookParser),
                 Box::new(OpenParser),
+                Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
         }
@@ -196,6 +197,7 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
             CommandParseError::TargetNotFound(t) => {
                 format!("There is no '{t}' here.")
             }
+            CommandParseError::Other(e) => e,
         },
     };
 
@@ -203,18 +205,26 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
 }
 
 /// Makes the provided entity perform the provided action.
-fn perform_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
+fn perform_action(world: &mut World, performing_entity: Entity, mut action: Box<dyn Action>) {
     debug!("Entity {performing_entity:?} is performing action {action:?}");
     action.send_before_notification(BeforeActionNotification { performing_entity }, world);
-    let result = action.perform(performing_entity, world);
-    if result.should_tick {
-        tick(world);
-    }
-
-    for (entity_id, messages) in result.messages {
-        for message in messages {
-            send_message(world, entity_id, message);
+    loop {
+        let result = action.perform(performing_entity, world);
+        for (entity_id, messages) in result.messages {
+            for message in messages {
+                send_message(world, entity_id, message);
+            }
         }
+
+        if result.should_tick {
+            tick(world);
+        }
+
+        if result.is_complete {
+            break;
+        }
+
+        //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
     }
 }
 
