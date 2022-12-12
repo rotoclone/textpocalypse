@@ -21,8 +21,8 @@ use std::{
 
 use core_logic::{
     ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
-    EntityDescription, ExitDescription, Game, GameMessage, HelpMessage,
-    RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
+    EntityDescription, ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription,
+    MapIcon, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
     RoomLivingEntityDescription, RoomObjectDescription, Time,
 };
 
@@ -102,6 +102,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
 
 /// Transforms the provided room description into a string for display.
 fn room_to_string(room: RoomDescription, time: Time) -> String {
+    let map = map_to_string(&room.map);
     let name = style(room.name).bold();
     let time = style(format!("({})", time_to_string(time))).dark_grey();
     let desc = room.description;
@@ -112,7 +113,62 @@ fn room_to_string(room: RoomDescription, time: Time) -> String {
     };
     let exits = format!("Exits: {}", exits_to_string(room.exits));
 
-    format!("{name} {time}\n\n{desc}{entities}\n\n{exits}")
+    format!("{map}\n\n{name} {time}\n\n{desc}{entities}\n\n{exits}")
+}
+
+/// Transforms the provided map into a string for display.
+fn map_to_string<const S: usize>(map: &MapDescription<S>) -> String {
+    let mut output = String::new();
+    for (row_index, row) in map.tiles.iter().enumerate() {
+        for icon in row {
+            output.push_str(&map_icon_to_string(icon));
+        }
+        if row_index < S - 1 {
+            output.push('\n');
+        }
+    }
+
+    output
+}
+
+/// Transforms the provided map icon into a string for display.
+fn map_icon_to_string(icon: &MapIcon) -> String {
+    let mut output = String::new();
+    for map_char in icon.chars {
+        output.push_str(&map_char_to_string(&map_char));
+    }
+
+    output
+}
+
+/// Transforms the provided map character into a string for display.
+fn map_char_to_string(map_char: &MapChar) -> String {
+    style(map_char.value)
+        .on(convert_game_color_to_term_color(&map_char.bg_color))
+        .with(convert_game_color_to_term_color(&map_char.fg_color))
+        .to_string()
+}
+
+/// Converts the provided game color to its corresponding terminal color.
+fn convert_game_color_to_term_color(color: &core_logic::Color) -> crossterm::style::Color {
+    match color {
+        core_logic::Color::Black => crossterm::style::Color::Black,
+        core_logic::Color::DarkGray => crossterm::style::Color::DarkGrey,
+        core_logic::Color::Red => crossterm::style::Color::Red,
+        core_logic::Color::DarkRed => crossterm::style::Color::DarkRed,
+        core_logic::Color::Green => crossterm::style::Color::Green,
+        core_logic::Color::DarkGreen => crossterm::style::Color::DarkGreen,
+        core_logic::Color::Yellow => crossterm::style::Color::Yellow,
+        core_logic::Color::DarkYellow => crossterm::style::Color::DarkYellow,
+        core_logic::Color::Blue => crossterm::style::Color::Blue,
+        core_logic::Color::DarkBlue => crossterm::style::Color::DarkBlue,
+        core_logic::Color::Magenta => crossterm::style::Color::Magenta,
+        core_logic::Color::DarkMagenta => crossterm::style::Color::DarkMagenta,
+        core_logic::Color::Cyan => crossterm::style::Color::Cyan,
+        core_logic::Color::DarkCyan => crossterm::style::Color::DarkCyan,
+        core_logic::Color::White => crossterm::style::Color::White,
+        core_logic::Color::Gray => crossterm::style::Color::Grey,
+    }
 }
 
 /// Transforms the provided time into a string for display.

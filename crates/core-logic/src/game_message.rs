@@ -1,13 +1,27 @@
-use std::iter::once;
+use std::{array, iter::once};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use lazy_static::lazy_static;
 
 use crate::{
-    component::{AttributeDescription, Connection, Description, Room},
+    color::Color,
+    component::{AttributeDescription, Connection, Description, Location, Room},
+    game_map::{Coordinates, GameMap, MapChar, MapIcon},
     input_parser::find_parsers_relevant_for,
     Direction,
 };
+
+const PLAYER_MAP_CHAR: MapChar = MapChar {
+    bg_color: Color::Black,
+    fg_color: Color::Green,
+    value: '@',
+};
+
+lazy_static! {
+    static ref BLANK_ICON: MapIcon =
+        MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.', '.']);
+}
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug)]
@@ -181,6 +195,7 @@ pub struct RoomDescription {
     pub description: String,
     pub entities: Vec<RoomEntityDescription>,
     pub exits: Vec<ExitDescription>,
+    pub map: MapDescription<3>,
 }
 
 impl RoomDescription {
@@ -198,6 +213,7 @@ impl RoomDescription {
             description: room.description.clone(),
             entities: entity_descriptions,
             exits: ExitDescription::from_room(room, world),
+            map: MapDescription::for_entity(pov_entity, world),
         }
     }
 }
@@ -211,6 +227,7 @@ pub struct ExitDescription {
 impl ExitDescription {
     /// Creates a list of exit descriptions for the provided room
     pub fn from_room(room: &Room, world: &World) -> Vec<ExitDescription> {
+        // TODO order connections consistently
         room.get_connections(world)
             .iter()
             .map(|(_, connection)| {
@@ -224,6 +241,68 @@ impl ExitDescription {
             })
             .collect()
     }
+}
+
+/// A collection of tiles around an entity.
+#[derive(Debug)]
+pub struct MapDescription<const S: usize> {
+    /// The tiles in the map. Formatted as an array of rows.
+    pub tiles: [[MapIcon; S]; S],
+}
+
+impl<const S: usize> MapDescription<S> {
+    /// Creates a map centered on the location of the provided entity.
+    fn for_entity(pov_entity: Entity, world: &World) -> MapDescription<S> {
+        let center_coords = find_coordinates_of_entity(pov_entity, world);
+        let center_index = S / 2;
+
+        let tiles = array::from_fn(|row_index| {
+            array::from_fn(|col_index| {
+                if row_index == center_index && col_index == center_index {
+                    let mut icon = icon_for_coords(center_coords, world);
+                    icon.replace_center_char(PLAYER_MAP_CHAR);
+                    return icon;
+                }
+
+                let x = center_coords.x + (col_index as i64 - center_index as i64);
+                let y = center_coords.y - (row_index as i64 - center_index as i64);
+                let z = center_coords.z;
+                let parent = center_coords.parent.clone();
+
+                icon_for_coords(&Coordinates { x, y, z, parent }, world)
+            })
+        });
+
+        MapDescription { tiles }
+    }
+}
+
+/// Finds the coordinates of the location the provided entity is in.
+///
+/// Panics if the entity does not have a location with coordinates.
+fn find_coordinates_of_entity(entity: Entity, world: &World) -> &Coordinates {
+    let location = world
+        .get::<Location>(entity)
+        .expect("entity should have a location");
+
+    world
+        .get::<Coordinates>(location.id)
+        .expect("entity should be located in an entity with coordinates")
+}
+
+/// Finds the icon associated with the room at the provided location.
+///
+/// Panics if the provided coordinates map to an entity that isn't a room.
+fn icon_for_coords(coords: &Coordinates, world: &World) -> MapIcon {
+    if let Some(entity) = world.resource::<GameMap>().locations.get(coords) {
+        return world
+            .get::<Room>(*entity)
+            .expect("coordinates should map to a room")
+            .map_icon
+            .clone();
+    }
+
+    BLANK_ICON.clone()
 }
 
 #[derive(Debug)]

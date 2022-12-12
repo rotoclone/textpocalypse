@@ -33,6 +33,14 @@ use notification::*;
 mod direction;
 pub use direction::Direction;
 
+mod game_map;
+pub use game_map::MapChar;
+pub use game_map::MapIcon;
+use game_map::*;
+
+mod color;
+pub use color::Color;
+
 /// A notification sent before an action is performed.
 #[derive(Debug)]
 pub struct BeforeActionNotification {
@@ -86,6 +94,7 @@ impl Game {
     pub fn new() -> Game {
         let mut world = World::new();
         world.insert_resource(Time::new());
+        world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
         NotificationHandlers::add_handler(auto_open_doors, &mut world);

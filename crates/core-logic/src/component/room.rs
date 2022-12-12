@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 
-use crate::{component::Description, Direction, World};
+use crate::{component::Description, game_map::MapIcon, Direction, World};
 
 use super::Connection;
 
@@ -10,15 +10,17 @@ use super::Connection;
 pub struct Room {
     pub name: String,
     pub description: String,
+    pub map_icon: MapIcon,
     pub entities: HashSet<Entity>,
 }
 
 impl Room {
     /// Creates a new empty room not connected to anywhere.
-    pub fn new(name: String, description: String) -> Room {
+    pub fn new(name: String, description: String, map_icon: MapIcon) -> Room {
         Room {
             name,
             description,
+            map_icon,
             entities: HashSet::new(),
         }
     }
