@@ -40,7 +40,6 @@ use game_map::*;
 
 mod color;
 pub use color::Color;
-use color::*;
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]
