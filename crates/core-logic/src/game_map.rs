@@ -4,6 +4,9 @@ use bevy_ecs::prelude::*;
 
 use crate::color::Color;
 
+/// The number of characters in the icon for a map tile.
+pub const CHARS_PER_TILE: usize = 3;
+
 /// Associates location entities to their coordinates.
 #[derive(Resource)]
 pub struct GameMap {
@@ -41,7 +44,7 @@ pub struct Coordinates {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct MapIcon {
     /// The characters that make up the icon.
-    pub chars: [MapChar; 3],
+    pub chars: [MapChar; CHARS_PER_TILE],
 }
 
 impl MapIcon {
@@ -58,7 +61,7 @@ impl MapIcon {
 
     /// Replaces the center character of this icon with the provided one.
     pub fn replace_center_char(&mut self, replacement: MapChar) {
-        self.chars[1] = replacement;
+        self.chars[CHARS_PER_TILE / 2] = replacement;
     }
 }
 

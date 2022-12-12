@@ -36,6 +36,7 @@ pub use direction::Direction;
 mod game_map;
 pub use game_map::MapChar;
 pub use game_map::MapIcon;
+pub use game_map::CHARS_PER_TILE;
 use game_map::*;
 
 mod color;

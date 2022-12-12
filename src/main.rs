@@ -23,7 +23,7 @@ use core_logic::{
     ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
     EntityDescription, ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription,
     MapIcon, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
-    RoomLivingEntityDescription, RoomObjectDescription, Time,
+    RoomLivingEntityDescription, RoomObjectDescription, Time, CHARS_PER_TILE,
 };
 
 const PROMPT: &str = "\n> ";
@@ -118,15 +118,16 @@ fn room_to_string(room: RoomDescription, time: Time) -> String {
 
 /// Transforms the provided map into a string for display.
 fn map_to_string<const S: usize>(map: &MapDescription<S>) -> String {
-    let mut output = String::new();
-    for (row_index, row) in map.tiles.iter().enumerate() {
+    let width = S * CHARS_PER_TILE;
+    let mut output = format!("+{}+\n", "-".repeat(width));
+    for row in &map.tiles {
+        output.push('|');
         for icon in row {
             output.push_str(&map_icon_to_string(icon));
         }
-        if row_index < S - 1 {
-            output.push('\n');
-        }
+        output.push_str("|\n");
     }
+    output.push_str(&format!("+{}+", "-".repeat(width)));
 
     output
 }
