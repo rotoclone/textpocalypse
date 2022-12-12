@@ -149,6 +149,7 @@ fn map_char_to_string(map_char: &MapChar) -> String {
         .to_string()
 }
 
+/// Converts the provided game color to its corresponding terminal color.
 fn convert_game_color_to_term_color(color: &core_logic::Color) -> crossterm::style::Color {
     match color {
         core_logic::Color::Black => crossterm::style::Color::Black,

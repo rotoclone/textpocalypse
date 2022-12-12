@@ -37,8 +37,10 @@ pub struct Coordinates {
     pub parent: Option<Box<Coordinates>>,
 }
 
+/// An icon for a tile on the map.
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct MapIcon {
+    /// The characters that make up the icon.
     pub chars: [MapChar; 3],
 }
 
@@ -60,9 +62,13 @@ impl MapIcon {
     }
 }
 
+/// A single character in a map icon.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct MapChar {
+    /// The background color of the character.
     pub bg_color: Color,
+    /// The foreground color of the character.
     pub fg_color: Color,
+    /// The character itself.
     pub value: char,
 }

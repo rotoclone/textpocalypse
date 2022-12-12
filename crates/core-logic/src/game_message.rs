@@ -2,6 +2,7 @@ use std::{array, iter::once};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use lazy_static::lazy_static;
 
 use crate::{
     color::Color,
@@ -16,6 +17,11 @@ const PLAYER_MAP_CHAR: MapChar = MapChar {
     fg_color: Color::Green,
     value: '@',
 };
+
+lazy_static! {
+    static ref BLANK_ICON: MapIcon =
+        MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.', '.']);
+}
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug)]
@@ -237,6 +243,7 @@ impl ExitDescription {
     }
 }
 
+/// A collection of tiles around an entity.
 #[derive(Debug)]
 pub struct MapDescription<const S: usize> {
     /// The tiles in the map. Formatted as an array of rows.
@@ -270,6 +277,9 @@ impl<const S: usize> MapDescription<S> {
     }
 }
 
+/// Finds the coordinates of the location the provided entity is in.
+///
+/// Panics if the entity does not have a location with coordinates.
 fn find_coordinates_of_entity(entity: Entity, world: &World) -> &Coordinates {
     let location = world
         .get::<Location>(entity)
@@ -280,6 +290,9 @@ fn find_coordinates_of_entity(entity: Entity, world: &World) -> &Coordinates {
         .expect("entity should be located in an entity with coordinates")
 }
 
+/// Finds the icon associated with the room at the provided location.
+///
+/// Panics if the provided coordinates map to an entity that isn't a room.
 fn icon_for_coords(coords: &Coordinates, world: &World) -> MapIcon {
     if let Some(entity) = world.resource::<GameMap>().locations.get(coords) {
         return world
@@ -289,15 +302,7 @@ fn icon_for_coords(coords: &Coordinates, world: &World) -> MapIcon {
             .clone();
     }
 
-    let blank_char = MapChar {
-        bg_color: Color::Black,
-        fg_color: Color::DarkGray,
-        value: '/',
-    };
-
-    MapIcon {
-        chars: [blank_char, blank_char, blank_char],
-    }
+    BLANK_ICON.clone()
 }
 
 #[derive(Debug)]
