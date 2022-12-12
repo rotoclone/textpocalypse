@@ -1,7 +1,9 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
+    color::Color,
     component::{Connection, DescribeAttributes, Description, OpenState, ParseCustomInput, Room},
+    game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, SpawnRoom,
 };
 
@@ -9,31 +11,77 @@ pub fn set_up_world(world: &mut World) {
     //
     // rooms
     //
+    let middle_room_desc = "A nondescript room. You feel uneasy here.";
+    let middle_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
+    let middle_room_coords = Coordinates {
+        x: 0,
+        y: 0,
+        z: 0,
+        parent: None,
+    };
     let middle_room_id = world
         .spawn((
             Room::new(
                 "The middle room".to_string(),
-                "A nondescript room. You feel uneasy here.".to_string(),
+                middle_room_desc.to_string(),
+                middle_room_icon,
             ),
+            middle_room_coords.clone(),
             SpawnRoom,
         ))
         .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(middle_room_coords, middle_room_id);
 
+    let north_room_desc =
+        "The trim along the floor and ceiling looks to be made of real gold. Fancy.";
+    let north_room_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['[', ' ', ']']);
+    let north_room_coords = Coordinates {
+        x: 0,
+        y: 1,
+        z: 0,
+        parent: None,
+    };
     let north_room_id = world
-        .spawn((Room::new(
-            "The north room".to_string(),
-            "The trim along the floor and ceiling looks to be made of real gold. Fancy."
-                .to_string(),
-        ),))
+        .spawn((
+            Room::new(
+                "The north room".to_string(),
+                north_room_desc.to_string(),
+                north_room_icon,
+            ),
+            north_room_coords.clone(),
+        ))
         .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(north_room_coords, north_room_id);
 
+    let east_room_desc =
+        "This room is very small; you have to hunch over so your head doesn't hit the ceiling.";
+    let east_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
+    let east_room_coords = Coordinates {
+        x: 1,
+        y: 0,
+        z: 0,
+        parent: None,
+    };
     let east_room_id = world
-        .spawn((Room::new(
-            "The east room".to_string(),
-            "This room is very small; you have to hunch over so your head doesn't hit the ceiling."
-                .to_string(),
-        ),))
+        .spawn((
+            Room::new(
+                "The east room".to_string(),
+                east_room_desc.to_string(),
+                east_room_icon,
+            ),
+            east_room_coords.clone(),
+        ))
         .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(east_room_coords, east_room_id);
 
     let north_room_south_door_id = world.spawn(()).id();
 
