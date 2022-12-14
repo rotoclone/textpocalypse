@@ -859,6 +859,7 @@ dependencies = [
  "crossterm",
  "cruet",
  "env_logger",
+ "itertools",
  "log",
 ]
 

@@ -7,6 +7,7 @@ use crossterm::{
     QueueableCommand,
 };
 use cruet::Inflector;
+use itertools::Itertools;
 use log::debug;
 use std::{
     cmp::Ordering,
@@ -113,7 +114,9 @@ fn room_to_string(room: RoomDescription, time: Time) -> String {
     };
     let exits = format!("Exits: {}", exits_to_string(room.exits));
 
-    format!("{map}\n\n{name} {time}\n\n{desc}{entities}\n\n{exits}")
+    let mini_map_and_desc = format_side_by_side(&map, &format!("{name} {time}\n\n{desc}"), " ");
+
+    format!("{mini_map_and_desc}{entities}\n\n{exits}")
 }
 
 /// Transforms the provided map into a string for display.
@@ -472,4 +475,16 @@ impl<const N: usize> Join<String> for [Option<String>; N] {
             .collect::<Vec<String>>()
             .join(between)
     }
+}
+
+/// Combines the provided strings into a new string with the contents of the strings next to each other, separated by the provided separator.
+/// For example, with inputs of `"a1\na2"` and `"b1\nb2"` and a separator of `"|"`, the resulting output would be `"a1|b1\na2|b2"`
+fn format_side_by_side(str1: &str, str2: &str, separator: &str) -> String {
+    str1.lines()
+        .zip_longest(str2.lines())
+        .map(|pair| {
+            let (a, b) = pair.or_default();
+            format!("{a}{separator}{b}")
+        })
+        .join("\n")
 }
