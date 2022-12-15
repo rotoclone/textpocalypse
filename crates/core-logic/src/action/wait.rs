@@ -149,6 +149,10 @@ impl Action for WaitAction {
         result_builder.build_incomplete()
     }
 
+    fn may_require_tick(&self) -> bool {
+        true
+    }
+
     fn send_before_notification(
         &self,
         notification_type: BeforeActionNotification,

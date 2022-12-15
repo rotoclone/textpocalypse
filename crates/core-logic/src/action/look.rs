@@ -125,6 +125,10 @@ impl Action for LookAction {
         ActionResult::error(performing_entity, "You can't see that.".to_string())
     }
 
+    fn may_require_tick(&self) -> bool {
+        false
+    }
+
     fn send_before_notification(
         &self,
         notification_type: BeforeActionNotification,

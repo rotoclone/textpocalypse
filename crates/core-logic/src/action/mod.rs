@@ -119,6 +119,10 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
+    /// Returns whether the action might take game time to perform.
+    /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world
+    fn may_require_tick(&self) -> bool;
+
     /// Sends a notification that this action is about to be performed.
     fn send_before_notification(
         &self,

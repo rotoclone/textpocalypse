@@ -48,6 +48,10 @@ impl Action for HelpAction {
             .build_complete_no_tick()
     }
 
+    fn may_require_tick(&self) -> bool {
+        false
+    }
+
     fn send_before_notification(
         &self,
         notification_type: BeforeActionNotification,
