@@ -14,7 +14,7 @@ use crate::{
     RoomDescription, World,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -53,6 +53,7 @@ impl InputParser for LookParser {
                 return Ok(Box::new(LookAction {
                     target: target_entity,
                     detailed,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             } else {
                 return Err(InputParseError::CommandParseError {
@@ -63,7 +64,11 @@ impl InputParser for LookParser {
         } else {
             // just looking in general
             if let Some(target) = CommandTarget::Here.find_target_entity(source_entity, world) {
-                return Ok(Box::new(LookAction { target, detailed }));
+                return Ok(Box::new(LookAction {
+                    target,
+                    detailed,
+                    notification_sender: ActionNotificationSender::new(),
+                }));
             }
         }
 
@@ -87,6 +92,7 @@ impl InputParser for LookParser {
 struct LookAction {
     target: Entity,
     detailed: bool,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for LookAction {
@@ -134,10 +140,7 @@ impl Action for LookAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, &self, world);
     }
 }

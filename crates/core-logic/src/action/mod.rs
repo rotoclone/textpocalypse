@@ -1,6 +1,10 @@
 use bevy_ecs::prelude::*;
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::Mutex;
 
+use crate::notification::Notification;
 use crate::BeforeActionNotification;
 use crate::{GameMessage, World};
 
@@ -123,10 +127,44 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world
     fn may_require_tick(&self) -> bool;
 
-    /// Sends a notification that this action is about to be performed.
+    /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(
         &self,
         notification_type: BeforeActionNotification,
         world: &mut World,
     );
+}
+
+/// Sends notifications about actions.
+#[derive(Debug)]
+pub struct ActionNotificationSender<C: Send + Sync> {
+    before_notification_sent: Mutex<bool>,
+    _c: PhantomData<fn(C)>,
+}
+
+impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
+    /// Creates a new `ActionNotificationSender`.
+    pub fn new() -> Self {
+        Self {
+            before_notification_sent: Mutex::new(false),
+            _c: PhantomData,
+        }
+    }
+
+    /// Sends a notification that an action is about to be performed, if one hasn't already been sent by this sender.
+    pub fn send_before_notification(
+        &self,
+        notification_type: BeforeActionNotification,
+        contents: &C,
+        world: &mut World,
+    ) {
+        if !*self.before_notification_sent.lock().unwrap() {
+            *self.before_notification_sent.lock().unwrap() = true;
+            Notification {
+                notification_type,
+                contents,
+            }
+            .send(world);
+        }
+    }
 }

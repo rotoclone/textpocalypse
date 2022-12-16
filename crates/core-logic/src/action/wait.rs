@@ -4,12 +4,11 @@ use regex::Regex;
 
 use crate::{
     input_parser::{CommandParseError, InputParseError, InputParser},
-    notification::Notification,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
     BeforeActionNotification, World,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const TICKS_PER_MINUTE: u64 = SECONDS_PER_MINUTE as u64 / TICK_DURATION.as_secs();
 const TICKS_PER_HOUR: u64 = TICKS_PER_MINUTE * MINUTES_PER_HOUR as u64;
@@ -37,11 +36,13 @@ impl InputParser for WaitParser {
                 return Ok(Box::new(WaitAction {
                     total_ticks_to_wait,
                     waited_ticks: 0,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             } else {
                 return Ok(Box::new(WaitAction {
                     total_ticks_to_wait: 1,
                     waited_ticks: 0,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             }
         }
@@ -128,6 +129,7 @@ fn parse_time_to_ticks(time_str: &str) -> Result<u64, InputParseError> {
 struct WaitAction {
     total_ticks_to_wait: u64,
     waited_ticks: u64,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for WaitAction {
@@ -158,10 +160,7 @@ impl Action for WaitAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, &self, world);
     }
 }

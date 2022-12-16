@@ -13,7 +13,7 @@ use crate::{
     BeforeActionNotification, Direction, GameMessage, RoomDescription,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -30,7 +30,10 @@ impl InputParser for MoveParser {
         if let Some(captures) = MOVE_PATTERN.captures(input) {
             if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
                 if let Some(direction) = Direction::parse(dir_match.as_str()) {
-                    return Ok(Box::new(MoveAction { direction }));
+                    return Ok(Box::new(MoveAction {
+                        direction,
+                        notification_sender: ActionNotificationSender::new(),
+                    }));
                 }
             }
         }
@@ -50,6 +53,7 @@ impl InputParser for MoveParser {
 #[derive(Debug)]
 pub struct MoveAction {
     pub direction: Direction,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for MoveAction {
@@ -113,11 +117,8 @@ impl Action for MoveAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, &self, world);
     }
 }
 

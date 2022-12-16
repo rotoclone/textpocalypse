@@ -3,6 +3,7 @@ use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
 use std::{
+    collections::HashMap,
     sync::{Arc, RwLock},
     thread,
 };
@@ -197,10 +198,20 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
                 queue_action(&mut write_world, entity, action);
                 try_perform_queued_actions(&mut write_world);
             } else {
-                perform_action(&mut write_world, entity, &mut action);
+                let result = perform_action(&mut write_world, entity, &mut action);
+                send_messages(&result.messages, &write_world);
             }
         }
         Err(e) => handle_input_error(entity, e, &read_world),
+    }
+}
+
+/// Sends multiple messages.
+fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World) {
+    for (entity_id, messages) in messages_map {
+        for message in messages {
+            send_message(world, *entity_id, message.clone());
+        }
     }
 }
 
@@ -229,127 +240,7 @@ fn perform_action(
     debug!("Entity {performing_entity:?} is performing action {action:?}");
     action.send_before_notification(BeforeActionNotification { performing_entity }, world);
     //TODO sending the notification might have queued an action before this one, so...deal with that
-    let result = action.perform(performing_entity, world);
-    //TODO these messages are sent before any relevant tick happens, so before the time is updated, which means the displayed time is wrong
-    for (entity_id, messages) in &result.messages {
-        for message in messages {
-            send_message(world, *entity_id, message.clone());
-        }
-    }
-
-    result
-}
-
-/// Queues an action for the provided entity
-fn queue_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
-    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
-        action_queue.actions.push_back(action);
-    } else {
-        world.entity_mut(performing_entity).insert(ActionQueue {
-            actions: [action].into(),
-        });
-    }
-}
-
-/// Queues an action for the provided entity to perform before its other queued actions.
-fn queue_action_first(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
-    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
-        action_queue.actions.push_front(action);
-    } else {
-        world.entity_mut(performing_entity).insert(ActionQueue {
-            actions: [action].into(),
-        });
-    }
-}
-
-/// Performs queued actions if all players have one queued.
-fn try_perform_queued_actions(world: &mut World) {
-    loop {
-        debug!("Performing queued actions...");
-        let mut entities_with_actions = Vec::new();
-        for (entity, action_queue, _) in world
-            .query::<(Entity, &ActionQueue, With<Player>)>()
-            .iter_mut(world)
-        {
-            if action_queue.actions.is_empty() {
-                // somebody doesn't have any action queued yet, so don't perform any
-                debug!("{entity:?} has no queued actions, not performing any");
-                return;
-            }
-
-            debug!("{entity:?} has a queued action");
-            entities_with_actions.push(entity);
-        }
-
-        if entities_with_actions.is_empty() {
-            return;
-        }
-
-        let mut should_tick = false;
-        for entity in entities_with_actions {
-            // unwrap is safe here because the only entities that can be in `entities_with_actions` are ones with an `ActionQueue` component
-            let mut action_queue = world.get_mut::<ActionQueue>(entity).unwrap();
-
-            // `action_queue.actions` is guaranteed to have at least one element in it because if it didn't the entity wouldn't have been added to `entities_with_actions`
-            let mut action = action_queue.actions.get_mut(0).unwrap();
-
-            action.send_before_notification(
-                BeforeActionNotification {
-                    performing_entity: entity,
-                },
-                world,
-            );
-
-            if let Some(action) = action_queue.actions.get_mut(0) {
-                let result = perform_action(world, entity, &mut action);
-
-                if result.should_tick {
-                    should_tick = true;
-                }
-
-                if result.is_complete {
-                    //TODO action_queue.actions.remove
-                }
-            }
-
-            let result = perform_action(world, entity, &mut action);
-
-            if result.should_tick {
-                should_tick = true;
-            }
-
-            if !result.is_complete {
-                //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
-                //TODO queue_action_first(world, entity, action);
-            }
-        }
-
-        if should_tick {
-            tick(world);
-        }
-
-        /* TODO remove
-        let results = actions
-            .into_iter()
-            .map()
-            .map(|(entity, mut action)| {
-                let result = perform_action(world, entity, &mut action);
-                (entity, action, result)
-            })
-            .collect::<Vec<(Entity, Box<dyn Action>, ActionResult)>>();
-
-        if results.iter().any(|(_, _, result)| result.should_tick) {
-            tick(world);
-        }
-
-        for (entity, action, result) in results.into_iter() {
-            if !result.is_complete {
-                //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
-                queue_action_first(world, entity, action);
-            }
-        }
-        */
-    }
+    action.perform(performing_entity, world)
 }
 
 /// Performs one game tick.
@@ -413,6 +304,7 @@ fn auto_open_doors(
                             Box::new(OpenAction {
                                 target: connecting_entity,
                                 should_be_open: true,
+                                notification_sender: ActionNotificationSender::new(),
                             }),
                         );
                     }

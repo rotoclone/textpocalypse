@@ -31,4 +31,7 @@ mod player;
 pub use player::Player;
 
 mod action_queue;
+pub use action_queue::queue_action;
+pub use action_queue::queue_action_first;
+pub use action_queue::try_perform_queued_actions;
 pub use action_queue::ActionQueue;

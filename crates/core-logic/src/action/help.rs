@@ -8,7 +8,7 @@ use crate::{
     BeforeActionNotification, GameMessage, HelpMessage, World,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const HELP_FORMAT: &str = "help";
 
@@ -21,7 +21,9 @@ pub struct HelpParser;
 impl InputParser for HelpParser {
     fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
         if HELP_PATTERN.is_match(input) {
-            return Ok(Box::new(HelpAction));
+            return Ok(Box::new(HelpAction {
+                notification_sender: ActionNotificationSender::new(),
+            }));
         }
 
         Err(InputParseError::UnknownCommand)
@@ -37,7 +39,9 @@ impl InputParser for HelpParser {
 }
 
 #[derive(Debug)]
-struct HelpAction;
+struct HelpAction {
+    notification_sender: ActionNotificationSender<Self>,
+}
 
 impl Action for HelpAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
@@ -57,10 +61,7 @@ impl Action for HelpAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, &self, world);
     }
 }

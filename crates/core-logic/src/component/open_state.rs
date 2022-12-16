@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{Action, ActionResult},
+    action::{Action, ActionNotificationSender, ActionResult},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -39,7 +39,10 @@ impl InputParser for SlamParser {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
                 let command_target = CommandTarget::parse(target_match.as_str());
                 if let Some(target) = command_target.find_target_entity(source_entity, world) {
-                    return Ok(Box::new(SlamAction { target }));
+                    return Ok(Box::new(SlamAction {
+                        target,
+                        notification_sender: ActionNotificationSender::new(),
+                    }));
                 } else {
                     return Err(InputParseError::CommandParseError {
                         verb: SLAM_VERB_NAME.to_string(),
@@ -69,6 +72,7 @@ impl InputParser for SlamParser {
 #[derive(Debug)]
 struct SlamAction {
     target: Entity,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for SlamAction {
@@ -107,11 +111,8 @@ impl Action for SlamAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, &self, world);
     }
 }
 
