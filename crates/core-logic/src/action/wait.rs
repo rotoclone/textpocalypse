@@ -4,8 +4,9 @@ use regex::Regex;
 
 use crate::{
     input_parser::{CommandParseError, InputParseError, InputParser},
+    notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
-    BeforeActionNotification, World,
+    BeforeActionNotification, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -162,5 +163,14 @@ impl Action for WaitAction {
     ) {
         self.notification_sender
             .send_before_notification(notification_type, &self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, &self, world)
     }
 }

@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     input_parser::{InputParseError, InputParser},
-    notification::Notification,
-    BeforeActionNotification, GameMessage, HelpMessage, World,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, HelpMessage, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -63,5 +63,14 @@ impl Action for HelpAction {
     ) {
         self.notification_sender
             .send_before_notification(notification_type, &self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, &self, world)
     }
 }

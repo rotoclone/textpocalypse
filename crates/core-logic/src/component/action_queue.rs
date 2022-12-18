@@ -1,12 +1,15 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
     action::Action, component::Player, perform_action, send_messages, tick,
-    BeforeActionNotification,
+    BeforeActionNotification, VerifyActionNotification,
 };
+
+const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
+const MAX_ACTION_NOTIFICATION_LOOPS: u32 = 100000;
 
 #[derive(Component)]
 pub struct ActionQueue {
@@ -62,7 +65,13 @@ pub fn queue_action_first(world: &mut World, performing_entity: Entity, action: 
 
 /// Performs queued actions if all players have one queued.
 pub fn try_perform_queued_actions(world: &mut World) {
+    let mut loops = 0;
     loop {
+        if loops >= MAX_ACTION_QUEUE_LOOPS {
+            panic!("players still have actions queued after {loops} loops")
+        }
+        loops += 1;
+
         debug!("Performing queued actions...");
         let mut entities_with_actions = Vec::new();
         for (entity, mut action_queue, _) in world
@@ -109,10 +118,30 @@ pub fn try_perform_queued_actions(world: &mut World) {
 
 fn determine_action_to_perform(entity: Entity, world: &mut World) -> Option<Box<dyn Action>> {
     let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
+    let mut loops = 0;
     loop {
+        if loops >= MAX_ACTION_NOTIFICATION_LOOPS {
+            panic!("action queue for entity {entity:?} still changing after {loops} loops")
+        }
+        loops += 1;
+
         let action = action_queue.actions.pop_front()?;
 
-        //TODO before action notification handlers need to have some way to cancel the action, which probably means a separate validate notification
+        let verify_result = action.send_verify_notification(
+            VerifyActionNotification {
+                performing_entity: entity,
+            },
+            world,
+        );
+
+        if !verify_result.is_valid {
+            debug!("action {action:?} is invalid, canceling");
+            send_messages(&verify_result.messages, world);
+            action_queue = world.get_mut::<ActionQueue>(entity)?;
+            action_queue.update_queue();
+            // don't put the action back, it's invalid so just drop it
+            continue;
+        }
 
         action.send_before_notification(
             BeforeActionNotification {
@@ -120,6 +149,8 @@ fn determine_action_to_perform(entity: Entity, world: &mut World) -> Option<Box<
             },
             world,
         );
+
+        //TODO what if before action handlers modify the world such that the action isn't valid anymore?
 
         action_queue = world.get_mut::<ActionQueue>(entity)?;
         if action_queue.needs_update() {

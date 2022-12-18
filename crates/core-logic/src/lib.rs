@@ -43,9 +43,19 @@ use game_map::*;
 mod color;
 pub use color::Color;
 
+/// A notification sent to verify an action before it is performed.
+#[derive(Debug)]
+pub struct VerifyActionNotification {
+    /// The entity that wants to perform the action.
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for VerifyActionNotification {}
+
 /// A notification sent before an action is performed.
 #[derive(Debug)]
 pub struct BeforeActionNotification {
+    /// The entity that will perform the action.
     pub performing_entity: Entity,
 }
 
@@ -54,6 +64,7 @@ impl NotificationType for BeforeActionNotification {}
 /// A notification sent after an action is performed.
 #[derive(Debug)]
 pub struct AfterActionNotification {
+    /// The entity that performed the action.
     pub performing_entity: Entity,
 }
 

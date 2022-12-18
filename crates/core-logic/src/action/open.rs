@@ -9,8 +9,8 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::Notification,
-    BeforeActionNotification,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, VerifyActionNotification,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -138,5 +138,14 @@ impl Action for OpenAction {
     ) {
         self.notification_sender
             .send_before_notification(notification_type, &self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, &self, world)
     }
 }

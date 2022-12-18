@@ -9,8 +9,8 @@ use crate::{
     component::{Description, Location, OpenState, Room},
     input_parser::{InputParseError, InputParser},
     move_entity,
-    notification::Notification,
-    BeforeActionNotification, Direction, GameMessage, RoomDescription,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, Direction, GameMessage, RoomDescription, VerifyActionNotification,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -119,6 +119,15 @@ impl Action for MoveAction {
     ) {
         self.notification_sender
             .send_before_notification(notification_type, &self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, &self, world)
     }
 }
 

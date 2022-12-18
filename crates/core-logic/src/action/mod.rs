@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::notification::Notification;
-use crate::BeforeActionNotification;
+use crate::notification::{Notification, VerifyResult};
+use crate::{BeforeActionNotification, VerifyActionNotification};
 use crate::{GameMessage, World};
 
 mod look;
@@ -133,6 +133,13 @@ pub trait Action: std::fmt::Debug + Send + Sync {
         notification_type: BeforeActionNotification,
         world: &mut World,
     );
+
+    /// Sends a notification to verify that this action is valid.
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult;
 }
 
 /// Sends notifications about actions.
@@ -166,5 +173,19 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
             }
             .send(world);
         }
+    }
+
+    /// Sends a notification to verify that an action is valid.
+    pub fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        contents: &C,
+        world: &mut World,
+    ) -> VerifyResult {
+        Notification {
+            notification_type,
+            contents,
+        }
+        .verify(world)
     }
 }
