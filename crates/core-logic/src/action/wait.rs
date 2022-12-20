@@ -162,7 +162,7 @@ impl Action for WaitAction {
         world: &mut World,
     ) {
         self.notification_sender
-            .send_before_notification(notification_type, &self, world);
+            .send_before_notification(notification_type, self, world);
     }
 
     fn send_verify_notification(
@@ -171,6 +171,6 @@ impl Action for WaitAction {
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, &self, world)
+            .send_verify_notification(notification_type, self, world)
     }
 }

@@ -4,12 +4,38 @@ use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action, component::Player, perform_action, send_messages, tick,
-    BeforeActionNotification, VerifyActionNotification,
+    action::Action, component::Player, notification::NotificationType, send_messages, tick,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
 const MAX_ACTION_NOTIFICATION_LOOPS: u32 = 100000;
+
+/// A notification sent to verify an action before it is performed.
+#[derive(Debug)]
+pub struct VerifyActionNotification {
+    /// The entity that wants to perform the action.
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for VerifyActionNotification {}
+
+/// A notification sent before an action is performed.
+#[derive(Debug)]
+pub struct BeforeActionNotification {
+    /// The entity that will perform the action.
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for BeforeActionNotification {}
+
+/// A notification sent after an action is performed.
+#[derive(Debug)]
+pub struct AfterActionNotification {
+    /// The entity that performed the action.
+    pub performing_entity: Entity,
+}
+
+impl NotificationType for AfterActionNotification {}
 
 #[derive(Component)]
 pub struct ActionQueue {
@@ -85,6 +111,8 @@ pub fn try_perform_queued_actions(world: &mut World) {
                 return;
             }
 
+            //TODO if action.may_require_tick() returns false, perform the action immediately and grab a new one
+
             debug!("{entity:?} has a queued action");
             entities_with_actions.push(entity);
         }
@@ -96,7 +124,9 @@ pub fn try_perform_queued_actions(world: &mut World) {
         let mut results = Vec::new();
         for entity in entities_with_actions {
             if let Some(mut action) = determine_action_to_perform(entity, world) {
-                let result = perform_action(world, entity, &mut action);
+                //TODO if action.may_require_tick() returns false, perform the action immediately and grab a new one
+                debug!("Entity {entity:?} is performing action {action:?}");
+                let result = action.perform(entity, world);
                 results.push((entity, action, result));
             }
         }

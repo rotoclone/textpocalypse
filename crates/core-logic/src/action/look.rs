@@ -9,7 +9,7 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
     RoomDescription, VerifyActionNotification, World,
 };
@@ -141,7 +141,7 @@ impl Action for LookAction {
         world: &mut World,
     ) {
         self.notification_sender
-            .send_before_notification(notification_type, &self, world);
+            .send_before_notification(notification_type, self, world);
     }
 
     fn send_verify_notification(
@@ -150,6 +150,6 @@ impl Action for LookAction {
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, &self, world)
+            .send_verify_notification(notification_type, self, world)
     }
 }

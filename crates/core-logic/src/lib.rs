@@ -43,33 +43,6 @@ use game_map::*;
 mod color;
 pub use color::Color;
 
-/// A notification sent to verify an action before it is performed.
-#[derive(Debug)]
-pub struct VerifyActionNotification {
-    /// The entity that wants to perform the action.
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for VerifyActionNotification {}
-
-/// A notification sent before an action is performed.
-#[derive(Debug)]
-pub struct BeforeActionNotification {
-    /// The entity that will perform the action.
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for BeforeActionNotification {}
-
-/// A notification sent after an action is performed.
-#[derive(Debug)]
-pub struct AfterActionNotification {
-    /// The entity that performed the action.
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for AfterActionNotification {}
-
 #[derive(Component)]
 pub struct SpawnRoom;
 
@@ -209,7 +182,8 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
                 queue_action(&mut write_world, entity, action);
                 try_perform_queued_actions(&mut write_world);
             } else {
-                let result = perform_action(&mut write_world, entity, &mut action);
+                //TODO send relevant notifications too
+                let result = action.perform(entity, &mut write_world);
                 send_messages(&result.messages, &write_world);
             }
         }
@@ -240,18 +214,6 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
     };
 
     send_message(world, entity, GameMessage::Error(message));
-}
-
-/// Makes the provided entity perform the provided action.
-fn perform_action(
-    world: &mut World,
-    performing_entity: Entity,
-    action: &mut Box<dyn Action>,
-) -> ActionResult {
-    debug!("Entity {performing_entity:?} is performing action {action:?}");
-    action.send_before_notification(BeforeActionNotification { performing_entity }, world);
-    //TODO sending the notification might have queued an action before this one, so...deal with that
-    action.perform(performing_entity, world)
 }
 
 /// Performs one game tick.
