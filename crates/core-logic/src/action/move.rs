@@ -68,6 +68,7 @@ impl Action for MoveAction {
             .expect("Moving entity's location should be a room");
         let mut messages = HashMap::new();
         let mut should_tick = false;
+        let mut was_successful = false;
         let can_receive_messages = can_receive_messages(world, performing_entity);
 
         if let Some((_, connection)) =
@@ -76,6 +77,7 @@ impl Action for MoveAction {
             let new_room_id = connection.destination;
             move_entity(performing_entity, new_room_id, world);
             should_tick = true;
+            was_successful = true;
 
             if can_receive_messages {
                 messages.insert(
@@ -99,6 +101,7 @@ impl Action for MoveAction {
             messages,
             should_tick,
             is_complete: true,
+            was_successful,
         }
     }
 

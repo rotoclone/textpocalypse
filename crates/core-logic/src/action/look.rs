@@ -109,7 +109,7 @@ impl Action for LookAction {
                     performing_entity,
                     GameMessage::Room(RoomDescription::from_room(room, performing_entity, world)),
                 )
-                .build_complete_no_tick();
+                .build_complete_no_tick(true);
         }
 
         if let Some(desc) = target.get::<Description>() {
@@ -125,7 +125,7 @@ impl Action for LookAction {
             };
             return ActionResult::builder()
                 .with_game_message(performing_entity, message)
-                .build_complete_no_tick();
+                .build_complete_no_tick(true);
         }
 
         ActionResult::error(performing_entity, "You can't see that.".to_string())
@@ -168,6 +168,10 @@ pub fn look_after_move(
     notification: &Notification<AfterActionNotification, MoveAction>,
     world: &mut World,
 ) {
+    if !notification.notification_type.action_successful {
+        return;
+    }
+
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
         queue_action(

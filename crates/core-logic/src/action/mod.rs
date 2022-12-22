@@ -27,6 +27,7 @@ mod wait;
 pub use wait::WaitParser;
 
 /// The result of a single tick of an action being performed.
+#[derive(Debug)]
 pub struct ActionResult {
     /// Any messages that should be sent.
     pub messages: HashMap<Entity, Vec<GameMessage>>,
@@ -34,33 +35,38 @@ pub struct ActionResult {
     pub should_tick: bool,
     /// Whether the action is now complete. If this is false, `perform` will be called on the action again.
     pub is_complete: bool,
+    /// Whether the intended effects of the action actually ocurred.
+    pub was_successful: bool,
 }
 
 impl ActionResult {
-    /// Creates an action result signifying that nothing of note occurred.
+    /// Creates an action result signifying that nothing of note occurred and the action was successful.
     pub fn none() -> ActionResult {
         ActionResult {
             messages: HashMap::new(),
             should_tick: false,
             is_complete: true,
+            was_successful: true,
         }
     }
 
-    /// Creates an action result with a single message for an entity, denoting that the action is complete.
+    /// Creates an action result with a single message for an entity, denoting that the action is complete and was successful.
     pub fn message(entity_id: Entity, message: String, should_tick: bool) -> ActionResult {
         ActionResult {
             messages: [(entity_id, vec![GameMessage::Message(message)])].into(),
             should_tick,
             is_complete: true,
+            was_successful: true,
         }
     }
 
-    /// Creates an action result with a single error message for an entity, denoting that the action is complete and a tick should not happen.
+    /// Creates an action result with a single error message for an entity, denoting that the action is complete and was not successful, and a tick should not happen.
     pub fn error(entity_id: Entity, message: String) -> ActionResult {
         ActionResult {
             messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
             should_tick: false,
             is_complete: true,
+            was_successful: false,
         }
     }
 
@@ -78,23 +84,26 @@ pub struct ActionResultBuilder {
 
 impl ActionResultBuilder {
     /// Builds the `ActionResult`, denoting that the action has been completed and a tick should happen.
-    pub fn build_complete_should_tick(mut self) -> ActionResult {
+    pub fn build_complete_should_tick(mut self, was_successful: bool) -> ActionResult {
         self.result.should_tick = true;
         self.result.is_complete = true;
+        self.result.was_successful = was_successful;
         self.result
     }
 
     /// Builds the `ActionResult`, denoting that the action has been completed and a tick should not happen.
-    pub fn build_complete_no_tick(mut self) -> ActionResult {
+    pub fn build_complete_no_tick(mut self, was_successful: bool) -> ActionResult {
         self.result.should_tick = false;
         self.result.is_complete = true;
+        self.result.was_successful = was_successful;
         self.result
     }
 
     /// Builds the `ActionResult`, denoting that the action has not been completed.
-    pub fn build_incomplete(mut self) -> ActionResult {
+    pub fn build_incomplete(mut self, was_successful: bool) -> ActionResult {
         self.result.should_tick = true;
         self.result.is_complete = false;
+        self.result.was_successful = was_successful;
         self.result
     }
 

@@ -139,7 +139,7 @@ impl Action for WaitAction {
         if self.waited_ticks >= self.total_ticks_to_wait {
             return ActionResult::builder()
                 .with_message(performing_entity, "You stop waiting.".to_string())
-                .build_complete_no_tick();
+                .build_complete_no_tick(true);
         }
 
         let mut result_builder = ActionResult::builder();
@@ -150,7 +150,7 @@ impl Action for WaitAction {
         }
 
         self.waited_ticks += 1;
-        result_builder.build_incomplete()
+        result_builder.build_incomplete(true)
     }
 
     fn may_require_tick(&self) -> bool {

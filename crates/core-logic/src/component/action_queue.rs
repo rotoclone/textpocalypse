@@ -33,6 +33,10 @@ impl NotificationType for BeforeActionNotification {}
 pub struct AfterActionNotification {
     /// The entity that performed the action.
     pub performing_entity: Entity,
+    /// Whether the action is now complete.
+    pub action_complete: bool,
+    /// Whether the intended effects of the action actually ocurred.
+    pub action_successful: bool,
 }
 
 impl NotificationType for AfterActionNotification {}
@@ -143,6 +147,8 @@ pub fn try_perform_queued_actions(world: &mut World) {
                 action.send_after_notification(
                     AfterActionNotification {
                         performing_entity: entity,
+                        action_complete: result.is_complete,
+                        action_successful: result.was_successful,
                     },
                     world,
                 );
@@ -239,6 +245,8 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) {
             action.send_after_notification(
                 AfterActionNotification {
                     performing_entity: entity,
+                    action_complete: result.is_complete,
+                    action_successful: result.was_successful,
                 },
                 world,
             );

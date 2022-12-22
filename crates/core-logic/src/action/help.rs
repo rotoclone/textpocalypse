@@ -50,7 +50,7 @@ impl Action for HelpAction {
 
         ActionResult::builder()
             .with_game_message(performing_entity, message)
-            .build_complete_no_tick()
+            .build_complete_no_tick(true)
     }
 
     fn may_require_tick(&self) -> bool {
