@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
+use crate::component::AfterActionNotification;
 use crate::notification::{Notification, VerifyResult};
 use crate::{BeforeActionNotification, VerifyActionNotification};
 use crate::{GameMessage, World};
 
 mod look;
+pub use look::look_after_move;
 pub use look::LookParser;
 
 mod r#move;
@@ -139,6 +141,13 @@ pub trait Action: std::fmt::Debug + Send + Sync {
         notification_type: VerifyActionNotification,
         world: &mut World,
     ) -> VerifyResult;
+
+    /// Sends a notification that this action was just performed.
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    );
 }
 
 /// Sends notifications about actions.
@@ -179,12 +188,26 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         &self,
         notification_type: VerifyActionNotification,
         contents: &C,
-        world: &mut World,
+        world: &World,
     ) -> VerifyResult {
         Notification {
             notification_type,
             contents,
         }
         .verify(world)
+    }
+
+    /// Sends a notification that an action was just performed.
+    pub fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        contents: &C,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents,
+        }
+        .send(world);
     }
 }

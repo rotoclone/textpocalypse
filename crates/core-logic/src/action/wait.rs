@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    component::AfterActionNotification,
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
@@ -172,5 +173,14 @@ impl Action for WaitAction {
     ) -> VerifyResult {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
     }
 }

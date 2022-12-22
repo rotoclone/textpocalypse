@@ -21,6 +21,8 @@ mod connection;
 pub use connection::Connection;
 
 mod open_state;
+pub use open_state::auto_open_connections;
+pub use open_state::prevent_moving_through_closed_connections;
 pub use open_state::OpenState;
 
 mod custom_input_parser;

@@ -191,8 +191,13 @@ impl VerifyResult {
         }
     }
 
+    /// Creates a result denoting that the notification contents are invalid with a single message for an entity.
+    pub fn invalid(entity: Entity, message: GameMessage) -> VerifyResult {
+        Self::invalid_with_messages([(entity, vec![message])].into())
+    }
+
     /// Creates a result denoting that the notification contents are invalid.
-    pub fn invalid(messages: HashMap<Entity, Vec<GameMessage>>) -> VerifyResult {
+    pub fn invalid_with_messages(messages: HashMap<Entity, Vec<GameMessage>>) -> VerifyResult {
         VerifyResult {
             is_valid: false,
             messages,

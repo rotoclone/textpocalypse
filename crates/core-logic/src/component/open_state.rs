@@ -3,19 +3,20 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{Action, ActionNotificationSender, ActionResult},
+    action::{Action, ActionNotificationSender, ActionResult, MoveAction, OpenAction},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::VerifyResult,
-    BeforeActionNotification, VerifyActionNotification,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, VerifyActionNotification,
 };
 
 use super::{
     description::{AttributeType, DescribeAttributes},
-    AttributeDescriber, AttributeDescription, Connection, ParseCustomInput,
+    queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDescription,
+    Connection, Description, Location, ParseCustomInput, Room,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -123,6 +124,15 @@ impl Action for SlamAction {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
+    }
 }
 
 /// Describes whether an entity is open or closed.
@@ -179,4 +189,67 @@ impl DescribeAttributes for OpenState {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
         Box::new(OpenStateAttributeDescriber)
     }
+}
+
+/// Attempts to open openable entities automatically before an attempt is made to move through a closed one.
+pub fn auto_open_connections(
+    notification: &Notification<BeforeActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    if let Some(current_location) =
+        world.get::<Location>(notification.notification_type.performing_entity)
+    {
+        if let Some(room) = world.get::<Room>(current_location.id) {
+            if let Some((connecting_entity, _)) =
+                room.get_connection_in_direction(&notification.contents.direction, world)
+            {
+                if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
+                    if !open_state.is_open {
+                        queue_action_first(
+                            world,
+                            notification.notification_type.performing_entity,
+                            Box::new(OpenAction {
+                                target: connecting_entity,
+                                should_be_open: true,
+                                notification_sender: ActionNotificationSender::new(),
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Notification handler for preventing entities from moving through closed entities.
+pub fn prevent_moving_through_closed_connections(
+    notification: &Notification<VerifyActionNotification, MoveAction>,
+    world: &World,
+) -> VerifyResult {
+    if let Some(room_id) = world
+        .get::<Location>(notification.notification_type.performing_entity)
+        .map(|location| location.id)
+    {
+        if let Some(current_room) = world.get::<Room>(room_id) {
+            if let Some((connecting_entity, _)) =
+                current_room.get_connection_in_direction(&notification.contents.direction, world)
+            {
+                if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
+                    if !open_state.is_open {
+                        let message = world
+                            .get::<Description>(connecting_entity)
+                            .map_or("It's closed.".to_string(), |desc| {
+                                format!("The {} is closed.", desc.name)
+                            });
+                        return VerifyResult::invalid(
+                            notification.notification_type.performing_entity,
+                            GameMessage::Message(message),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    VerifyResult::valid()
 }

@@ -6,11 +6,11 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{Description, Location, OpenState, Room},
+    component::{AfterActionNotification, Location, Room},
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, Direction, GameMessage, RoomDescription, VerifyActionNotification,
+    BeforeActionNotification, Direction, GameMessage, VerifyActionNotification,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -70,27 +70,21 @@ impl Action for MoveAction {
         let mut should_tick = false;
         let can_receive_messages = can_receive_messages(world, performing_entity);
 
-        if let Some((connecting_entity, connection)) =
+        if let Some((_, connection)) =
             current_room.get_connection_in_direction(&self.direction, world)
         {
-            if let Some(message) = invalid_move_message(connecting_entity, world) {
-                messages.insert(performing_entity, vec![message]);
-            } else {
-                let new_room_id = connection.destination;
-                move_entity(performing_entity, new_room_id, world);
-                should_tick = true;
+            let new_room_id = connection.destination;
+            move_entity(performing_entity, new_room_id, world);
+            should_tick = true;
 
-                if can_receive_messages {
-                    let new_room = world
-                        .get::<Room>(new_room_id)
-                        .expect("Destination entity should be a room");
-                    let room_desc = RoomDescription::from_room(new_room, performing_entity, world);
-                    let message = format!("You walk {}.", self.direction);
-                    messages.insert(
-                        performing_entity,
-                        vec![GameMessage::Message(message), GameMessage::Room(room_desc)],
-                    );
-                }
+            if can_receive_messages {
+                messages.insert(
+                    performing_entity,
+                    vec![GameMessage::Message(format!(
+                        "You walk {}.",
+                        self.direction
+                    ))],
+                );
             }
         } else if can_receive_messages {
             messages.insert(
@@ -129,23 +123,13 @@ impl Action for MoveAction {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
-}
 
-/// Determines if the provided entity can be moved through
-fn invalid_move_message(entity: Entity, world: &World) -> Option<GameMessage> {
-    world
-        .get::<OpenState>(entity)
-        .map(|state| {
-            if !state.is_open {
-                let message = world
-                    .get::<Description>(entity)
-                    .map_or("It's closed.".to_string(), |desc| {
-                        format!("The {} is closed.", desc.name)
-                    });
-                Some(GameMessage::Message(message))
-            } else {
-                None
-            }
-        })
-        .unwrap_or(None)
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
+    }
 }

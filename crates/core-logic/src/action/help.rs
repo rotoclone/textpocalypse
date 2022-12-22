@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    component::AfterActionNotification,
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, GameMessage, HelpMessage, VerifyActionNotification, World,
@@ -72,5 +73,14 @@ impl Action for HelpAction {
     ) -> VerifyResult {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
     }
 }

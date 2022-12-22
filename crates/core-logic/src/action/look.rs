@@ -4,17 +4,17 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{Description, Room},
+    component::{queue_action, AfterActionNotification, Description, Room},
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::VerifyResult,
+    notification::{Notification, VerifyResult},
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
     RoomDescription, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult, MoveAction};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -151,5 +151,33 @@ impl Action for LookAction {
     ) -> VerifyResult {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
+    }
+}
+
+/// Notification handler that queues up a look action after an entity moves, so they can see where they ended up.
+pub fn look_after_move(
+    notification: &Notification<AfterActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    let performing_entity = notification.notification_type.performing_entity;
+    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
+        queue_action(
+            world,
+            performing_entity,
+            Box::new(LookAction {
+                target,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }

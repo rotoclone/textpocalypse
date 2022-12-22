@@ -29,7 +29,7 @@ use core_logic::{
 
 const PROMPT: &str = "\n> ";
 const FIRST_PM_HOUR: u8 = 12;
-const MESSAGE_PRINT_DELAY: Duration = Duration::from_millis(250);
+const MESSAGE_PRINT_DELAY: Duration = Duration::from_millis(333);
 
 fn main() -> Result<()> {
     env_logger::init();
