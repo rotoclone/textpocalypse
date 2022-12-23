@@ -206,7 +206,7 @@ pub struct RoomDescription {
     pub description: String,
     pub entities: Vec<RoomEntityDescription>,
     pub exits: Vec<ExitDescription>,
-    pub map: MapDescription<3>,
+    pub map: MapDescription<5>,
 }
 
 impl RoomDescription {
