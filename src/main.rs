@@ -62,6 +62,7 @@ fn main() -> Result<()> {
 
     let mut input_buf = String::new();
     loop {
+        debug!("Printing prompt"); //TODO
         print!("{PROMPT}");
         stdin().read_line(&mut input_buf)?;
         debug!("Raw input: {input_buf:?}");

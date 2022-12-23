@@ -106,9 +106,12 @@ pub fn try_perform_queued_actions(world: &mut World) {
 
         // first deal with actions that don't require a tick
         let players_with_action_queues = world
-            .query::<(Entity, With<ActionQueue>, With<Player>)>()
-            .iter(world)
-            .map(|(entity, _, _)| entity)
+            .query::<(Entity, &mut ActionQueue, With<Player>)>()
+            .iter_mut(world)
+            .map(|(entity, mut action_queue, _)| {
+                action_queue.update_queue();
+                entity
+            })
             .collect::<Vec<Entity>>();
         players_with_action_queues
             .into_iter()
