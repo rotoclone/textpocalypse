@@ -10,7 +10,7 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, VerifyActionNotification,
+    BeforeActionNotification, GameMessage, MessageDelay, VerifyActionNotification,
 };
 
 use super::{
@@ -89,6 +89,7 @@ impl Action for SlamAction {
             return ActionResult::message(
                 performing_entity,
                 "It's already closed.".to_string(),
+                MessageDelay::Short,
                 false,
             );
         }
@@ -99,6 +100,7 @@ impl Action for SlamAction {
         ActionResult::message(
             performing_entity,
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
+            MessageDelay::Long,
             true,
         )
     }
@@ -243,7 +245,7 @@ pub fn prevent_moving_through_closed_connections(
                             });
                         return VerifyResult::invalid(
                             notification.notification_type.performing_entity,
-                            GameMessage::Message(message),
+                            GameMessage::Message(message, MessageDelay::Short),
                         );
                     }
                 }

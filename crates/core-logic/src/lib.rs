@@ -183,7 +183,11 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             debug!("Parsed input into action: {action:?}");
             drop(read_world);
             let mut write_world = world.write().unwrap();
-            queue_action(&mut write_world, entity, action);
+            if action.may_require_tick() {
+                queue_action(&mut write_world, entity, action);
+            } else {
+                queue_action_first(&mut write_world, entity, action);
+            }
             try_perform_queued_actions(&mut write_world);
         }
         Err(e) => handle_input_error(entity, e, &read_world),

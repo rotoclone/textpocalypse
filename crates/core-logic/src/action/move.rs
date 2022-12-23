@@ -10,7 +10,7 @@ use crate::{
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, Direction, GameMessage, VerifyActionNotification,
+    BeforeActionNotification, Direction, GameMessage, MessageDelay, VerifyActionNotification,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -82,10 +82,10 @@ impl Action for MoveAction {
             if can_receive_messages {
                 messages.insert(
                     performing_entity,
-                    vec![GameMessage::Message(format!(
-                        "You walk {}.",
-                        self.direction
-                    ))],
+                    vec![GameMessage::Message(
+                        format!("You walk {}.", self.direction),
+                        MessageDelay::Long,
+                    )],
                 );
             }
         } else if can_receive_messages {

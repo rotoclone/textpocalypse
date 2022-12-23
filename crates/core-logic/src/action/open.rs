@@ -10,7 +10,7 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, VerifyActionNotification,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -106,12 +106,14 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already open.".to_string(),
+                    MessageDelay::Short,
                     false,
                 );
             } else {
                 return ActionResult::message(
                     performing_entity,
                     "It's already closed.".to_string(),
+                    MessageDelay::Short,
                     false,
                 );
             }
@@ -121,9 +123,19 @@ impl Action for OpenAction {
 
         let name = get_reference_name(self.target, world);
         if self.should_be_open {
-            ActionResult::message(performing_entity, format!("You open {name}."), true)
+            ActionResult::message(
+                performing_entity,
+                format!("You open {name}."),
+                MessageDelay::Short,
+                true,
+            )
         } else {
-            ActionResult::message(performing_entity, format!("You close {name}."), true)
+            ActionResult::message(
+                performing_entity,
+                format!("You close {name}."),
+                MessageDelay::Short,
+                true,
+            )
         }
     }
 

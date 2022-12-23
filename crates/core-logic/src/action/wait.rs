@@ -7,7 +7,7 @@ use crate::{
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
-    BeforeActionNotification, VerifyActionNotification, World,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult};
@@ -138,15 +138,22 @@ impl Action for WaitAction {
     fn perform(&mut self, performing_entity: Entity, _: &mut World) -> ActionResult {
         if self.waited_ticks >= self.total_ticks_to_wait {
             return ActionResult::builder()
-                .with_message(performing_entity, "You stop waiting.".to_string())
+                .with_message(
+                    performing_entity,
+                    "You stop waiting.".to_string(),
+                    MessageDelay::Short,
+                )
                 .build_complete_no_tick(true);
         }
 
         let mut result_builder = ActionResult::builder();
 
         if self.waited_ticks == 0 {
-            result_builder =
-                result_builder.with_message(performing_entity, "You start waiting...".to_string());
+            result_builder = result_builder.with_message(
+                performing_entity,
+                "You start waiting...".to_string(),
+                MessageDelay::Long,
+            );
         }
 
         self.waited_ticks += 1;

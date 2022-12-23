@@ -30,8 +30,19 @@ pub enum GameMessage {
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
     Help(HelpMessage),
-    Message(String),
+    Message(String, MessageDelay),
     Error(String),
+}
+
+/// The amount of time to wait before any additional messages are displayed.
+#[derive(Debug, Clone)]
+pub enum MessageDelay {
+    /// No time should be waited.
+    None,
+    /// A short amount of time should be waited.
+    Short,
+    /// A long amount of time should be waited.
+    Long,
 }
 
 /// The description of an entity.

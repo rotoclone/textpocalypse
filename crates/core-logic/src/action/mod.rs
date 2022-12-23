@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use crate::component::AfterActionNotification;
 use crate::notification::{Notification, VerifyResult};
-use crate::{BeforeActionNotification, VerifyActionNotification};
+use crate::{BeforeActionNotification, MessageDelay, VerifyActionNotification};
 use crate::{GameMessage, World};
 
 mod look;
@@ -51,9 +51,18 @@ impl ActionResult {
     }
 
     /// Creates an action result with a single message for an entity, denoting that the action is complete and was successful.
-    pub fn message(entity_id: Entity, message: String, should_tick: bool) -> ActionResult {
+    pub fn message(
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+        should_tick: bool,
+    ) -> ActionResult {
         ActionResult {
-            messages: [(entity_id, vec![GameMessage::Message(message)])].into(),
+            messages: [(
+                entity_id,
+                vec![GameMessage::Message(message, message_delay)],
+            )]
+            .into(),
             should_tick,
             is_complete: true,
             was_successful: true,
@@ -108,8 +117,13 @@ impl ActionResultBuilder {
     }
 
     /// Adds a message to be sent to an entity.
-    pub fn with_message(self, entity_id: Entity, message: String) -> ActionResultBuilder {
-        self.with_game_message(entity_id, GameMessage::Message(message))
+    pub fn with_message(
+        self,
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+    ) -> ActionResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
     }
 
     /// Adds an error message to be sent to an entity.
