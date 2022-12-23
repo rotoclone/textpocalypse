@@ -4,6 +4,7 @@ use crate::{
     color::Color,
     component::{
         Connection, Container, DescribeAttributes, Description, OpenState, ParseCustomInput, Room,
+        Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, SpawnRoom,

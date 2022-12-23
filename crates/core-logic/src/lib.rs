@@ -125,6 +125,39 @@ impl Game {
         let spawn_room_id = find_spawn_room(&mut world);
         move_entity(player_id, spawn_room_id, &mut world);
 
+        // add stuff to the player's inventory
+        let medium_thing_id = world
+            .spawn((
+                Description {
+                    name: "medium thing".to_string(),
+                    room_name: "medium thing".to_string(),
+                    article: Some("a".to_string()),
+                    aliases: vec!["thing".to_string()],
+                    description: "Some kind of medium-sized thing.".to_string(),
+                    attribute_describers: Vec::new(),
+                },
+                Volume(0.1),
+                Weight(0.5),
+            ))
+            .id();
+        move_entity(medium_thing_id, player_id, &mut world);
+
+        let heavy_thing_id = world
+            .spawn((
+                Description {
+                    name: "heavy thing".to_string(),
+                    room_name: "heavy thing".to_string(),
+                    article: Some("a".to_string()),
+                    aliases: vec!["thing".to_string()],
+                    description: "Some kind of heavy thing.".to_string(),
+                    attribute_describers: Vec::new(),
+                },
+                Volume(0.5),
+                Weight(10.0),
+            ))
+            .id();
+        move_entity(heavy_thing_id, player_id, &mut world);
+
         let player_thread_world = Arc::clone(&self.world);
 
         // set up thread for handling input from the player

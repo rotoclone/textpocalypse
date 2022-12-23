@@ -475,7 +475,7 @@ fn container_to_string(container: ContainerDescription) -> String {
         container.used_volume, max_volume, container.used_weight, max_weight
     );
 
-    format!("Contents:\n\n{contents}\n{usage}")
+    format!("Contents:\n{contents}\n\nTotal: {usage}")
 }
 
 /// Transforms the provided container entity description into a string for display.

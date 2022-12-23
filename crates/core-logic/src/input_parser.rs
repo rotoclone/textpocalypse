@@ -142,7 +142,15 @@ impl CommandTargetName {
     /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
     pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
         //TODO take location chain into account
-        //TODO also search the looking entity's inventory
+
+        // search the looking entity's inventory
+        if let Some(container) = world.get::<Container>(looking_entity) {
+            if let Some(found_entity) = container.find_entity_by_name(&self.name, world) {
+                return Some(found_entity);
+            }
+        }
+
+        // search the looking entity's location
         let location_id = world
             .get::<Location>(looking_entity)
             .expect("Looking entity should have a location")
