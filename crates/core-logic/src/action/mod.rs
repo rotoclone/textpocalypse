@@ -26,6 +26,9 @@ pub use help::HelpParser;
 mod wait;
 pub use wait::WaitParser;
 
+mod inventory;
+pub use inventory::InventoryParser;
+
 /// The result of a single tick of an action being performed.
 #[derive(Debug)]
 pub struct ActionResult {

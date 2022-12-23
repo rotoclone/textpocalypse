@@ -6,7 +6,7 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{AfterActionNotification, Location, Room},
+    component::{AfterActionNotification, Container, Location},
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
@@ -58,21 +58,21 @@ pub struct MoveAction {
 
 impl Action for MoveAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let current_room_id = world
+        let current_location_id = world
             .get::<Location>(performing_entity)
             .expect("Moving entity should have a location")
             .id;
 
-        let current_room = world
-            .get::<Room>(current_room_id)
-            .expect("Moving entity's location should be a room");
+        let current_location = world
+            .get::<Container>(current_location_id)
+            .expect("Moving entity's location should be a container");
         let mut messages = HashMap::new();
         let mut should_tick = false;
         let mut was_successful = false;
         let can_receive_messages = can_receive_messages(world, performing_entity);
 
         if let Some((_, connection)) =
-            current_room.get_connection_in_direction(&self.direction, world)
+            current_location.get_connection_in_direction(&self.direction, world)
         {
             let new_room_id = connection.destination;
             move_entity(performing_entity, new_room_id, world);

@@ -68,6 +68,7 @@ impl StandardInputParsers {
                 Box::new(MoveParser),
                 Box::new(LookParser),
                 Box::new(OpenParser),
+                Box::new(InventoryParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -113,7 +114,14 @@ impl Game {
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
-        let player_id = world.spawn((Player, desc, message_channel)).id();
+        let player_id = world
+            .spawn((
+                Player,
+                Container::new(Some(Volume(10.0)), Some(Weight(100.0))),
+                desc,
+                message_channel,
+            ))
+            .id();
         let spawn_room_id = find_spawn_room(&mut world);
         move_entity(player_id, spawn_room_id, &mut world);
 
@@ -141,10 +149,15 @@ impl Game {
         let room = world
             .get::<Room>(spawn_room_id)
             .expect("Spawn room should be a room");
+        let container = world
+            .get::<Container>(spawn_room_id)
+            .expect("Spawn room should be a container");
         send_message(
             &world,
             player_id,
-            GameMessage::Room(RoomDescription::from_room(room, player_id, &world)),
+            GameMessage::Room(RoomDescription::from_room(
+                room, container, player_id, &world,
+            )),
         );
 
         (commands_sender, messages_receiver)
@@ -225,28 +238,26 @@ fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
 }
 
-/// Moves an entity to a room.
-fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut World) {
-    //TODO handle moving between non-room entities
-
-    // remove from source room, if necessary
-    if let Some(location) = world.get_mut::<Location>(entity_id) {
-        let source_room_id = location.id;
-        if let Some(mut source_room) = world.get_mut::<Room>(source_room_id) {
-            source_room.entities.remove(&entity_id);
+/// Moves an entity to a container.
+fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
+    // remove from source container, if necessary
+    if let Some(location) = world.get_mut::<Location>(moving_entity) {
+        let source_location_id = location.id;
+        if let Some(mut source_location) = world.get_mut::<Container>(source_location_id) {
+            source_location.entities.remove(&moving_entity);
         }
     }
 
-    // add to destination room
+    // add to destination container
     world
-        .get_mut::<Room>(destination_room_id)
-        .expect("Destination entity should be a room")
+        .get_mut::<Container>(destination_entity)
+        .expect("Destination entity should be a container")
         .entities
-        .insert(entity_id);
+        .insert(moving_entity);
 
     // update location
-    world.entity_mut(entity_id).insert(Location {
-        id: destination_room_id,
+    world.entity_mut(moving_entity).insert(Location {
+        id: destination_entity,
     });
 }
 

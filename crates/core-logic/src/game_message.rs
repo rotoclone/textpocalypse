@@ -6,7 +6,9 @@ use lazy_static::lazy_static;
 
 use crate::{
     color::Color,
-    component::{AttributeDescription, Connection, Description, Location, Room},
+    component::{
+        AttributeDescription, Connection, Container, Description, Location, Room, Volume, Weight,
+    },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     input_parser::find_parsers_relevant_for,
     Direction,
@@ -29,6 +31,7 @@ pub enum GameMessage {
     Room(RoomDescription),
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
+    Container(ContainerDescription),
     Help(HelpMessage),
     Message(String, MessageDelay),
     Error(String),
@@ -134,6 +137,71 @@ fn build_available_action_descriptions(
         .collect()
 }
 
+/// The description of a container.
+#[derive(Debug, Clone)]
+pub struct ContainerDescription {
+    /// Descriptions of the items in the container.
+    pub items: Vec<ContainerEntityDescription>,
+    /// The total volume used by items in this container.
+    pub used_volume: Volume,
+    /// The maximum volume of items this container can hold, if it is limited.
+    pub max_volume: Option<Volume>,
+    /// The total weight used by items in this container.
+    pub used_weight: Weight,
+    /// The maximum weight of items this container can hold, if it is limited.
+    pub max_weight: Option<Weight>,
+}
+
+impl ContainerDescription {
+    /// Creates a container description for the provided container.
+    pub fn from_container(container: &Container, world: &World) -> ContainerDescription {
+        let items = container
+            .entities
+            .iter()
+            .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
+            .collect::<Vec<ContainerEntityDescription>>();
+
+        let used_volume = items.iter().map(|item| item.volume.clone()).sum();
+        let used_weight = items.iter().map(|item| item.weight.clone()).sum();
+
+        ContainerDescription {
+            items,
+            used_volume,
+            max_volume: container.volume.clone(),
+            used_weight,
+            max_weight: container.max_weight.clone(),
+        }
+    }
+}
+
+/// The description of an item in a container.
+#[derive(Debug, Clone)]
+pub struct ContainerEntityDescription {
+    /// The name of the item.
+    pub name: String,
+    /// The volume of the item.
+    pub volume: Volume,
+    /// The weight of the item.
+    pub weight: Weight,
+}
+
+impl ContainerEntityDescription {
+    /// Creates a container entity description for the provided entity.
+    /// Returns `None` if the provided entity has no `Description` component.
+    pub fn from_entity(entity: Entity, world: &World) -> Option<ContainerEntityDescription> {
+        let entity_ref = world.entity(entity);
+        let desc = entity_ref.get::<Description>()?;
+        let volume = entity_ref.get::<Volume>().cloned().unwrap_or(Volume(0.0));
+        let weight = entity_ref.get::<Weight>().cloned().unwrap_or(Weight(0.0));
+
+        Some(ContainerEntityDescription {
+            name: desc.name.clone(),
+            volume,
+            weight,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ActionDescription {
     pub format: String,
@@ -211,8 +279,15 @@ pub struct RoomDescription {
 
 impl RoomDescription {
     /// Creates a `RoomDescription` for the provided room from the perspective of the provided entity.
-    pub fn from_room(room: &Room, pov_entity: Entity, world: &World) -> RoomDescription {
-        let entity_descriptions = room
+    ///
+    /// The provided Room and Container should be on the same entity.
+    pub fn from_room(
+        room: &Room,
+        container: &Container,
+        pov_entity: Entity,
+        world: &World,
+    ) -> RoomDescription {
+        let entity_descriptions = container
             .entities
             .iter()
             .filter(|entity| **entity != pov_entity)
@@ -223,7 +298,7 @@ impl RoomDescription {
             name: room.name.clone(),
             description: room.description.clone(),
             entities: entity_descriptions,
-            exits: ExitDescription::from_room(room, world),
+            exits: ExitDescription::from_container(container, world),
             map: Box::new(MapDescription::for_entity(pov_entity, world)),
         }
     }
@@ -236,10 +311,11 @@ pub struct ExitDescription {
 }
 
 impl ExitDescription {
-    /// Creates a list of exit descriptions for the provided room
-    pub fn from_room(room: &Room, world: &World) -> Vec<ExitDescription> {
+    /// Creates a list of exit descriptions for the provided container.
+    pub fn from_container(container: &Container, world: &World) -> Vec<ExitDescription> {
         // TODO order connections consistently
-        room.get_connections(world)
+        container
+            .get_connections(world)
             .iter()
             .map(|(_, connection)| {
                 let destination_room = world

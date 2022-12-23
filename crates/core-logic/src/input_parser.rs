@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    component::{CustomInputParser, Location, Room},
+    component::{Container, CustomInputParser, Location},
     StandardInputParsers,
 };
 
@@ -55,13 +55,19 @@ fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity
         .expect("Entity should have a location")
         .id;
 
-    // TODO also include entities in the provided entity's inventory
-    // TODO handle entities not located in a room
-    let room = world
-        .get::<Room>(location_id)
-        .expect("Entity's location should be a room");
+    // include entities in the provided entity's location
+    let location = world
+        .get::<Container>(location_id)
+        .expect("Entity's location should be a container");
 
-    room.entities.clone()
+    let mut entities = location.entities.clone();
+
+    // include entities in the provided entity's inventory
+    if let Some(inventory) = world.get::<Container>(entity) {
+        entities.extend(inventory.entities.clone());
+    }
+
+    entities
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -141,30 +147,12 @@ impl CommandTargetName {
             .get::<Location>(looking_entity)
             .expect("Looking entity should have a location")
             .id;
-        let room = world
-            .get::<Room>(location_id)
-            .expect("Looking entity's location should be a room");
-        room.find_entity_by_name(&self.name, world)
+        let location = world
+            .get::<Container>(location_id)
+            .expect("Looking entity's location should be a container");
+        location.find_entity_by_name(&self.name, world)
     }
 }
-
-/* TODO remove
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum StandardVerb {
-    #[serde(alias = "l", alias = "look at")]
-    Look,
-    #[serde(alias = "go", alias = "move to", alias = "go to")]
-    Move,
-    #[serde(alias = "grab", alias = "take", alias = "pick up")]
-    Get,
-    #[serde(alias = "drop", alias = "place")]
-    Put,
-    Open,
-    #[serde(alias = "shut")]
-    Close,
-}
-*/
 
 /// An error while parsing input.
 pub enum InputParseError {

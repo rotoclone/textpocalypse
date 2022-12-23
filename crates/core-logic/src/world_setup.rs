@@ -2,7 +2,9 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     color::Color,
-    component::{Connection, DescribeAttributes, Description, OpenState, ParseCustomInput, Room},
+    component::{
+        Connection, Container, DescribeAttributes, Description, OpenState, ParseCustomInput, Room,
+    },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, SpawnRoom,
 };
@@ -21,11 +23,12 @@ pub fn set_up_world(world: &mut World) {
     };
     let middle_room_id = world
         .spawn((
-            Room::new(
-                "The middle room".to_string(),
-                middle_room_desc.to_string(),
-                middle_room_icon,
-            ),
+            Room {
+                name: "The middle room".to_string(),
+                description: middle_room_desc.to_string(),
+                map_icon: middle_room_icon,
+            },
+            Container::new_infinite(),
             middle_room_coords.clone(),
             SpawnRoom,
         ))
@@ -46,11 +49,12 @@ pub fn set_up_world(world: &mut World) {
     };
     let north_room_id = world
         .spawn((
-            Room::new(
-                "The north room".to_string(),
-                north_room_desc.to_string(),
-                north_room_icon,
-            ),
+            Room {
+                name: "The north room".to_string(),
+                description: north_room_desc.to_string(),
+                map_icon: north_room_icon,
+            },
+            Container::new_infinite(),
             north_room_coords.clone(),
         ))
         .id();
@@ -70,11 +74,12 @@ pub fn set_up_world(world: &mut World) {
     };
     let east_room_id = world
         .spawn((
-            Room::new(
-                "The east room".to_string(),
-                east_room_desc.to_string(),
-                east_room_icon,
-            ),
+            Room {
+                name: "The east room".to_string(),
+                description: east_room_desc.to_string(),
+                map_icon: east_room_icon,
+            },
+            Container::new_infinite(),
             east_room_coords.clone(),
         ))
         .id();

@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{queue_action, AfterActionNotification, Description, Room},
+    component::{queue_action, AfterActionNotification, Container, Description, Room},
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -104,12 +104,19 @@ impl Action for LookAction {
         let target = world.entity(self.target);
 
         if let Some(room) = target.get::<Room>() {
-            return ActionResult::builder()
-                .with_game_message(
-                    performing_entity,
-                    GameMessage::Room(RoomDescription::from_room(room, performing_entity, world)),
-                )
-                .build_complete_no_tick(true);
+            if let Some(container) = target.get::<Container>() {
+                return ActionResult::builder()
+                    .with_game_message(
+                        performing_entity,
+                        GameMessage::Room(RoomDescription::from_room(
+                            room,
+                            container,
+                            performing_entity,
+                            world,
+                        )),
+                    )
+                    .build_complete_no_tick(true);
+            }
         }
 
         if let Some(desc) = target.get::<Description>() {

@@ -16,7 +16,7 @@ use crate::{
 use super::{
     description::{AttributeType, DescribeAttributes},
     queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDescription,
-    Connection, Description, Location, ParseCustomInput, Room,
+    Connection, Container, Description, Location, ParseCustomInput,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -201,9 +201,9 @@ pub fn auto_open_connections(
     if let Some(current_location) =
         world.get::<Location>(notification.notification_type.performing_entity)
     {
-        if let Some(room) = world.get::<Room>(current_location.id) {
+        if let Some(location) = world.get::<Container>(current_location.id) {
             if let Some((connecting_entity, _)) =
-                room.get_connection_in_direction(&notification.contents.direction, world)
+                location.get_connection_in_direction(&notification.contents.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
@@ -228,13 +228,13 @@ pub fn prevent_moving_through_closed_connections(
     notification: &Notification<VerifyActionNotification, MoveAction>,
     world: &World,
 ) -> VerifyResult {
-    if let Some(room_id) = world
+    if let Some(location_id) = world
         .get::<Location>(notification.notification_type.performing_entity)
         .map(|location| location.id)
     {
-        if let Some(current_room) = world.get::<Room>(room_id) {
-            if let Some((connecting_entity, _)) =
-                current_room.get_connection_in_direction(&notification.contents.direction, world)
+        if let Some(current_location) = world.get::<Container>(location_id) {
+            if let Some((connecting_entity, _)) = current_location
+                .get_connection_in_direction(&notification.contents.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {

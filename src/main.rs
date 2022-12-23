@@ -21,13 +21,15 @@ use std::{
 };
 
 use core_logic::{
-    ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
-    EntityDescription, ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription,
-    MapIcon, MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
+    ActionDescription, AttributeDescription, AttributeType, ContainerDescription,
+    ContainerEntityDescription, DetailedEntityDescription, Direction, EntityDescription,
+    ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription, MapIcon,
+    MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
     RoomLivingEntityDescription, RoomObjectDescription, Time, CHARS_PER_TILE,
 };
 
 const PROMPT: &str = "\n> ";
+const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
@@ -103,6 +105,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
+        GameMessage::Container(container) => container_to_string(container),
     };
     stdout()
         .queue(Clear(ClearType::CurrentLine))?
@@ -444,11 +447,45 @@ fn action_descriptions_to_string(
             header,
             action_descriptions
                 .iter()
-                .map(|a| format!("  {}", a.format))
+                .map(|a| format!("{INDENT}{}", a.format))
                 .collect::<Vec<String>>()
                 .join("\n")
         ))
     }
+}
+
+/// Transforms the provided container description into a string for display.
+fn container_to_string(container: ContainerDescription) -> String {
+    let contents = container
+        .items
+        .iter()
+        .map(|item| format!("{INDENT}{}", container_entity_to_string(item)))
+        .join("\n");
+
+    let max_volume = container
+        .max_volume
+        .map(|x| x.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let max_weight = container
+        .max_weight
+        .map(|x| x.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let usage = format!(
+        "{}/{}L  {}/{}kg",
+        container.used_volume, max_volume, container.used_weight, max_weight
+    );
+
+    format!("Contents:\n\n{contents}\n{usage}")
+}
+
+/// Transforms the provided container entity description into a string for display.
+fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
+    format!(
+        "{} [{}L] [{}kg]",
+        style(entity.name.clone()).bold(),
+        entity.volume,
+        entity.weight
+    )
 }
 
 /// Formats a list of items into a single string.

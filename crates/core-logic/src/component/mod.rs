@@ -40,3 +40,8 @@ pub use action_queue::ActionQueue;
 pub use action_queue::AfterActionNotification;
 pub use action_queue::BeforeActionNotification;
 pub use action_queue::VerifyActionNotification;
+
+mod container;
+pub use container::Container;
+pub use container::Volume;
+pub use container::Weight;
