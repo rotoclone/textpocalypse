@@ -206,7 +206,7 @@ pub struct RoomDescription {
     pub description: String,
     pub entities: Vec<RoomEntityDescription>,
     pub exits: Vec<ExitDescription>,
-    pub map: MapDescription<5>,
+    pub map: Box<MapDescription<5>>,
 }
 
 impl RoomDescription {
@@ -224,7 +224,7 @@ impl RoomDescription {
             description: room.description.clone(),
             entities: entity_descriptions,
             exits: ExitDescription::from_room(room, world),
-            map: MapDescription::for_entity(pov_entity, world),
+            map: Box::new(MapDescription::for_entity(pov_entity, world)),
         }
     }
 }
@@ -255,6 +255,7 @@ impl ExitDescription {
 }
 
 /// A collection of tiles around an entity.
+/// `S` is the length and width of the map, in tiles.
 #[derive(Debug, Clone)]
 pub struct MapDescription<const S: usize> {
     /// The tiles in the map. Formatted as an array of rows.
