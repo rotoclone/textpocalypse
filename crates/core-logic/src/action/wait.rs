@@ -3,13 +3,14 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    component::AfterActionNotification,
     input_parser::{CommandParseError, InputParseError, InputParser},
-    notification::Notification,
+    notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
-    BeforeActionNotification, World,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const TICKS_PER_MINUTE: u64 = SECONDS_PER_MINUTE as u64 / TICK_DURATION.as_secs();
 const TICKS_PER_HOUR: u64 = TICKS_PER_MINUTE * MINUTES_PER_HOUR as u64;
@@ -37,11 +38,13 @@ impl InputParser for WaitParser {
                 return Ok(Box::new(WaitAction {
                     total_ticks_to_wait,
                     waited_ticks: 0,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             } else {
                 return Ok(Box::new(WaitAction {
                     total_ticks_to_wait: 1,
                     waited_ticks: 0,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             }
         }
@@ -128,25 +131,37 @@ fn parse_time_to_ticks(time_str: &str) -> Result<u64, InputParseError> {
 struct WaitAction {
     total_ticks_to_wait: u64,
     waited_ticks: u64,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for WaitAction {
     fn perform(&mut self, performing_entity: Entity, _: &mut World) -> ActionResult {
         if self.waited_ticks >= self.total_ticks_to_wait {
             return ActionResult::builder()
-                .with_message(performing_entity, "You stop waiting.".to_string())
-                .build_complete_no_tick();
+                .with_message(
+                    performing_entity,
+                    "You stop waiting.".to_string(),
+                    MessageDelay::Short,
+                )
+                .build_complete_no_tick(true);
         }
 
         let mut result_builder = ActionResult::builder();
 
         if self.waited_ticks == 0 {
-            result_builder =
-                result_builder.with_message(performing_entity, "You start waiting...".to_string());
+            result_builder = result_builder.with_message(
+                performing_entity,
+                "You start waiting...".to_string(),
+                MessageDelay::Long,
+            );
         }
 
         self.waited_ticks += 1;
-        result_builder.build_incomplete()
+        result_builder.build_incomplete(true)
+    }
+
+    fn may_require_tick(&self) -> bool {
+        true
     }
 
     fn send_before_notification(
@@ -154,10 +169,25 @@ impl Action for WaitAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
     }
 }

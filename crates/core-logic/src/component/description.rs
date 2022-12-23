@@ -37,7 +37,7 @@ pub trait AttributeDescriber: Send + Sync + std::fmt::Debug {
 }
 
 /// A description of a single attribute of an entity.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AttributeDescription {
     /// The type of attribute.
     pub attribute_type: AttributeType,
@@ -45,7 +45,7 @@ pub struct AttributeDescription {
     pub description: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttributeType {
     /// Something the entity is, like "closed" or "broken".
     Is,

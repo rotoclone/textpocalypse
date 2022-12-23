@@ -23,13 +23,14 @@ use std::{
 use core_logic::{
     ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
     EntityDescription, ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription,
-    MapIcon, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
+    MapIcon, MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
     RoomLivingEntityDescription, RoomObjectDescription, Time, CHARS_PER_TILE,
 };
 
 const PROMPT: &str = "\n> ";
 const FIRST_PM_HOUR: u8 = 12;
-const MESSAGE_PRINT_DELAY: Duration = Duration::from_millis(250);
+const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
+const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -54,8 +55,9 @@ fn main() -> Result<()> {
                 }
             };
             debug!("Got message: {message:?}");
+            let delay = delay_for_message(&message);
             render_message(message, game_time).unwrap();
-            thread::sleep(MESSAGE_PRINT_DELAY);
+            thread::sleep(delay);
         })?;
 
     let mut input_buf = String::new();
@@ -80,11 +82,23 @@ fn main() -> Result<()> {
     }
 }
 
+/// Determines the amount of time to wait after displaying the provided message.
+fn delay_for_message(message: &GameMessage) -> Duration {
+    match message {
+        GameMessage::Message(_, delay) => match delay {
+            MessageDelay::None => Duration::ZERO,
+            MessageDelay::Short => SHORT_MESSAGE_DELAY,
+            MessageDelay::Long => LONG_MESSAGE_DELAY,
+        },
+        _ => Duration::ZERO,
+    }
+}
+
 /// Renders the provided `GameMessage` to the screen
 fn render_message(message: GameMessage, time: Time) -> Result<()> {
     let output = match message {
         GameMessage::Error(e) => e,
-        GameMessage::Message(m) => m,
+        GameMessage::Message(m, _) => m,
         GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),

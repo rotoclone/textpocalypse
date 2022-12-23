@@ -3,6 +3,7 @@ use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
 use std::{
+    collections::HashMap,
     sync::{Arc, RwLock},
     thread,
 };
@@ -41,22 +42,6 @@ use game_map::*;
 
 mod color;
 pub use color::Color;
-
-/// A notification sent before an action is performed.
-#[derive(Debug)]
-pub struct BeforeActionNotification {
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for BeforeActionNotification {}
-
-/// A notification sent after an action is performed.
-#[derive(Debug)]
-pub struct AfterActionNotification {
-    pub performing_entity: Entity,
-}
-
-impl NotificationType for AfterActionNotification {}
 
 #[derive(Component)]
 pub struct SpawnRoom;
@@ -98,7 +83,12 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
-        NotificationHandlers::add_handler(auto_open_doors, &mut world);
+        NotificationHandlers::add_handler(auto_open_connections, &mut world);
+        NotificationHandlers::add_handler(look_after_move, &mut world);
+        VerifyNotificationHandlers::add_handler(
+            prevent_moving_through_closed_connections,
+            &mut world,
+        );
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -123,7 +113,7 @@ impl Game {
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
-        let player_id = world.spawn((desc, message_channel)).id();
+        let player_id = world.spawn((Player, desc, message_channel)).id();
         let spawn_room_id = find_spawn_room(&mut world);
         move_entity(player_id, spawn_room_id, &mut world);
 
@@ -192,9 +182,24 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
         Ok(action) => {
             debug!("Parsed input into action: {action:?}");
             drop(read_world);
-            perform_action(&mut world.write().unwrap(), entity, action);
+            let mut write_world = world.write().unwrap();
+            if action.may_require_tick() {
+                queue_action(&mut write_world, entity, action);
+            } else {
+                queue_action_first(&mut write_world, entity, action);
+            }
+            try_perform_queued_actions(&mut write_world);
         }
         Err(e) => handle_input_error(entity, e, &read_world),
+    }
+}
+
+/// Sends multiple messages.
+fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World) {
+    for (entity_id, messages) in messages_map {
+        for message in messages {
+            send_message(world, *entity_id, message.clone());
+        }
     }
 }
 
@@ -214,35 +219,10 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
     send_message(world, entity, GameMessage::Error(message));
 }
 
-/// Makes the provided entity perform the provided action.
-fn perform_action(world: &mut World, performing_entity: Entity, mut action: Box<dyn Action>) {
-    debug!("Entity {performing_entity:?} is performing action {action:?}");
-    action.send_before_notification(BeforeActionNotification { performing_entity }, world);
-    loop {
-        let result = action.perform(performing_entity, world);
-        for (entity_id, messages) in result.messages {
-            for message in messages {
-                send_message(world, entity_id, message);
-            }
-        }
-
-        if result.should_tick {
-            tick(world);
-        }
-
-        if result.is_complete {
-            break;
-        }
-
-        //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
-    }
-}
-
 /// Performs one game tick.
 fn tick(world: &mut World) {
+    //TODO perform queued actions on non-player entities
     world.resource_mut::<Time>().tick();
-
-    //TODO perform queued actions
 }
 
 /// Moves an entity to a room.
@@ -278,34 +258,4 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
     world
         .get::<Description>(entity)
         .map_or("it".to_string(), |n| format!("the {}", n.name))
-}
-
-/// Attempts to open doors automatically before an attempt is made to move through a closed one.
-fn auto_open_doors(
-    notification: &Notification<BeforeActionNotification, MoveAction>,
-    world: &mut World,
-) {
-    if let Some(current_location) =
-        world.get::<Location>(notification.notification_type.performing_entity)
-    {
-        if let Some(room) = world.get::<Room>(current_location.id) {
-            if let Some((connecting_entity, _)) =
-                room.get_connection_in_direction(&notification.contents.direction, world)
-            {
-                if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
-                    if !open_state.is_open {
-                        //TODO queue up the action instead so it's done all proper-like
-                        perform_action(
-                            world,
-                            notification.notification_type.performing_entity,
-                            Box::new(OpenAction {
-                                target: connecting_entity,
-                                should_be_open: true,
-                            }),
-                        );
-                    }
-                }
-            }
-        }
-    }
 }

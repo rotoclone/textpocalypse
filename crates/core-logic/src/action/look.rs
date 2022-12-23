@@ -4,17 +4,17 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{Description, Room},
+    component::{queue_action, AfterActionNotification, Description, Room},
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::Notification,
+    notification::{Notification, VerifyResult},
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
-    RoomDescription, World,
+    RoomDescription, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult, MoveAction};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -53,6 +53,7 @@ impl InputParser for LookParser {
                 return Ok(Box::new(LookAction {
                     target: target_entity,
                     detailed,
+                    notification_sender: ActionNotificationSender::new(),
                 }));
             } else {
                 return Err(InputParseError::CommandParseError {
@@ -63,7 +64,11 @@ impl InputParser for LookParser {
         } else {
             // just looking in general
             if let Some(target) = CommandTarget::Here.find_target_entity(source_entity, world) {
-                return Ok(Box::new(LookAction { target, detailed }));
+                return Ok(Box::new(LookAction {
+                    target,
+                    detailed,
+                    notification_sender: ActionNotificationSender::new(),
+                }));
             }
         }
 
@@ -87,6 +92,7 @@ impl InputParser for LookParser {
 struct LookAction {
     target: Entity,
     detailed: bool,
+    notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for LookAction {
@@ -103,7 +109,7 @@ impl Action for LookAction {
                     performing_entity,
                     GameMessage::Room(RoomDescription::from_room(room, performing_entity, world)),
                 )
-                .build_complete_no_tick();
+                .build_complete_no_tick(true);
         }
 
         if let Some(desc) = target.get::<Description>() {
@@ -119,10 +125,14 @@ impl Action for LookAction {
             };
             return ActionResult::builder()
                 .with_game_message(performing_entity, message)
-                .build_complete_no_tick();
+                .build_complete_no_tick(true);
         }
 
         ActionResult::error(performing_entity, "You can't see that.".to_string())
+    }
+
+    fn may_require_tick(&self) -> bool {
+        false
     }
 
     fn send_before_notification(
@@ -130,10 +140,48 @@ impl Action for LookAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
+    }
+}
+
+/// Notification handler that queues up a look action after an entity moves, so they can see where they ended up.
+pub fn look_after_move(
+    notification: &Notification<AfterActionNotification, MoveAction>,
+    world: &mut World,
+) {
+    if !notification.notification_type.action_successful {
+        return;
+    }
+
+    let performing_entity = notification.notification_type.performing_entity;
+    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
+        queue_action(
+            world,
+            performing_entity,
+            Box::new(LookAction {
+                target,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }

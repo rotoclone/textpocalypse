@@ -3,17 +3,17 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::OpenState,
+    component::{AfterActionNotification, OpenState},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::Notification,
-    BeforeActionNotification,
+    notification::VerifyResult,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
-use super::{Action, ActionResult};
+use super::{Action, ActionNotificationSender, ActionResult};
 
 const OPEN_VERB_NAME: &str = "open";
 const CLOSE_VERB_NAME: &str = "close";
@@ -50,6 +50,7 @@ impl InputParser for OpenParser {
                 Ok(Box::new(OpenAction {
                     target,
                     should_be_open,
+                    notification_sender: ActionNotificationSender::new(),
                 }))
             } else {
                 Err(InputParseError::CommandParseError {
@@ -78,6 +79,7 @@ impl InputParser for OpenParser {
 pub struct OpenAction {
     pub target: Entity,
     pub should_be_open: bool,
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for OpenAction {
@@ -104,28 +106,41 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already open.".to_string(),
+                    MessageDelay::Short,
                     false,
                 );
             } else {
                 return ActionResult::message(
                     performing_entity,
                     "It's already closed.".to_string(),
+                    MessageDelay::Short,
                     false,
                 );
             }
         }
 
-        // if trying to open and entity is locked and can be unlocked, unlock it first
-        //TODO
-
         OpenState::set_open(self.target, self.should_be_open, world);
 
         let name = get_reference_name(self.target, world);
         if self.should_be_open {
-            ActionResult::message(performing_entity, format!("You open {name}."), true)
+            ActionResult::message(
+                performing_entity,
+                format!("You open {name}."),
+                MessageDelay::Short,
+                true,
+            )
         } else {
-            ActionResult::message(performing_entity, format!("You close {name}."), true)
+            ActionResult::message(
+                performing_entity,
+                format!("You close {name}."),
+                MessageDelay::Short,
+                true,
+            )
         }
+    }
+
+    fn may_require_tick(&self) -> bool {
+        true
     }
 
     fn send_before_notification(
@@ -133,10 +148,25 @@ impl Action for OpenAction {
         notification_type: BeforeActionNotification,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents: self,
-        }
-        .send(world);
+        self.notification_sender
+            .send_before_notification(notification_type, self, world);
+    }
+
+    fn send_verify_notification(
+        &self,
+        notification_type: VerifyActionNotification,
+        world: &mut World,
+    ) -> VerifyResult {
+        self.notification_sender
+            .send_verify_notification(notification_type, self, world)
+    }
+
+    fn send_after_notification(
+        &self,
+        notification_type: AfterActionNotification,
+        world: &mut World,
+    ) {
+        self.notification_sender
+            .send_after_notification(notification_type, self, world);
     }
 }

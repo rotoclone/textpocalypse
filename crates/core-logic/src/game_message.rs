@@ -24,18 +24,29 @@ lazy_static! {
 }
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GameMessage {
     Room(RoomDescription),
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
     Help(HelpMessage),
-    Message(String),
+    Message(String, MessageDelay),
     Error(String),
 }
 
+/// The amount of time to wait before any additional messages are displayed.
+#[derive(Debug, Clone)]
+pub enum MessageDelay {
+    /// No time should be waited.
+    None,
+    /// A short amount of time should be waited.
+    Short,
+    /// A long amount of time should be waited.
+    Long,
+}
+
 /// The description of an entity.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EntityDescription {
     /// The name of the entity.
     pub name: String,
@@ -75,7 +86,7 @@ fn build_aliases(desc: &Description) -> Vec<String> {
 }
 
 /// The detailed description of an entity.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DetailedEntityDescription {
     pub basic_desc: EntityDescription,
     /// Descriptions of the actions that can be performed on the entity.
@@ -123,13 +134,13 @@ fn build_available_action_descriptions(
         .collect()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActionDescription {
     pub format: String,
 }
 
 /// The description of an entity as part of a room description.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RoomEntityDescription {
     Object(RoomObjectDescription),
     Living(RoomLivingEntityDescription),
@@ -137,7 +148,7 @@ pub enum RoomEntityDescription {
 }
 
 /// A description of an object as part of a room description.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RoomObjectDescription {
     /// The name of the entity.
     pub name: String,
@@ -146,7 +157,7 @@ pub struct RoomObjectDescription {
 }
 
 /// A description of a living thing as part of a room description.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RoomLivingEntityDescription {
     /// The name of the entity.
     pub name: String,
@@ -155,7 +166,7 @@ pub struct RoomLivingEntityDescription {
 }
 
 /// A description of a connection to another room as part of a room description.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RoomConnectionEntityDescription {
     /// The name of the entity.
     pub name: String,
@@ -189,13 +200,13 @@ impl RoomEntityDescription {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RoomDescription {
     pub name: String,
     pub description: String,
     pub entities: Vec<RoomEntityDescription>,
     pub exits: Vec<ExitDescription>,
-    pub map: MapDescription<3>,
+    pub map: Box<MapDescription<5>>,
 }
 
 impl RoomDescription {
@@ -213,12 +224,12 @@ impl RoomDescription {
             description: room.description.clone(),
             entities: entity_descriptions,
             exits: ExitDescription::from_room(room, world),
-            map: MapDescription::for_entity(pov_entity, world),
+            map: Box::new(MapDescription::for_entity(pov_entity, world)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExitDescription {
     pub direction: Direction,
     pub description: String,
@@ -244,7 +255,8 @@ impl ExitDescription {
 }
 
 /// A collection of tiles around an entity.
-#[derive(Debug)]
+/// `S` is the length and width of the map, in tiles.
+#[derive(Debug, Clone)]
 pub struct MapDescription<const S: usize> {
     /// The tiles in the map. Formatted as an array of rows.
     pub tiles: [[MapIcon; S]; S],
@@ -305,7 +317,7 @@ fn icon_for_coords(coords: &Coordinates, world: &World) -> MapIcon {
     BLANK_ICON.clone()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HelpMessage {
     /// Descriptions of the actions that can be performed.
     pub actions: Vec<ActionDescription>,
