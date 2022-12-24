@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Connection, Container, DescribeAttributes, Description, OpenState, ParseCustomInput, Room,
-        Volume, Weight,
+        Connection, Container, DescribeAttributes, Description, KeyId, KeyedLock, OpenState,
+        ParseCustomInput, Room,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, SpawnRoom,
@@ -91,6 +91,8 @@ pub fn set_up_world(world: &mut World) {
 
     let north_room_south_door_id = world.spawn(()).id();
 
+    let middle_room_north_door_key_id = KeyId(0);
+
     let middle_room_north_door_id = world
         .spawn((
             Description {
@@ -102,6 +104,7 @@ pub fn set_up_world(world: &mut World) {
                 attribute_describers: vec![
                     Connection::get_attribute_describer(),
                     OpenState::get_attribute_describer(),
+                    KeyedLock::get_attribute_describer(),
                 ],
             },
             Connection {
@@ -110,9 +113,14 @@ pub fn set_up_world(world: &mut World) {
                 other_side: Some(north_room_south_door_id),
             },
             OpenState { is_open: false },
-            OpenState::new_custom_input_parser(),
+            KeyedLock {
+                is_locked: true,
+                key_id: Some(middle_room_north_door_key_id.clone()),
+            },
         ))
         .id();
+    OpenState::register_custom_input_parser(middle_room_north_door_id, world);
+    KeyedLock::register_custom_input_parser(middle_room_north_door_id, world);
     move_entity(middle_room_north_door_id, middle_room_id, world);
 
     world.entity_mut(north_room_south_door_id).insert((
@@ -133,8 +141,8 @@ pub fn set_up_world(world: &mut World) {
             other_side: Some(middle_room_north_door_id),
         },
         OpenState { is_open: false },
-        OpenState::new_custom_input_parser(),
     ));
+    OpenState::register_custom_input_parser(north_room_south_door_id, world);
     move_entity(north_room_south_door_id, north_room_id, world);
 
     let middle_room_east_connection_id = world
@@ -182,4 +190,19 @@ pub fn set_up_world(world: &mut World) {
         })
         .id();
     move_entity(large_thing_id, middle_room_id, world);
+
+    let fancy_door_key_id = world
+        .spawn((
+            Description {
+                name: "fancy key".to_string(),
+                room_name: "fancy key".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["key".to_string()],
+                description: "A fancy-looking key.".to_string(),
+                attribute_describers: Vec::new(),
+            },
+            middle_room_north_door_key_id,
+        ))
+        .id();
+    move_entity(fancy_door_key_id, east_room_id, world);
 }

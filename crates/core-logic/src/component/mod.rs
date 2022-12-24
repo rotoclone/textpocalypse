@@ -25,6 +25,12 @@ pub use open_state::auto_open_connections;
 pub use open_state::prevent_moving_through_closed_connections;
 pub use open_state::OpenState;
 
+mod keyed_lock;
+pub use keyed_lock::auto_unlock_keyed_locks;
+pub use keyed_lock::prevent_opening_locked_keyed_locks;
+pub use keyed_lock::KeyId;
+pub use keyed_lock::KeyedLock;
+
 mod custom_input_parser;
 pub use custom_input_parser::CustomInputParser;
 pub use custom_input_parser::ParseCustomInput;

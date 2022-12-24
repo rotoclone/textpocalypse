@@ -144,6 +144,7 @@ impl CommandTargetName {
         //TODO take location chain into account
 
         // search the looking entity's inventory
+        // TODO allow callers to define whether inventory or location should be searched first
         if let Some(container) = world.get::<Container>(looking_entity) {
             if let Some(found_entity) = container.find_entity_by_name(&self.name, world) {
                 return Some(found_entity);

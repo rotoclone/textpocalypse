@@ -69,6 +69,7 @@ impl StandardInputParsers {
                 Box::new(LookParser),
                 Box::new(OpenParser),
                 Box::new(InventoryParser),
+                Box::new(PutParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -90,6 +91,8 @@ impl Game {
             prevent_moving_through_closed_connections,
             &mut world,
         );
+        NotificationHandlers::add_handler(auto_unlock_keyed_locks, &mut world);
+        VerifyNotificationHandlers::add_handler(prevent_opening_locked_keyed_locks, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
         }
