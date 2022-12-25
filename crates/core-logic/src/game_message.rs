@@ -10,6 +10,7 @@ use crate::{
         AttributeDescription, Connection, Container, Description, Location, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
+    get_weight,
     input_parser::find_parsers_relevant_for,
     Direction,
 };
@@ -192,7 +193,7 @@ impl ContainerEntityDescription {
         let entity_ref = world.entity(entity);
         let desc = entity_ref.get::<Description>()?;
         let volume = entity_ref.get::<Volume>().cloned().unwrap_or(Volume(0.0));
-        let weight = entity_ref.get::<Weight>().cloned().unwrap_or(Weight(0.0));
+        let weight = get_weight(entity, world);
 
         Some(ContainerEntityDescription {
             name: desc.name.clone(),

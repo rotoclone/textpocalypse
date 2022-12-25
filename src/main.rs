@@ -479,11 +479,12 @@ fn container_to_string(container: ContainerDescription) -> String {
 
 /// Transforms the provided container entity description into a string for display.
 fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
+    let volume_and_weight = format!("[{}L] [{}kg]", entity.volume, entity.weight);
+
     format!(
-        "{} [{}L] [{}kg]",
+        "{} {}",
         style(entity.name.clone()).bold(),
-        entity.volume,
-        entity.weight
+        style(volume_and_weight).dark_grey(),
     )
 }
 

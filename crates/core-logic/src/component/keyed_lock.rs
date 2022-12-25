@@ -126,6 +126,7 @@ impl Action for LockAction {
         let name = get_reference_name(self.target, world);
 
         // make sure the performing entity has the key to this lock, if needed
+        //TODO search inventory recursively
         if let Some(key_id) = &lock.key_id {
             if let Some(inventory) = world.get::<Container>(performing_entity) {
                 let has_key = inventory

@@ -1,4 +1,9 @@
-use std::{collections::HashSet, fmt::Display, iter::Sum};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    iter::Sum,
+    ops::{Add, AddAssign},
+};
 
 use bevy_ecs::prelude::*;
 
@@ -9,6 +14,20 @@ use super::{Connection, Description};
 /// The volume of an entity.
 #[derive(Debug, Clone, Component)]
 pub struct Volume(pub f32);
+
+impl Add for Volume {
+    type Output = Volume;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Volume(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Volume {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
 
 impl Sum for Volume {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
@@ -25,6 +44,20 @@ impl Display for Volume {
 /// The weight of an entity.
 #[derive(Debug, Clone, Component)]
 pub struct Weight(pub f32);
+
+impl Add for Weight {
+    type Output = Weight;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Weight(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Weight {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
 
 impl Sum for Weight {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {

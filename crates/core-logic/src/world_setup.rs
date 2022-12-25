@@ -4,7 +4,7 @@ use crate::{
     color::Color,
     component::{
         Connection, Container, DescribeAttributes, Description, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Room,
+        ParseCustomInput, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, SpawnRoom,
@@ -205,4 +205,21 @@ pub fn set_up_world(world: &mut World) {
         ))
         .id();
     move_entity(fancy_door_key_id, east_room_id, world);
+
+    let duffel_bag_id = world
+        .spawn((
+            Description {
+                name: "duffel bag".to_string(),
+                room_name: "duffel bag".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["duffel".to_string(), "bag".to_string()],
+                description: "A large duffel bag.".to_string(),
+                attribute_describers: Vec::new(),
+            },
+            Volume(10.0),
+            Weight(0.2),
+            Container::new(Some(Volume(10.0)), None),
+        ))
+        .id();
+    move_entity(duffel_bag_id, middle_room_id, world);
 }

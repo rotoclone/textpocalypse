@@ -259,7 +259,17 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
         InputParseError::CommandParseError { verb, error } => match error {
             CommandParseError::MissingTarget => format!("'{verb}' requires more targets."),
             CommandParseError::TargetNotFound(t) => {
-                format!("There is no '{t}' here.")
+                let location_name = match &t {
+                    CommandTarget::Named(target_name) => {
+                        if target_name.location_chain.is_empty() {
+                            "here".to_string()
+                        } else {
+                            format!("'{}'", target_name.location_chain.join(" in "))
+                        }
+                    }
+                    _ => "here".to_string(),
+                };
+                format!("There is no '{t}' in {location_name}.")
             }
             CommandParseError::Other(e) => e,
         },
@@ -305,4 +315,31 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
     world
         .get::<Description>(entity)
         .map_or("it".to_string(), |n| format!("the {}", n.name))
+}
+
+/// Determines the total weight of an entity.
+fn get_weight(entity: Entity, world: &World) -> Weight {
+    get_weight_chain(entity, world, &mut vec![entity])
+}
+
+fn get_weight_chain(entity: Entity, world: &World, contained_entities: &mut Vec<Entity>) -> Weight {
+    let mut weight = world.get::<Weight>(entity).cloned().unwrap_or(Weight(0.0));
+
+    if let Some(container) = world.get::<Container>(entity) {
+        let contained_weight = container
+            .entities
+            .iter()
+            .map(|e| {
+                if contained_entities.contains(e) {
+                    panic!("{entity:?} contains itself")
+                }
+                contained_entities.push(*e);
+                get_weight_chain(*e, world, contained_entities)
+            })
+            .sum::<Weight>();
+
+        weight += contained_weight;
+    }
+
+    weight
 }

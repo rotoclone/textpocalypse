@@ -26,8 +26,10 @@ const ITEM_CAPTURE: &str = "item";
 const CONTAINER_CAPTURE: &str = "container";
 
 lazy_static! {
-    static ref GET_PATTERN: Regex =
-        Regex::new("^get (the )?(?P<item>.*)( from (the )?(?P<container>.*))?").unwrap();
+    static ref GET_PATTERN: Regex = Regex::new("^(get|take|pick up) (the )?(?P<item>.*)").unwrap();
+    static ref GET_FROM_PATTERN: Regex =
+        Regex::new("^(get|take) (the )?(?P<item>.*) (from|out of) (the )?(?P<container>.*)")
+            .unwrap();
     static ref PUT_PATTERN: Regex =
         Regex::new("^put (the )?(?P<item>.*) (in|into) (the )?(?P<container>.*)").unwrap();
     static ref DROP_PATTERN: Regex = Regex::new("^drop (the )?(?P<item>.*)").unwrap();
@@ -42,115 +44,104 @@ impl InputParser for PutParser {
         entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        // getting an item
-        if let Some(captures) = GET_PATTERN.captures(input) {
-            if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-                let container_target =
-                    if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
-                        //TODO this never gets executed because of silly regex things
-                        CommandTarget::parse(container_match.as_str())
-                    } else {
-                        CommandTarget::Here
-                    };
-                let container = match container_target.find_target_entity(entity, world) {
-                    Some(c) => c,
+        let (verb_name, item_target, source_target, destination_target) = parse_targets(input)?;
+
+        //TODO verify that the item isn't the same as the source or destination
+
+        let source_container = match source_target.find_target_entity(entity, world) {
+            Some(c) => c,
+            None => {
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::TargetNotFound(source_target),
+                });
+            }
+        };
+
+        if world.get::<Container>(source_container).is_none() {
+            let source_container_name = get_reference_name(source_container, world);
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name,
+                error: CommandParseError::Other(format!(
+                    "{source_container_name} is not a container."
+                )),
+            });
+        }
+
+        let item = match &item_target {
+            CommandTarget::Named(n) => {
+                //TODO have better error message if the item exists, but isn't in your inventory or whatever
+                match n.find_target_entity_in_container(source_container, world) {
+                    Some(e) => e,
                     None => {
                         return Err(InputParseError::CommandParseError {
-                            verb: GET_VERB_NAME.to_string(),
-                            error: CommandParseError::TargetNotFound(container_target),
+                            verb: verb_name,
+                            error: CommandParseError::TargetNotFound(item_target),
                         });
                     }
-                };
-
-                let item_target = CommandTarget::parse(item_match.as_str());
-                let item = match &item_target {
-                    CommandTarget::Named(n) => {
-                        match n.find_target_entity_in_container(container, world) {
-                            Some(e) => e,
-                            None => {
-                                return Err(InputParseError::CommandParseError {
-                                    verb: GET_VERB_NAME.to_string(),
-                                    error: CommandParseError::TargetNotFound(item_target),
-                                });
-                            }
-                        }
-                    }
-                    _ => {
-                        return Err(InputParseError::CommandParseError {
-                            verb: GET_VERB_NAME.to_string(),
-                            error: CommandParseError::Other("You can't get that.".to_string()),
-                        });
-                    }
-                };
-
-                let item_name = get_reference_name(item, world);
-                let inventory = world
-                    .get::<Container>(entity)
-                    .expect("entity should be a container");
-                if inventory.entities.contains(&item) {
-                    return Err(InputParseError::CommandParseError {
-                        verb: GET_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!("You already have {item_name}.")),
-                    });
                 }
+            }
+            _ => {
+                // This will be hit if the target item is not a named item, so if the input was "get me from bag" or something
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::Other("That doesn't make sense.".to_string()),
+                });
+            }
+        };
 
-                return Ok(Box::new(PutAction {
-                    item,
-                    destination: entity,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
+        let item_name = get_reference_name(item, world);
+
+        if destination_target == CommandTarget::Myself {
+            let inventory = world
+                .get::<Container>(entity)
+                .expect("entity should be a container");
+            if inventory.entities.contains(&item) {
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::Other(format!("You already have {item_name}.")),
+                });
             }
         }
 
-        // TODO handle putting items into containers
-
-        // dropping an item
-        if let Some(captures) = DROP_PATTERN.captures(input) {
-            if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-                let item_target = CommandTarget::parse(item_match.as_str());
-                let item = match &item_target {
-                    CommandTarget::Named(n) => match n.find_target_entity(entity, world) {
-                        Some(e) => e,
-                        None => {
-                            return Err(InputParseError::CommandParseError {
-                                verb: GET_VERB_NAME.to_string(),
-                                error: CommandParseError::TargetNotFound(item_target),
-                            });
-                        }
-                    },
-                    _ => {
-                        return Err(InputParseError::CommandParseError {
-                            verb: GET_VERB_NAME.to_string(),
-                            error: CommandParseError::Other("You can't drop that.".to_string()),
-                        });
-                    }
-                };
-
-                let item_name = get_reference_name(item, world);
-                let inventory = world
-                    .get::<Container>(entity)
-                    .expect("entity should be a container");
-                if !inventory.entities.contains(&item) {
-                    return Err(InputParseError::CommandParseError {
-                        verb: GET_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!("You don't have {item_name}.")),
-                    });
-                }
-
-                let destination = world
-                    .get::<Location>(entity)
-                    .expect("entity should have a location")
-                    .id;
-
-                return Ok(Box::new(PutAction {
-                    item,
-                    destination,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
+        if source_target == CommandTarget::Myself {
+            let inventory = world
+                .get::<Container>(entity)
+                .expect("entity should be a container");
+            if !inventory.entities.contains(&item) {
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::Other(format!("You don't have {item_name}.")),
+                });
             }
         }
 
-        Err(InputParseError::UnknownCommand)
+        let destination_container = match destination_target.find_target_entity(entity, world) {
+            Some(c) => c,
+            None => {
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::TargetNotFound(destination_target),
+                });
+            }
+        };
+
+        if world.get::<Container>(destination_container).is_none() {
+            let destination_container_name = get_reference_name(destination_container, world);
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name,
+                error: CommandParseError::Other(format!(
+                    "{destination_container_name} is not a container."
+                )),
+            });
+        }
+
+        Ok(Box::new(PutAction {
+            item,
+            source: source_container,
+            destination: destination_container,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
@@ -173,16 +164,107 @@ impl InputParser for PutParser {
     }
 }
 
+fn parse_targets(
+    input: &str,
+) -> Result<(String, CommandTarget, CommandTarget, CommandTarget), InputParseError> {
+    // getting an item from something
+    if let Some(captures) = GET_FROM_PATTERN.captures(input) {
+        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
+            if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
+                let item_target = CommandTarget::parse(item_match.as_str());
+                let source_target = CommandTarget::parse(container_match.as_str());
+                let destination_target = CommandTarget::Myself;
+
+                return Ok((
+                    GET_VERB_NAME.to_string(),
+                    item_target,
+                    source_target,
+                    destination_target,
+                ));
+            }
+        }
+    }
+
+    // getting an item from the room
+    if let Some(captures) = GET_PATTERN.captures(input) {
+        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
+            let item_target = CommandTarget::parse(item_match.as_str());
+            let source_target = CommandTarget::Here;
+            let destination_target = CommandTarget::Myself;
+
+            return Ok((
+                GET_VERB_NAME.to_string(),
+                item_target,
+                source_target,
+                destination_target,
+            ));
+        }
+    }
+
+    // putting an item into something
+    if let Some(captures) = PUT_PATTERN.captures(input) {
+        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
+            if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
+                let item_target = CommandTarget::parse(item_match.as_str());
+                let source_target = CommandTarget::Myself;
+                let destination_target = CommandTarget::parse(container_match.as_str());
+
+                return Ok((
+                    PUT_VERB_NAME.to_string(),
+                    item_target,
+                    source_target,
+                    destination_target,
+                ));
+            }
+        }
+    }
+
+    // dropping an item
+    if let Some(captures) = DROP_PATTERN.captures(input) {
+        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
+            let item_target = CommandTarget::parse(item_match.as_str());
+            let source_target = CommandTarget::Myself;
+            let destination_target = CommandTarget::Here;
+
+            return Ok((
+                DROP_VERB_NAME.to_string(),
+                item_target,
+                source_target,
+                destination_target,
+            ));
+        }
+    }
+
+    Err(InputParseError::UnknownCommand)
+}
+
 #[derive(Debug)]
 struct PutAction {
+    /// The item to move.
     item: Entity,
+    /// Where the item is.
+    source: Entity,
+    /// Where the item should be.
     destination: Entity,
     notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        //TODO verify that the item is being moved from the expected location
+        // verify that the item is in the expected source location
+        let item_location = world
+            .get::<Location>(self.item)
+            .expect("item should have a location")
+            .id;
+        if item_location != self.source {
+            let item_name = get_reference_name(self.item, world);
+            let source_name = get_reference_name(self.source, world);
+            return ActionResult::error(
+                performing_entity,
+                format!("{item_name} is not in {source_name}."),
+            );
+        }
+
         move_entity(self.item, self.destination, world);
 
         let item_name = get_reference_name(self.item, world);
@@ -194,15 +276,31 @@ impl Action for PutAction {
         let mut result_builder = ActionResult::builder();
 
         if self.destination == performing_entity {
-            result_builder = result_builder.with_message(
-                performing_entity,
-                format!("You pick up {item_name}."),
-                MessageDelay::Short,
-            )
+            if self.source == performing_entity_location {
+                result_builder = result_builder.with_message(
+                    performing_entity,
+                    format!("You pick up {item_name}."),
+                    MessageDelay::Short,
+                )
+            } else {
+                let source_name = get_reference_name(self.source, world);
+                result_builder = result_builder.with_message(
+                    performing_entity,
+                    format!("You get {item_name} from {source_name}."),
+                    MessageDelay::Short,
+                )
+            }
         } else if self.destination == performing_entity_location {
             result_builder = result_builder.with_message(
                 performing_entity,
                 format!("You drop {item_name}."),
+                MessageDelay::Short,
+            )
+        } else {
+            let destination_name = get_reference_name(self.destination, world);
+            result_builder = result_builder.with_message(
+                performing_entity,
+                format!("You put {item_name} into {destination_name}."),
                 MessageDelay::Short,
             )
         }
