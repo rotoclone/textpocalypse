@@ -161,6 +161,23 @@ impl CommandTargetName {
             .expect("Looking entity's location should be a container");
         location.find_entity_by_name(&self.name, world)
     }
+
+    /// Finds the entity described by this target, if it exists in the provided container.
+    pub fn find_target_entity_in_container(
+        &self,
+        containing_entity: Entity,
+        world: &World,
+    ) -> Option<Entity> {
+        //TODO take location chain into account
+
+        if let Some(container) = world.get::<Container>(containing_entity) {
+            if let Some(found_entity) = container.find_entity_by_name(&self.name, world) {
+                return Some(found_entity);
+            }
+        }
+
+        None
+    }
 }
 
 /// An error while parsing input.

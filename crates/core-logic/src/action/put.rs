@@ -45,17 +45,36 @@ impl InputParser for PutParser {
         // getting an item
         if let Some(captures) = GET_PATTERN.captures(input) {
             if let Some(item_match) = captures.name(ITEM_CAPTURE) {
+                let container_target =
+                    if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
+                        //TODO this never gets executed because of silly regex things
+                        CommandTarget::parse(container_match.as_str())
+                    } else {
+                        CommandTarget::Here
+                    };
+                let container = match container_target.find_target_entity(entity, world) {
+                    Some(c) => c,
+                    None => {
+                        return Err(InputParseError::CommandParseError {
+                            verb: GET_VERB_NAME.to_string(),
+                            error: CommandParseError::TargetNotFound(container_target),
+                        });
+                    }
+                };
+
                 let item_target = CommandTarget::parse(item_match.as_str());
                 let item = match &item_target {
-                    CommandTarget::Named(n) => match n.find_target_entity(entity, world) {
-                        Some(e) => e,
-                        None => {
-                            return Err(InputParseError::CommandParseError {
-                                verb: GET_VERB_NAME.to_string(),
-                                error: CommandParseError::TargetNotFound(item_target),
-                            });
+                    CommandTarget::Named(n) => {
+                        match n.find_target_entity_in_container(container, world) {
+                            Some(e) => e,
+                            None => {
+                                return Err(InputParseError::CommandParseError {
+                                    verb: GET_VERB_NAME.to_string(),
+                                    error: CommandParseError::TargetNotFound(item_target),
+                                });
+                            }
                         }
-                    },
+                    }
                     _ => {
                         return Err(InputParseError::CommandParseError {
                             verb: GET_VERB_NAME.to_string(),
@@ -63,8 +82,6 @@ impl InputParser for PutParser {
                         });
                     }
                 };
-
-                //TODO handle getting items from containers
 
                 let item_name = get_reference_name(item, world);
                 let inventory = world
@@ -165,6 +182,7 @@ struct PutAction {
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        //TODO verify that the item is being moved from the expected location
         move_entity(self.item, self.destination, world);
 
         let item_name = get_reference_name(self.item, world);
