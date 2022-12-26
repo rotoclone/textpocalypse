@@ -46,8 +46,6 @@ impl InputParser for PutParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let (verb_name, item_target, source_target, destination_target) = parse_targets(input)?;
 
-        //TODO verify that the item isn't the same as the source or destination
-
         let source_container = match source_target.find_target_entity(entity, world) {
             Some(c) => c,
             None => {
@@ -134,6 +132,19 @@ impl InputParser for PutParser {
                     "{destination_container_name} is not a container."
                 )),
             });
+        }
+
+        if let Some(container) = world.get::<Container>(item) {
+            if item == destination_container
+                || container.contains_recursive(destination_container, world)
+            {
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name,
+                    error: CommandParseError::Other(format!(
+                        "You can't put {item_name} inside itself."
+                    )),
+                });
+            }
         }
 
         Ok(Box::new(PutAction {
@@ -239,13 +250,13 @@ fn parse_targets(
 }
 
 #[derive(Debug)]
-struct PutAction {
+pub struct PutAction {
     /// The item to move.
-    item: Entity,
+    pub item: Entity,
     /// Where the item is.
-    source: Entity,
+    pub source: Entity,
     /// Where the item should be.
-    destination: Entity,
+    pub destination: Entity,
     notification_sender: ActionNotificationSender<Self>,
 }
 

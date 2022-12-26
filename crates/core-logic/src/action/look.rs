@@ -89,9 +89,9 @@ impl InputParser for LookParser {
 }
 
 #[derive(Debug)]
-struct LookAction {
-    target: Entity,
-    detailed: bool,
+pub struct LookAction {
+    pub target: Entity,
+    pub detailed: bool,
     notification_sender: ActionNotificationSender<Self>,
 }
 

@@ -1,6 +1,8 @@
 use bevy_ecs::prelude::*;
 use log::debug;
 
+use crate::GameMessage;
+
 /// The description of an entity.
 #[derive(Component, Debug)]
 pub struct Description {
@@ -33,12 +35,61 @@ impl Description {
 
 pub trait AttributeDescriber: Send + Sync + std::fmt::Debug {
     /// Generates descriptions of attributes of the provided entity.
-    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription>;
+    fn describe(
+        &self,
+        entity: Entity,
+        detail_level: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription>;
+}
+
+/// The level of detail to use for attribute descriptions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AttributeDetailLevel {
+    /// Basic details, like whether the entity is open.
+    Basic = 0,
+    /// Advanced details, like how much the entity weighs.
+    Advanced,
 }
 
 /// A description of a single attribute of an entity.
 #[derive(Debug, Clone)]
-pub struct AttributeDescription {
+pub enum AttributeDescription {
+    /// A basic attribute, like the fact that an entity is closed.
+    Basic(BasicAttributeDescription),
+    /// A description in the form of a game message, like the contents of an entity.
+    Message(GameMessage),
+}
+
+impl AttributeDescription {
+    /// Creates a description of something an entity is, like "closed" or "broken".
+    pub fn is(description: String) -> AttributeDescription {
+        AttributeDescription::Basic(BasicAttributeDescription {
+            attribute_type: AttributeType::Is,
+            description,
+        })
+    }
+
+    /// Creates a description of something an entity does, like "glows" or "makes you feel uneasy".
+    pub fn does(description: String) -> AttributeDescription {
+        AttributeDescription::Basic(BasicAttributeDescription {
+            attribute_type: AttributeType::Does,
+            description,
+        })
+    }
+
+    /// Creates a description of something an entity has, like "3 uses left" or "some bites taken out of it".
+    pub fn has(description: String) -> AttributeDescription {
+        AttributeDescription::Basic(BasicAttributeDescription {
+            attribute_type: AttributeType::Has,
+            description,
+        })
+    }
+}
+
+/// A basic description of a single attribute of an entity.
+#[derive(Debug, Clone)]
+pub struct BasicAttributeDescription {
     /// The type of attribute.
     pub attribute_type: AttributeType,
     /// The descrption of the attribute.

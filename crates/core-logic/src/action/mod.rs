@@ -10,6 +10,7 @@ use crate::{GameMessage, World};
 
 mod look;
 pub use look::look_after_move;
+pub use look::LookAction;
 pub use look::LookParser;
 
 mod r#move;
@@ -30,6 +31,7 @@ mod inventory;
 pub use inventory::InventoryParser;
 
 mod put;
+pub use put::PutAction;
 pub use put::PutParser;
 
 /// The result of a single tick of an action being performed.

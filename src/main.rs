@@ -96,17 +96,10 @@ fn delay_for_message(message: &GameMessage) -> Duration {
     }
 }
 
-/// Renders the provided `GameMessage` to the screen
+/// Renders the provided `GameMessage` to the screen.
 fn render_message(message: GameMessage, time: Time) -> Result<()> {
-    let output = match message {
-        GameMessage::Error(e) => e,
-        GameMessage::Message(m, _) => m,
-        GameMessage::Help(h) => help_to_string(h),
-        GameMessage::Room(room) => room_to_string(room, time),
-        GameMessage::Entity(entity) => entity_to_string(entity),
-        GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
-        GameMessage::Container(container) => container_to_string(container),
-    };
+    let output = message_to_string(message, Some(time));
+
     stdout()
         .queue(Clear(ClearType::CurrentLine))?
         .queue(cursor::MoveToColumn(0))?
@@ -118,11 +111,30 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
     Ok(())
 }
 
+/// Transforms the provided message into a string for display.
+fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
+    match message {
+        GameMessage::Error(e) => e,
+        GameMessage::Message(m, _) => m,
+        GameMessage::Help(h) => help_to_string(h),
+        GameMessage::Room(room) => room_to_string(room, time),
+        GameMessage::Entity(entity) => entity_to_string(entity),
+        GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
+        GameMessage::Container(container) => container_to_string(container),
+    }
+}
+
 /// Transforms the provided room description into a string for display.
-fn room_to_string(room: RoomDescription, time: Time) -> String {
+fn room_to_string(room: RoomDescription, time: Option<Time>) -> String {
     let map = map_to_string(&room.map);
     let name = style(room.name).bold();
-    let time = style(format!("({})", time_to_string(time))).dark_grey();
+    let time = if let Some(time) = time {
+        style(format!("({})", time_to_string(time)))
+            .dark_grey()
+            .to_string()
+    } else {
+        "".to_string()
+    };
     let desc = room.description;
     let entities = if room.entities.is_empty() {
         "".to_string()
@@ -375,14 +387,14 @@ fn entity_to_string(entity: EntityDescription) -> String {
             .to_string()
     };
     let desc = entity.description;
-    let attributes = entity_attributes_to_string(&entity.attributes)
+    let attributes = entity_attributes_to_string(entity.attributes)
         .map_or_else(|| "".to_string(), |s| format!("\n\n{s}"));
 
     format!("{name}{aliases}\n{desc}{attributes}")
 }
 
 /// Transforms the provided entity attribute descriptions into a string for display.
-fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<String> {
+fn entity_attributes_to_string(attributes: Vec<AttributeDescription>) -> Option<String> {
     if attributes.is_empty() {
         return None;
     }
@@ -390,12 +402,18 @@ fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<St
     let mut is_descriptions = Vec::new();
     let mut does_descriptions = Vec::new();
     let mut has_descriptions = Vec::new();
+    let mut messages = Vec::new();
     for attribute in attributes {
-        let description = attribute.description.clone();
-        match attribute.attribute_type {
-            AttributeType::Is => is_descriptions.push(description),
-            AttributeType::Does => does_descriptions.push(description),
-            AttributeType::Has => has_descriptions.push(description),
+        match attribute {
+            AttributeDescription::Basic(basic_attribute) => {
+                let description = basic_attribute.description.clone();
+                match basic_attribute.attribute_type {
+                    AttributeType::Is => is_descriptions.push(description),
+                    AttributeType::Does => does_descriptions.push(description),
+                    AttributeType::Has => has_descriptions.push(description),
+                }
+            }
+            AttributeDescription::Message(m) => messages.push(m),
         }
     }
 
@@ -417,7 +435,27 @@ fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<St
         Some(format!("It has {}.", format_list(&has_descriptions)))
     };
 
-    Some([is_description, does_description, has_description].join("\n\n"))
+    let messages_description = if messages.is_empty() {
+        None
+    } else {
+        Some(
+            messages
+                .into_iter()
+                .map(|message| message_to_string(message, None))
+                .collect::<Vec<String>>()
+                .join("\n\n"),
+        )
+    };
+
+    Some(
+        [
+            is_description,
+            does_description,
+            has_description,
+            messages_description,
+        ]
+        .join("\n\n"),
+    )
 }
 
 /// Transforms the provided detailed entity description into a string for display.

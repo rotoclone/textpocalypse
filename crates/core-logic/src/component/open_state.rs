@@ -14,9 +14,9 @@ use crate::{
 };
 
 use super::{
-    description::{AttributeType, DescribeAttributes},
-    queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDescription,
-    Connection, Container, Description, Location, ParseCustomInput,
+    description::DescribeAttributes, queue_action_first, AfterActionNotification,
+    AttributeDescriber, AttributeDescription, AttributeDetailLevel, Connection, Container,
+    Description, Location, ParseCustomInput,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -173,14 +173,16 @@ impl ParseCustomInput for OpenState {
 struct OpenStateAttributeDescriber;
 
 impl AttributeDescriber for OpenStateAttributeDescriber {
-    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription> {
+    fn describe(
+        &self,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
         if let Some(open_state) = world.get::<OpenState>(entity) {
             let description = if open_state.is_open { "open" } else { "closed" };
 
-            return vec![AttributeDescription {
-                attribute_type: AttributeType::Is,
-                description: description.to_string(),
-            }];
+            return vec![AttributeDescription::is(description.to_string())];
         }
 
         Vec::new()

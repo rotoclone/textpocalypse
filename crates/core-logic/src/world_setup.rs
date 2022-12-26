@@ -214,11 +214,15 @@ pub fn set_up_world(world: &mut World) {
                 article: Some("a".to_string()),
                 aliases: vec!["duffel".to_string(), "bag".to_string()],
                 description: "A large duffel bag.".to_string(),
-                attribute_describers: Vec::new(),
+                attribute_describers: vec![
+                    Container::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
             },
-            Volume(10.0),
+            Volume(5.0),
             Weight(0.2),
-            Container::new(Some(Volume(10.0)), None),
+            Container::new(Some(Volume(5.0)), None),
         ))
         .id();
     move_entity(duffel_bag_id, middle_room_id, world);

@@ -1,75 +1,18 @@
-use std::{
-    collections::HashSet,
-    fmt::Display,
-    iter::Sum,
-    ops::{Add, AddAssign},
-};
+use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 
-use crate::Direction;
+use crate::{
+    action::PutAction,
+    get_reference_name, get_weight,
+    notification::{Notification, VerifyResult},
+    AttributeDescription, ContainerDescription, Direction, GameMessage,
+};
 
-use super::{Connection, Description};
-
-/// The volume of an entity.
-#[derive(Debug, Clone, Component)]
-pub struct Volume(pub f32);
-
-impl Add for Volume {
-    type Output = Volume;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Volume(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Volume {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-
-impl Sum for Volume {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Volume(iter.map(|x| x.0).sum())
-    }
-}
-
-impl Display for Volume {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// The weight of an entity.
-#[derive(Debug, Clone, Component)]
-pub struct Weight(pub f32);
-
-impl Add for Weight {
-    type Output = Weight;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Weight(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Weight {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-
-impl Sum for Weight {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Weight(iter.map(|x| x.0).sum())
-    }
-}
-
-impl Display for Weight {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+use super::{
+    AttributeDescriber, AttributeDetailLevel, Connection, DescribeAttributes, Description,
+    VerifyActionNotification, Volume, Weight,
+};
 
 /// Entities contained within an entity.
 #[derive(Component)]
@@ -132,4 +75,110 @@ impl Container {
 
         None
     }
+
+    /// Determines if the provided entity is inside this container, or inside any container in this container, etc.
+    pub fn contains_recursive(&self, entity: Entity, world: &World) -> bool {
+        self.contains_recursive_internal(entity, world, &mut vec![])
+    }
+
+    fn contains_recursive_internal(
+        &self,
+        entity: Entity,
+        world: &World,
+        contained_entities: &mut Vec<Entity>,
+    ) -> bool {
+        for contained_entity in &self.entities {
+            if contained_entities.contains(contained_entity) {
+                panic!("{contained_entity:?} contains itself")
+            }
+            contained_entities.push(*contained_entity);
+
+            if entity == *contained_entity {
+                return true;
+            }
+
+            if let Some(container) = world.get::<Container>(*contained_entity) {
+                if container.contains_recursive_internal(entity, world, contained_entities) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+}
+
+/// Describes the contents of an entity.
+#[derive(Debug)]
+struct ContainerAttributeDescriber;
+
+impl AttributeDescriber for ContainerAttributeDescriber {
+    fn describe(
+        &self,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
+        //TODO don't do this if the performing entity wouldn't be able to see the container's contents, like if they're looking at another player or into a closed item
+        if let Some(container) = world.get::<Container>(entity) {
+            let message =
+                GameMessage::Container(ContainerDescription::from_container(container, world));
+            return vec![AttributeDescription::Message(message)];
+        }
+
+        Vec::new()
+    }
+}
+
+impl DescribeAttributes for Container {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(ContainerAttributeDescriber)
+    }
+}
+
+/// Prevents containers from getting overfilled.
+pub fn limit_container_contents(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let container = world
+        .get::<Container>(notification.contents.destination)
+        .expect("destination entity should be a container");
+
+    let item_weight = get_weight(notification.contents.item, world);
+    if let Some(max_weight) = &container.max_weight {
+        let used_weight = container
+            .entities
+            .iter()
+            .map(|e| get_weight(*e, world))
+            .sum::<Weight>();
+        if used_weight + item_weight > *max_weight {
+            let item_name = get_reference_name(notification.contents.item, world);
+            let message = format!("{item_name} is too heavy.");
+            return VerifyResult::invalid(
+                notification.notification_type.performing_entity,
+                GameMessage::Error(message),
+            );
+        }
+    }
+
+    if let Some(item_volume) = world.get::<Volume>(notification.contents.item).cloned() {
+        if let Some(max_volume) = &container.volume {
+            let used_volume = container
+                .entities
+                .iter()
+                .map(|e| world.get::<Volume>(*e).cloned().unwrap_or(Volume(0.0)))
+                .sum::<Volume>();
+            if used_volume + item_volume > *max_volume {
+                let item_name = get_reference_name(notification.contents.item, world);
+                let message = format!("{item_name} is too big.");
+                return VerifyResult::invalid(
+                    notification.notification_type.performing_entity,
+                    GameMessage::Error(message),
+                );
+            }
+        }
+    }
+
+    VerifyResult::valid()
 }

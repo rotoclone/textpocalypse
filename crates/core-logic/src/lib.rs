@@ -85,14 +85,8 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
-        NotificationHandlers::add_handler(auto_open_connections, &mut world);
+        register_component_handlers(&mut world);
         NotificationHandlers::add_handler(look_after_move, &mut world);
-        VerifyNotificationHandlers::add_handler(
-            prevent_moving_through_closed_connections,
-            &mut world,
-        );
-        NotificationHandlers::add_handler(auto_unlock_keyed_locks, &mut world);
-        VerifyNotificationHandlers::add_handler(prevent_opening_locked_keyed_locks, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -120,7 +114,7 @@ impl Game {
         let player_id = world
             .spawn((
                 Player,
-                Container::new(Some(Volume(10.0)), Some(Weight(100.0))),
+                Container::new(Some(Volume(10.0)), Some(Weight(10.5))),
                 desc,
                 message_channel,
             ))
@@ -137,7 +131,10 @@ impl Game {
                     article: Some("a".to_string()),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
-                    attribute_describers: Vec::new(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
                 },
                 Volume(0.1),
                 Weight(0.5),
@@ -153,7 +150,10 @@ impl Game {
                     article: Some("a".to_string()),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
-                    attribute_describers: Vec::new(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
                 },
                 Volume(0.5),
                 Weight(10.0),
@@ -319,10 +319,14 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
 
 /// Determines the total weight of an entity.
 fn get_weight(entity: Entity, world: &World) -> Weight {
-    get_weight_chain(entity, world, &mut vec![entity])
+    get_weight_recursive(entity, world, &mut vec![entity])
 }
 
-fn get_weight_chain(entity: Entity, world: &World, contained_entities: &mut Vec<Entity>) -> Weight {
+fn get_weight_recursive(
+    entity: Entity,
+    world: &World,
+    contained_entities: &mut Vec<Entity>,
+) -> Weight {
     let mut weight = world.get::<Weight>(entity).cloned().unwrap_or(Weight(0.0));
 
     if let Some(container) = world.get::<Container>(entity) {
@@ -334,7 +338,7 @@ fn get_weight_chain(entity: Entity, world: &World, contained_entities: &mut Vec<
                     panic!("{entity:?} contains itself")
                 }
                 contained_entities.push(*e);
-                get_weight_chain(*e, world, contained_entities)
+                get_weight_recursive(*e, world, contained_entities)
             })
             .sum::<Weight>();
 

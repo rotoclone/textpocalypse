@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 
-use crate::{AttributeDescription, AttributeType, Direction};
+use crate::{AttributeDescription, Direction};
 
-use super::{AttributeDescriber, DescribeAttributes};
+use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
 /// Describes a connection an entity makes to another room.
 #[derive(PartialEq, Eq, Debug, Component)]
@@ -20,12 +20,17 @@ pub struct Connection {
 struct ConnectionAttributeDescriber;
 
 impl AttributeDescriber for ConnectionAttributeDescriber {
-    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription> {
+    fn describe(
+        &self,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
         if let Some(connection) = world.get::<Connection>(entity) {
-            return vec![AttributeDescription {
-                attribute_type: AttributeType::Does,
-                description: format!("leads {}", connection.direction),
-            }];
+            return vec![AttributeDescription::does(format!(
+                "leads {}",
+                connection.direction
+            ))];
         }
 
         Vec::new()

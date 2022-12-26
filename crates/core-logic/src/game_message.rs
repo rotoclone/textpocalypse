@@ -7,7 +7,8 @@ use lazy_static::lazy_static;
 use crate::{
     color::Color,
     component::{
-        AttributeDescription, Connection, Container, Description, Location, Room, Volume, Weight,
+        AttributeDescription, AttributeDetailLevel, Connection, Container, Description, Location,
+        Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_weight,
@@ -67,6 +68,21 @@ pub struct EntityDescription {
 impl EntityDescription {
     /// Creates an entity description for `entity`.
     pub fn for_entity(entity: Entity, desc: &Description, world: &World) -> EntityDescription {
+        EntityDescription::for_entity_with_detail_level(
+            entity,
+            desc,
+            AttributeDetailLevel::Basic,
+            world,
+        )
+    }
+
+    /// Creates an entity description for `entity`, with attribute descriptions of the provided detail level.
+    fn for_entity_with_detail_level(
+        entity: Entity,
+        desc: &Description,
+        detail_level: AttributeDetailLevel,
+        world: &World,
+    ) -> EntityDescription {
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
@@ -75,7 +91,7 @@ impl EntityDescription {
             attributes: desc
                 .attribute_describers
                 .iter()
-                .flat_map(|d| d.describe(entity, world))
+                .flat_map(|d| d.describe(entity, detail_level, world))
                 .collect(),
         }
     }
@@ -106,7 +122,12 @@ impl DetailedEntityDescription {
         world: &World,
     ) -> DetailedEntityDescription {
         DetailedEntityDescription {
-            basic_desc: EntityDescription::for_entity(entity, desc, world),
+            basic_desc: EntityDescription::for_entity_with_detail_level(
+                entity,
+                desc,
+                AttributeDetailLevel::Advanced,
+                world,
+            ),
             actions: build_action_descriptions_for_entity(looking_entity, entity, world),
         }
     }

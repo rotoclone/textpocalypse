@@ -10,13 +10,13 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    AttributeDescription, AttributeType, GameMessage, MessageDelay,
+    AttributeDescription, GameMessage, MessageDelay,
 };
 
 use super::{
-    queue_action_first, AfterActionNotification, AttributeDescriber, BeforeActionNotification,
-    Connection, Container, DescribeAttributes, Description, ParseCustomInput,
-    VerifyActionNotification,
+    queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDetailLevel,
+    BeforeActionNotification, Connection, Container, DescribeAttributes, Description,
+    ParseCustomInput, VerifyActionNotification,
 };
 
 const UNLOCK_VERB_NAME: &str = "unlock";
@@ -236,7 +236,12 @@ impl ParseCustomInput for KeyedLock {
 struct KeyedLockAttributeDescriber;
 
 impl AttributeDescriber for KeyedLockAttributeDescriber {
-    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription> {
+    fn describe(
+        &self,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
         if let Some(locked_state) = world.get::<KeyedLock>(entity) {
             let description = if locked_state.is_locked {
                 "locked"
@@ -244,10 +249,7 @@ impl AttributeDescriber for KeyedLockAttributeDescriber {
                 "unlocked"
             };
 
-            return vec![AttributeDescription {
-                attribute_type: AttributeType::Is,
-                description: description.to_string(),
-            }];
+            return vec![AttributeDescription::is(description.to_string())];
         }
 
         Vec::new()
