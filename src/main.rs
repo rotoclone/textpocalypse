@@ -6,11 +6,11 @@ use crossterm::{
     terminal::{Clear, ClearType},
     QueueableCommand,
 };
-use cruet::Inflector;
 use itertools::Itertools;
 use log::debug;
 use std::{
     cmp::Ordering,
+    hash::Hash,
     io::{stdin, stdout, Write},
     sync::{
         atomic::{self, AtomicBool},
@@ -19,6 +19,7 @@ use std::{
     thread,
     time::Duration,
 };
+use voca_rs::Voca;
 
 use core_logic::{
     ActionDescription, AttributeDescription, AttributeType, ContainerDescription,
@@ -114,8 +115,8 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
 /// Transforms the provided message into a string for display.
 fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
-        GameMessage::Error(e) => e,
-        GameMessage::Message(m, _) => m,
+        GameMessage::Error(e) => e._capitalize(false),
+        GameMessage::Message(m, _) => m._capitalize(false),
         GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
@@ -272,15 +273,42 @@ fn room_entities_to_string(entities: &[RoomEntityDescription]) -> String {
         }
     }
 
-    let living_entities = living_entities_to_string(&living_entity_descriptions);
-    let object_entities = object_entities_to_string(&object_entity_descriptions);
+    let living_entities_counted = group_and_count(living_entity_descriptions, |d| d.name.clone());
+    let object_entities_counted = group_and_count(object_entity_descriptions, |d| d.name.clone());
+
+    let living_entities = living_entities_to_string(&living_entities_counted);
+    let object_entities = object_entities_to_string(&object_entities_counted);
     let connection_entities = connection_entities_to_string(&connection_entity_descriptions);
 
     [living_entities, object_entities, connection_entities].join("\n\n")
 }
 
+/// Returns a list of de-duplicated items along with how many times that item appeared in the input list.
+///
+/// An item is considered to be the same as another item if the provided group function returns the same value for both items.
+fn group_and_count<T, K, F>(items: Vec<T>, group_fn: F) -> Vec<(T, usize)>
+where
+    T: Ord,
+    K: Hash + Eq,
+    F: Fn(&T) -> K,
+{
+    let grouped = items.into_iter().into_group_map_by(group_fn);
+
+    grouped
+        .into_values()
+        // unwrap is safe here because `into_group_map_by` will only create groups with at least 1 item
+        .map(|mut group| {
+            let len = group.len();
+            (group.pop().unwrap(), len)
+        })
+        .sorted()
+        .collect()
+}
+
 /// Transforms the provided living entity descriptions into a string for display as part of a room description.
-fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Option<String> {
+///
+/// Takes in a list of pairs of entity descriptions and how many of that entity are in the room.
+fn living_entities_to_string(entities: &[(&RoomLivingEntityDescription, usize)]) -> Option<String> {
     if entities.is_empty() {
         return None;
     }
@@ -288,23 +316,29 @@ fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Optio
     let is_or_are = if entities.len() == 1 { "is" } else { "are" };
 
     let mut descriptions = Vec::new();
-    for (i, entity) in entities.iter().enumerate() {
-        let name = if i == 0 {
-            entity.name.to_sentence_case()
-        } else {
-            entity.name.clone()
-        };
-
-        let desc = format!(
-            "{}{}",
-            entity
+    for (i, (entity, count)) in entities.iter().enumerate() {
+        let article;
+        let entity_name;
+        if *count == 1 {
+            article = entity
                 .article
                 .as_ref()
                 .map(|a| format!("{a} "))
-                .unwrap_or_else(|| "".to_string()),
-            style(&name).bold(),
-        );
-        descriptions.push(desc);
+                .unwrap_or_else(|| "".to_string());
+            entity_name = &entity.name;
+        } else {
+            article = format!("{count} ");
+            entity_name = &entity.plural_name;
+        }
+
+        let name = if i == 0 {
+            entity_name._capitalize(false)
+        } else {
+            entity_name.clone()
+        };
+
+        let desc = format!("{article}{name}");
+        descriptions.push(style(desc).bold().to_string());
     }
 
     Some(format!(
@@ -315,23 +349,30 @@ fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Optio
 }
 
 /// Transforms the provided object entity descriptions into a string for display as part of a room description.
-fn object_entities_to_string(entities: &[&RoomObjectDescription]) -> Option<String> {
+///
+/// Takes in a list of pairs of entity descriptions and how many of that entity are in the room.
+fn object_entities_to_string(entities: &[(&RoomObjectDescription, usize)]) -> Option<String> {
     if entities.is_empty() {
         return None;
     }
 
     let descriptions = entities
         .iter()
-        .map(|entity| {
-            format!(
-                "{}{}",
-                entity
+        .map(|(entity, count)| {
+            let article;
+            let entity_name;
+            if *count == 1 {
+                article = entity
                     .article
                     .as_ref()
                     .map(|a| format!("{a} "))
-                    .unwrap_or_else(|| "".to_string()),
-                style(&entity.name).bold()
-            )
+                    .unwrap_or_else(|| "".to_string());
+                entity_name = &entity.name;
+            } else {
+                article = format!("{count} ");
+                entity_name = &entity.plural_name;
+            }
+            style(format!("{article}{entity_name}")).bold().to_string()
         })
         .collect::<Vec<String>>();
 
@@ -349,13 +390,9 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
         let name = if i == 0 {
             // capitalize the article if there is one, otherwise capitalize the name
             if let Some(article) = &entity.article {
-                format!(
-                    "{} {}",
-                    article.to_sentence_case(),
-                    style(&entity.name).bold()
-                )
+                format!("{} {}", article._capitalize(false), entity.name)
             } else {
-                style(&entity.name.to_sentence_case()).bold().to_string()
+                entity.name._capitalize(false)
             }
         } else {
             format!(
@@ -365,11 +402,15 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
                     .as_ref()
                     .map(|a| format!("{a} "))
                     .unwrap_or_else(|| "".to_string()),
-                style(&entity.name).bold()
+                entity.name
             )
         };
 
-        let desc = format!("{} leads {}", name, style(entity.direction).bold(),);
+        let desc = format!(
+            "{} leads {}",
+            style(name).bold(),
+            style(entity.direction).bold(),
+        );
         descriptions.push(desc);
     }
 

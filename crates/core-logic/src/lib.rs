@@ -103,6 +103,7 @@ impl Game {
         let desc = Description {
             name: name.clone(),
             room_name: name,
+            plural_name: "people".to_string(),
             article: None,
             aliases: Vec::new(),
             description: "A human-shaped person-type thing.".to_string(),
@@ -128,6 +129,7 @@ impl Game {
                 Description {
                     name: "medium thing".to_string(),
                     room_name: "medium thing".to_string(),
+                    plural_name: "medium things".to_string(),
                     article: Some("a".to_string()),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
@@ -147,6 +149,7 @@ impl Game {
                 Description {
                     name: "heavy thing".to_string(),
                     room_name: "heavy thing".to_string(),
+                    plural_name: "heavy things".to_string(),
                     article: Some("a".to_string()),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),

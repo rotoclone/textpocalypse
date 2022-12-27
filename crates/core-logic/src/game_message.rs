@@ -246,19 +246,23 @@ pub enum RoomEntityDescription {
 }
 
 /// A description of an object as part of a room description.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoomObjectDescription {
     /// The name of the entity.
     pub name: String,
+    /// The plural name of the entity.
+    pub plural_name: String,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
 }
 
 /// A description of a living thing as part of a room description.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoomLivingEntityDescription {
     /// The name of the entity.
     pub name: String,
+    /// The plural name of the entity.
+    pub plural_name: String,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
 }
@@ -289,6 +293,7 @@ impl RoomEntityDescription {
             } else {
                 Some(RoomEntityDescription::Object(RoomObjectDescription {
                     name: desc.room_name.clone(),
+                    plural_name: desc.plural_name.clone(),
                     article: desc.article.clone(),
                 }))
             }

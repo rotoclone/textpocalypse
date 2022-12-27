@@ -301,16 +301,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cruet"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e0d174765c7d11eb16f70a4213583aac2ca5ae1ebd1e233c6d5104bfb70fce3"
-dependencies = [
- "once_cell",
- "regex",
-]
-
-[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,6 +821,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "stfu8"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1310970b29733b601839578f8ba24991a97057dbedc4ac0decea835474054ee7"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -857,10 +857,10 @@ dependencies = [
  "anyhow",
  "core-logic",
  "crossterm",
- "cruet",
  "env_logger",
  "itertools",
  "log",
+ "voca_rs",
 ]
 
 [[package]]
@@ -928,6 +928,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
 
 [[package]]
+name = "unicode-segmentation"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fdbf052a0783de01e944a6ce7a8cb939e295b1e7be835a1112c3b9a7f047a5a"
+
+[[package]]
 name = "uuid"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -942,6 +948,17 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "voca_rs"
+version = "1.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e44efbf25e32768d5ecd22244feacc3d3b3eca72d318f5ef0a4764c2c158e18"
+dependencies = [
+ "regex",
+ "stfu8",
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "waker-fn"

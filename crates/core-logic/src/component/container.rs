@@ -147,11 +147,15 @@ pub fn limit_container_contents(
     notification: &Notification<VerifyActionNotification, PutAction>,
     world: &World,
 ) -> VerifyResult {
+    let item = notification.contents.item;
+    let destination = notification.contents.destination;
+    let performing_entity = notification.notification_type.performing_entity;
+
     let container = world
-        .get::<Container>(notification.contents.destination)
+        .get::<Container>(destination)
         .expect("destination entity should be a container");
 
-    let item_weight = get_weight(notification.contents.item, world);
+    let item_weight = get_weight(item, world);
     if let Some(max_weight) = &container.max_weight {
         let used_weight = container
             .entities
@@ -159,16 +163,18 @@ pub fn limit_container_contents(
             .map(|e| get_weight(*e, world))
             .sum::<Weight>();
         if used_weight + item_weight > *max_weight {
-            let item_name = get_reference_name(notification.contents.item, world);
-            let message = format!("{item_name} is too heavy.");
-            return VerifyResult::invalid(
-                notification.notification_type.performing_entity,
-                GameMessage::Error(message),
-            );
+            let item_name = get_reference_name(item, world);
+            let message = if destination == performing_entity {
+                format!("{item_name} is too heavy for you to hold.")
+            } else {
+                let destination_name = get_reference_name(destination, world);
+                format!("{item_name} is too heavy for {destination_name}.")
+            };
+            return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
         }
     }
 
-    if let Some(item_volume) = world.get::<Volume>(notification.contents.item).cloned() {
+    if let Some(item_volume) = world.get::<Volume>(item).cloned() {
         if let Some(max_volume) = &container.volume {
             let used_volume = container
                 .entities
@@ -176,12 +182,14 @@ pub fn limit_container_contents(
                 .map(|e| world.get::<Volume>(*e).cloned().unwrap_or(Volume(0.0)))
                 .sum::<Volume>();
             if used_volume + item_volume > *max_volume {
-                let item_name = get_reference_name(notification.contents.item, world);
-                let message = format!("{item_name} is too big.");
-                return VerifyResult::invalid(
-                    notification.notification_type.performing_entity,
-                    GameMessage::Error(message),
-                );
+                let item_name = get_reference_name(item, world);
+                let message = if destination == performing_entity {
+                    format!("{item_name} is too big for you to hold.")
+                } else {
+                    let destination_name = get_reference_name(destination, world);
+                    format!("{item_name} won't fit in {destination_name}.")
+                };
+                return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
             }
         }
     }

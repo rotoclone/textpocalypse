@@ -98,6 +98,7 @@ pub fn set_up_world(world: &mut World) {
             Description {
                 name: "fancy door to the north".to_string(),
                 room_name: "fancy door".to_string(),
+                plural_name: "fancy doors".to_string(),
                 article: Some("a".to_string()),
                 aliases: vec!["door".to_string(), "north".to_string(), "n".to_string()],
                 description: "A fancy-looking door.".to_string(),
@@ -127,6 +128,7 @@ pub fn set_up_world(world: &mut World) {
         Description {
             name: "fancy door to the south".to_string(),
             room_name: "fancy door".to_string(),
+            plural_name: "fancy doors".to_string(),
             article: Some("a".to_string()),
             aliases: vec!["door".to_string(), "south".to_string(), "s".to_string()],
             description: "A fancy-looking door.".to_string(),
@@ -172,6 +174,7 @@ pub fn set_up_world(world: &mut World) {
             Description {
                 name: "small thing".to_string(),
                 room_name: "small thing".to_string(),
+                plural_name: "small things".to_string(),
                 article: Some("a".to_string()),
                 aliases: vec!["thing".to_string()],
                 description: "Some kind of smallish thing.".to_string(),
@@ -191,6 +194,7 @@ pub fn set_up_world(world: &mut World) {
             Description {
                 name: "large thing".to_string(),
                 room_name: "large thing".to_string(),
+                plural_name: "large things".to_string(),
                 article: Some("a".to_string()),
                 aliases: vec!["thing".to_string()],
                 description: "Some kind of largeish thing.".to_string(),
@@ -210,6 +214,7 @@ pub fn set_up_world(world: &mut World) {
             Description {
                 name: "fancy key".to_string(),
                 room_name: "fancy key".to_string(),
+                plural_name: "fancy keys".to_string(),
                 article: Some("a".to_string()),
                 aliases: vec!["key".to_string()],
                 description: "A fancy-looking key.".to_string(),
@@ -230,6 +235,7 @@ pub fn set_up_world(world: &mut World) {
             Description {
                 name: "duffel bag".to_string(),
                 room_name: "duffel bag".to_string(),
+                plural_name: "duffel bags".to_string(),
                 article: Some("a".to_string()),
                 aliases: vec!["duffel".to_string(), "bag".to_string()],
                 description: "A large duffel bag.".to_string(),
@@ -245,4 +251,44 @@ pub fn set_up_world(world: &mut World) {
         ))
         .id();
     move_entity(duffel_bag_id, middle_room_id, world);
+
+    let lead_weight_1_id = world
+        .spawn((
+            Description {
+                name: "lead weight".to_string(),
+                room_name: "lead weight".to_string(),
+                plural_name: "lead weights".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["weight".to_string()],
+                description: "A very compact, yet very heavy chunk of lead.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Volume(0.5),
+            Weight(15.0),
+        ))
+        .id();
+    move_entity(lead_weight_1_id, middle_room_id, world);
+
+    let lead_weight_2_id = world
+        .spawn((
+            Description {
+                name: "lead weight".to_string(),
+                room_name: "lead weight".to_string(),
+                plural_name: "lead weights".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["weight".to_string()],
+                description: "A very compact, yet very heavy chunk of lead.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Volume(0.5),
+            Weight(15.0),
+        ))
+        .id();
+    move_entity(lead_weight_2_id, middle_room_id, world);
 }

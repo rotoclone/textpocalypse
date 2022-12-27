@@ -10,6 +10,8 @@ pub struct Description {
     pub name: String,
     /// The name to use when referring to the entity as part of a room description.
     pub room_name: String,
+    /// The name to use when referring to multiple instances of the entity.
+    pub plural_name: String,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
     /// The alternate names of the entity.
@@ -119,6 +121,7 @@ pub trait DescribeAttributes {
             world.entity_mut(entity).insert(Description {
                 name: "".to_string(),
                 room_name: "".to_string(),
+                plural_name: "".to_string(),
                 article: None,
                 aliases: Vec::new(),
                 description: "".to_string(),
