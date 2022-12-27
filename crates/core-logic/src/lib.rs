@@ -68,6 +68,8 @@ impl StandardInputParsers {
                 Box::new(MoveParser),
                 Box::new(LookParser),
                 Box::new(OpenParser),
+                Box::new(InventoryParser),
+                Box::new(PutParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -83,12 +85,8 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         set_up_world(&mut world);
-        NotificationHandlers::add_handler(auto_open_connections, &mut world);
+        register_component_handlers(&mut world);
         NotificationHandlers::add_handler(look_after_move, &mut world);
-        VerifyNotificationHandlers::add_handler(
-            prevent_moving_through_closed_connections,
-            &mut world,
-        );
         Game {
             world: Arc::new(RwLock::new(world)),
         }
@@ -105,6 +103,7 @@ impl Game {
         let desc = Description {
             name: name.clone(),
             room_name: name,
+            plural_name: "people".to_string(),
             article: None,
             aliases: Vec::new(),
             description: "A human-shaped person-type thing.".to_string(),
@@ -113,9 +112,57 @@ impl Game {
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
-        let player_id = world.spawn((Player, desc, message_channel)).id();
+        let player_id = world
+            .spawn((
+                Player,
+                Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
+                desc,
+                message_channel,
+            ))
+            .id();
         let spawn_room_id = find_spawn_room(&mut world);
         move_entity(player_id, spawn_room_id, &mut world);
+
+        // add stuff to the player's inventory
+        let medium_thing_id = world
+            .spawn((
+                Description {
+                    name: "medium thing".to_string(),
+                    room_name: "medium thing".to_string(),
+                    plural_name: "medium things".to_string(),
+                    article: Some("a".to_string()),
+                    aliases: vec!["thing".to_string()],
+                    description: "Some kind of medium-sized thing.".to_string(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
+                },
+                Volume(0.25),
+                Weight(0.5),
+            ))
+            .id();
+        move_entity(medium_thing_id, player_id, &mut world);
+
+        let heavy_thing_id = world
+            .spawn((
+                Description {
+                    name: "heavy thing".to_string(),
+                    room_name: "heavy thing".to_string(),
+                    plural_name: "heavy things".to_string(),
+                    article: Some("a".to_string()),
+                    aliases: vec!["thing".to_string()],
+                    description: "Some kind of heavy thing.".to_string(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
+                },
+                Volume(0.5),
+                Weight(15.0),
+            ))
+            .id();
+        move_entity(heavy_thing_id, player_id, &mut world);
 
         let player_thread_world = Arc::clone(&self.world);
 
@@ -141,10 +188,18 @@ impl Game {
         let room = world
             .get::<Room>(spawn_room_id)
             .expect("Spawn room should be a room");
+        let container = world
+            .get::<Container>(spawn_room_id)
+            .expect("Spawn room should be a container");
+        let coords = world
+            .get::<Coordinates>(spawn_room_id)
+            .expect("Spawn room should have coordinates");
         send_message(
             &world,
             player_id,
-            GameMessage::Room(RoomDescription::from_room(room, player_id, &world)),
+            GameMessage::Room(RoomDescription::from_room(
+                room, container, coords, player_id, &world,
+            )),
         );
 
         (commands_sender, messages_receiver)
@@ -210,7 +265,17 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
         InputParseError::CommandParseError { verb, error } => match error {
             CommandParseError::MissingTarget => format!("'{verb}' requires more targets."),
             CommandParseError::TargetNotFound(t) => {
-                format!("There is no '{t}' here.")
+                let location_name = match &t {
+                    CommandTarget::Named(target_name) => {
+                        if target_name.location_chain.is_empty() {
+                            "here".to_string()
+                        } else {
+                            format!("in '{}'", target_name.location_chain.join(" in "))
+                        }
+                    }
+                    _ => "here".to_string(),
+                };
+                format!("There is no '{t}' {location_name}.")
             }
             CommandParseError::Other(e) => e,
         },
@@ -225,28 +290,26 @@ fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
 }
 
-/// Moves an entity to a room.
-fn move_entity(entity_id: Entity, destination_room_id: Entity, world: &mut World) {
-    //TODO handle moving between non-room entities
-
-    // remove from source room, if necessary
-    if let Some(location) = world.get_mut::<Location>(entity_id) {
-        let source_room_id = location.id;
-        if let Some(mut source_room) = world.get_mut::<Room>(source_room_id) {
-            source_room.entities.remove(&entity_id);
+/// Moves an entity to a container.
+fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
+    // remove from source container, if necessary
+    if let Some(location) = world.get_mut::<Location>(moving_entity) {
+        let source_location_id = location.id;
+        if let Some(mut source_location) = world.get_mut::<Container>(source_location_id) {
+            source_location.entities.remove(&moving_entity);
         }
     }
 
-    // add to destination room
+    // add to destination container
     world
-        .get_mut::<Room>(destination_room_id)
-        .expect("Destination entity should be a room")
+        .get_mut::<Container>(destination_entity)
+        .expect("Destination entity should be a container")
         .entities
-        .insert(entity_id);
+        .insert(moving_entity);
 
     // update location
-    world.entity_mut(entity_id).insert(Location {
-        id: destination_room_id,
+    world.entity_mut(moving_entity).insert(Location {
+        id: destination_entity,
     });
 }
 
@@ -258,4 +321,35 @@ fn get_reference_name(entity: Entity, world: &World) -> String {
     world
         .get::<Description>(entity)
         .map_or("it".to_string(), |n| format!("the {}", n.name))
+}
+
+/// Determines the total weight of an entity.
+fn get_weight(entity: Entity, world: &World) -> Weight {
+    get_weight_recursive(entity, world, &mut vec![entity])
+}
+
+fn get_weight_recursive(
+    entity: Entity,
+    world: &World,
+    contained_entities: &mut Vec<Entity>,
+) -> Weight {
+    let mut weight = world.get::<Weight>(entity).cloned().unwrap_or(Weight(0.0));
+
+    if let Some(container) = world.get::<Container>(entity) {
+        let contained_weight = container
+            .entities
+            .iter()
+            .map(|e| {
+                if contained_entities.contains(e) {
+                    panic!("{entity:?} contains itself")
+                }
+                contained_entities.push(*e);
+                get_weight_recursive(*e, world, contained_entities)
+            })
+            .sum::<Weight>();
+
+        weight += contained_weight;
+    }
+
+    weight
 }

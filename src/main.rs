@@ -6,11 +6,11 @@ use crossterm::{
     terminal::{Clear, ClearType},
     QueueableCommand,
 };
-use cruet::Inflector;
 use itertools::Itertools;
 use log::debug;
 use std::{
     cmp::Ordering,
+    hash::Hash,
     io::{stdin, stdout, Write},
     sync::{
         atomic::{self, AtomicBool},
@@ -19,15 +19,18 @@ use std::{
     thread,
     time::Duration,
 };
+use voca_rs::Voca;
 
 use core_logic::{
-    ActionDescription, AttributeDescription, AttributeType, DetailedEntityDescription, Direction,
-    EntityDescription, ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription,
-    MapIcon, MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
-    RoomLivingEntityDescription, RoomObjectDescription, Time, CHARS_PER_TILE,
+    ActionDescription, AttributeDescription, AttributeType, ContainerDescription,
+    ContainerEntityDescription, DetailedEntityDescription, Direction, EntityDescription,
+    ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription, MapIcon,
+    MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
+    RoomLivingEntityDescription, RoomObjectDescription, Time,
 };
 
 const PROMPT: &str = "\n> ";
+const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
@@ -94,16 +97,10 @@ fn delay_for_message(message: &GameMessage) -> Duration {
     }
 }
 
-/// Renders the provided `GameMessage` to the screen
+/// Renders the provided `GameMessage` to the screen.
 fn render_message(message: GameMessage, time: Time) -> Result<()> {
-    let output = match message {
-        GameMessage::Error(e) => e,
-        GameMessage::Message(m, _) => m,
-        GameMessage::Help(h) => help_to_string(h),
-        GameMessage::Room(room) => room_to_string(room, time),
-        GameMessage::Entity(entity) => entity_to_string(entity),
-        GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
-    };
+    let output = message_to_string(message, Some(time));
+
     stdout()
         .queue(Clear(ClearType::CurrentLine))?
         .queue(cursor::MoveToColumn(0))?
@@ -115,11 +112,30 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
     Ok(())
 }
 
+/// Transforms the provided message into a string for display.
+fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
+    match message {
+        GameMessage::Error(e) => e._capitalize(false),
+        GameMessage::Message(m, _) => m._capitalize(false),
+        GameMessage::Help(h) => help_to_string(h),
+        GameMessage::Room(room) => room_to_string(room, time),
+        GameMessage::Entity(entity) => entity_to_string(entity),
+        GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
+        GameMessage::Container(container) => container_to_string(container),
+    }
+}
+
 /// Transforms the provided room description into a string for display.
-fn room_to_string(room: RoomDescription, time: Time) -> String {
+fn room_to_string(room: RoomDescription, time: Option<Time>) -> String {
     let map = map_to_string(&room.map);
     let name = style(room.name).bold();
-    let time = style(format!("({})", time_to_string(time))).dark_grey();
+    let time = if let Some(time) = time {
+        style(format!("({})", time_to_string(time)))
+            .dark_grey()
+            .to_string()
+    } else {
+        "".to_string()
+    };
     let desc = room.description;
     let entities = if room.entities.is_empty() {
         "".to_string()
@@ -135,16 +151,15 @@ fn room_to_string(room: RoomDescription, time: Time) -> String {
 
 /// Transforms the provided map into a string for display.
 fn map_to_string<const S: usize>(map: &MapDescription<S>) -> String {
-    let width = S * CHARS_PER_TILE;
-    let mut output = format!("+{}+\n", "-".repeat(width));
-    for row in &map.tiles {
-        output.push('|');
+    let mut output = String::new();
+    for (i, row) in map.tiles.iter().enumerate() {
         for icon in row {
             output.push_str(&map_icon_to_string(icon));
         }
-        output.push_str("|\n");
+        if i < map.tiles.len() - 1 {
+            output.push('\n');
+        }
     }
-    output.push_str(&format!("+{}+", "-".repeat(width)));
 
     output
 }
@@ -258,15 +273,42 @@ fn room_entities_to_string(entities: &[RoomEntityDescription]) -> String {
         }
     }
 
-    let living_entities = living_entities_to_string(&living_entity_descriptions);
-    let object_entities = object_entities_to_string(&object_entity_descriptions);
+    let living_entities_counted = group_and_count(living_entity_descriptions, |d| d.name.clone());
+    let object_entities_counted = group_and_count(object_entity_descriptions, |d| d.name.clone());
+
+    let living_entities = living_entities_to_string(&living_entities_counted);
+    let object_entities = object_entities_to_string(&object_entities_counted);
     let connection_entities = connection_entities_to_string(&connection_entity_descriptions);
 
     [living_entities, object_entities, connection_entities].join("\n\n")
 }
 
+/// Returns a list of de-duplicated items along with how many times that item appeared in the input list.
+///
+/// An item is considered to be the same as another item if the provided group function returns the same value for both items.
+fn group_and_count<T, K, F>(items: Vec<T>, group_fn: F) -> Vec<(T, usize)>
+where
+    T: Ord,
+    K: Hash + Eq,
+    F: Fn(&T) -> K,
+{
+    let grouped = items.into_iter().into_group_map_by(group_fn);
+
+    grouped
+        .into_values()
+        // unwrap is safe here because `into_group_map_by` will only create groups with at least 1 item
+        .map(|mut group| {
+            let len = group.len();
+            (group.pop().unwrap(), len)
+        })
+        .sorted()
+        .collect()
+}
+
 /// Transforms the provided living entity descriptions into a string for display as part of a room description.
-fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Option<String> {
+///
+/// Takes in a list of pairs of entity descriptions and how many of that entity are in the room.
+fn living_entities_to_string(entities: &[(&RoomLivingEntityDescription, usize)]) -> Option<String> {
     if entities.is_empty() {
         return None;
     }
@@ -274,23 +316,29 @@ fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Optio
     let is_or_are = if entities.len() == 1 { "is" } else { "are" };
 
     let mut descriptions = Vec::new();
-    for (i, entity) in entities.iter().enumerate() {
-        let name = if i == 0 {
-            entity.name.to_sentence_case()
-        } else {
-            entity.name.clone()
-        };
-
-        let desc = format!(
-            "{}{}",
-            entity
+    for (i, (entity, count)) in entities.iter().enumerate() {
+        let article;
+        let entity_name;
+        if *count == 1 {
+            article = entity
                 .article
                 .as_ref()
                 .map(|a| format!("{a} "))
-                .unwrap_or_else(|| "".to_string()),
-            style(&name).bold(),
-        );
-        descriptions.push(desc);
+                .unwrap_or_else(|| "".to_string());
+            entity_name = &entity.name;
+        } else {
+            article = format!("{count} ");
+            entity_name = &entity.plural_name;
+        }
+
+        let name = if i == 0 {
+            entity_name._capitalize(false)
+        } else {
+            entity_name.clone()
+        };
+
+        let desc = format!("{article}{name}");
+        descriptions.push(style(desc).bold().to_string());
     }
 
     Some(format!(
@@ -301,23 +349,30 @@ fn living_entities_to_string(entities: &[&RoomLivingEntityDescription]) -> Optio
 }
 
 /// Transforms the provided object entity descriptions into a string for display as part of a room description.
-fn object_entities_to_string(entities: &[&RoomObjectDescription]) -> Option<String> {
+///
+/// Takes in a list of pairs of entity descriptions and how many of that entity are in the room.
+fn object_entities_to_string(entities: &[(&RoomObjectDescription, usize)]) -> Option<String> {
     if entities.is_empty() {
         return None;
     }
 
     let descriptions = entities
         .iter()
-        .map(|entity| {
-            format!(
-                "{}{}",
-                entity
+        .map(|(entity, count)| {
+            let article;
+            let entity_name;
+            if *count == 1 {
+                article = entity
                     .article
                     .as_ref()
                     .map(|a| format!("{a} "))
-                    .unwrap_or_else(|| "".to_string()),
-                style(&entity.name).bold()
-            )
+                    .unwrap_or_else(|| "".to_string());
+                entity_name = &entity.name;
+            } else {
+                article = format!("{count} ");
+                entity_name = &entity.plural_name;
+            }
+            style(format!("{article}{entity_name}")).bold().to_string()
         })
         .collect::<Vec<String>>();
 
@@ -335,13 +390,9 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
         let name = if i == 0 {
             // capitalize the article if there is one, otherwise capitalize the name
             if let Some(article) = &entity.article {
-                format!(
-                    "{} {}",
-                    article.to_sentence_case(),
-                    style(&entity.name).bold()
-                )
+                format!("{} {}", article._capitalize(false), entity.name)
             } else {
-                style(&entity.name.to_sentence_case()).bold().to_string()
+                entity.name._capitalize(false)
             }
         } else {
             format!(
@@ -351,11 +402,15 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
                     .as_ref()
                     .map(|a| format!("{a} "))
                     .unwrap_or_else(|| "".to_string()),
-                style(&entity.name).bold()
+                entity.name
             )
         };
 
-        let desc = format!("{} leads {}", name, style(entity.direction).bold(),);
+        let desc = format!(
+            "{} leads {}",
+            style(name).bold(),
+            style(entity.direction).bold(),
+        );
         descriptions.push(desc);
     }
 
@@ -373,14 +428,14 @@ fn entity_to_string(entity: EntityDescription) -> String {
             .to_string()
     };
     let desc = entity.description;
-    let attributes = entity_attributes_to_string(&entity.attributes)
+    let attributes = entity_attributes_to_string(entity.attributes)
         .map_or_else(|| "".to_string(), |s| format!("\n\n{s}"));
 
     format!("{name}{aliases}\n{desc}{attributes}")
 }
 
 /// Transforms the provided entity attribute descriptions into a string for display.
-fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<String> {
+fn entity_attributes_to_string(attributes: Vec<AttributeDescription>) -> Option<String> {
     if attributes.is_empty() {
         return None;
     }
@@ -388,12 +443,18 @@ fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<St
     let mut is_descriptions = Vec::new();
     let mut does_descriptions = Vec::new();
     let mut has_descriptions = Vec::new();
+    let mut messages = Vec::new();
     for attribute in attributes {
-        let description = attribute.description.clone();
-        match attribute.attribute_type {
-            AttributeType::Is => is_descriptions.push(description),
-            AttributeType::Does => does_descriptions.push(description),
-            AttributeType::Has => has_descriptions.push(description),
+        match attribute {
+            AttributeDescription::Basic(basic_attribute) => {
+                let description = basic_attribute.description.clone();
+                match basic_attribute.attribute_type {
+                    AttributeType::Is => is_descriptions.push(description),
+                    AttributeType::Does => does_descriptions.push(description),
+                    AttributeType::Has => has_descriptions.push(description),
+                }
+            }
+            AttributeDescription::Message(m) => messages.push(m),
         }
     }
 
@@ -415,7 +476,27 @@ fn entity_attributes_to_string(attributes: &[AttributeDescription]) -> Option<St
         Some(format!("It has {}.", format_list(&has_descriptions)))
     };
 
-    Some([is_description, does_description, has_description].join("\n\n"))
+    let messages_description = if messages.is_empty() {
+        None
+    } else {
+        Some(
+            messages
+                .into_iter()
+                .map(|message| message_to_string(message, None))
+                .collect::<Vec<String>>()
+                .join("\n\n"),
+        )
+    };
+
+    Some(
+        [
+            is_description,
+            does_description,
+            has_description,
+            messages_description,
+        ]
+        .join("\n\n"),
+    )
 }
 
 /// Transforms the provided detailed entity description into a string for display.
@@ -444,11 +525,46 @@ fn action_descriptions_to_string(
             header,
             action_descriptions
                 .iter()
-                .map(|a| format!("  {}", a.format))
+                .map(|a| format!("{INDENT}{}", a.format))
                 .collect::<Vec<String>>()
                 .join("\n")
         ))
     }
+}
+
+/// Transforms the provided container description into a string for display.
+fn container_to_string(container: ContainerDescription) -> String {
+    let contents = container
+        .items
+        .iter()
+        .map(|item| format!("{INDENT}{}", container_entity_to_string(item)))
+        .join("\n");
+
+    let max_volume = container
+        .max_volume
+        .map(|x| x.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let max_weight = container
+        .max_weight
+        .map(|x| x.to_string())
+        .unwrap_or_else(|| "-".to_string());
+    let usage = format!(
+        "{}/{}L  {}/{}kg",
+        container.used_volume, max_volume, container.used_weight, max_weight
+    );
+
+    format!("Contents:\n{contents}\n\nTotal: {usage}")
+}
+
+/// Transforms the provided container entity description into a string for display.
+fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
+    let volume_and_weight = format!("[{}L] [{}kg]", entity.volume, entity.weight);
+
+    format!(
+        "{} {}",
+        style(entity.name.clone()).bold(),
+        style(volume_and_weight).dark_grey(),
+    )
 }
 
 /// Formats a list of items into a single string.

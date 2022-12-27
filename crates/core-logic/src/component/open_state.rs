@@ -14,9 +14,9 @@ use crate::{
 };
 
 use super::{
-    description::{AttributeType, DescribeAttributes},
-    queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDescription,
-    Connection, Description, Location, ParseCustomInput, Room,
+    description::DescribeAttributes, queue_action_first, AfterActionNotification,
+    AttributeDescriber, AttributeDescription, AttributeDetailLevel, Connection, Container,
+    Description, Location, ParseCustomInput,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -173,14 +173,17 @@ impl ParseCustomInput for OpenState {
 struct OpenStateAttributeDescriber;
 
 impl AttributeDescriber for OpenStateAttributeDescriber {
-    fn describe(&self, entity: Entity, world: &World) -> Vec<AttributeDescription> {
+    fn describe(
+        &self,
+        _: Entity,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
         if let Some(open_state) = world.get::<OpenState>(entity) {
             let description = if open_state.is_open { "open" } else { "closed" };
 
-            return vec![AttributeDescription {
-                attribute_type: AttributeType::Is,
-                description: description.to_string(),
-            }];
+            return vec![AttributeDescription::is(description.to_string())];
         }
 
         Vec::new()
@@ -201,9 +204,9 @@ pub fn auto_open_connections(
     if let Some(current_location) =
         world.get::<Location>(notification.notification_type.performing_entity)
     {
-        if let Some(room) = world.get::<Room>(current_location.id) {
+        if let Some(location) = world.get::<Container>(current_location.id) {
             if let Some((connecting_entity, _)) =
-                room.get_connection_in_direction(&notification.contents.direction, world)
+                location.get_connection_in_direction(&notification.contents.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
@@ -228,13 +231,13 @@ pub fn prevent_moving_through_closed_connections(
     notification: &Notification<VerifyActionNotification, MoveAction>,
     world: &World,
 ) -> VerifyResult {
-    if let Some(room_id) = world
+    if let Some(location_id) = world
         .get::<Location>(notification.notification_type.performing_entity)
         .map(|location| location.id)
     {
-        if let Some(current_room) = world.get::<Room>(room_id) {
-            if let Some((connecting_entity, _)) =
-                current_room.get_connection_in_direction(&notification.contents.direction, world)
+        if let Some(current_location) = world.get::<Container>(location_id) {
+            if let Some((connecting_entity, _)) = current_location
+                .get_connection_in_direction(&notification.contents.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {

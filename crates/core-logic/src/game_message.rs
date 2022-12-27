@@ -6,8 +6,12 @@ use lazy_static::lazy_static;
 
 use crate::{
     color::Color,
-    component::{AttributeDescription, Connection, Description, Location, Room},
+    component::{
+        AttributeDescription, AttributeDetailLevel, Connection, Container, Description, Location,
+        Room, Volume, Weight,
+    },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
+    get_weight,
     input_parser::find_parsers_relevant_for,
     Direction,
 };
@@ -29,6 +33,7 @@ pub enum GameMessage {
     Room(RoomDescription),
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
+    Container(ContainerDescription),
     Help(HelpMessage),
     Message(String, MessageDelay),
     Error(String),
@@ -61,8 +66,30 @@ pub struct EntityDescription {
 }
 
 impl EntityDescription {
-    /// Creates an entity description for `entity`.
-    pub fn for_entity(entity: Entity, desc: &Description, world: &World) -> EntityDescription {
+    /// Creates an entity description for an entity from the perspective of another entity.
+    pub fn for_entity(
+        pov_entity: Entity,
+        entity: Entity,
+        desc: &Description,
+        world: &World,
+    ) -> EntityDescription {
+        EntityDescription::for_entity_with_detail_level(
+            pov_entity,
+            entity,
+            desc,
+            AttributeDetailLevel::Basic,
+            world,
+        )
+    }
+
+    /// Creates an entity description for `entity`, with attribute descriptions of the provided detail level.
+    fn for_entity_with_detail_level(
+        pov_entity: Entity,
+        entity: Entity,
+        desc: &Description,
+        detail_level: AttributeDetailLevel,
+        world: &World,
+    ) -> EntityDescription {
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
@@ -71,7 +98,7 @@ impl EntityDescription {
             attributes: desc
                 .attribute_describers
                 .iter()
-                .flat_map(|d| d.describe(entity, world))
+                .flat_map(|d| d.describe(pov_entity, entity, detail_level, world))
                 .collect(),
         }
     }
@@ -102,7 +129,13 @@ impl DetailedEntityDescription {
         world: &World,
     ) -> DetailedEntityDescription {
         DetailedEntityDescription {
-            basic_desc: EntityDescription::for_entity(entity, desc, world),
+            basic_desc: EntityDescription::for_entity_with_detail_level(
+                looking_entity,
+                entity,
+                desc,
+                AttributeDetailLevel::Advanced,
+                world,
+            ),
             actions: build_action_descriptions_for_entity(looking_entity, entity, world),
         }
     }
@@ -134,6 +167,71 @@ fn build_available_action_descriptions(
         .collect()
 }
 
+/// The description of a container.
+#[derive(Debug, Clone)]
+pub struct ContainerDescription {
+    /// Descriptions of the items in the container.
+    pub items: Vec<ContainerEntityDescription>,
+    /// The total volume used by items in this container.
+    pub used_volume: Volume,
+    /// The maximum volume of items this container can hold, if it is limited.
+    pub max_volume: Option<Volume>,
+    /// The total weight used by items in this container.
+    pub used_weight: Weight,
+    /// The maximum weight of items this container can hold, if it is limited.
+    pub max_weight: Option<Weight>,
+}
+
+impl ContainerDescription {
+    /// Creates a container description for the provided container.
+    pub fn from_container(container: &Container, world: &World) -> ContainerDescription {
+        let items = container
+            .entities
+            .iter()
+            .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
+            .collect::<Vec<ContainerEntityDescription>>();
+
+        let used_volume = items.iter().map(|item| item.volume.clone()).sum();
+        let used_weight = items.iter().map(|item| item.weight.clone()).sum();
+
+        ContainerDescription {
+            items,
+            used_volume,
+            max_volume: container.volume.clone(),
+            used_weight,
+            max_weight: container.max_weight.clone(),
+        }
+    }
+}
+
+/// The description of an item in a container.
+#[derive(Debug, Clone)]
+pub struct ContainerEntityDescription {
+    /// The name of the item.
+    pub name: String,
+    /// The volume of the item.
+    pub volume: Volume,
+    /// The weight of the item.
+    pub weight: Weight,
+}
+
+impl ContainerEntityDescription {
+    /// Creates a container entity description for the provided entity.
+    /// Returns `None` if the provided entity has no `Description` component.
+    pub fn from_entity(entity: Entity, world: &World) -> Option<ContainerEntityDescription> {
+        let entity_ref = world.entity(entity);
+        let desc = entity_ref.get::<Description>()?;
+        let volume = entity_ref.get::<Volume>().cloned().unwrap_or(Volume(0.0));
+        let weight = get_weight(entity, world);
+
+        Some(ContainerEntityDescription {
+            name: desc.name.clone(),
+            volume,
+            weight,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ActionDescription {
     pub format: String,
@@ -148,19 +246,23 @@ pub enum RoomEntityDescription {
 }
 
 /// A description of an object as part of a room description.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoomObjectDescription {
     /// The name of the entity.
     pub name: String,
+    /// The plural name of the entity.
+    pub plural_name: String,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
 }
 
 /// A description of a living thing as part of a room description.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoomLivingEntityDescription {
     /// The name of the entity.
     pub name: String,
+    /// The plural name of the entity.
+    pub plural_name: String,
     /// The article to use when referring to the entity (usually "a" or "an")
     pub article: Option<String>,
 }
@@ -191,6 +293,7 @@ impl RoomEntityDescription {
             } else {
                 Some(RoomEntityDescription::Object(RoomObjectDescription {
                     name: desc.room_name.clone(),
+                    plural_name: desc.plural_name.clone(),
                     article: desc.article.clone(),
                 }))
             }
@@ -211,8 +314,16 @@ pub struct RoomDescription {
 
 impl RoomDescription {
     /// Creates a `RoomDescription` for the provided room from the perspective of the provided entity.
-    pub fn from_room(room: &Room, pov_entity: Entity, world: &World) -> RoomDescription {
-        let entity_descriptions = room
+    ///
+    /// The provided Room, Container, and Coordinates should be on the same entity.
+    pub fn from_room(
+        room: &Room,
+        container: &Container,
+        coordinates: &Coordinates,
+        pov_entity: Entity,
+        world: &World,
+    ) -> RoomDescription {
+        let entity_descriptions = container
             .entities
             .iter()
             .filter(|entity| **entity != pov_entity)
@@ -223,8 +334,8 @@ impl RoomDescription {
             name: room.name.clone(),
             description: room.description.clone(),
             entities: entity_descriptions,
-            exits: ExitDescription::from_room(room, world),
-            map: Box::new(MapDescription::for_entity(pov_entity, world)),
+            exits: ExitDescription::from_container(container, world),
+            map: Box::new(MapDescription::for_entity(pov_entity, coordinates, world)),
         }
     }
 }
@@ -236,10 +347,11 @@ pub struct ExitDescription {
 }
 
 impl ExitDescription {
-    /// Creates a list of exit descriptions for the provided room
-    pub fn from_room(room: &Room, world: &World) -> Vec<ExitDescription> {
+    /// Creates a list of exit descriptions for the provided container.
+    pub fn from_container(container: &Container, world: &World) -> Vec<ExitDescription> {
         // TODO order connections consistently
-        room.get_connections(world)
+        container
+            .get_connections(world)
             .iter()
             .map(|(_, connection)| {
                 let destination_room = world
@@ -264,24 +376,30 @@ pub struct MapDescription<const S: usize> {
 
 impl<const S: usize> MapDescription<S> {
     /// Creates a map centered on the location of the provided entity.
-    fn for_entity(pov_entity: Entity, world: &World) -> MapDescription<S> {
-        let center_coords = find_coordinates_of_entity(pov_entity, world);
+    fn for_entity(
+        pov_entity: Entity,
+        center_coords: &Coordinates,
+        world: &World,
+    ) -> MapDescription<S> {
+        let pov_coords = find_coordinates_of_entity(pov_entity, world);
         let center_index = S / 2;
 
         let tiles = array::from_fn(|row_index| {
             array::from_fn(|col_index| {
-                if row_index == center_index && col_index == center_index {
-                    let mut icon = icon_for_coords(center_coords, world);
-                    icon.replace_center_char(PLAYER_MAP_CHAR);
-                    return icon;
-                }
-
                 let x = center_coords.x + (col_index as i64 - center_index as i64);
                 let y = center_coords.y - (row_index as i64 - center_index as i64);
                 let z = center_coords.z;
                 let parent = center_coords.parent.clone();
 
-                icon_for_coords(&Coordinates { x, y, z, parent }, world)
+                let current_coords = Coordinates { x, y, z, parent };
+
+                let mut icon = icon_for_coords(&current_coords, world);
+
+                if current_coords == *pov_coords {
+                    icon.replace_center_char(PLAYER_MAP_CHAR);
+                }
+
+                icon
             })
         });
 
