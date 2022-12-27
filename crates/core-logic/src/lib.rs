@@ -114,7 +114,7 @@ impl Game {
         let player_id = world
             .spawn((
                 Player,
-                Container::new(Some(Volume(10.0)), Some(Weight(10.5))),
+                Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
                 desc,
                 message_channel,
             ))
@@ -136,7 +136,7 @@ impl Game {
                         Weight::get_attribute_describer(),
                     ],
                 },
-                Volume(0.1),
+                Volume(0.25),
                 Weight(0.5),
             ))
             .id();
@@ -156,7 +156,7 @@ impl Game {
                     ],
                 },
                 Volume(0.5),
-                Weight(10.0),
+                Weight(15.0),
             ))
             .id();
         move_entity(heavy_thing_id, player_id, &mut world);

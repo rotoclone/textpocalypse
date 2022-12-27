@@ -168,26 +168,40 @@ pub fn set_up_world(world: &mut World) {
     //
 
     let small_thing_id = world
-        .spawn(Description {
-            name: "small thing".to_string(),
-            room_name: "small thing".to_string(),
-            article: Some("a".to_string()),
-            aliases: vec!["thing".to_string()],
-            description: "Some kind of smallish thing.".to_string(),
-            attribute_describers: Vec::new(),
-        })
+        .spawn((
+            Description {
+                name: "small thing".to_string(),
+                room_name: "small thing".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["thing".to_string()],
+                description: "Some kind of smallish thing.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Volume(0.01),
+            Weight(0.1),
+        ))
         .id();
     move_entity(small_thing_id, middle_room_id, world);
 
     let large_thing_id = world
-        .spawn(Description {
-            name: "large thing".to_string(),
-            room_name: "large thing".to_string(),
-            article: Some("a".to_string()),
-            aliases: vec!["thing".to_string()],
-            description: "Some kind of largeish thing.".to_string(),
-            attribute_describers: Vec::new(),
-        })
+        .spawn((
+            Description {
+                name: "large thing".to_string(),
+                room_name: "large thing".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["thing".to_string()],
+                description: "Some kind of largeish thing.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Volume(5.0),
+            Weight(1.0),
+        ))
         .id();
     move_entity(large_thing_id, middle_room_id, world);
 
@@ -199,8 +213,13 @@ pub fn set_up_world(world: &mut World) {
                 article: Some("a".to_string()),
                 aliases: vec!["key".to_string()],
                 description: "A fancy-looking key.".to_string(),
-                attribute_describers: Vec::new(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
             },
+            Volume(0.1),
+            Weight(0.1),
             middle_room_north_door_key_id,
         ))
         .id();
@@ -221,7 +240,7 @@ pub fn set_up_world(world: &mut World) {
                 ],
             },
             Volume(5.0),
-            Weight(0.2),
+            Weight(0.5),
             Container::new(Some(Volume(5.0)), None),
         ))
         .id();
