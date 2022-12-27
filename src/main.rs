@@ -22,16 +22,26 @@ use std::{
 use voca_rs::Voca;
 
 use core_logic::{
-    ActionDescription, AttributeDescription, AttributeType, ContainerDescription,
+    ActionDescription, AttributeDescription, AttributeType, ConstrainedValue, ContainerDescription,
     ContainerEntityDescription, DetailedEntityDescription, Direction, EntityDescription,
     ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription, MapIcon,
     MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
-    RoomLivingEntityDescription, RoomObjectDescription, Time,
+    RoomLivingEntityDescription, RoomObjectDescription, Time, ValueChangeDescription, ValueType,
+    VitalsDescription,
 };
 
 const PROMPT: &str = "\n> ";
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
+
+const BAR_LENGTH: usize = 20;
+const BAR_START: &str = "[";
+const BAR_END: &str = "]";
+const BAR_FILLED: &str = "|";
+const BAR_EMPTY: &str = " ";
+const BAR_REDUCTION: &str = "-";
+const BAR_ADDITION: &str = "+";
+
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 
@@ -122,6 +132,8 @@ fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Entity(entity) => entity_to_string(entity),
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
         GameMessage::Container(container) => container_to_string(container),
+        GameMessage::Vitals(vitals) => vitals_to_string(vitals),
+        GameMessage::ValueChange(change) => value_change_to_string(change),
     }
 }
 
@@ -565,6 +577,91 @@ fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
         style(entity.name.clone()).bold(),
         style(volume_and_weight).dark_grey(),
     )
+}
+
+/// Transforms the provided vitals description into a string for display.
+fn vitals_to_string(vitals: VitalsDescription) -> String {
+    let health = format!(
+        "Health:    {}",
+        constrained_float_to_string(None, vitals.health, value_type_to_color(ValueType::Health))
+    );
+    let satiety = format!(
+        "Satiety:   {}",
+        constrained_float_to_string(
+            None,
+            vitals.satiety,
+            value_type_to_color(ValueType::Satiety)
+        )
+    );
+    let hydration = format!(
+        "Hydration: {}",
+        constrained_float_to_string(
+            None,
+            vitals.hydration,
+            value_type_to_color(ValueType::Hydration)
+        )
+    );
+    let energy = format!(
+        "Energy:    {}",
+        constrained_float_to_string(None, vitals.energy, value_type_to_color(ValueType::Energy))
+    );
+
+    [health, satiety, hydration, energy].join("\n")
+}
+
+/// Transforms the provided value change description into a string for display.
+fn value_change_to_string(change: ValueChangeDescription) -> String {
+    let color = value_type_to_color(change.value_type);
+    format!(
+        "{} {}",
+        change.message,
+        constrained_float_to_string(Some(change.old_value), change.new_value, color)
+    )
+}
+
+/// Determines the bar color to use for a value of the provided type.
+fn value_type_to_color(value_type: ValueType) -> crossterm::style::Color {
+    match value_type {
+        ValueType::Health => crossterm::style::Color::Red,
+        ValueType::Satiety => crossterm::style::Color::Yellow,
+        ValueType::Hydration => crossterm::style::Color::Blue,
+        ValueType::Energy => crossterm::style::Color::Green,
+    }
+}
+
+/// Transforms the provided constrained value into a string that looks like a bar for display.
+fn constrained_float_to_string(
+    old_value: Option<ConstrainedValue<f32>>,
+    value: ConstrainedValue<f32>,
+    color: crossterm::style::Color,
+) -> String {
+    let filled_fraction = value.get() / value.get_max();
+    let old_filled_fraction = if let Some(old_value) = old_value {
+        old_value.get() / old_value.get_max()
+    } else {
+        filled_fraction
+    };
+
+    let old_num_filled = (BAR_LENGTH as f32 * old_filled_fraction).round() as usize;
+    let num_filled = (BAR_LENGTH as f32 * filled_fraction).round() as usize;
+    let num_changed = old_num_filled.abs_diff(num_filled);
+    let num_empty = BAR_LENGTH - num_filled;
+
+    let bar_change = if filled_fraction < old_filled_fraction {
+        style(BAR_REDUCTION.repeat(num_changed)).red()
+    } else {
+        style(BAR_ADDITION.repeat(num_changed)).green()
+    };
+
+    let bar = format!(
+        "{}{}{}",
+        style(BAR_FILLED.repeat(num_filled.saturating_sub(num_changed))).with(color),
+        bar_change,
+        BAR_EMPTY.repeat(num_empty)
+    );
+    let values = style(format!("{:.0}/{:.0}", value.get(), value.get_max())).dark_grey();
+
+    format!("{BAR_START}{bar}{BAR_END} {values}")
 }
 
 /// Formats a list of items into a single string.

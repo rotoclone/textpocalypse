@@ -49,8 +49,54 @@ pub use constrained_value::ConstrainedValue;
 #[derive(Component)]
 pub struct SpawnRoom;
 
+#[derive(StageLabel)]
+pub struct TickStage;
+
+/// Messages to be sent to entities after a tick is completed.
+#[derive(Resource)]
+pub struct MessageQueue {
+    messages: HashMap<Entity, Vec<GameMessage>>,
+}
+
+impl Default for MessageQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MessageQueue {
+    /// Creates an empty message queue.
+    pub fn new() -> MessageQueue {
+        MessageQueue {
+            messages: HashMap::new(),
+        }
+    }
+
+    /// Sends all the queued messages.
+    pub fn send_messages(world: &mut World) {
+        let messages = world
+            .resource_mut::<MessageQueue>()
+            .messages
+            .drain()
+            .collect();
+
+        send_messages(&messages, world);
+    }
+
+    /// Queues a message to be sent to an entity.
+    pub fn add(&mut self, entity: Entity, message: GameMessage) {
+        self.messages
+            .entry(entity)
+            .or_insert_with(Vec::new)
+            .push(message);
+    }
+}
+
 pub struct Game {
+    /// The game world.
     world: Arc<RwLock<World>>,
+    /// The schedule to run on each tick.
+    tick_schedule: Arc<RwLock<Schedule>>,
 }
 
 impl Default for Game {
@@ -73,6 +119,7 @@ impl StandardInputParsers {
                 Box::new(OpenParser),
                 Box::new(InventoryParser),
                 Box::new(PutParser),
+                Box::new(VitalsParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -87,11 +134,17 @@ impl Game {
         world.insert_resource(Time::new());
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
+        world.insert_resource(MessageQueue::new());
         set_up_world(&mut world);
         register_component_handlers(&mut world);
+
+        let mut tick_schedule = Schedule::default().with_stage(TickStage, SystemStage::parallel());
+        register_component_tick_systems(&mut tick_schedule);
+
         NotificationHandlers::add_handler(look_after_move, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
+            tick_schedule: Arc::new(RwLock::new(tick_schedule)),
         }
     }
 
@@ -175,6 +228,7 @@ impl Game {
         move_entity(heavy_thing_id, player_id, &mut world);
 
         let player_thread_world = Arc::clone(&self.world);
+        let player_thread_tick_schedule = Arc::clone(&self.tick_schedule);
 
         // set up thread for handling input from the player
         thread::Builder::new()
@@ -188,7 +242,12 @@ impl Game {
                     }
                 };
                 debug!("Received input: {input:?}");
-                handle_input(&player_thread_world, input, player_id);
+                handle_input(
+                    &player_thread_tick_schedule,
+                    &player_thread_world,
+                    input,
+                    player_id,
+                );
             })
             .unwrap_or_else(|e| {
                 panic!("failed to spawn thread to handle input for player {player_id:?}: {e}")
@@ -241,7 +300,12 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
 }
 
 /// Handles input from an entity.
-fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
+fn handle_input(
+    tick_schedule: &Arc<RwLock<Schedule>>,
+    world: &Arc<RwLock<World>>,
+    input: String,
+    entity: Entity,
+) {
     let read_world = world.read().unwrap();
     match parse_input(&input, entity, &read_world) {
         Ok(action) => {
@@ -253,7 +317,7 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             } else {
                 queue_action_first(&mut write_world, entity, action);
             }
-            try_perform_queued_actions(&mut write_world);
+            try_perform_queued_actions(&mut tick_schedule.write().unwrap(), &mut write_world);
         }
         Err(e) => handle_input_error(entity, e, &read_world),
     }
@@ -295,9 +359,13 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
 }
 
 /// Performs one game tick.
-fn tick(world: &mut World) {
-    //TODO perform queued actions on non-player entities
+fn tick(tick_schedule: &mut Schedule, world: &mut World) {
     world.resource_mut::<Time>().tick();
+    //TODO perform queued actions on non-player entities
+
+    tick_schedule.run(world);
+
+    MessageQueue::send_messages(world);
 }
 
 /// Moves an entity to a container.

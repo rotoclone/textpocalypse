@@ -57,6 +57,7 @@ pub use vitals::Vitals;
 
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
+use crate::TickStage;
 
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
@@ -70,4 +71,9 @@ pub fn register_component_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(keyed_lock::prevent_opening_locked_keyed_locks, world);
 
     VerifyNotificationHandlers::add_handler(container::limit_container_contents, world);
+}
+
+/// Registers systems that should run on each tick related to components.
+pub fn register_component_tick_systems(tick_schedule: &mut Schedule) {
+    tick_schedule.add_system_to_stage(TickStage, vitals::vitals_system);
 }

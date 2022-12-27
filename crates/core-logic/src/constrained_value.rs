@@ -4,13 +4,17 @@ use std::ops::{Add, Sub};
 #[derive(Debug, Clone)]
 pub struct ConstrainedValue<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> {
     current: T,
-    pub min: T,
-    pub max: T,
+    min: T,
+    max: T,
 }
 
 impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedValue<T> {
     /// Creates a value with the current value at the minimum.
     pub fn new_min(min: T, max: T) -> ConstrainedValue<T> {
+        if min > max {
+            panic!("max must be greater than or equal to min")
+        }
+
         ConstrainedValue {
             current: min,
             min,
@@ -20,6 +24,10 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedVal
 
     /// Creates a value with the current value at the maximum.
     pub fn new_max(min: T, max: T) -> ConstrainedValue<T> {
+        if min > max {
+            panic!("max must be greater than or equal to min")
+        }
+
         ConstrainedValue {
             current: max,
             min,
@@ -42,8 +50,8 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedVal
     }
 
     /// Changes this value by subtracting the provided value from it.
-    pub fn subtract(&mut self, to_subract: T) {
-        let new_value = self.current - to_subract;
+    pub fn subtract(&mut self, to_subtract: T) {
+        let new_value = self.current - to_subtract;
         self.set(new_value);
     }
 
@@ -62,5 +70,15 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedVal
     /// Gets the current value.
     pub fn get(&self) -> T {
         self.current
+    }
+
+    /// Gets the maximum allowable value.
+    pub fn get_min(&self) -> T {
+        self.min
+    }
+
+    /// Gets the minimum allowable value.
+    pub fn get_max(&self) -> T {
+        self.max
     }
 }

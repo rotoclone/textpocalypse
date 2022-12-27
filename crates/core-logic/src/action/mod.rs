@@ -34,6 +34,9 @@ mod put;
 pub use put::PutAction;
 pub use put::PutParser;
 
+mod vitals;
+pub use vitals::VitalsParser;
+
 /// The result of a single tick of an action being performed.
 #[derive(Debug)]
 pub struct ActionResult {

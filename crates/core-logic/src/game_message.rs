@@ -8,12 +8,12 @@ use crate::{
     color::Color,
     component::{
         AttributeDescription, AttributeDetailLevel, Connection, Container, Description, Location,
-        Room, Volume, Weight,
+        Room, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_weight,
     input_parser::find_parsers_relevant_for,
-    Direction,
+    ConstrainedValue, Direction,
 };
 
 const PLAYER_MAP_CHAR: MapChar = MapChar {
@@ -34,6 +34,8 @@ pub enum GameMessage {
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
     Container(ContainerDescription),
+    Vitals(VitalsDescription),
+    ValueChange(ValueChangeDescription),
     Help(HelpMessage),
     Message(String, MessageDelay),
     Error(String),
@@ -230,6 +232,52 @@ impl ContainerEntityDescription {
             weight,
         })
     }
+}
+
+/// The description of an entity's vitals.
+#[derive(Debug, Clone)]
+pub struct VitalsDescription {
+    /// The health of the entity.
+    pub health: ConstrainedValue<f32>,
+    /// The non-hunger of the entity.
+    pub satiety: ConstrainedValue<f32>,
+    /// The non-thirst of the entity.
+    pub hydration: ConstrainedValue<f32>,
+    /// The non-tiredness of the entity.
+    pub energy: ConstrainedValue<f32>,
+}
+
+impl VitalsDescription {
+    /// Creates a vitals description for the provided vitals.
+    pub fn from_vitals(vitals: &Vitals) -> VitalsDescription {
+        VitalsDescription {
+            health: vitals.health.clone(),
+            satiety: vitals.satiety.clone(),
+            hydration: vitals.hydration.clone(),
+            energy: vitals.energy.clone(),
+        }
+    }
+}
+
+/// A description of a change of a single value.
+#[derive(Debug, Clone)]
+pub struct ValueChangeDescription {
+    /// The message to include with the display of the new value.
+    pub message: String,
+    /// The type of value that changed.
+    pub value_type: ValueType,
+    /// The old value.
+    pub old_value: ConstrainedValue<f32>,
+    /// The new value.
+    pub new_value: ConstrainedValue<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ValueType {
+    Health,
+    Satiety,
+    Hydration,
+    Energy,
 }
 
 #[derive(Debug, Clone)]
