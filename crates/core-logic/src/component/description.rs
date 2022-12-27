@@ -34,9 +34,10 @@ impl Description {
 }
 
 pub trait AttributeDescriber: Send + Sync + std::fmt::Debug {
-    /// Generates descriptions of attributes of the provided entity.
+    /// Generates descriptions of attributes an entity from the perspective of another entity.
     fn describe(
         &self,
+        pov_entity: Entity,
         entity: Entity,
         detail_level: AttributeDetailLevel,
         world: &World,

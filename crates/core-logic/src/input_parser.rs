@@ -8,7 +8,7 @@ use regex::Regex;
 use crate::{
     action::Action,
     component::{Container, CustomInputParser, Location},
-    StandardInputParsers,
+    Direction, StandardInputParsers,
 };
 
 lazy_static! {
@@ -74,7 +74,7 @@ fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity
 pub enum CommandTarget {
     Myself,
     Here,
-    //TODO add a Direction variant?
+    Direction(Direction),
     Named(CommandTargetName),
 }
 
@@ -83,6 +83,7 @@ impl Display for CommandTarget {
         match self {
             CommandTarget::Myself => write!(f, "me"),
             CommandTarget::Here => write!(f, "here"),
+            CommandTarget::Direction(dir) => write!(f, "{dir}"),
             CommandTarget::Named(name) => write!(f, "{name}"),
         }
     }
@@ -97,6 +98,10 @@ impl CommandTarget {
 
         if HERE_TARGET_PATTERN.is_match(input) {
             return CommandTarget::Here;
+        }
+
+        if let Some(dir) = Direction::parse(input) {
+            return CommandTarget::Direction(dir);
         }
 
         CommandTarget::Named(CommandTargetName {
@@ -117,6 +122,22 @@ impl CommandTarget {
                     .expect("Looking entity should have a location")
                     .id;
                 Some(location_id)
+            }
+            CommandTarget::Direction(dir) => {
+                let location_id = world
+                    .get::<Location>(looking_entity)
+                    .expect("Looking entity should have a location")
+                    .id;
+                let container = world
+                    .get::<Container>(location_id)
+                    .expect("Looking entity's location should be a container");
+                if let Some((connecting_entity, _)) =
+                    container.get_connection_in_direction(dir, world)
+                {
+                    Some(connecting_entity)
+                } else {
+                    None
+                }
             }
             CommandTarget::Named(target_name) => {
                 target_name.find_target_entity(looking_entity, world)

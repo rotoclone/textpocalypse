@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     AttributeDescriber, AttributeDetailLevel, Connection, DescribeAttributes, Description,
-    VerifyActionNotification, Volume, Weight,
+    OpenState, VerifyActionNotification, Volume, Weight,
 };
 
 /// Entities contained within an entity.
@@ -115,12 +115,18 @@ struct ContainerAttributeDescriber;
 impl AttributeDescriber for ContainerAttributeDescriber {
     fn describe(
         &self,
+        _: Entity,
         entity: Entity,
         _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        //TODO don't do this if the performing entity wouldn't be able to see the container's contents, like if they're looking at another player or into a closed item
         if let Some(container) = world.get::<Container>(entity) {
+            if let Some(open_state) = world.get::<OpenState>(entity) {
+                if !open_state.is_open {
+                    return Vec::new();
+                }
+            }
+
             let message =
                 GameMessage::Container(ContainerDescription::from_container(container, world));
             return vec![AttributeDescription::Message(message)];

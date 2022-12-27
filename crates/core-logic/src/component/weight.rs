@@ -47,6 +47,7 @@ struct WeightAttributeDescriber;
 impl AttributeDescriber for WeightAttributeDescriber {
     fn describe(
         &self,
+        _: Entity,
         entity: Entity,
         detail_level: AttributeDetailLevel,
         world: &World,

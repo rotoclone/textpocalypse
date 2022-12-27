@@ -66,9 +66,15 @@ pub struct EntityDescription {
 }
 
 impl EntityDescription {
-    /// Creates an entity description for `entity`.
-    pub fn for_entity(entity: Entity, desc: &Description, world: &World) -> EntityDescription {
+    /// Creates an entity description for an entity from the perspective of another entity.
+    pub fn for_entity(
+        pov_entity: Entity,
+        entity: Entity,
+        desc: &Description,
+        world: &World,
+    ) -> EntityDescription {
         EntityDescription::for_entity_with_detail_level(
+            pov_entity,
             entity,
             desc,
             AttributeDetailLevel::Basic,
@@ -78,6 +84,7 @@ impl EntityDescription {
 
     /// Creates an entity description for `entity`, with attribute descriptions of the provided detail level.
     fn for_entity_with_detail_level(
+        pov_entity: Entity,
         entity: Entity,
         desc: &Description,
         detail_level: AttributeDetailLevel,
@@ -91,7 +98,7 @@ impl EntityDescription {
             attributes: desc
                 .attribute_describers
                 .iter()
-                .flat_map(|d| d.describe(entity, detail_level, world))
+                .flat_map(|d| d.describe(pov_entity, entity, detail_level, world))
                 .collect(),
         }
     }
@@ -123,6 +130,7 @@ impl DetailedEntityDescription {
     ) -> DetailedEntityDescription {
         DetailedEntityDescription {
             basic_desc: EntityDescription::for_entity_with_detail_level(
+                looking_entity,
                 entity,
                 desc,
                 AttributeDetailLevel::Advanced,
@@ -302,10 +310,11 @@ pub struct RoomDescription {
 impl RoomDescription {
     /// Creates a `RoomDescription` for the provided room from the perspective of the provided entity.
     ///
-    /// The provided Room and Container should be on the same entity.
+    /// The provided Room, Container, and Coordinates should be on the same entity.
     pub fn from_room(
         room: &Room,
         container: &Container,
+        coordinates: &Coordinates,
         pov_entity: Entity,
         world: &World,
     ) -> RoomDescription {
@@ -321,7 +330,7 @@ impl RoomDescription {
             description: room.description.clone(),
             entities: entity_descriptions,
             exits: ExitDescription::from_container(container, world),
-            map: Box::new(MapDescription::for_entity(pov_entity, world)),
+            map: Box::new(MapDescription::for_entity(pov_entity, coordinates, world)),
         }
     }
 }
@@ -362,24 +371,30 @@ pub struct MapDescription<const S: usize> {
 
 impl<const S: usize> MapDescription<S> {
     /// Creates a map centered on the location of the provided entity.
-    fn for_entity(pov_entity: Entity, world: &World) -> MapDescription<S> {
-        let center_coords = find_coordinates_of_entity(pov_entity, world);
+    fn for_entity(
+        pov_entity: Entity,
+        center_coords: &Coordinates,
+        world: &World,
+    ) -> MapDescription<S> {
+        let pov_coords = find_coordinates_of_entity(pov_entity, world);
         let center_index = S / 2;
 
         let tiles = array::from_fn(|row_index| {
             array::from_fn(|col_index| {
-                if row_index == center_index && col_index == center_index {
-                    let mut icon = icon_for_coords(center_coords, world);
-                    icon.replace_center_char(PLAYER_MAP_CHAR);
-                    return icon;
-                }
-
                 let x = center_coords.x + (col_index as i64 - center_index as i64);
                 let y = center_coords.y - (row_index as i64 - center_index as i64);
                 let z = center_coords.z;
                 let parent = center_coords.parent.clone();
 
-                icon_for_coords(&Coordinates { x, y, z, parent }, world)
+                let current_coords = Coordinates { x, y, z, parent };
+
+                let mut icon = icon_for_coords(&current_coords, world);
+
+                if current_coords == *pov_coords {
+                    icon.replace_center_char(PLAYER_MAP_CHAR);
+                }
+
+                icon
             })
         });
 

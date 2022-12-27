@@ -238,6 +238,7 @@ struct KeyedLockAttributeDescriber;
 impl AttributeDescriber for KeyedLockAttributeDescriber {
     fn describe(
         &self,
+        _: Entity,
         entity: Entity,
         _: AttributeDetailLevel,
         world: &World,

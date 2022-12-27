@@ -4,14 +4,15 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{queue_action, AfterActionNotification, Container, Description, Room},
+    component::{queue_action, AfterActionNotification, Connection, Container, Description, Room},
+    game_map::Coordinates,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
-    RoomDescription, VerifyActionNotification, World,
+    MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionNotificationSender, ActionResult, MoveAction};
@@ -105,17 +106,20 @@ impl Action for LookAction {
 
         if let Some(room) = target.get::<Room>() {
             if let Some(container) = target.get::<Container>() {
-                return ActionResult::builder()
-                    .with_game_message(
-                        performing_entity,
-                        GameMessage::Room(RoomDescription::from_room(
-                            room,
-                            container,
+                if let Some(coords) = target.get::<Coordinates>() {
+                    return ActionResult::builder()
+                        .with_game_message(
                             performing_entity,
-                            world,
-                        )),
-                    )
-                    .build_complete_no_tick(true);
+                            GameMessage::Room(RoomDescription::from_room(
+                                room,
+                                container,
+                                coords,
+                                performing_entity,
+                                world,
+                            )),
+                        )
+                        .build_complete_no_tick(true);
+                }
             }
         }
 
@@ -128,10 +132,42 @@ impl Action for LookAction {
                     world,
                 ))
             } else {
-                GameMessage::Entity(EntityDescription::for_entity(self.target, desc, world))
+                GameMessage::Entity(EntityDescription::for_entity(
+                    performing_entity,
+                    self.target,
+                    desc,
+                    world,
+                ))
             };
             return ActionResult::builder()
                 .with_game_message(performing_entity, message)
+                .build_complete_no_tick(true);
+        } else if let Some(connection) = target.get::<Connection>() {
+            // the target is a connection without a description, which means it must be just an open connection, so let the performing entity look
+            // through it
+            let room = world
+                .get::<Room>(connection.destination)
+                .expect("connection destination should be a room");
+            let container = world
+                .get::<Container>(connection.destination)
+                .expect("connection destination should be a container");
+            let coordinates = world
+                .get::<Coordinates>(connection.destination)
+                .expect("connection destination should have coordinates");
+            let room_description_message = GameMessage::Room(RoomDescription::from_room(
+                room,
+                container,
+                coordinates,
+                performing_entity,
+                world,
+            ));
+            return ActionResult::builder()
+                .with_message(
+                    performing_entity,
+                    format!("To the {}, you see:", connection.direction),
+                    MessageDelay::None,
+                )
+                .with_game_message(performing_entity, room_description_message)
                 .build_complete_no_tick(true);
         }
 

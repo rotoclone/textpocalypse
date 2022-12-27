@@ -47,6 +47,7 @@ struct VolumeAttributeDescriber;
 impl AttributeDescriber for VolumeAttributeDescriber {
     fn describe(
         &self,
+        _: Entity,
         entity: Entity,
         detail_level: AttributeDetailLevel,
         world: &World,

@@ -175,6 +175,7 @@ struct OpenStateAttributeDescriber;
 impl AttributeDescriber for OpenStateAttributeDescriber {
     fn describe(
         &self,
+        _: Entity,
         entity: Entity,
         _: AttributeDetailLevel,
         world: &World,

@@ -188,11 +188,14 @@ impl Game {
         let container = world
             .get::<Container>(spawn_room_id)
             .expect("Spawn room should be a container");
+        let coords = world
+            .get::<Coordinates>(spawn_room_id)
+            .expect("Spawn room should have coordinates");
         send_message(
             &world,
             player_id,
             GameMessage::Room(RoomDescription::from_room(
-                room, container, player_id, &world,
+                room, container, coords, player_id, &world,
             )),
         );
 
@@ -264,12 +267,12 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
                         if target_name.location_chain.is_empty() {
                             "here".to_string()
                         } else {
-                            format!("'{}'", target_name.location_chain.join(" in "))
+                            format!("in '{}'", target_name.location_chain.join(" in "))
                         }
                     }
                     _ => "here".to_string(),
                 };
-                format!("There is no '{t}' in {location_name}.")
+                format!("There is no '{t}' {location_name}.")
             }
             CommandParseError::Other(e) => e,
         },
