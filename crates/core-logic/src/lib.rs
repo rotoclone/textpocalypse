@@ -43,6 +43,9 @@ use game_map::*;
 mod color;
 pub use color::Color;
 
+mod constrained_value;
+pub use constrained_value::ConstrainedValue;
+
 #[derive(Component)]
 pub struct SpawnRoom;
 
@@ -109,6 +112,12 @@ impl Game {
             description: "A human-shaped person-type thing.".to_string(),
             attribute_describers: Vec::new(),
         };
+        let vitals = Vitals {
+            health: ConstrainedValue::new_max(0.0, 100.0),
+            satiety: ConstrainedValue::new_max(0.0, 100.0),
+            hydration: ConstrainedValue::new_max(0.0, 100.0),
+            energy: ConstrainedValue::new_max(0.0, 100.0),
+        };
         let message_channel = MessageChannel {
             sender: messages_sender,
         };
@@ -117,6 +126,7 @@ impl Game {
                 Player,
                 Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
                 desc,
+                vitals,
                 message_channel,
             ))
             .id();

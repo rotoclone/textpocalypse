@@ -52,6 +52,9 @@ pub use volume::Volume;
 mod weight;
 pub use weight::Weight;
 
+mod vitals;
+pub use vitals::Vitals;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 
