@@ -78,33 +78,42 @@ impl Container {
 
     /// Determines if the provided entity is inside this container, or inside any container in this container, etc.
     pub fn contains_recursive(&self, entity: Entity, world: &World) -> bool {
-        self.contains_recursive_internal(entity, world, &mut vec![])
+        !self.find_recursive(|e| e == entity, world).is_empty()
     }
 
-    fn contains_recursive_internal(
+    /// Finds all entities in this container (or in any container in this container, etc.) for which the provided function returns true.
+    pub fn find_recursive(&self, match_fn: impl Fn(Entity) -> bool, world: &World) -> Vec<Entity> {
+        self.find_recursive_internal(&match_fn, world, &mut vec![])
+    }
+
+    fn find_recursive_internal(
         &self,
-        entity: Entity,
+        match_fn: impl Fn(Entity) -> bool + Clone,
         world: &World,
         contained_entities: &mut Vec<Entity>,
-    ) -> bool {
+    ) -> Vec<Entity> {
+        let mut found_entities = Vec::new();
+
         for contained_entity in &self.entities {
             if contained_entities.contains(contained_entity) {
                 panic!("{contained_entity:?} contains itself")
             }
             contained_entities.push(*contained_entity);
 
-            if entity == *contained_entity {
-                return true;
+            if match_fn(*contained_entity) {
+                found_entities.push(*contained_entity);
             }
 
             if let Some(container) = world.get::<Container>(*contained_entity) {
-                if container.contains_recursive_internal(entity, world, contained_entities) {
-                    return true;
-                }
+                found_entities.extend(container.find_recursive_internal(
+                    match_fn.clone(),
+                    world,
+                    contained_entities,
+                ));
             }
         }
 
-        false
+        found_entities
     }
 }
 

@@ -24,9 +24,10 @@ const DETAILED_LOOK_FORMAT: &str = "examine <>";
 const LOOK_TARGET_CAPTURE: &str = "target";
 
 lazy_static! {
-    static ref LOOK_PATTERN: Regex = Regex::new("^l(ook)?( (at )?(the )?(?P<target>.*))?").unwrap();
+    static ref LOOK_PATTERN: Regex =
+        Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap();
     static ref DETAILED_LOOK_PATTERN: Regex =
-        Regex::new("^(x|ex(amine)?)( (the )?(?P<target>.*))?").unwrap();
+        Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap();
 }
 
 pub struct LookParser;

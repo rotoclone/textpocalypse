@@ -126,39 +126,43 @@ impl Action for LockAction {
         let name = get_reference_name(self.target, world);
 
         // make sure the performing entity has the key to this lock, if needed
-        //TODO search inventory recursively
+        let mut key = None;
         if let Some(key_id) = &lock.key_id {
             if let Some(inventory) = world.get::<Container>(performing_entity) {
-                let has_key = inventory
-                    .entities
-                    .iter()
-                    .any(|entity| world.get::<KeyId>(*entity) == Some(key_id));
-                if !has_key {
-                    return ActionResult::error(
-                        performing_entity,
-                        format!("You don't have the key to {name}."),
-                    );
-                }
+                let mut matching_keys = inventory
+                    .find_recursive(|entity| world.get::<KeyId>(entity) == Some(key_id), world);
+
+                key = matching_keys.pop();
             }
+        }
+
+        if lock.key_id.is_some() && key.is_none() {
+            return ActionResult::error(
+                performing_entity,
+                format!("You don't have the key to {name}."),
+            );
         }
 
         KeyedLock::set_locked(self.target, self.should_be_locked, world);
 
-        if self.should_be_locked {
-            ActionResult::message(
-                performing_entity,
-                format!("You lock {name}."),
-                MessageDelay::Short,
-                true,
-            )
+        let lock_or_unlock = if self.should_be_locked {
+            "lock"
         } else {
-            ActionResult::message(
-                performing_entity,
-                format!("You unlock {name}."),
-                MessageDelay::Short,
-                true,
-            )
-        }
+            "unlock"
+        };
+        let key_message = if let Some(key) = key {
+            let key_name = get_reference_name(key, world);
+            format!("use {key_name} to ")
+        } else {
+            "".to_string()
+        };
+
+        ActionResult::message(
+            performing_entity,
+            format!("You {key_message}{lock_or_unlock} {name}."),
+            MessageDelay::Short,
+            true,
+        )
     }
 
     fn may_require_tick(&self) -> bool {
