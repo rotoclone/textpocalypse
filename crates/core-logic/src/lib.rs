@@ -53,6 +53,7 @@ pub struct SpawnRoom;
 pub struct TickStage;
 
 /// Messages to be sent to entities after a tick is completed.
+/// TODO remove
 #[derive(Resource)]
 pub struct MessageQueue {
     messages: HashMap<Entity, Vec<GameMessage>>,
@@ -297,11 +298,17 @@ fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
 /// Sends a message to the provided entity, if possible. Panics if the entity's message receiver has been dropped.
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(channel) = world.get::<MessageChannel>(entity_id) {
-        channel
-            .sender
-            .send((message, world.resource::<Time>().clone()))
-            .expect("Message receiver should exist");
+        let time = world.resource::<Time>().clone();
+        send_message_on_channel(channel, message, time);
     }
+}
+
+/// Sends a message on the provided channel. Panics if the channel's message receiver has been dropped.
+fn send_message_on_channel(channel: &MessageChannel, message: GameMessage, time: Time) {
+    channel
+        .sender
+        .send((message, time))
+        .expect("Message receiver should exist");
 }
 
 /// Handles input from an entity.
