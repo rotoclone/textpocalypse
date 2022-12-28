@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::{
     action::Action, component::Player, notification::NotificationType, send_messages, tick,
+    InterruptedEntities,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
@@ -103,6 +104,7 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
         loops += 1;
 
         debug!("Performing queued actions...");
+        world.resource_mut::<InterruptedEntities>().0.clear();
 
         // first deal with actions that don't require a tick
         let players_with_action_queues = world
@@ -166,8 +168,13 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
 
         for (entity, action, result) in results.into_iter() {
             if !result.is_complete {
-                //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
-                queue_action_first(world, entity, action);
+                if world.resource::<InterruptedEntities>().0.contains(&entity) {
+                    let interrupt_result = action.interrupt(entity, world);
+                    send_messages(&interrupt_result.messages, world);
+                    // the action was interrupted, so just drop it
+                } else {
+                    queue_action_first(world, entity, action);
+                }
             }
         }
     }

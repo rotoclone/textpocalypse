@@ -13,7 +13,7 @@ use crate::{
     BeforeActionNotification, Direction, GameMessage, MessageDelay, VerifyActionNotification,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -103,6 +103,14 @@ impl Action for MoveAction {
             is_complete: true,
             was_successful,
         }
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop moving.".to_string(),
+            MessageDelay::None,
+        )
     }
 
     fn may_require_tick(&self) -> bool {

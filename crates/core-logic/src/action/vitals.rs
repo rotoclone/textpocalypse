@@ -9,7 +9,7 @@ use crate::{
     BeforeActionNotification, GameMessage, VerifyActionNotification, VitalsDescription, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const VITALS_FORMAT: &str = "vitals";
 
@@ -55,6 +55,10 @@ impl Action for VitalsAction {
         } else {
             ActionResult::error(performing_entity, "You have no vitals.".to_string())
         }
+    }
+
+    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
     }
 
     fn may_require_tick(&self) -> bool {

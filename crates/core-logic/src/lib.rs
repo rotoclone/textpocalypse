@@ -3,7 +3,7 @@ use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
     thread,
 };
@@ -92,6 +92,10 @@ impl MessageQueue {
     }
 }
 
+/// Entities that should have in-progress actions interrupted.
+#[derive(Resource)]
+pub struct InterruptedEntities(pub HashSet<Entity>);
+
 pub struct Game {
     /// The game world.
     world: Arc<RwLock<World>>,
@@ -135,6 +139,7 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         world.insert_resource(MessageQueue::new());
+        world.insert_resource(InterruptedEntities(HashSet::new()));
         set_up_world(&mut world);
         register_component_handlers(&mut world);
 

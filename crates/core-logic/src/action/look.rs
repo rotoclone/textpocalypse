@@ -15,7 +15,7 @@ use crate::{
     MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult, MoveAction};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -173,6 +173,10 @@ impl Action for LookAction {
         }
 
         ActionResult::error(performing_entity, "You can't see that.".to_string())
+    }
+
+    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
     }
 
     fn may_require_tick(&self) -> bool {

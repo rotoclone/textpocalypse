@@ -97,13 +97,20 @@ fn main() -> Result<()> {
 
 /// Determines the amount of time to wait after displaying the provided message.
 fn delay_for_message(message: &GameMessage) -> Duration {
-    match message {
-        GameMessage::Message(_, delay) => match delay {
+    let delay = match message {
+        GameMessage::Message(_, delay) => Some(delay),
+        GameMessage::ValueChange(_, delay) => Some(delay),
+        _ => None,
+    };
+
+    if let Some(delay) = delay {
+        match delay {
             MessageDelay::None => Duration::ZERO,
             MessageDelay::Short => SHORT_MESSAGE_DELAY,
             MessageDelay::Long => LONG_MESSAGE_DELAY,
-        },
-        _ => Duration::ZERO,
+        }
+    } else {
+        Duration::ZERO
     }
 }
 
@@ -133,7 +140,7 @@ fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
         GameMessage::Container(container) => container_to_string(container),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
-        GameMessage::ValueChange(change) => value_change_to_string(change),
+        GameMessage::ValueChange(change, _) => value_change_to_string(change),
     }
 }
 
@@ -583,14 +590,14 @@ fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
 fn vitals_to_string(vitals: VitalsDescription) -> String {
     let health = format!(
         "Health:    {}",
-        constrained_float_to_string(None, vitals.health, value_type_to_color(ValueType::Health))
+        constrained_float_to_string(None, vitals.health, value_type_to_color(&ValueType::Health))
     );
     let satiety = format!(
         "Satiety:   {}",
         constrained_float_to_string(
             None,
             vitals.satiety,
-            value_type_to_color(ValueType::Satiety)
+            value_type_to_color(&ValueType::Satiety)
         )
     );
     let hydration = format!(
@@ -598,12 +605,12 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.hydration,
-            value_type_to_color(ValueType::Hydration)
+            value_type_to_color(&ValueType::Hydration)
         )
     );
     let energy = format!(
         "Energy:    {}",
-        constrained_float_to_string(None, vitals.energy, value_type_to_color(ValueType::Energy))
+        constrained_float_to_string(None, vitals.energy, value_type_to_color(&ValueType::Energy))
     );
 
     [health, satiety, hydration, energy].join("\n")
@@ -611,16 +618,29 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
 
 /// Transforms the provided value change description into a string for display.
 fn value_change_to_string(change: ValueChangeDescription) -> String {
-    let color = value_type_to_color(change.value_type);
+    let bar_title = format!("{}: ", value_type_to_bar_title(&change.value_type));
+    let color = value_type_to_color(&change.value_type);
     format!(
-        "{} {}",
+        "{}\n{}{}",
         change.message,
+        bar_title,
         constrained_float_to_string(Some(change.old_value), change.new_value, color)
     )
 }
 
+/// Determines the bar title to use for a value of the provided type.
+fn value_type_to_bar_title(value_type: &ValueType) -> String {
+    match value_type {
+        ValueType::Health => "Health",
+        ValueType::Satiety => "Satiety",
+        ValueType::Hydration => "Hydration",
+        ValueType::Energy => "Energy",
+    }
+    .to_string()
+}
+
 /// Determines the bar color to use for a value of the provided type.
-fn value_type_to_color(value_type: ValueType) -> crossterm::style::Color {
+fn value_type_to_color(value_type: &ValueType) -> crossterm::style::Color {
     match value_type {
         ValueType::Health => crossterm::style::Color::Red,
         ValueType::Satiety => crossterm::style::Color::Yellow,
@@ -643,19 +663,21 @@ fn constrained_float_to_string(
     };
 
     let old_num_filled = (BAR_LENGTH as f32 * old_filled_fraction).round() as usize;
-    let num_filled = (BAR_LENGTH as f32 * filled_fraction).round() as usize;
+    let mut num_filled = (BAR_LENGTH as f32 * filled_fraction).round() as usize;
     let num_changed = old_num_filled.abs_diff(num_filled);
-    let num_empty = BAR_LENGTH - num_filled;
 
     let bar_change = if filled_fraction < old_filled_fraction {
         style(BAR_REDUCTION.repeat(num_changed)).red()
     } else {
+        num_filled = num_filled.saturating_sub(num_changed);
         style(BAR_ADDITION.repeat(num_changed)).green()
     };
 
+    let num_empty = BAR_LENGTH - num_filled - num_changed;
+
     let bar = format!(
         "{}{}{}",
-        style(BAR_FILLED.repeat(num_filled.saturating_sub(num_changed))).with(color),
+        style(BAR_FILLED.repeat(num_filled)).with(color),
         bar_change,
         BAR_EMPTY.repeat(num_empty)
     );

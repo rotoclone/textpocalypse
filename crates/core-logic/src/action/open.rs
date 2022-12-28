@@ -13,7 +13,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const OPEN_VERB_NAME: &str = "open";
 const CLOSE_VERB_NAME: &str = "close";
@@ -137,6 +137,14 @@ impl Action for OpenAction {
                 true,
             )
         }
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop opening.".to_string(),
+            MessageDelay::None,
+        )
     }
 
     fn may_require_tick(&self) -> bool {

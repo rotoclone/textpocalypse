@@ -10,7 +10,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const TICKS_PER_MINUTE: u64 = SECONDS_PER_MINUTE as u64 / TICK_DURATION.as_secs();
 const TICKS_PER_HOUR: u64 = TICKS_PER_MINUTE * MINUTES_PER_HOUR as u64;
@@ -140,7 +140,7 @@ impl Action for WaitAction {
             return ActionResult::builder()
                 .with_message(
                     performing_entity,
-                    "You stop waiting.".to_string(),
+                    "You finish waiting.".to_string(),
                     MessageDelay::Short,
                 )
                 .build_complete_no_tick(true);
@@ -158,6 +158,14 @@ impl Action for WaitAction {
 
         self.waited_ticks += 1;
         result_builder.build_incomplete(true)
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop waiting.".to_string(),
+            MessageDelay::None,
+        )
     }
 
     fn may_require_tick(&self) -> bool {

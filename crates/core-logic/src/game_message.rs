@@ -35,7 +35,7 @@ pub enum GameMessage {
     DetailedEntity(DetailedEntityDescription),
     Container(ContainerDescription),
     Vitals(VitalsDescription),
-    ValueChange(ValueChangeDescription),
+    ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
     Message(String, MessageDelay),
     Error(String),

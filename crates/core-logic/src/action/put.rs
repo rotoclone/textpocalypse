@@ -11,7 +11,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -317,6 +317,14 @@ impl Action for PutAction {
         }
 
         result_builder.build_complete_should_tick(true)
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop moving items.".to_string(),
+            MessageDelay::None,
+        )
     }
 
     fn may_require_tick(&self) -> bool {

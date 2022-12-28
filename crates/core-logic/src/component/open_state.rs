@@ -3,7 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{Action, ActionNotificationSender, ActionResult, MoveAction, OpenAction},
+    action::{
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
+        OpenAction,
+    },
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -102,6 +105,14 @@ impl Action for SlamAction {
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
             MessageDelay::Long,
             true,
+        )
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop slamming.".to_string(),
+            MessageDelay::None,
         )
     }
 

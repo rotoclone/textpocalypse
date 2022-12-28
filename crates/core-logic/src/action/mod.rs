@@ -154,9 +154,98 @@ impl ActionResultBuilder {
     }
 }
 
+/// The result of an action being interrupted.
+#[derive(Debug)]
+pub struct ActionInterruptResult {
+    /// Any messages that should be sent.
+    pub messages: HashMap<Entity, Vec<GameMessage>>,
+}
+
+impl ActionInterruptResult {
+    /// Creates an action interrupt result with no messages.
+    pub fn none() -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: HashMap::new(),
+        }
+    }
+
+    /// Creates an action interrupt result with a single message for an entity.
+    pub fn message(
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+    ) -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: [(
+                entity_id,
+                vec![GameMessage::Message(message, message_delay)],
+            )]
+            .into(),
+        }
+    }
+
+    /// Creates an action interrupt result with a single error message for an entity.
+    pub fn error(entity_id: Entity, message: String) -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
+        }
+    }
+
+    /// Creates an `ActionInterruptResultBuilder`.
+    pub fn builder() -> ActionInterruptResultBuilder {
+        ActionInterruptResultBuilder {
+            result: ActionInterruptResult::none(),
+        }
+    }
+}
+
+pub struct ActionInterruptResultBuilder {
+    result: ActionInterruptResult,
+}
+
+impl ActionInterruptResultBuilder {
+    /// Builds the `ActionInterruptResult`.
+    pub fn build(self) -> ActionInterruptResult {
+        self.result
+    }
+
+    /// Adds a message to be sent to an entity.
+    pub fn with_message(
+        self,
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+    ) -> ActionInterruptResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+    }
+
+    /// Adds an error message to be sent to an entity.
+    pub fn with_error(self, entity_id: Entity, message: String) -> ActionInterruptResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Error(message))
+    }
+
+    /// Adds a `GameMessage` to be sent to an entity.
+    fn with_game_message(
+        mut self,
+        entity_id: Entity,
+        message: GameMessage,
+    ) -> ActionInterruptResultBuilder {
+        self.result
+            .messages
+            .entry(entity_id)
+            .or_insert_with(Vec::new)
+            .push(message);
+
+        self
+    }
+}
+
 pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
+
+    /// Called when the action has been interrupted.
+    fn interrupt(&self, performing_entity: Entity, world: &World) -> ActionInterruptResult;
 
     /// Returns whether the action might take game time to perform.
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world

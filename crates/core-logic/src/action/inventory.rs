@@ -9,7 +9,7 @@ use crate::{
     BeforeActionNotification, ContainerDescription, GameMessage, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const INVENTORY_FORMAT: &str = "inventory";
 
@@ -56,6 +56,10 @@ impl Action for InventoryAction {
         } else {
             ActionResult::error(performing_entity, "You have no inventory.".to_string())
         }
+    }
+
+    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
     }
 
     fn may_require_tick(&self) -> bool {
