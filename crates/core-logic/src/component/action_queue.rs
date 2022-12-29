@@ -171,6 +171,10 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
                 if world.resource::<InterruptedEntities>().0.contains(&entity) {
                     let interrupt_result = action.interrupt(entity, world);
                     send_messages(&interrupt_result.messages, world);
+                    // cancel all other queued actions for this entity
+                    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+                        action_queue.actions.clear();
+                    }
                     // the action was interrupted, so just drop it
                 } else {
                     queue_action_first(world, entity, action);

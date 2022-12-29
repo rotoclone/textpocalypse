@@ -46,52 +46,14 @@ pub use color::Color;
 mod constrained_value;
 pub use constrained_value::ConstrainedValue;
 
+mod value_change;
+pub use value_change::ValueType;
+
 #[derive(Component)]
 pub struct SpawnRoom;
 
 #[derive(StageLabel)]
 pub struct TickStage;
-
-/// Messages to be sent to entities after a tick is completed.
-/// TODO remove
-#[derive(Resource)]
-pub struct MessageQueue {
-    messages: HashMap<Entity, Vec<GameMessage>>,
-}
-
-impl Default for MessageQueue {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MessageQueue {
-    /// Creates an empty message queue.
-    pub fn new() -> MessageQueue {
-        MessageQueue {
-            messages: HashMap::new(),
-        }
-    }
-
-    /// Sends all the queued messages.
-    pub fn send_messages(world: &mut World) {
-        let messages = world
-            .resource_mut::<MessageQueue>()
-            .messages
-            .drain()
-            .collect();
-
-        send_messages(&messages, world);
-    }
-
-    /// Queues a message to be sent to an entity.
-    pub fn add(&mut self, entity: Entity, message: GameMessage) {
-        self.messages
-            .entry(entity)
-            .or_insert_with(Vec::new)
-            .push(message);
-    }
-}
 
 /// Entities that should have in-progress actions interrupted.
 #[derive(Resource)]
@@ -101,6 +63,7 @@ pub struct Game {
     /// The game world.
     world: Arc<RwLock<World>>,
     /// The schedule to run on each tick.
+    /// TODO remove?
     tick_schedule: Arc<RwLock<Schedule>>,
 }
 
@@ -139,13 +102,11 @@ impl Game {
         world.insert_resource(Time::new());
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
-        world.insert_resource(MessageQueue::new());
         world.insert_resource(InterruptedEntities(HashSet::new()));
         set_up_world(&mut world);
         register_component_handlers(&mut world);
 
-        let mut tick_schedule = Schedule::default().with_stage(TickStage, SystemStage::parallel());
-        register_component_tick_systems(&mut tick_schedule);
+        let tick_schedule = Schedule::default().with_stage(TickStage, SystemStage::parallel());
 
         NotificationHandlers::add_handler(look_after_move, &mut world);
         Game {
@@ -370,14 +331,23 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
     send_message(world, entity, GameMessage::Error(message));
 }
 
+/// A notification that a tick is occurring.
+#[derive(Debug)]
+pub struct TickNotification;
+
+impl NotificationType for TickNotification {}
+
 /// Performs one game tick.
 fn tick(tick_schedule: &mut Schedule, world: &mut World) {
     world.resource_mut::<Time>().tick();
-    //TODO perform queued actions on non-player entities
 
     tick_schedule.run(world);
 
-    MessageQueue::send_messages(world);
+    Notification {
+        notification_type: TickNotification,
+        contents: &(),
+    }
+    .send(world);
 }
 
 /// Moves an entity to a container.
@@ -401,6 +371,16 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
     world.entity_mut(moving_entity).insert(Location {
         id: destination_entity,
     });
+}
+
+/// Sets an entity's actions to be interrupted.
+fn interrupt_entity(entity: Entity, world: &mut World) {
+    world.resource_mut::<InterruptedEntities>().0.insert(entity);
+}
+
+/// Kills an entity.
+fn kill_entity(entity: Entity, world: &mut World) {
+    todo!() //TODO
 }
 
 /// Builds a string to use to refer to the provided entity.

@@ -21,14 +21,7 @@ use std::{
 };
 use voca_rs::Voca;
 
-use core_logic::{
-    ActionDescription, AttributeDescription, AttributeType, ConstrainedValue, ContainerDescription,
-    ContainerEntityDescription, DetailedEntityDescription, Direction, EntityDescription,
-    ExitDescription, Game, GameMessage, HelpMessage, MapChar, MapDescription, MapIcon,
-    MessageDelay, RoomConnectionEntityDescription, RoomDescription, RoomEntityDescription,
-    RoomLivingEntityDescription, RoomObjectDescription, Time, ValueChangeDescription, ValueType,
-    VitalsDescription,
-};
+use core_logic::*;
 
 const PROMPT: &str = "\n> ";
 const INDENT: &str = "  ";

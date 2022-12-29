@@ -13,6 +13,7 @@ use crate::{
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_weight,
     input_parser::find_parsers_relevant_for,
+    value_change::ValueType,
     ConstrainedValue, Direction,
 };
 
@@ -270,14 +271,6 @@ pub struct ValueChangeDescription {
     pub old_value: ConstrainedValue<f32>,
     /// The new value.
     pub new_value: ConstrainedValue<f32>,
-}
-
-#[derive(Debug, Clone)]
-pub enum ValueType {
-    Health,
-    Satiety,
-    Hydration,
-    Energy,
 }
 
 #[derive(Debug, Clone)]

@@ -1,14 +1,18 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 
 /// A value that cannot go over a maximum or under a minimum.
 #[derive(Debug, Clone)]
-pub struct ConstrainedValue<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> {
+pub struct ConstrainedValue<
+    T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy,
+> {
     current: T,
     min: T,
     max: T,
 }
 
-impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedValue<T> {
+impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy>
+    ConstrainedValue<T>
+{
     /// Creates a value with the current value at the minimum.
     pub fn new_min(min: T, max: T) -> ConstrainedValue<T> {
         if min > max {
@@ -52,6 +56,12 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Copy> ConstrainedVal
     /// Changes this value by subtracting the provided value from it.
     pub fn subtract(&mut self, to_subtract: T) {
         let new_value = self.current - to_subtract;
+        self.set(new_value);
+    }
+
+    /// Changes this value by multiplying it by the provided value.
+    pub fn multiply(&mut self, to_multiply: T) {
+        let new_value = self.current * to_multiply;
         self.set(new_value);
     }
 
