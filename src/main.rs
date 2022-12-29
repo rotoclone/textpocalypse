@@ -41,7 +41,7 @@ const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 fn main() -> Result<()> {
     env_logger::init();
 
-    let game = Game::new();
+    let mut game = Game::new();
     let (commands_sender, messages_receiver) = game.add_player("Player".to_string());
 
     let quitting = Arc::new(AtomicBool::new(false));

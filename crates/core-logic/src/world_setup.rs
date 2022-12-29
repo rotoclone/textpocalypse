@@ -7,7 +7,7 @@ use crate::{
         ParseCustomInput, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, Direction, SpawnRoom,
+    move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) {
@@ -31,7 +31,6 @@ pub fn set_up_world(world: &mut World) {
             },
             Container::new_infinite(),
             middle_room_coords.clone(),
-            SpawnRoom,
         ))
         .id();
     world
@@ -164,6 +163,24 @@ pub fn set_up_world(world: &mut World) {
         })
         .id();
     move_entity(east_room_west_connection_id, east_room_id, world);
+
+    let afterlife_room_desc = "There is nothing.";
+    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ', ' ']);
+    let afterlife_room_id = world
+        .spawn((
+            Room {
+                name: "Nowhere".to_string(),
+                description: afterlife_room_desc.to_string(),
+                map_icon: afterlife_room_icon,
+            },
+            Container::new_infinite(),
+            AFTERLIFE_ROOM_COORDINATES.clone(),
+        ))
+        .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(AFTERLIFE_ROOM_COORDINATES, afterlife_room_id);
 
     //
     // objects

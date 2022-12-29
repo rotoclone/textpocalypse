@@ -5,7 +5,7 @@ use log::debug;
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
-    thread,
+    thread::{self},
 };
 
 mod action;
@@ -49,8 +49,24 @@ pub use constrained_value::ConstrainedValue;
 mod value_change;
 pub use value_change::ValueType;
 
-#[derive(Component)]
-pub struct SpawnRoom;
+pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
+    x: 0,
+    y: 0,
+    z: i64::MAX,
+    parent: None,
+};
+
+/// Coordinates of the spawn room.
+#[derive(Resource)]
+pub struct SpawnRoom(Coordinates);
+
+/// Coordinates of the afterlife room.
+#[derive(Resource)]
+pub struct AfterlifeRoom(Coordinates);
+
+/// Mapping of player IDs to entities.
+#[derive(Resource)]
+pub struct PlayerIdMapping(HashMap<PlayerId, Entity>);
 
 #[derive(StageLabel)]
 pub struct TickStage;
@@ -65,6 +81,8 @@ pub struct Game {
     /// The schedule to run on each tick.
     /// TODO remove?
     tick_schedule: Arc<RwLock<Schedule>>,
+    /// The ID to assign to the next added player.
+    next_player_id: PlayerId,
 }
 
 impl Default for Game {
@@ -103,6 +121,14 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         world.insert_resource(InterruptedEntities(HashSet::new()));
+        world.insert_resource(SpawnRoom(Coordinates {
+            x: 0,
+            y: 0,
+            z: 0,
+            parent: None,
+        }));
+        world.insert_resource(AfterlifeRoom(AFTERLIFE_ROOM_COORDINATES));
+        world.insert_resource(PlayerIdMapping(HashMap::new()));
         set_up_world(&mut world);
         register_component_handlers(&mut world);
 
@@ -112,46 +138,27 @@ impl Game {
         Game {
             world: Arc::new(RwLock::new(world)),
             tick_schedule: Arc::new(RwLock::new(tick_schedule)),
+            next_player_id: PlayerId(0),
         }
     }
 
     /// Adds a player to the game in the default spawn location.
-    pub fn add_player(&self, name: String) -> (Sender<String>, Receiver<(GameMessage, Time)>) {
+    pub fn add_player(&mut self, name: String) -> (Sender<String>, Receiver<(GameMessage, Time)>) {
         // create channels for communication between the player and the world
         let (commands_sender, commands_receiver) = flume::unbounded::<String>();
         let (messages_sender, messages_receiver) = flume::unbounded::<(GameMessage, Time)>();
 
+        let player_id = self.get_player_id();
+
         // add the player to the world
         let mut world = self.world.write().unwrap();
-        let desc = Description {
-            name: name.clone(),
-            room_name: name,
-            plural_name: "people".to_string(),
-            article: None,
-            aliases: Vec::new(),
-            description: "A human-shaped person-type thing.".to_string(),
-            attribute_describers: Vec::new(),
-        };
-        let vitals = Vitals {
-            health: ConstrainedValue::new_max(0.0, 100.0),
-            satiety: ConstrainedValue::new_max(0.0, 100.0),
-            hydration: ConstrainedValue::new_max(0.0, 100.0),
-            energy: ConstrainedValue::new_max(0.0, 100.0),
-        };
-        let message_channel = MessageChannel {
+        let spawn_room_id = find_spawn_room(&world);
+        let player = Player {
+            id: player_id,
             sender: messages_sender,
         };
-        let player_id = world
-            .spawn((
-                Player,
-                Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
-                desc,
-                vitals,
-                message_channel,
-            ))
-            .id();
-        let spawn_room_id = find_spawn_room(&mut world);
-        move_entity(player_id, spawn_room_id, &mut world);
+        let player_entity = spawn_player(name, player, spawn_room_id, &mut world);
+        self.spawn_command_thread(player_id, commands_receiver);
 
         // add stuff to the player's inventory
         let medium_thing_id = world
@@ -172,7 +179,7 @@ impl Game {
                 Weight(0.5),
             ))
             .id();
-        move_entity(medium_thing_id, player_id, &mut world);
+        move_entity(medium_thing_id, player_entity, &mut world);
 
         let heavy_thing_id = world
             .spawn((
@@ -192,12 +199,27 @@ impl Game {
                 Weight(15.0),
             ))
             .id();
-        move_entity(heavy_thing_id, player_id, &mut world);
+        move_entity(heavy_thing_id, player_entity, &mut world);
 
+        // send the player an initial message with their location
+        send_current_location_message(player_entity, &world);
+
+        (commands_sender, messages_receiver)
+    }
+
+    /// Gets the next player ID to use.
+    fn get_player_id(&mut self) -> PlayerId {
+        let id = self.next_player_id;
+        self.next_player_id = self.next_player_id.increment();
+
+        id
+    }
+
+    /// Sets up a thread for handling input from a player.
+    fn spawn_command_thread(&self, player_id: PlayerId, commands_receiver: Receiver<String>) {
         let player_thread_world = Arc::clone(&self.world);
         let player_thread_tick_schedule = Arc::clone(&self.tick_schedule);
 
-        // set up thread for handling input from the player
         thread::Builder::new()
             .name(format!("command receiver for player {player_id:?}"))
             .spawn(move || loop {
@@ -209,64 +231,131 @@ impl Game {
                     }
                 };
                 debug!("Received input: {input:?}");
-                handle_input(
-                    &player_thread_tick_schedule,
-                    &player_thread_world,
-                    input,
-                    player_id,
-                );
+                let read_world = player_thread_world.read().unwrap();
+                if let Some(player_entity) = find_entity_for_player(player_id, &read_world) {
+                    drop(read_world);
+                    handle_input(
+                        &player_thread_tick_schedule,
+                        &player_thread_world,
+                        input,
+                        player_entity,
+                    );
+                } else {
+                    debug!("Player with ID {player_id:?} has no corresponding entity");
+                    break;
+                }
             })
             .unwrap_or_else(|e| {
                 panic!("failed to spawn thread to handle input for player {player_id:?}: {e}")
             });
-
-        // send the player an initial message with their location
-        let room = world
-            .get::<Room>(spawn_room_id)
-            .expect("Spawn room should be a room");
-        let container = world
-            .get::<Container>(spawn_room_id)
-            .expect("Spawn room should be a container");
-        let coords = world
-            .get::<Coordinates>(spawn_room_id)
-            .expect("Spawn room should have coordinates");
-        send_message(
-            &world,
-            player_id,
-            GameMessage::Room(RoomDescription::from_room(
-                room, container, coords, player_id, &world,
-            )),
-        );
-
-        (commands_sender, messages_receiver)
     }
 }
 
-/// Finds the ID of the single spawn room in the provided world.
-fn find_spawn_room(world: &mut World) -> Entity {
+/// Sends a message to an entity with their current location.
+fn send_current_location_message(entity: Entity, world: &World) {
+    let room_id = world
+        .get::<Location>(entity)
+        .expect("Entity should have a location")
+        .id;
+    let room = world
+        .get::<Room>(room_id)
+        .expect("Entity's location should be a room");
+    let container = world
+        .get::<Container>(room_id)
+        .expect("Entity's location should be a container");
+    let coords = world
+        .get::<Coordinates>(room_id)
+        .expect("Entity's location should have coordinates");
+    send_message(
+        world,
+        entity,
+        GameMessage::Room(RoomDescription::from_room(
+            room, container, coords, entity, world,
+        )),
+    );
+}
+
+/// Finds the entity corresponding to the provided player ID, if one exists.
+fn find_entity_for_player(player_id: PlayerId, world: &World) -> Option<Entity> {
     world
-        .query::<(Entity, With<SpawnRoom>)>()
-        .get_single(world)
-        .expect("A spawn room should exist")
+        .resource::<PlayerIdMapping>()
         .0
+        .get(&player_id)
+        .copied()
+}
+
+/// Spawns a new player.
+fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut World) -> Entity {
+    let player_id = player.id;
+    let desc = Description {
+        name: name.clone(),
+        room_name: name,
+        plural_name: "people".to_string(),
+        article: None,
+        aliases: Vec::new(),
+        description: "A human-shaped person-type thing.".to_string(),
+        attribute_describers: Vec::new(),
+    };
+    let vitals = Vitals {
+        health: ConstrainedValue::new_max(0.0, 100.0),
+        satiety: ConstrainedValue::new_max(0.0, 100.0),
+        hydration: ConstrainedValue::new_max(0.0, 100.0),
+        energy: ConstrainedValue::new_max(0.0, 100.0),
+    };
+    let player_entity = world
+        .spawn((
+            player,
+            Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
+            desc,
+            vitals,
+        ))
+        .id();
+    move_entity(player_entity, spawn_room, world);
+
+    world
+        .resource_mut::<PlayerIdMapping>()
+        .0
+        .insert(player_id, player_entity);
+
+    player_entity
+}
+
+/// Finds the ID of the spawn room in the provided world.
+fn find_spawn_room(world: &World) -> Entity {
+    let spawn_room_coords = &world.resource::<SpawnRoom>().0;
+    *world
+        .resource::<GameMap>()
+        .locations
+        .get(spawn_room_coords)
+        .expect("The spawn room should exist")
+}
+
+/// Finds the ID of the afterlife room in the provided world.
+fn find_afterlife_room(world: &World) -> Entity {
+    let spawn_room_coords = &world.resource::<AfterlifeRoom>().0;
+    *world
+        .resource::<GameMap>()
+        .locations
+        .get(spawn_room_coords)
+        .expect("The afterlife room should exist")
 }
 
 /// Determines whether the provided entity has an active message channel for receiving messages.
 fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
-    world.entity(entity_id).contains::<MessageChannel>()
+    world.entity(entity_id).contains::<Player>()
 }
 
 /// Sends a message to the provided entity, if possible. Panics if the entity's message receiver has been dropped.
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
-    if let Some(channel) = world.get::<MessageChannel>(entity_id) {
+    if let Some(player) = world.get::<Player>(entity_id) {
         let time = world.resource::<Time>().clone();
-        send_message_on_channel(channel, message, time);
+        send_message_to_player(player, message, time);
     }
 }
 
-/// Sends a message on the provided channel. Panics if the channel's message receiver has been dropped.
-fn send_message_on_channel(channel: &MessageChannel, message: GameMessage, time: Time) {
-    channel
+/// Sends a message to the provided player. Panics if the channel's message receiver has been dropped.
+fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
+    player
         .sender
         .send((message, time))
         .expect("Message receiver should exist");
@@ -380,7 +469,27 @@ fn interrupt_entity(entity: Entity, world: &mut World) {
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
-    todo!() //TODO
+    send_message(
+        world,
+        entity,
+        GameMessage::Message(
+            "You crumple to the ground and gasp your last breath.".to_string(),
+            MessageDelay::Long,
+        ),
+    );
+
+    if let Some(player) = world.entity_mut(entity).remove::<Player>() {
+        let name = world
+            .get::<Description>(entity)
+            .map(|d| d.name.clone())
+            .unwrap_or_else(|| "".to_string());
+        let new_entity = spawn_player(name, player, find_afterlife_room(world), world);
+
+        // players shouldn't have vitals until they actually respawn
+        world.entity_mut(new_entity).remove::<Vitals>();
+
+        send_current_location_message(new_entity, world);
+    }
 }
 
 /// Builds a string to use to refer to the provided entity.

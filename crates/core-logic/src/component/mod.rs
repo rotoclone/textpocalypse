@@ -11,9 +11,6 @@ pub use description::Description;
 mod location;
 pub use location::Location;
 
-mod message_channel;
-pub use message_channel::MessageChannel;
-
 mod room;
 pub use room::Room;
 
@@ -33,6 +30,7 @@ pub use custom_input_parser::ParseCustomInput;
 
 mod player;
 pub use player::Player;
+pub use player::PlayerId;
 
 mod action_queue;
 pub use action_queue::queue_action;
