@@ -11,6 +11,7 @@ Goals:
 * complex and punishing, but not to the point of being overly frustrating
 
 Non-goals:
+* fancy graphics
 * hyper-realism
 * having as many features as possible
 * being an MMO
