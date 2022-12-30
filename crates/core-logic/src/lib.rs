@@ -202,6 +202,72 @@ impl Game {
             .id();
         move_entity(heavy_thing_id, player_entity, &mut world);
 
+        let water_bottle_id = world
+            .spawn((
+                Description {
+                    name: "water bottle".to_string(),
+                    room_name: "water bottle".to_string(),
+                    plural_name: "water bottles".to_string(),
+                    article: Some("a".to_string()),
+                    aliases: vec!["bottle".to_string()],
+                    description: "A disposable plastic water bottle.".to_string(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                        FluidContainer::get_attribute_describer(),
+                    ],
+                },
+                Volume(0.5),
+                Weight(0.1),
+                FluidContainer::new(Some(Volume(0.5))),
+            ))
+            .id();
+        move_entity(water_bottle_id, player_entity, &mut world);
+
+        let water_id = world
+            .spawn((
+                Description {
+                    name: "water".to_string(),
+                    room_name: "water".to_string(),
+                    plural_name: "water".to_string(),
+                    article: Some("some".to_string()),
+                    aliases: vec![],
+                    description: "Some pure water.".to_string(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
+                },
+                Volume(0.25),
+                Weight(0.25),
+                Fluid,
+                HydrationFactor(1.0),
+            ))
+            .id();
+        move_fluid_entity(water_id, water_bottle_id, &mut world);
+
+        let milk_id = world
+            .spawn((
+                Description {
+                    name: "milk".to_string(),
+                    room_name: "milk".to_string(),
+                    plural_name: "milk".to_string(),
+                    article: Some("some".to_string()),
+                    aliases: vec![],
+                    description: "Some cow's milk.".to_string(),
+                    attribute_describers: vec![
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                    ],
+                },
+                Volume(0.2),
+                Weight(0.2),
+                Fluid,
+                HydrationFactor(0.9),
+            ))
+            .id();
+        move_fluid_entity(milk_id, water_bottle_id, &mut world);
+
         // send the player an initial message with their location
         send_current_location_message(player_entity, &world);
 
@@ -460,6 +526,29 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
     });
 }
 
+/// Moves a fluid entity to a fluid container.
+fn move_fluid_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
+    // remove from source container, if necessary
+    if let Some(location) = world.get_mut::<Location>(moving_entity) {
+        let source_location_id = location.id;
+        if let Some(mut source_location) = world.get_mut::<FluidContainer>(source_location_id) {
+            source_location.entities.remove(&moving_entity);
+        }
+    }
+
+    // add to destination container
+    world
+        .get_mut::<FluidContainer>(destination_entity)
+        .expect("Destination entity should be a fluid container")
+        .entities
+        .insert(moving_entity);
+
+    // update location
+    world.entity_mut(moving_entity).insert(Location {
+        id: destination_entity,
+    });
+}
+
 /// Sets an entity's actions to be interrupted.
 fn interrupt_entity(entity: Entity, world: &mut World) {
     world.resource_mut::<InterruptedEntities>().0.insert(entity);
@@ -540,14 +629,17 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     world.despawn(entity);
 }
 
+/// Gets the name of the provided entity, if it has one.
+fn get_name(entity: Entity, world: &World) -> Option<String> {
+    world.get::<Description>(entity).map(|d| d.name.clone())
+}
+
 /// Builds a string to use to refer to the provided entity.
 ///
 /// For example, if the entity is named "book", this will return "the book".
 fn get_reference_name(entity: Entity, world: &World) -> String {
     //TODO handle proper names, like names of people
-    world
-        .get::<Description>(entity)
-        .map_or("it".to_string(), |n| format!("the {}", n.name))
+    get_name(entity, world).map_or("it".to_string(), |name| format!("the {name}"))
 }
 
 /// Determines the total weight of an entity.
@@ -578,5 +670,26 @@ fn get_weight_recursive(
         weight += contained_weight;
     }
 
+    if let Some(container) = world.get::<FluidContainer>(entity) {
+        let contained_weight = container
+            .entities
+            .iter()
+            .map(|e| {
+                if contained_entities.contains(e) {
+                    panic!("{entity:?} contains itself")
+                }
+                contained_entities.push(*e);
+                get_weight_recursive(*e, world, contained_entities)
+            })
+            .sum::<Weight>();
+
+        weight += contained_weight;
+    }
+
     weight
+}
+
+/// Determines the volume of an entity.
+fn get_volume(entity: Entity, world: &World) -> Volume {
+    world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
 }

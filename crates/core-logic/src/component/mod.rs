@@ -44,6 +44,9 @@ pub use action_queue::VerifyActionNotification;
 mod container;
 pub use container::Container;
 
+mod fluid_container;
+pub use fluid_container::FluidContainer;
+
 mod volume;
 pub use volume::Volume;
 
@@ -58,6 +61,12 @@ pub use respawner::Respawner;
 
 mod edible;
 pub use edible::Edible;
+
+mod fluid;
+pub use fluid::Fluid;
+
+mod hydration_factor;
+pub use hydration_factor::HydrationFactor;
 
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;

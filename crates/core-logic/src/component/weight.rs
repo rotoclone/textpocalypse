@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Div},
 };
 
 use bevy_ecs::prelude::*;
@@ -25,6 +25,14 @@ impl Add for Weight {
 impl AddAssign for Weight {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
+    }
+}
+
+impl Div for Weight {
+    type Output = f32;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self.0 / rhs.0
     }
 }
 

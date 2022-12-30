@@ -1,12 +1,12 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Div},
 };
 
 use bevy_ecs::prelude::*;
 
-use crate::AttributeDescription;
+use crate::{get_volume, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
@@ -25,6 +25,14 @@ impl Add for Volume {
 impl AddAssign for Volume {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
+    }
+}
+
+impl Div for Volume {
+    type Output = f32;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self.0 / rhs.0
     }
 }
 
@@ -53,7 +61,7 @@ impl AttributeDescriber for VolumeAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if detail_level >= AttributeDetailLevel::Advanced {
-            let volume = world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0));
+            let volume = get_volume(entity, world);
 
             vec![AttributeDescription::does(format!(
                 "takes up {volume} L of space"
