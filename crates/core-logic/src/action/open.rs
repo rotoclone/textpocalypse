@@ -121,7 +121,7 @@ impl Action for OpenAction {
 
         OpenState::set_open(self.target, self.should_be_open, world);
 
-        let name = get_reference_name(self.target, world);
+        let name = get_reference_name(self.target, performing_entity, world);
         if self.should_be_open {
             ActionResult::message(
                 performing_entity,

@@ -81,10 +81,10 @@ pub enum CommandTarget {
 impl Display for CommandTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CommandTarget::Myself => write!(f, "me"),
-            CommandTarget::Here => write!(f, "here"),
-            CommandTarget::Direction(dir) => write!(f, "{dir}"),
-            CommandTarget::Named(name) => write!(f, "{name}"),
+            CommandTarget::Myself => "me".fmt(f),
+            CommandTarget::Here => "here".fmt(f),
+            CommandTarget::Direction(dir) => dir.fmt(f),
+            CommandTarget::Named(name) => name.fmt(f),
         }
     }
 }
@@ -155,7 +155,7 @@ pub struct CommandTargetName {
 impl Display for CommandTargetName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO include location chain
-        write!(f, "{}", self.name)
+        self.name.fmt(f)
     }
 }
 

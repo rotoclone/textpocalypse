@@ -107,6 +107,7 @@ impl StandardInputParsers {
                 Box::new(PutParser),
                 Box::new(VitalsParser),
                 Box::new(EatParser),
+                Box::new(DrinkParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -613,13 +614,27 @@ fn kill_entity(entity: Entity, world: &mut World) {
 fn despawn_entity(entity: Entity, world: &mut World) {
     // remove entity from its container
     if let Some(location) = world.get::<Location>(entity) {
-        if let Some(mut container) = world.get_mut::<Container>(location.id) {
+        let location_id = location.id;
+        if let Some(mut container) = world.get_mut::<Container>(location_id) {
+            container.entities.remove(&entity);
+        }
+
+        if let Some(mut container) = world.get_mut::<FluidContainer>(location_id) {
             container.entities.remove(&entity);
         }
     }
 
     // despawn contained entities
     if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
+        for contained_entity in contained_entities {
+            despawn_entity(contained_entity, world);
+        }
+    }
+
+    if let Some(contained_entities) = world
+        .get::<FluidContainer>(entity)
+        .map(|c| c.entities.clone())
+    {
         for contained_entity in contained_entities {
             despawn_entity(contained_entity, world);
         }
@@ -634,12 +649,17 @@ fn get_name(entity: Entity, world: &World) -> Option<String> {
     world.get::<Description>(entity).map(|d| d.name.clone())
 }
 
-/// Builds a string to use to refer to the provided entity.
+/// Builds a string to use to refer to the provided entity from the point of view of another entity.
 ///
 /// For example, if the entity is named "book", this will return "the book".
-fn get_reference_name(entity: Entity, world: &World) -> String {
+fn get_reference_name(entity: Entity, pov_entity: Entity, world: &World) -> String {
     //TODO handle proper names, like names of people
-    get_name(entity, world).map_or("it".to_string(), |name| format!("the {name}"))
+    let in_entity = world
+        .get::<Container>(pov_entity)
+        .map(|c| c.contains_recursive(entity, world))
+        .unwrap_or(false);
+    let article = if in_entity { "your" } else { "the" };
+    get_name(entity, world).map_or("it".to_string(), |name| format!("{article} {name}"))
 }
 
 /// Determines the total weight of an entity.

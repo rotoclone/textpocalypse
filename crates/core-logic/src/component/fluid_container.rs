@@ -32,6 +32,39 @@ impl FluidContainer {
             volume,
         }
     }
+
+    /// Gets the total amount of volume of fluid in the container.
+    pub fn get_used_volume(&self, world: &World) -> Volume {
+        self.entities
+            .iter()
+            .map(|entity| get_volume(*entity, world))
+            .sum()
+    }
+
+    /// Builds a map of contained entities to the amount of fluid they represent.
+    pub fn get_contents_by_volume(&self, world: &World) -> HashMap<Entity, ContainedFluidAmount> {
+        let used_volume = self.get_used_volume(world);
+
+        self.entities
+            .iter()
+            .map(|entity| {
+                let volume = get_volume(*entity, world);
+                let amount = ContainedFluidAmount {
+                    volume: volume.clone(),
+                    fraction: volume / used_volume.clone(),
+                };
+                (*entity, amount)
+            })
+            .collect()
+    }
+}
+
+/// An amount of fluid in a container.
+pub struct ContainedFluidAmount {
+    /// The volume of the fluid.
+    pub volume: Volume,
+    /// The fraction of the total fluid in the container this fluid represents.
+    pub fraction: f32,
 }
 
 /// Describes the fluid contents of an entity.
@@ -93,6 +126,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                     .map(|(n, v)| (n, v / used_volume.clone()))
                     .collect::<HashMap<String, f32>>();
 
+                //TODO sort constituent fluids so they appear in a consistent order
                 let fluid_description = fluid_names_to_fractions
                     .iter()
                     .map(|(name, fraction)| format!("{:.0}% {}", fraction * 100.0, name))

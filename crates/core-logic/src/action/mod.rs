@@ -41,6 +41,10 @@ mod eat;
 pub use eat::EatAction;
 pub use eat::EatParser;
 
+mod drink;
+pub use drink::DrinkAction;
+pub use drink::DrinkParser;
+
 /// The result of a single tick of an action being performed.
 #[derive(Debug)]
 pub struct ActionResult {

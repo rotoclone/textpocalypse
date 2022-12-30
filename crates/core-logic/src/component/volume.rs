@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign, Div},
+    ops::{Add, AddAssign, Div, Sub, SubAssign},
 };
 
 use bevy_ecs::prelude::*;
@@ -36,6 +36,20 @@ impl Div for Volume {
     }
 }
 
+impl Sub for Volume {
+    type Output = Volume;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Volume(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Volume {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
 impl Sum for Volume {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Volume(iter.map(|x| x.0).sum())
@@ -44,7 +58,7 @@ impl Sum for Volume {
 
 impl Display for Volume {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 

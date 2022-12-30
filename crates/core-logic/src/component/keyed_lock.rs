@@ -123,7 +123,7 @@ impl Action for LockAction {
             }
         }
 
-        let name = get_reference_name(self.target, world);
+        let name = get_reference_name(self.target, performing_entity, world);
 
         // make sure the performing entity has the key to this lock, if needed
         let mut key = None;
@@ -151,7 +151,7 @@ impl Action for LockAction {
             "unlock"
         };
         let key_message = if let Some(key) = key {
-            let key_name = get_reference_name(key, world);
+            let key_name = get_reference_name(key, performing_entity, world);
             format!("use {key_name} to ")
         } else {
             "".to_string()

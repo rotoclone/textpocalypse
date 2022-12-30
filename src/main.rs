@@ -666,7 +666,9 @@ fn constrained_float_to_string(
         style(BAR_ADDITION.repeat(num_changed)).green()
     };
 
-    let num_empty = BAR_LENGTH - num_filled - num_changed;
+    let num_empty = BAR_LENGTH
+        .saturating_sub(num_filled)
+        .saturating_sub(num_changed);
 
     let bar = format!(
         "{}{}{}",

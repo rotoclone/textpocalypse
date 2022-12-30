@@ -49,6 +49,6 @@ impl Display for Direction {
             Direction::Down => "down",
         };
 
-        write!(f, "{string}")
+        string.fmt(f)
     }
 }

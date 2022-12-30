@@ -48,7 +48,7 @@ impl InputParser for EatParser {
                         }));
                     } else {
                         // target isn't edible
-                        let target_name = get_reference_name(target_entity, world);
+                        let target_name = get_reference_name(target_entity, source_entity, world);
                         return Err(InputParseError::CommandParseError {
                             verb: EAT_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -86,7 +86,7 @@ pub struct EatAction {
 
 impl Action for EatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let target_name = get_reference_name(self.target, world);
+        let target_name = get_reference_name(self.target, performing_entity, world);
         let edible = match world.get::<Edible>(self.target) {
             Some(s) => s,
             None => {

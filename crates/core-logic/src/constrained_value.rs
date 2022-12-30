@@ -69,8 +69,7 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Co
     pub fn set(&mut self, new_value: T) {
         if new_value > self.max {
             self.current = self.max;
-        }
-        if new_value < self.min {
+        } else if new_value < self.min {
             self.current = self.min;
         } else {
             self.current = new_value;
