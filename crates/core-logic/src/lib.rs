@@ -301,6 +301,8 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .spawn((
             player,
             Container::new(Some(Volume(10.0)), Some(Weight(25.0))),
+            Volume(70.0),
+            Weight(65.0),
             desc,
             vitals,
         ))
@@ -464,7 +466,11 @@ fn interrupt_entity(entity: Entity, world: &mut World) {
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
-    //TODO don't kill it if it's already dead
+    if world.entity_mut(entity).remove::<Vitals>().is_none() {
+        // the entity wasn't alive
+        return;
+    }
+
     send_message(
         world,
         entity,
@@ -474,6 +480,11 @@ fn kill_entity(entity: Entity, world: &mut World) {
         ),
     );
 
+    let name = world
+        .get::<Description>(entity)
+        .map(|d| d.name.clone())
+        .unwrap_or_else(|| "".to_string());
+
     let mut entity_ref = world.entity_mut(entity);
     if let Some(desc) = entity_ref.remove::<Description>() {
         let mut aliases = desc.aliases;
@@ -481,6 +492,8 @@ fn kill_entity(entity: Entity, world: &mut World) {
         aliases.push("body".to_string());
 
         let mut attribute_describers = desc.attribute_describers;
+        attribute_describers.push(Volume::get_attribute_describer());
+        attribute_describers.push(Weight::get_attribute_describer());
         attribute_describers.push(Container::get_attribute_describer());
 
         let new_desc = Description {
@@ -497,10 +510,6 @@ fn kill_entity(entity: Entity, world: &mut World) {
     }
 
     if let Some(player) = world.entity_mut(entity).remove::<Player>() {
-        let name = world
-            .get::<Description>(entity)
-            .map(|d| d.name.clone())
-            .unwrap_or_else(|| "".to_string());
         let new_entity = spawn_player(name, player, find_afterlife_room(world), world);
 
         // players shouldn't have vitals until they actually respawn
