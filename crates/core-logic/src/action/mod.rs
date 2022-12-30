@@ -37,6 +37,10 @@ pub use put::PutParser;
 mod vitals;
 pub use vitals::VitalsParser;
 
+mod eat;
+pub use eat::EatAction;
+pub use eat::EatParser;
+
 /// The result of a single tick of an action being performed.
 #[derive(Debug)]
 pub struct ActionResult {

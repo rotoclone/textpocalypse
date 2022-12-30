@@ -106,6 +106,7 @@ impl StandardInputParsers {
                 Box::new(InventoryParser),
                 Box::new(PutParser),
                 Box::new(VitalsParser),
+                Box::new(EatParser),
                 Box::new(WaitParser),
                 Box::new(HelpParser),
             ],
@@ -517,6 +518,26 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
         send_current_location_message(new_entity, world);
     }
+}
+
+/// Despawns an entity.
+fn despawn_entity(entity: Entity, world: &mut World) {
+    // remove entity from its container
+    if let Some(location) = world.get::<Location>(entity) {
+        if let Some(mut container) = world.get_mut::<Container>(location.id) {
+            container.entities.remove(&entity);
+        }
+    }
+
+    // despawn contained entities
+    if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
+        for contained_entity in contained_entities {
+            despawn_entity(contained_entity, world);
+        }
+    }
+
+    // finally, despawn the entity itself
+    world.despawn(entity);
 }
 
 /// Builds a string to use to refer to the provided entity.

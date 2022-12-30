@@ -56,6 +56,9 @@ pub use vitals::Vitals;
 mod respawner;
 pub use respawner::Respawner;
 
+mod edible;
+pub use edible::Edible;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 

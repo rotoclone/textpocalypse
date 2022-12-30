@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Connection, Container, DescribeAttributes, Description, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Respawner, Room, Volume, Weight,
+        Connection, Container, DescribeAttributes, Description, Edible, KeyId, KeyedLock,
+        OpenState, ParseCustomInput, Respawner, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -190,25 +190,29 @@ pub fn set_up_world(world: &mut World) {
     // objects
     //
 
-    let small_thing_id = world
+    let candy_bar_id = world
         .spawn((
             Description {
-                name: "small thing".to_string(),
-                room_name: "small thing".to_string(),
-                plural_name: "small things".to_string(),
+                name: "candy bar".to_string(),
+                room_name: "candy bar".to_string(),
+                plural_name: "candy bars".to_string(),
                 article: Some("a".to_string()),
-                aliases: vec!["thing".to_string()],
-                description: "Some kind of smallish thing.".to_string(),
+                aliases: vec!["candy".to_string(), "bar".to_string()],
+                description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
                 attribute_describers: vec![
+                    Edible::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Volume(0.01),
+            Edible {
+                calories: 300
+            },
+            Volume(0.1),
             Weight(0.1),
         ))
         .id();
-    move_entity(small_thing_id, middle_room_id, world);
+    move_entity(candy_bar_id, middle_room_id, world);
 
     let large_thing_id = world
         .spawn((
