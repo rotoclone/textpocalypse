@@ -143,7 +143,11 @@ impl ActionResultBuilder {
     }
 
     /// Adds a `GameMessage` to be sent to an entity.
-    fn with_game_message(mut self, entity_id: Entity, message: GameMessage) -> ActionResultBuilder {
+    pub fn with_game_message(
+        mut self,
+        entity_id: Entity,
+        message: GameMessage,
+    ) -> ActionResultBuilder {
         self.result
             .messages
             .entry(entity_id)

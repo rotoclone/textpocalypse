@@ -53,6 +53,9 @@ pub use weight::Weight;
 mod vitals;
 pub use vitals::Vitals;
 
+mod respawner;
+pub use respawner::Respawner;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 
@@ -73,4 +76,6 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(vitals::send_vitals_update_messages, world);
     NotificationHandlers::add_handler(vitals::interrupt_on_damage, world);
     NotificationHandlers::add_handler(vitals::kill_on_zero_health, world);
+
+    NotificationHandlers::add_handler(respawner::look_after_respawn, world);
 }

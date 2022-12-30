@@ -13,7 +13,7 @@ const HYDRATION_LOSS_PER_TICK: f32 = 0.008; // loss of 100 hydration in ~2 days
 const ENERGY_LOSS_PER_TICK: f32 = 0.015; // loss of 100 energy in ~1 day
 
 const STARVATION_DAMAGE_PER_TICK: f32 = 5.0;
-const THIRST_DAMAGE_PER_TICK: f32 = 5.0;
+const THIRST_DAMAGE_PER_TICK: f32 = 50.0; // TODO 5.0;
 
 const HUNGER_MESSAGES: [(f32, &str); 4] = [
     (0.75, "You start feeling a little hungry."),
@@ -47,6 +47,24 @@ pub struct Vitals {
     pub hydration: ConstrainedValue<f32>,
     /// How non-tired the entity is.
     pub energy: ConstrainedValue<f32>,
+}
+
+impl Default for Vitals {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Vitals {
+    /// Creates the default set of vitals.
+    pub fn new() -> Vitals {
+        Vitals {
+            health: ConstrainedValue::new_max(0.0, 100.0),
+            satiety: ConstrainedValue::new_max(0.0, 100.0),
+            hydration: ConstrainedValue::new_max(0.0, 100.0),
+            energy: ConstrainedValue::new_max(0.0, 100.0),
+        }
+    }
 }
 
 /// Decreases vitals over time.

@@ -4,7 +4,7 @@ use crate::{
     color::Color,
     component::{
         Connection, Container, DescribeAttributes, Description, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Room, Volume, Weight,
+        ParseCustomInput, Respawner, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -181,6 +181,10 @@ pub fn set_up_world(world: &mut World) {
         .resource_mut::<GameMap>()
         .locations
         .insert(AFTERLIFE_ROOM_COORDINATES, afterlife_room_id);
+
+    let respawner_id = world.spawn(Respawner).id();
+    Respawner::register_custom_input_parser(respawner_id, world);
+    move_entity(respawner_id, afterlife_room_id, world);
 
     //
     // objects

@@ -77,23 +77,12 @@ impl ValueChange {
 
             let new_value = value.clone();
 
-            Notification {
-                notification_type: ValueChangedNotification {
-                    entity: self.entity,
-                    value_type: self.value_type,
-                    old_value: old_value.clone(),
-                    new_value: new_value.clone(),
-                },
-                contents: &(),
-            }
-            .send(world);
-
             if let Some(message) = self.message {
                 let message = ValueChangeDescription {
                     message,
                     value_type: self.value_type,
-                    old_value,
-                    new_value,
+                    old_value: old_value.clone(),
+                    new_value: new_value.clone(),
                 };
                 send_message(
                     world,
@@ -101,6 +90,17 @@ impl ValueChange {
                     GameMessage::ValueChange(message, MessageDelay::Short),
                 );
             }
+
+            Notification {
+                notification_type: ValueChangedNotification {
+                    entity: self.entity,
+                    value_type: self.value_type,
+                    old_value,
+                    new_value,
+                },
+                contents: &(),
+            }
+            .send(world);
         }
     }
 }

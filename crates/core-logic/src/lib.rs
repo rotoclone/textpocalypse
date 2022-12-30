@@ -296,12 +296,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         description: "A human-shaped person-type thing.".to_string(),
         attribute_describers: Vec::new(),
     };
-    let vitals = Vitals {
-        health: ConstrainedValue::new_max(0.0, 100.0),
-        satiety: ConstrainedValue::new_max(0.0, 100.0),
-        hydration: ConstrainedValue::new_max(0.0, 100.0),
-        energy: ConstrainedValue::new_max(0.0, 100.0),
-    };
+    let vitals = Vitals::new();
     let player_entity = world
         .spawn((
             player,
@@ -469,6 +464,7 @@ fn interrupt_entity(entity: Entity, world: &mut World) {
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
+    //TODO don't kill it if it's already dead
     send_message(
         world,
         entity,
@@ -477,6 +473,28 @@ fn kill_entity(entity: Entity, world: &mut World) {
             MessageDelay::Long,
         ),
     );
+
+    let mut entity_ref = world.entity_mut(entity);
+    if let Some(desc) = entity_ref.remove::<Description>() {
+        let mut aliases = desc.aliases;
+        aliases.push("dead body".to_string());
+        aliases.push("body".to_string());
+
+        let mut attribute_describers = desc.attribute_describers;
+        attribute_describers.push(Container::get_attribute_describer());
+
+        let new_desc = Description {
+            name: format!("dead body of {}", desc.name),
+            room_name: format!("dead body of {}", desc.room_name),
+            plural_name: format!("dead bodies of {}", desc.room_name),
+            article: Some("the".to_string()),
+            aliases,
+            description: desc.description,
+            attribute_describers,
+        };
+
+        entity_ref.insert(new_desc);
+    }
 
     if let Some(player) = world.entity_mut(entity).remove::<Player>() {
         let name = world

@@ -4,7 +4,9 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{queue_action, AfterActionNotification, Connection, Container, Description, Room},
+    component::{
+        queue_action_first, AfterActionNotification, Connection, Container, Description, Room,
+    },
     game_map::Coordinates,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -94,7 +96,7 @@ impl InputParser for LookParser {
 pub struct LookAction {
     pub target: Entity,
     pub detailed: bool,
-    notification_sender: ActionNotificationSender<Self>,
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for LookAction {
@@ -222,7 +224,7 @@ pub fn look_after_move(
 
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action(
+        queue_action_first(
             world,
             performing_entity,
             Box::new(LookAction {
