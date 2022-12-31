@@ -67,9 +67,8 @@ pub use calories::Calories;
 
 mod fluid;
 pub use fluid::Fluid;
-
-mod hydration_factor;
-pub use hydration_factor::HydrationFactor;
+pub use fluid::FluidType;
+pub use fluid::FluidTypeAmount;
 
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
@@ -95,6 +94,4 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(respawner::look_after_respawn, world);
 
     NotificationHandlers::add_handler(calories::increase_satiety_on_eat, world);
-
-    NotificationHandlers::add_handler(hydration_factor::increase_hydration_on_drink, world);
 }

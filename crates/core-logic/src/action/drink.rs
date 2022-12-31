@@ -5,8 +5,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, FluidContainer, Volume},
-    despawn_entity, get_reference_name,
+    component::{AfterActionNotification, FluidContainer, FluidType, Volume},
+    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -42,7 +42,7 @@ impl InputParser for DrinkParser {
                 let target = CommandTarget::parse(target_match.as_str());
                 if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                     if let Some(container) = world.get::<FluidContainer>(target_entity) {
-                        if container.get_used_volume(world).0 > 0.0 {
+                        if container.get_used_volume().0 > 0.0 {
                             // target exists and contains fluid
                             return Ok(Box::new(DrinkAction {
                                 target: target_entity,
@@ -95,7 +95,7 @@ impl InputParser for DrinkParser {
 pub struct DrinkAction {
     pub target: Entity,
     pub amount: Volume,
-    pub fluids_to_volume_drank: HashMap<Entity, Volume>,
+    pub fluids_to_volume_drank: HashMap<FluidType, Volume>,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
@@ -112,31 +112,43 @@ impl Action for DrinkAction {
             }
         };
 
-        let used_volume = container.get_used_volume(world);
+        let used_volume = container.get_used_volume();
         if used_volume.0 <= 0.0 {
             return ActionResult::error(performing_entity, format!("{target_name} is empty."));
         }
 
         self.amount = Volume(used_volume.0.min(self.amount.0));
-        let fluids_to_volumes = container.get_contents_by_volume(world);
+        let fluids_to_fractions = container
+            .contents
+            .as_ref()
+            .map(|f| f.get_fluid_type_fractions())
+            .unwrap_or_else(HashMap::new);
 
-        let fluids_to_volume_to_drink = fluids_to_volumes
-            .iter()
-            .map(|(entity, amount)| {
-                let to_drink = Volume((self.amount.0 * amount.fraction).min(amount.volume.0));
-                (*entity, to_drink)
+        let fluids_to_volume_to_drink = fluids_to_fractions
+            .into_iter()
+            .map(|(fluid_type, type_amount)| {
+                let to_drink =
+                    Volume((self.amount.0 * type_amount.fraction).min(type_amount.volume.0));
+                (fluid_type, to_drink)
             })
-            .collect::<HashMap<Entity, Volume>>();
+            .collect::<HashMap<FluidType, Volume>>();
 
         self.fluids_to_volume_drank = fluids_to_volume_to_drink.clone();
 
+        let target = self.target;
+
         let post_effect: PostEffectFn = Box::new(move |w| {
-            for (entity, to_drink) in fluids_to_volume_to_drink {
-                if let Some(mut volume) = w.get_mut::<Volume>(entity) {
-                    *volume -= to_drink;
-                    //TODO also adjust weight
-                    if volume.0 <= 0.0 {
-                        despawn_entity(entity, w);
+            if let Some(mut fluid_container) = w.get_mut::<FluidContainer>(target) {
+                if let Some(fluid) = fluid_container.contents.as_mut() {
+                    for (fluid_type, to_drink) in fluids_to_volume_to_drink {
+                        let volume = fluid
+                            .contents
+                            .get_mut(&fluid_type)
+                            .expect("drank fluid type should be in fluid entity");
+                        *volume -= to_drink;
+                        if volume.0 <= 0.0 {
+                            fluid.contents.remove(&fluid_type);
+                        }
                     }
                 }
             }

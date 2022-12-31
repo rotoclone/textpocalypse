@@ -10,7 +10,7 @@ use crate::{get_weight, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
-/// The weight of an entity.
+/// The weight of an entity, in kilograms.
 #[derive(Debug, Clone, Component, PartialEq, PartialOrd)]
 pub struct Weight(pub f32);
 

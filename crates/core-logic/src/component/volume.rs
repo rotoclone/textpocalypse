@@ -10,7 +10,7 @@ use crate::{get_volume, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
-/// The amount of space an entity takes up.
+/// The amount of space an entity takes up, in liters.
 #[derive(Debug, Clone, Component, PartialEq, PartialOrd)]
 pub struct Volume(pub f32);
 

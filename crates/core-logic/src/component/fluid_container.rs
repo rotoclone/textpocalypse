@@ -1,17 +1,19 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
-use crate::{get_name, get_volume, AttributeDescription};
+use crate::{resource::FluidNames, AttributeDescription};
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes, OpenState, Volume};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState, Volume,
+};
 
-/// Fluid entities contained within an entity.
+/// Fluid contents of an entity.
 #[derive(Component)]
 pub struct FluidContainer {
-    /// The contained entities.
-    pub entities: HashSet<Entity>,
+    /// The contained fluid.
+    pub contents: Option<Fluid>,
     /// The maximum volume of fluid this container can hold, if it is limited.
     pub volume: Option<Volume>,
 }
@@ -20,7 +22,7 @@ impl FluidContainer {
     /// Creates an empty fluid container that can hold an infinite amount of fluid.
     pub fn new_infinite() -> FluidContainer {
         FluidContainer {
-            entities: HashSet::new(),
+            contents: None,
             volume: None,
         }
     }
@@ -28,43 +30,18 @@ impl FluidContainer {
     /// Creates an empty fluid container.
     pub fn new(volume: Option<Volume>) -> FluidContainer {
         FluidContainer {
-            entities: HashSet::new(),
+            contents: None,
             volume,
         }
     }
 
     /// Gets the total amount of volume of fluid in the container.
-    pub fn get_used_volume(&self, world: &World) -> Volume {
-        self.entities
-            .iter()
-            .map(|entity| get_volume(*entity, world))
-            .sum()
+    pub fn get_used_volume(&self) -> Volume {
+        self.contents
+            .as_ref()
+            .map(|fluid| fluid.get_total_volume())
+            .unwrap_or(Volume(0.0))
     }
-
-    /// Builds a map of contained entities to the amount of fluid they represent.
-    pub fn get_contents_by_volume(&self, world: &World) -> HashMap<Entity, ContainedFluidAmount> {
-        let used_volume = self.get_used_volume(world);
-
-        self.entities
-            .iter()
-            .map(|entity| {
-                let volume = get_volume(*entity, world);
-                let amount = ContainedFluidAmount {
-                    volume: volume.clone(),
-                    fraction: volume / used_volume.clone(),
-                };
-                (*entity, amount)
-            })
-            .collect()
-    }
-}
-
-/// An amount of fluid in a container.
-pub struct ContainedFluidAmount {
-    /// The volume of the fluid.
-    pub volume: Volume,
-    /// The fraction of the total fluid in the container this fluid represents.
-    pub fraction: f32,
 }
 
 /// Describes the fluid contents of an entity.
@@ -86,23 +63,27 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                 }
             }
 
+            let fluid_names = world.resource::<FluidNames>();
+
             let fluid_names_to_volumes = container
-                .entities
+                .contents
+                .as_ref()
+                .map(|f| &f.contents)
+                .unwrap_or(&HashMap::new())
                 .iter()
-                .into_group_map_by(|e| {
-                    get_name(**e, world).unwrap_or_else(|| "an unknown fluid".to_string())
-                })
+                .into_group_map_by(|(fluid_type, _)| fluid_names.for_fluid(fluid_type))
                 .into_iter()
-                .map(|(name, entities)| {
-                    let total_volume = entities
+                .map(|(name, fluids)| {
+                    let total_volume = fluids
                         .into_iter()
-                        .map(|e| get_volume(*e, world))
+                        .map(|(_, volume)| volume)
+                        .cloned()
                         .sum::<Volume>();
                     (name, total_volume)
                 })
                 .collect::<HashMap<String, Volume>>();
 
-            let used_volume = fluid_names_to_volumes.values().cloned().sum::<Volume>();
+            let used_volume = container.get_used_volume();
 
             let mut descriptions = Vec::new();
 
