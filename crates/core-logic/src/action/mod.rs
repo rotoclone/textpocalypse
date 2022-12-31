@@ -46,7 +46,6 @@ pub use drink::DrinkAction;
 pub use drink::DrinkParser;
 
 /// The result of a single tick of an action being performed.
-#[derive(Debug)]
 pub struct ActionResult {
     /// Any messages that should be sent.
     pub messages: HashMap<Entity, Vec<GameMessage>>,
@@ -56,6 +55,8 @@ pub struct ActionResult {
     pub is_complete: bool,
     /// Whether the intended effects of the action actually ocurred.
     pub was_successful: bool,
+    /// Functions to run after the action is complete and all its after action notification handlers have been invoked.
+    pub post_effects: Vec<Box<dyn FnOnce(&mut World)>>,
 }
 
 impl ActionResult {
@@ -66,6 +67,7 @@ impl ActionResult {
             should_tick: false,
             is_complete: true,
             was_successful: true,
+            post_effects: Vec::new(),
         }
     }
 
@@ -85,6 +87,7 @@ impl ActionResult {
             should_tick,
             is_complete: true,
             was_successful: true,
+            post_effects: Vec::new(),
         }
     }
 
@@ -95,6 +98,7 @@ impl ActionResult {
             should_tick: false,
             is_complete: true,
             was_successful: false,
+            post_effects: Vec::new(),
         }
     }
 
@@ -161,6 +165,13 @@ impl ActionResultBuilder {
             .entry(entity_id)
             .or_insert_with(Vec::new)
             .push(message);
+
+        self
+    }
+
+    /// Adds a post-effect to be executed after all the action's after notification handlers have been invoked.
+    pub fn with_post_effect(mut self, effect: Box<dyn FnOnce(&mut World)>) -> ActionResultBuilder {
+        self.result.post_effects.push(effect);
 
         self
     }

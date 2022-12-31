@@ -147,7 +147,7 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
 
             if let Some(mut action) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
-                let result = action.perform(entity, world);
+                let mut result = action.perform(entity, world);
                 send_messages(&result.messages, world);
                 action.send_after_notification(
                     AfterActionNotification {
@@ -157,6 +157,8 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
                     },
                     world,
                 );
+
+                result.post_effects.drain(..).for_each(|f| f(world));
 
                 results.push((entity, action, result));
             }

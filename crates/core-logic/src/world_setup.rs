@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Connection, Container, DescribeAttributes, Description, Edible, KeyId, KeyedLock,
+        Calories, Connection, Container, DescribeAttributes, Description, Edible, KeyId, KeyedLock,
         OpenState, ParseCustomInput, Respawner, Room, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
@@ -201,13 +201,13 @@ pub fn set_up_world(world: &mut World) {
                 description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
                 attribute_describers: vec![
                     Edible::get_attribute_describer(),
+                    Calories::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Edible {
-                calories: 300
-            },
+            Edible,
+            Calories(300),
             Volume(0.1),
             Weight(0.1),
         ))

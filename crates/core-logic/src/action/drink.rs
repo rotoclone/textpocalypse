@@ -5,21 +5,17 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, FluidContainer, HydrationFactor, Volume},
+    component::{AfterActionNotification, FluidContainer, Volume},
     despawn_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
-    value_change::{ValueChange, ValueChangeOperation},
-    BeforeActionNotification, MessageDelay, ValueType, VerifyActionNotification,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
-
-/// The amount of hydration gain per liter of water drank.
-const HYDRATION_GAIN_PER_LITER_OF_WATER: f32 = 50.0;
 
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
@@ -50,6 +46,8 @@ impl InputParser for DrinkParser {
                             // target exists and contains fluid
                             return Ok(Box::new(DrinkAction {
                                 target: target_entity,
+                                amount: LITERS_PER_DRINK,
+                                fluids_to_volume_drank: HashMap::new(),
                                 notification_sender: ActionNotificationSender::new(),
                             }));
                         } else {
@@ -96,6 +94,8 @@ impl InputParser for DrinkParser {
 #[derive(Debug)]
 pub struct DrinkAction {
     pub target: Entity,
+    pub amount: Volume,
+    pub fluids_to_volume_drank: HashMap<Entity, Volume>,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
@@ -117,49 +117,39 @@ impl Action for DrinkAction {
             return ActionResult::error(performing_entity, format!("{target_name} is empty."));
         }
 
-        let total_amount_to_drink = Volume(used_volume.0.min(LITERS_PER_DRINK.0));
+        self.amount = Volume(used_volume.0.min(self.amount.0));
         let fluids_to_volumes = container.get_contents_by_volume(world);
 
         let fluids_to_volume_to_drink = fluids_to_volumes
             .iter()
             .map(|(entity, amount)| {
-                let to_drink =
-                    Volume((total_amount_to_drink.0 * amount.fraction).min(amount.volume.0));
+                let to_drink = Volume((self.amount.0 * amount.fraction).min(amount.volume.0));
                 (*entity, to_drink)
             })
             .collect::<HashMap<Entity, Volume>>();
 
-        let hydration_increase = fluids_to_volume_to_drink
-            .iter()
-            .map(|(entity, volume)| {
-                let hydration_factor = world
-                    .get::<HydrationFactor>(*entity)
-                    .unwrap_or(&HydrationFactor(0.0));
+        self.fluids_to_volume_drank = fluids_to_volume_to_drink.clone();
 
-                volume.0 * HYDRATION_GAIN_PER_LITER_OF_WATER * hydration_factor.0
-            })
-            .sum::<f32>();
-
-        ValueChange {
-            entity: performing_entity,
-            value_type: ValueType::Hydration,
-            operation: ValueChangeOperation::Add,
-            amount: hydration_increase,
-            message: Some(format!("You take a drink from {target_name}.")),
-        }
-        .apply(world);
-
-        for (entity, to_drink) in fluids_to_volume_to_drink {
-            if let Some(mut volume) = world.get_mut::<Volume>(entity) {
-                *volume -= to_drink;
-                //TODO also adjust weight
-                if volume.0 <= 0.0 {
-                    despawn_entity(entity, world);
+        let post_effect: Box<dyn FnOnce(&mut World)> = Box::new(move |w| {
+            for (entity, to_drink) in fluids_to_volume_to_drink {
+                if let Some(mut volume) = w.get_mut::<Volume>(entity) {
+                    *volume -= to_drink;
+                    //TODO also adjust weight
+                    if volume.0 <= 0.0 {
+                        despawn_entity(entity, w);
+                    }
                 }
             }
-        }
+        });
 
-        ActionResult::builder().build_complete_should_tick(true)
+        ActionResult::builder()
+            .with_message(
+                performing_entity,
+                format!("You take a drink from {target_name}."),
+                MessageDelay::Short,
+            )
+            .with_post_effect(post_effect)
+            .build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {

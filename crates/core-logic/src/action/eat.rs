@@ -10,14 +10,10 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    value_change::{ValueChange, ValueChangeOperation},
-    BeforeActionNotification, MessageDelay, ValueType, VerifyActionNotification,
+    BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
-
-/// The amount of satiety gain per calorie eaten.
-const SATIETY_GAIN_PER_CALORIE: f32 = 0.01;
 
 const EAT_VERB_NAME: &str = "eat";
 const EAT_FORMAT: &str = "eat <>";
@@ -87,28 +83,17 @@ pub struct EatAction {
 impl Action for EatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target_name = get_reference_name(self.target, performing_entity, world);
-        let edible = match world.get::<Edible>(self.target) {
-            Some(s) => s,
-            None => {
-                return ActionResult::error(
-                    performing_entity,
-                    format!("You can't eat {target_name}."),
-                );
-            }
-        };
 
-        ValueChange {
-            entity: performing_entity,
-            value_type: ValueType::Satiety,
-            operation: ValueChangeOperation::Add,
-            amount: f32::from(edible.calories) * SATIETY_GAIN_PER_CALORIE,
-            message: Some(format!("You eat {target_name}.")),
-        }
-        .apply(world);
+        let target = self.target;
 
-        despawn_entity(self.target, world);
-
-        ActionResult::builder().build_complete_should_tick(true)
+        ActionResult::builder()
+            .with_message(
+                performing_entity,
+                format!("You eat {target_name}."),
+                MessageDelay::Short,
+            )
+            .with_post_effect(Box::new(move |w| despawn_entity(target, w)))
+            .build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {

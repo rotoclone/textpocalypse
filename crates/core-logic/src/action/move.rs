@@ -102,6 +102,7 @@ impl Action for MoveAction {
             should_tick,
             is_complete: true,
             was_successful,
+            post_effects: Vec::new(),
         }
     }
 

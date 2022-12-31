@@ -4,14 +4,11 @@ use crate::AttributeDescription;
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
-/// Describes the nutritional value of an entity.
+/// Marks an entity as edible.
 #[derive(Component)]
-pub struct Edible {
-    /// How many calories the entity is.
-    pub calories: u16,
-}
+pub struct Edible;
 
-/// Describes the nutritional value of an entity.
+/// Notes if an entity is edible.
 #[derive(Debug)]
 struct EdibleAttributeDescriber;
 
@@ -20,16 +17,11 @@ impl AttributeDescriber for EdibleAttributeDescriber {
         &self,
         _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        if detail_level >= AttributeDetailLevel::Advanced {
-            if let Some(edible) = world.get::<Edible>(entity) {
-                return vec![AttributeDescription::does(format!(
-                    "contains {} calories",
-                    edible.calories
-                ))];
-            }
+        if world.get::<Edible>(entity).is_some() {
+            return vec![AttributeDescription::is("edible".to_string())];
         }
 
         Vec::new()

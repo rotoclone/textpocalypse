@@ -62,6 +62,9 @@ pub use respawner::Respawner;
 mod edible;
 pub use edible::Edible;
 
+mod calories;
+pub use calories::Calories;
+
 mod fluid;
 pub use fluid::Fluid;
 
@@ -90,4 +93,8 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(vitals::kill_on_zero_health, world);
 
     NotificationHandlers::add_handler(respawner::look_after_respawn, world);
+
+    NotificationHandlers::add_handler(calories::increase_satiety_on_eat, world);
+
+    NotificationHandlers::add_handler(hydration_factor::increase_hydration_on_drink, world);
 }
