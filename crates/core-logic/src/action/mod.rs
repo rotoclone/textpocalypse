@@ -45,6 +45,8 @@ mod drink;
 pub use drink::DrinkAction;
 pub use drink::DrinkParser;
 
+pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
+
 /// The result of a single tick of an action being performed.
 pub struct ActionResult {
     /// Any messages that should be sent.
@@ -56,7 +58,7 @@ pub struct ActionResult {
     /// Whether the intended effects of the action actually ocurred.
     pub was_successful: bool,
     /// Functions to run after the action is complete and all its after action notification handlers have been invoked.
-    pub post_effects: Vec<Box<dyn FnOnce(&mut World)>>,
+    pub post_effects: Vec<PostEffectFn>,
 }
 
 impl ActionResult {
@@ -170,7 +172,7 @@ impl ActionResultBuilder {
     }
 
     /// Adds a post-effect to be executed after all the action's after notification handlers have been invoked.
-    pub fn with_post_effect(mut self, effect: Box<dyn FnOnce(&mut World)>) -> ActionResultBuilder {
+    pub fn with_post_effect(mut self, effect: PostEffectFn) -> ActionResultBuilder {
         self.result.post_effects.push(effect);
 
         self

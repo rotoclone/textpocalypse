@@ -15,7 +15,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, PostEffectFn};
 
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
@@ -130,7 +130,7 @@ impl Action for DrinkAction {
 
         self.fluids_to_volume_drank = fluids_to_volume_to_drink.clone();
 
-        let post_effect: Box<dyn FnOnce(&mut World)> = Box::new(move |w| {
+        let post_effect: PostEffectFn = Box::new(move |w| {
             for (entity, to_drink) in fluids_to_volume_to_drink {
                 if let Some(mut volume) = w.get_mut::<Volume>(entity) {
                     *volume -= to_drink;
