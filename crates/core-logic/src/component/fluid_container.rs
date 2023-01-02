@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState,
+    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, FluidType, OpenState,
     VerifyActionNotification, Volume,
 };
 
@@ -20,6 +20,7 @@ use super::{
 #[derive(Component)]
 pub struct FluidContainer {
     /// The contained fluid.
+    /// TODO make this not an option?
     pub contents: Option<Fluid>,
     /// The maximum volume of fluid this container can hold, if it is limited.
     pub volume: Option<Volume>,
@@ -48,6 +49,33 @@ impl FluidContainer {
             .as_ref()
             .map(|fluid| fluid.get_total_volume())
             .unwrap_or(Volume(0.0))
+    }
+
+    /// Reduces the fluid in the container by the provided amount. Returns the actual removed volumes, by fluid type.
+    pub fn reduce(&mut self, amount: Volume) -> HashMap<FluidType, Volume> {
+        if let Some(fluid) = self.contents.as_mut() {
+            let removed_fluids = fluid.reduce(amount);
+            if fluid.contents.is_empty() {
+                self.contents = None;
+            }
+
+            removed_fluids
+        } else {
+            HashMap::new()
+        }
+    }
+
+    /// Adds the provided fluid amounts to this container.
+    pub fn increase(&mut self, amounts: &HashMap<FluidType, Volume>) {
+        let fluid = self.contents.get_or_insert_with(|| Fluid {
+            contents: HashMap::new(),
+        });
+
+        fluid.increase(amounts);
+
+        if fluid.contents.is_empty() {
+            self.contents = None;
+        }
     }
 }
 

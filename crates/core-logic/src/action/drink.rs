@@ -15,7 +15,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, PostEffectFn};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
@@ -102,7 +102,7 @@ pub struct DrinkAction {
 impl Action for DrinkAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target_name = get_reference_name(self.target, performing_entity, world);
-        let container = match world.get::<FluidContainer>(self.target) {
+        let mut container = match world.get_mut::<FluidContainer>(self.target) {
             Some(s) => s,
             None => {
                 return ActionResult::error(
@@ -118,41 +118,8 @@ impl Action for DrinkAction {
         }
 
         self.amount = Volume(used_volume.0.min(self.amount.0));
-        let fluids_to_fractions = container
-            .contents
-            .as_ref()
-            .map(|f| f.get_fluid_type_fractions())
-            .unwrap_or_else(HashMap::new);
 
-        let fluids_to_volume_to_drink = fluids_to_fractions
-            .into_iter()
-            .map(|(fluid_type, type_amount)| {
-                let to_drink =
-                    Volume((self.amount.0 * type_amount.fraction).min(type_amount.volume.0));
-                (fluid_type, to_drink)
-            })
-            .collect::<HashMap<FluidType, Volume>>();
-
-        self.fluids_to_volume_drank = fluids_to_volume_to_drink.clone();
-
-        let target = self.target;
-
-        let post_effect: PostEffectFn = Box::new(move |w| {
-            if let Some(mut fluid_container) = w.get_mut::<FluidContainer>(target) {
-                if let Some(fluid) = fluid_container.contents.as_mut() {
-                    for (fluid_type, to_drink) in fluids_to_volume_to_drink {
-                        let volume = fluid
-                            .contents
-                            .get_mut(&fluid_type)
-                            .expect("drank fluid type should be in fluid entity");
-                        *volume -= to_drink;
-                        if volume <= &mut Volume(0.0) {
-                            fluid.contents.remove(&fluid_type);
-                        }
-                    }
-                }
-            }
-        });
+        self.fluids_to_volume_drank = container.reduce(self.amount);
 
         ActionResult::builder()
             .with_message(
@@ -160,7 +127,6 @@ impl Action for DrinkAction {
                 format!("You take a drink from {target_name}."),
                 MessageDelay::Short,
             )
-            .with_post_effect(post_effect)
             .build_complete_should_tick(true)
     }
 

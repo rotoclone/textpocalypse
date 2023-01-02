@@ -6,7 +6,7 @@ use log::debug;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Fluid, FluidContainer, FluidType, Volume},
+    component::{AfterActionNotification, FluidContainer, FluidType, Volume},
     get_fluid_name, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -268,11 +268,7 @@ impl Action for PourAction {
         }
 
         if let Some(mut target_container) = world.get_mut::<FluidContainer>(self.target) {
-            let fluid = target_container.contents.get_or_insert_with(|| Fluid {
-                contents: HashMap::new(),
-            });
-
-            fluid.increase(&removed_fluids);
+            target_container.increase(&removed_fluids);
         }
 
         let fluid_name = if removed_fluids.len() == 1 {
@@ -332,9 +328,7 @@ impl Action for PourAction {
 /// Removes the provided amount of fluid from the provided entity, if it contains any.
 fn remove_fluid(entity: Entity, amount: Volume, world: &mut World) -> HashMap<FluidType, Volume> {
     if let Some(mut container) = world.get_mut::<FluidContainer>(entity) {
-        if let Some(fluid) = &mut container.contents {
-            return fluid.reduce(amount);
-        }
+        return container.reduce(amount);
     }
 
     HashMap::new()
