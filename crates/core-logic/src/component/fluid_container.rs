@@ -1,12 +1,19 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
-use crate::{resource::FluidNames, AttributeDescription};
+use crate::{
+    action::{PourAction, PourAmount},
+    get_reference_name,
+    notification::{Notification, VerifyResult},
+    resource::FluidNames,
+    AttributeDescription, GameMessage,
+};
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState, Volume,
+    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState,
+    VerifyActionNotification, Volume,
 };
 
 /// Fluid contents of an entity.
@@ -104,12 +111,12 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
             } else {
                 let fluid_names_to_fractions = fluid_names_to_volumes
                     .into_iter()
-                    .map(|(n, v)| (n, v / used_volume.clone()))
+                    .map(|(n, v)| (n, v / used_volume))
                     .collect::<HashMap<String, f32>>();
 
-                //TODO sort constituent fluids so they appear in a consistent order
                 let fluid_description = fluid_names_to_fractions
                     .iter()
+                    .sorted_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Ordering::Equal))
                     .map(|(name, fraction)| format!("{:.0}% {}", fraction * 100.0, name))
                     .join(", ");
 
@@ -129,4 +136,80 @@ impl DescribeAttributes for FluidContainer {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
         Box::new(FluidContainerAttributeDescriber)
     }
+}
+
+/// Prevents more fluid being poured out of a fluid container than it contains.
+pub fn verify_source_container(
+    notification: &Notification<VerifyActionNotification, PourAction>,
+    world: &World,
+) -> VerifyResult {
+    let source = notification.contents.source;
+    let amount = &notification.contents.amount;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    let container = world
+        .get::<FluidContainer>(source)
+        .expect("source entity should be a fluid container");
+
+    let used_volume = container.get_used_volume();
+    let source_name = get_reference_name(source, performing_entity, world);
+
+    if used_volume <= Volume(0.0) {
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("{source_name} is empty.")),
+        );
+    }
+
+    if let PourAmount::Some(amount) = amount {
+        if used_volume < *amount {
+            return VerifyResult::invalid(
+                performing_entity,
+                GameMessage::Error(format!(
+                    "{source_name} only contains {used_volume:.2}L of fluid."
+                )),
+            );
+        }
+    }
+
+    VerifyResult::valid()
+}
+
+/// Prevents fluid containers from getting overfilled.
+pub fn limit_fluid_container_contents(
+    notification: &Notification<VerifyActionNotification, PourAction>,
+    world: &World,
+) -> VerifyResult {
+    let target = notification.contents.target;
+    let amount = &notification.contents.amount;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    let container = world
+        .get::<FluidContainer>(target)
+        .expect("destination entity should be a fluid container");
+
+    if let Some(max_volume) = &container.volume {
+        let used_volume = container.get_used_volume();
+        let available_volume = *max_volume - used_volume;
+        let target_name = get_reference_name(target, performing_entity, world);
+        if available_volume <= Volume(0.0) {
+            return VerifyResult::invalid(
+                performing_entity,
+                GameMessage::Error(format!("{target_name} is full.")),
+            );
+        }
+
+        if let PourAmount::Some(amount) = amount {
+            if amount > &available_volume {
+                return VerifyResult::invalid(
+                    performing_entity,
+                    GameMessage::Error(format!(
+                        "{target_name} can only hold {available_volume:.2}L more."
+                    )),
+                );
+            }
+        }
+    }
+
+    VerifyResult::valid()
 }

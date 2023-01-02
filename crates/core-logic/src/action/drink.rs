@@ -113,7 +113,7 @@ impl Action for DrinkAction {
         };
 
         let used_volume = container.get_used_volume();
-        if used_volume.0 <= 0.0 {
+        if used_volume <= Volume(0.0) {
             return ActionResult::error(performing_entity, format!("{target_name} is empty."));
         }
 
@@ -146,7 +146,7 @@ impl Action for DrinkAction {
                             .get_mut(&fluid_type)
                             .expect("drank fluid type should be in fluid entity");
                         *volume -= to_drink;
-                        if volume.0 <= 0.0 {
+                        if volume <= &mut Volume(0.0) {
                             fluid.contents.remove(&fluid_type);
                         }
                     }

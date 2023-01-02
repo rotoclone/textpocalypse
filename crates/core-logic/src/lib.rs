@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
-use resource::{insert_resources, register_resource_handlers};
+use resource::{insert_resources, register_resource_handlers, FluidNames};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -108,6 +108,7 @@ impl StandardInputParsers {
                 Box::new(OpenParser),
                 Box::new(InventoryParser),
                 Box::new(PutParser),
+                Box::new(PourParser),
                 Box::new(VitalsParser),
                 Box::new(EatParser),
                 Box::new(DrinkParser),
@@ -596,6 +597,10 @@ fn get_reference_name(entity: Entity, pov_entity: Entity, world: &World) -> Stri
         .unwrap_or(false);
     let article = if in_entity { "your" } else { "the" };
     get_name(entity, world).map_or("it".to_string(), |name| format!("{article} {name}"))
+}
+
+fn get_fluid_name(fluid_type: &FluidType, world: &World) -> String {
+    world.resource::<FluidNames>().for_fluid(fluid_type)
 }
 
 /// Determines the total weight of an entity.

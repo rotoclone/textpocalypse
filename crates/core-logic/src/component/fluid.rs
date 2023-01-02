@@ -29,12 +29,52 @@ impl Fluid {
             .iter()
             .map(|(fluid_type, volume)| {
                 let amount = FluidTypeAmount {
-                    volume: volume.clone(),
-                    fraction: volume.clone() / total_volume.clone(),
+                    volume: *volume,
+                    fraction: *volume / total_volume,
                 };
                 (fluid_type.clone(), amount)
             })
             .collect()
+    }
+
+    /// Reduces the fluid by the provided amount. Returns the actual removed volumes, by fluid type.
+    pub fn reduce(&mut self, amount: Volume) -> HashMap<FluidType, Volume> {
+        let fluid_fractions = self.get_fluid_type_fractions();
+        let fluid_amounts_to_remove = fluid_fractions
+            .into_iter()
+            .map(|(fluid_type, type_amount)| {
+                let to_remove = Volume(amount.0 * type_amount.fraction);
+                (fluid_type, to_remove)
+            })
+            .collect::<HashMap<FluidType, Volume>>();
+
+        let mut fluid_amounts_removed = HashMap::new();
+        for (fluid_type, to_remove) in fluid_amounts_to_remove {
+            if let Some(volume) = self.contents.get(&fluid_type).copied() {
+                if to_remove >= volume {
+                    self.contents.remove(&fluid_type);
+                    fluid_amounts_removed.insert(fluid_type, volume);
+                } else {
+                    self.contents.insert(fluid_type.clone(), volume - to_remove);
+                    fluid_amounts_removed.insert(fluid_type, to_remove);
+                }
+            }
+        }
+
+        fluid_amounts_removed
+    }
+
+    /// Adds the provided fluid amounts to this fluid.
+    pub fn increase(&mut self, amounts: &HashMap<FluidType, Volume>) {
+        for (fluid_type, amount) in amounts {
+            let new_amount = if let Some(volume) = self.contents.get(fluid_type).copied() {
+                volume + *amount
+            } else {
+                *amount
+            };
+
+            self.contents.insert(fluid_type.clone(), new_amount);
+        }
     }
 }
 

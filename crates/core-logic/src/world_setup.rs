@@ -3,8 +3,9 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Calories, Connection, Container, DescribeAttributes, Description, Edible, KeyId, KeyedLock,
-        OpenState, ParseCustomInput, Respawner, Room, Volume, Weight,
+        Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
+        FluidContainer, FluidType, KeyId, KeyedLock, OpenState, ParseCustomInput, Respawner, Room,
+        Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -316,4 +317,31 @@ pub fn set_up_world(world: &mut World) {
         ))
         .id();
     move_entity(lead_weight_2_id, middle_room_id, world);
+
+    let water_jug_id = world
+        .spawn((
+            Description {
+                name: "water jug".to_string(),
+                room_name: "water jug".to_string(),
+                plural_name: "water jugs".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["jug".to_string()],
+                description: "A large jug made for holding water.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    FluidContainer::get_attribute_describer(),
+                ],
+            },
+            Volume(2.0),
+            Weight(1.0),
+            FluidContainer {
+                contents: Some(Fluid {
+                    contents: [(FluidType::Water, Volume(1.0))].into(),
+                }),
+                volume: Some(Volume(2.0)),
+            },
+        ))
+        .id();
+    move_entity(water_jug_id, middle_room_id, world);
 }

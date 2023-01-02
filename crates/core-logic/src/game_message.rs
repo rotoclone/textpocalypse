@@ -11,7 +11,7 @@ use crate::{
         Room, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
-    get_weight,
+    get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
     value_change::ValueType,
     ConstrainedValue, Direction,
@@ -194,15 +194,15 @@ impl ContainerDescription {
             .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
             .collect::<Vec<ContainerEntityDescription>>();
 
-        let used_volume = items.iter().map(|item| item.volume.clone()).sum();
-        let used_weight = items.iter().map(|item| item.weight.clone()).sum();
+        let used_volume = items.iter().map(|item| item.volume).sum();
+        let used_weight = items.iter().map(|item| item.weight).sum();
 
         ContainerDescription {
             items,
             used_volume,
-            max_volume: container.volume.clone(),
+            max_volume: container.volume,
             used_weight,
-            max_weight: container.max_weight.clone(),
+            max_weight: container.max_weight,
         }
     }
 }
@@ -224,7 +224,7 @@ impl ContainerEntityDescription {
     pub fn from_entity(entity: Entity, world: &World) -> Option<ContainerEntityDescription> {
         let entity_ref = world.entity(entity);
         let desc = entity_ref.get::<Description>()?;
-        let volume = entity_ref.get::<Volume>().cloned().unwrap_or(Volume(0.0));
+        let volume = get_volume(entity, world);
         let weight = get_weight(entity, world);
 
         Some(ContainerEntityDescription {

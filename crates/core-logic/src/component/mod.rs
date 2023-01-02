@@ -94,4 +94,7 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(respawner::look_after_respawn, world);
 
     NotificationHandlers::add_handler(calories::increase_satiety_on_eat, world);
+
+    VerifyNotificationHandlers::add_handler(fluid_container::verify_source_container, world);
+    VerifyNotificationHandlers::add_handler(fluid_container::limit_fluid_container_contents, world);
 }

@@ -5,13 +5,14 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use float_cmp::approx_eq;
 
 use crate::{get_weight, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
 /// The weight of an entity, in kilograms.
-#[derive(Debug, Clone, Component, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Component, PartialOrd)]
 pub struct Weight(pub f32);
 
 impl Add for Weight {
@@ -55,6 +56,14 @@ impl Sum for Weight {
         Weight(iter.map(|x| x.0).sum())
     }
 }
+
+impl PartialEq for Weight {
+    fn eq(&self, other: &Self) -> bool {
+        approx_eq!(f32, self.0, other.0)
+    }
+}
+
+impl Eq for Weight {}
 
 impl Display for Weight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

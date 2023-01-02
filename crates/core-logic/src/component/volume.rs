@@ -5,13 +5,14 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use float_cmp::approx_eq;
 
 use crate::{get_volume, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
 /// The amount of space an entity takes up, in liters.
-#[derive(Debug, Clone, Component, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Component, PartialOrd)]
 pub struct Volume(pub f32);
 
 impl Add for Volume {
@@ -55,6 +56,14 @@ impl Sum for Volume {
         Volume(iter.map(|x| x.0).sum())
     }
 }
+
+impl PartialEq for Volume {
+    fn eq(&self, other: &Self) -> bool {
+        approx_eq!(f32, self.0, other.0)
+    }
+}
+
+impl Eq for Volume {}
 
 impl Display for Volume {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
