@@ -42,7 +42,7 @@ impl InputParser for DrinkParser {
                 let target = CommandTarget::parse(target_match.as_str());
                 if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                     if let Some(container) = world.get::<FluidContainer>(target_entity) {
-                        if container.get_used_volume().0 > 0.0 {
+                        if container.contents.get_total_volume() > Volume(0.0) {
                             // target exists and contains fluid
                             return Ok(Box::new(DrinkAction {
                                 target: target_entity,
@@ -112,14 +112,14 @@ impl Action for DrinkAction {
             }
         };
 
-        let used_volume = container.get_used_volume();
+        let used_volume = container.contents.get_total_volume();
         if used_volume <= Volume(0.0) {
             return ActionResult::error(performing_entity, format!("{target_name} is empty."));
         }
 
         self.amount = Volume(used_volume.0.min(self.amount.0));
 
-        self.fluids_to_volume_drank = container.reduce(self.amount);
+        self.fluids_to_volume_drank = container.contents.reduce(self.amount);
 
         ActionResult::builder()
             .with_message(

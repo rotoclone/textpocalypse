@@ -225,14 +225,12 @@ impl Action for PourAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let amount_in_source = world
             .get::<FluidContainer>(self.source)
-            .and_then(|c| c.contents.as_ref())
-            .map(|f| f.get_total_volume())
+            .map(|c| c.contents.get_total_volume())
             .unwrap_or(Volume(0.0));
 
         let target_container = world.get::<FluidContainer>(self.target);
         let amount_in_target = target_container
-            .and_then(|c| c.contents.as_ref())
-            .map(|f| f.get_total_volume())
+            .map(|c| c.contents.get_total_volume())
             .unwrap_or(Volume(0.0));
         let space_in_target = target_container
             .and_then(|c| c.volume)
@@ -268,7 +266,7 @@ impl Action for PourAction {
         }
 
         if let Some(mut target_container) = world.get_mut::<FluidContainer>(self.target) {
-            target_container.increase(&removed_fluids);
+            target_container.contents.increase(&removed_fluids);
         }
 
         let fluid_name = if removed_fluids.len() == 1 {
@@ -328,7 +326,7 @@ impl Action for PourAction {
 /// Removes the provided amount of fluid from the provided entity, if it contains any.
 fn remove_fluid(entity: Entity, amount: Volume, world: &mut World) -> HashMap<FluidType, Volume> {
     if let Some(mut container) = world.get_mut::<FluidContainer>(entity) {
-        return container.reduce(amount);
+        return container.contents.reduce(amount);
     }
 
     HashMap::new()

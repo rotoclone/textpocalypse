@@ -11,6 +11,13 @@ pub struct Fluid {
 }
 
 impl Fluid {
+    /// Creates a new empty fluid.
+    pub fn new() -> Fluid {
+        Fluid {
+            contents: HashMap::new(),
+        }
+    }
+
     /// Determines the total volume of the fluid.
     pub fn get_total_volume(&self) -> Volume {
         self.contents.values().cloned().sum()

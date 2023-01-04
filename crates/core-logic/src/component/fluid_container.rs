@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, FluidType, OpenState,
+    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState,
     VerifyActionNotification, Volume,
 };
 
@@ -20,8 +20,7 @@ use super::{
 #[derive(Component)]
 pub struct FluidContainer {
     /// The contained fluid.
-    /// TODO make this not an option?
-    pub contents: Option<Fluid>,
+    pub contents: Fluid,
     /// The maximum volume of fluid this container can hold, if it is limited.
     pub volume: Option<Volume>,
 }
@@ -30,51 +29,16 @@ impl FluidContainer {
     /// Creates an empty fluid container that can hold an infinite amount of fluid.
     pub fn new_infinite() -> FluidContainer {
         FluidContainer {
-            contents: None,
+            contents: Fluid::new(),
             volume: None,
         }
     }
 
     /// Creates an empty fluid container.
-    pub fn new(volume: Option<Volume>) -> FluidContainer {
+    pub fn new(volume: Volume) -> FluidContainer {
         FluidContainer {
-            contents: None,
-            volume,
-        }
-    }
-
-    /// Gets the total amount of volume of fluid in the container.
-    pub fn get_used_volume(&self) -> Volume {
-        self.contents
-            .as_ref()
-            .map(|fluid| fluid.get_total_volume())
-            .unwrap_or(Volume(0.0))
-    }
-
-    /// Reduces the fluid in the container by the provided amount. Returns the actual removed volumes, by fluid type.
-    pub fn reduce(&mut self, amount: Volume) -> HashMap<FluidType, Volume> {
-        if let Some(fluid) = self.contents.as_mut() {
-            let removed_fluids = fluid.reduce(amount);
-            if fluid.contents.is_empty() {
-                self.contents = None;
-            }
-
-            removed_fluids
-        } else {
-            HashMap::new()
-        }
-    }
-
-    /// Adds the provided fluid amounts to this container.
-    pub fn increase(&mut self, amounts: &HashMap<FluidType, Volume>) {
-        let fluid = self.contents.get_or_insert_with(|| Fluid {
-            contents: HashMap::new(),
-        });
-
-        fluid.increase(amounts);
-
-        if fluid.contents.is_empty() {
-            self.contents = None;
+            contents: Fluid::new(),
+            volume: Some(volume),
         }
     }
 }
@@ -102,9 +66,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
 
             let fluid_names_to_volumes = container
                 .contents
-                .as_ref()
-                .map(|f| &f.contents)
-                .unwrap_or(&HashMap::new())
+                .contents
                 .iter()
                 .into_group_map_by(|(fluid_type, _)| fluid_names.for_fluid(fluid_type))
                 .into_iter()
@@ -118,7 +80,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                 })
                 .collect::<HashMap<String, Volume>>();
 
-            let used_volume = container.get_used_volume();
+            let used_volume = container.contents.get_total_volume();
 
             let mut descriptions = Vec::new();
 
@@ -179,7 +141,7 @@ pub fn verify_source_container(
         .get::<FluidContainer>(source)
         .expect("source entity should be a fluid container");
 
-    let used_volume = container.get_used_volume();
+    let used_volume = container.contents.get_total_volume();
     let source_name = get_reference_name(source, performing_entity, world);
 
     if used_volume <= Volume(0.0) {
@@ -217,7 +179,7 @@ pub fn limit_fluid_container_contents(
         .expect("destination entity should be a fluid container");
 
     if let Some(max_volume) = &container.volume {
-        let used_volume = container.get_used_volume();
+        let used_volume = container.contents.get_total_volume();
         let available_volume = *max_volume - used_volume;
         let target_name = get_reference_name(target, performing_entity, world);
         if available_volume <= Volume(0.0) {

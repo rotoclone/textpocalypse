@@ -229,13 +229,13 @@ impl Game {
                 Volume(0.5),
                 Weight(0.1),
                 FluidContainer {
-                    contents: Some(Fluid {
+                    contents: Fluid {
                         contents: [
                             (FluidType::Water, Volume(0.25)),
                             (FluidType::Alcohol, Volume(0.2)),
                         ]
                         .into(),
-                    }),
+                    },
                     volume: Some(Volume(0.5)),
                 },
             ))
@@ -632,11 +632,7 @@ fn get_weight_recursive(
     }
 
     if let Some(container) = world.get::<FluidContainer>(entity) {
-        let contained_weight = container
-            .contents
-            .as_ref()
-            .map(|fluid| fluid.get_total_weight())
-            .unwrap_or(Weight(0.0));
+        let contained_weight = container.contents.get_total_weight();
 
         weight += contained_weight;
     }
@@ -646,6 +642,5 @@ fn get_weight_recursive(
 
 /// Determines the volume of an entity.
 fn get_volume(entity: Entity, world: &World) -> Volume {
-    //TODO take into account fluid volume
     world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
 }

@@ -336,9 +336,9 @@ pub fn set_up_world(world: &mut World) {
             Volume(2.0),
             Weight(1.0),
             FluidContainer {
-                contents: Some(Fluid {
+                contents: Fluid {
                     contents: [(FluidType::Water, Volume(1.0))].into(),
-                }),
+                },
                 volume: Some(Volume(2.0)),
             },
         ))
