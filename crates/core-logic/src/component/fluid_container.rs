@@ -84,10 +84,15 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
 
             let mut descriptions = Vec::new();
 
-            if let Some(volume) = &container.volume {
+            let is_full;
+            if let Some(volume) = container.volume {
                 descriptions.push(AttributeDescription::does(format!(
                     "can hold {volume:.2} L of fluid"
                 )));
+
+                is_full = volume == used_volume;
+            } else {
+                is_full = false;
             }
 
             if fluid_names_to_volumes.is_empty() {
@@ -95,9 +100,13 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
             } else if fluid_names_to_volumes.len() == 1 {
                 // unwrap is safe because we've checked that there's at least one element
                 let (fluid_name, fluid_volume) = fluid_names_to_volumes.iter().next().unwrap();
-                descriptions.push(AttributeDescription::does(format!(
-                    "contains {fluid_volume:.2} L of {fluid_name}"
-                )));
+                if is_full {
+                    descriptions.push(AttributeDescription::is(format!("full of {fluid_name}")));
+                } else {
+                    descriptions.push(AttributeDescription::does(format!(
+                        "contains {fluid_volume:.2} L of {fluid_name}"
+                    )));
+                }
             } else {
                 let fluid_names_to_fractions = fluid_names_to_volumes
                     .into_iter()
@@ -110,9 +119,15 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                     .map(|(name, fraction)| format!("{:.0}% {}", fraction * 100.0, name))
                     .join(", ");
 
-                descriptions.push(AttributeDescription::does(format!(
-                    "contains {used_volume:.2} L of a combination of {fluid_description}"
-                )));
+                if is_full {
+                    descriptions.push(AttributeDescription::is(format!(
+                        "full of a combination of {fluid_description}"
+                    )));
+                } else {
+                    descriptions.push(AttributeDescription::does(format!(
+                        "contains {used_volume:.2} L of a combination of {fluid_description}"
+                    )));
+                }
             }
 
             return descriptions;

@@ -15,8 +15,9 @@ pub use fluid_density_catalog::FluidDensityCatalog;
 
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
-    world.insert_resource(FluidHydrationFactorCatalog::new());
     world.insert_resource(FluidNameCatalog::new());
+    world.insert_resource(FluidHydrationFactorCatalog::new());
+    world.insert_resource(FluidDensityCatalog::new());
 }
 
 /// Registers notification handlers related to resources.
