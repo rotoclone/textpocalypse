@@ -81,9 +81,6 @@ pub struct InterruptedEntities(pub HashSet<Entity>);
 pub struct Game {
     /// The game world.
     world: Arc<RwLock<World>>,
-    /// The schedule to run on each tick.
-    /// TODO remove?
-    tick_schedule: Arc<RwLock<Schedule>>,
     /// The ID to assign to the next added player.
     next_player_id: PlayerId,
 }
@@ -142,12 +139,9 @@ impl Game {
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
 
-        let tick_schedule = Schedule::default().with_stage(TickStage, SystemStage::parallel());
-
         NotificationHandlers::add_handler(look_after_move, &mut world);
         Game {
             world: Arc::new(RwLock::new(world)),
-            tick_schedule: Arc::new(RwLock::new(tick_schedule)),
             next_player_id: PlayerId(0),
         }
     }
@@ -259,7 +253,6 @@ impl Game {
     /// Sets up a thread for handling input from a player.
     fn spawn_command_thread(&self, player_id: PlayerId, commands_receiver: Receiver<String>) {
         let player_thread_world = Arc::clone(&self.world);
-        let player_thread_tick_schedule = Arc::clone(&self.tick_schedule);
 
         thread::Builder::new()
             .name(format!("command receiver for player {player_id:?}"))
@@ -275,12 +268,7 @@ impl Game {
                 let read_world = player_thread_world.read().unwrap();
                 if let Some(player_entity) = find_entity_for_player(player_id, &read_world) {
                     drop(read_world);
-                    handle_input(
-                        &player_thread_tick_schedule,
-                        &player_thread_world,
-                        input,
-                        player_entity,
-                    );
+                    handle_input(&player_thread_world, input, player_entity);
                 } else {
                     debug!("Player with ID {player_id:?} has no corresponding entity");
                     break;
@@ -400,12 +388,7 @@ fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
 }
 
 /// Handles input from an entity.
-fn handle_input(
-    tick_schedule: &Arc<RwLock<Schedule>>,
-    world: &Arc<RwLock<World>>,
-    input: String,
-    entity: Entity,
-) {
+fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
     let read_world = world.read().unwrap();
     match parse_input(&input, entity, &read_world) {
         Ok(action) => {
@@ -417,7 +400,7 @@ fn handle_input(
             } else {
                 queue_action_first(&mut write_world, entity, action);
             }
-            try_perform_queued_actions(&mut tick_schedule.write().unwrap(), &mut write_world);
+            try_perform_queued_actions(&mut write_world);
         }
         Err(e) => handle_input_error(entity, e, &read_world),
     }
@@ -465,10 +448,8 @@ pub struct TickNotification;
 impl NotificationType for TickNotification {}
 
 /// Performs one game tick.
-fn tick(tick_schedule: &mut Schedule, world: &mut World) {
+fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
-
-    tick_schedule.run(world);
 
     Notification {
         notification_type: TickNotification,

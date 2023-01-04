@@ -95,7 +95,7 @@ pub fn queue_action_first(world: &mut World, performing_entity: Entity, action: 
 }
 
 /// Performs queued actions if all players have one queued.
-pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut World) {
+pub fn try_perform_queued_actions(world: &mut World) {
     let mut loops = 0;
     loop {
         if loops >= MAX_ACTION_QUEUE_LOOPS {
@@ -165,7 +165,7 @@ pub fn try_perform_queued_actions(tick_schedule: &mut Schedule, world: &mut Worl
         }
 
         if results.iter().any(|(_, _, result)| result.should_tick) {
-            tick(tick_schedule, world);
+            tick(world);
         }
 
         for (entity, action, result) in results.into_iter() {

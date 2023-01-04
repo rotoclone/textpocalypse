@@ -561,7 +561,7 @@ fn container_to_string(container: ContainerDescription) -> String {
         .map(|x| x.to_string())
         .unwrap_or_else(|| "-".to_string());
     let usage = format!(
-        "{}/{}L  {}/{}kg",
+        "{:.2}/{:.2}L  {:.2}/{:.2}kg",
         container.used_volume, max_volume, container.used_weight, max_weight
     );
 
@@ -570,7 +570,7 @@ fn container_to_string(container: ContainerDescription) -> String {
 
 /// Transforms the provided container entity description into a string for display.
 fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
-    let volume_and_weight = format!("[{}L] [{}kg]", entity.volume, entity.weight);
+    let volume_and_weight = format!("[{:.2}L] [{:.2}kg]", entity.volume, entity.weight);
 
     format!(
         "{} {}",

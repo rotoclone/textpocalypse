@@ -13,7 +13,7 @@ const HYDRATION_LOSS_PER_TICK: f32 = 0.008; // loss of 100 hydration in ~2 days
 const ENERGY_LOSS_PER_TICK: f32 = 0.015; // loss of 100 energy in ~1 day
 
 const STARVATION_DAMAGE_PER_TICK: f32 = 5.0;
-const THIRST_DAMAGE_PER_TICK: f32 = 50.0; // TODO 5.0;
+const THIRST_DAMAGE_PER_TICK: f32 = 5.0;
 
 const HUNGER_MESSAGES: [(f32, &str); 4] = [
     (0.75, "You start feeling a little hungry."),

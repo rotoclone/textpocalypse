@@ -390,10 +390,10 @@ pub struct ExitDescription {
 impl ExitDescription {
     /// Creates a list of exit descriptions for the provided container.
     pub fn from_container(container: &Container, world: &World) -> Vec<ExitDescription> {
-        // TODO order connections consistently
         container
             .get_connections(world)
             .iter()
+            .sorted_by(|a, b| a.1.direction.cmp(&b.1.direction))
             .map(|(_, connection)| {
                 let destination_room = world
                     .get::<Room>(connection.destination)
