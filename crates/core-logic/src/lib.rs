@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
-use resource::{insert_resources, register_resource_handlers, FluidNames};
+use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -599,10 +599,6 @@ fn get_reference_name(entity: Entity, pov_entity: Entity, world: &World) -> Stri
     get_name(entity, world).map_or("it".to_string(), |name| format!("{article} {name}"))
 }
 
-fn get_fluid_name(fluid_type: &FluidType, world: &World) -> String {
-    world.resource::<FluidNames>().for_fluid(fluid_type)
-}
-
 /// Determines the total weight of an entity.
 fn get_weight(entity: Entity, world: &World) -> Weight {
     get_weight_recursive(entity, world, &mut vec![entity])
@@ -613,7 +609,20 @@ fn get_weight_recursive(
     world: &World,
     contained_entities: &mut Vec<Entity>,
 ) -> Weight {
-    let mut weight = world.get::<Weight>(entity).cloned().unwrap_or(Weight(0.0));
+    let mut weight = if let Some(weight) = world.get::<Weight>(entity) {
+        *weight
+    } else if let Some(density) = world.get::<Density>(entity) {
+        if let Some(volume) = world.get::<Volume>(entity) {
+            // entity has density and volume, but no weight, so calculate it
+            density.weight_of_volume(*volume)
+        } else {
+            // entity has no weight, and density but no volume
+            Weight(0.0)
+        }
+    } else {
+        // entity has no weight, and no density
+        Weight(0.0)
+    };
 
     if let Some(container) = world.get::<Container>(entity) {
         let contained_weight = container
@@ -632,7 +641,7 @@ fn get_weight_recursive(
     }
 
     if let Some(container) = world.get::<FluidContainer>(entity) {
-        let contained_weight = container.contents.get_total_weight();
+        let contained_weight = container.contents.get_total_weight(world);
 
         weight += contained_weight;
     }

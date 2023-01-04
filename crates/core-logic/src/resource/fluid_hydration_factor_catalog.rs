@@ -15,15 +15,15 @@ const HYDRATION_GAIN_PER_LITER_OF_WATER: f32 = 50.0;
 
 /// Map of fluids to the amount of hydration drinking that fluid provides, compared to pure water.
 #[derive(Resource)]
-pub struct FluidHydrationFactors {
+pub struct FluidHydrationFactorCatalog {
     standard: HashMap<FluidType, f32>,
     custom: HashMap<String, f32>,
 }
 
-impl FluidHydrationFactors {
-    /// Creates the default store of hydration factors.
-    pub fn new() -> FluidHydrationFactors {
-        FluidHydrationFactors {
+impl FluidHydrationFactorCatalog {
+    /// Creates the default catalog of hydration factors.
+    pub fn new() -> FluidHydrationFactorCatalog {
+        FluidHydrationFactorCatalog {
             standard: [
                 (FluidType::Water, 1.0),
                 (FluidType::DirtyWater, 0.9),
@@ -57,7 +57,7 @@ pub fn increase_hydration_on_drink(
             .iter()
             .map(|(fluid_type, volume)| {
                 let hydration_factor = world
-                    .resource::<FluidHydrationFactors>()
+                    .resource::<FluidHydrationFactorCatalog>()
                     .for_fluid(fluid_type);
 
                 volume.0 * HYDRATION_GAIN_PER_LITER_OF_WATER * hydration_factor

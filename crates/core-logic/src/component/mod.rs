@@ -53,6 +53,9 @@ pub use volume::Volume;
 mod weight;
 pub use weight::Weight;
 
+mod density;
+pub use density::Density;
+
 mod vitals;
 pub use vitals::Vitals;
 

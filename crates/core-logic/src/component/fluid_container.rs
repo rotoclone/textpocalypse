@@ -7,7 +7,7 @@ use crate::{
     action::{PourAction, PourAmount},
     get_reference_name,
     notification::{Notification, VerifyResult},
-    resource::FluidNames,
+    resource::FluidNameCatalog,
     AttributeDescription, GameMessage,
 };
 
@@ -62,7 +62,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                 }
             }
 
-            let fluid_names = world.resource::<FluidNames>();
+            let fluid_names = world.resource::<FluidNameCatalog>();
 
             let fluid_names_to_volumes = container
                 .contents

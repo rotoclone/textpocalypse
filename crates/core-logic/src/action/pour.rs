@@ -7,12 +7,13 @@ use regex::Regex;
 
 use crate::{
     component::{AfterActionNotification, FluidContainer, FluidType, Volume},
-    get_fluid_name, get_reference_name,
+    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
+    resource::get_fluid_name,
     BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 

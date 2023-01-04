@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
 
+use crate::resource::FluidDensityCatalog;
+
 use super::{Volume, Weight};
 
 /// Marks an entity as a fluid.
@@ -24,8 +26,15 @@ impl Fluid {
     }
 
     /// Determines the total weight of the fluid
-    pub fn get_total_weight(&self) -> Weight {
-        Weight(1.0) //TODO actually calculate weight
+    pub fn get_total_weight(&self, world: &World) -> Weight {
+        let density_catalog = world.resource::<FluidDensityCatalog>();
+        self.contents
+            .iter()
+            .map(|(fluid_type, volume)| {
+                let density = density_catalog.for_fluid(fluid_type);
+                density.weight_of_volume(*volume)
+            })
+            .sum::<Weight>()
     }
 
     /// Builds a map of contained fluid types to the fraction of fluid they represent.
