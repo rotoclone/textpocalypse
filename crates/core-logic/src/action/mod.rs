@@ -275,7 +275,7 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
     /// Called when the action has been interrupted.
-    fn interrupt(&self, performing_entity: Entity, world: &World) -> ActionInterruptResult;
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult;
 
     /// Returns whether the action might take game time to perform.
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world

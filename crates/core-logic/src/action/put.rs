@@ -321,7 +321,7 @@ impl Action for PutAction {
         result_builder.build_complete_should_tick(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop moving items.".to_string(),

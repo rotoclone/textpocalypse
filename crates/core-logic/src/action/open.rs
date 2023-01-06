@@ -139,7 +139,7 @@ impl Action for OpenAction {
         }
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop opening.".to_string(),

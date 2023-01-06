@@ -53,7 +53,7 @@ impl Action for HelpAction {
             .build_complete_no_tick(true)
     }
 
-    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::none()
     }
 

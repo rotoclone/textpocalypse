@@ -96,7 +96,7 @@ impl Action for EatAction {
             .build_complete_should_tick(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop eating.".to_string(),

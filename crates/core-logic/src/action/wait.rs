@@ -160,7 +160,7 @@ impl Action for WaitAction {
         result_builder.build_incomplete(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop waiting.".to_string(),

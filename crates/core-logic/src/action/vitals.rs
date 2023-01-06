@@ -57,7 +57,7 @@ impl Action for VitalsAction {
         }
     }
 
-    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::none()
     }
 

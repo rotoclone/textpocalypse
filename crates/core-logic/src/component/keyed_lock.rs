@@ -165,7 +165,7 @@ impl Action for LockAction {
         )
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         let locking_or_unlocking = if self.should_be_locked {
             "locking"
         } else {

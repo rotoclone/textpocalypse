@@ -108,7 +108,7 @@ impl Action for SlamAction {
         )
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop slamming.".to_string(),

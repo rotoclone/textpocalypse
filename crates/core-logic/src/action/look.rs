@@ -177,7 +177,7 @@ impl Action for LookAction {
         ActionResult::error(performing_entity, "You can't see that.".to_string())
     }
 
-    fn interrupt(&self, _: Entity, _: &World) -> ActionInterruptResult {
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::none()
     }
 
