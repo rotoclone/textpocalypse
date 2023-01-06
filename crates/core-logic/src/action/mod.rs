@@ -50,6 +50,10 @@ mod drink;
 pub use drink::DrinkAction;
 pub use drink::DrinkParser;
 
+mod sleep;
+pub use sleep::SleepAction;
+pub use sleep::SleepParser;
+
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
 
 /// The result of a single tick of an action being performed.

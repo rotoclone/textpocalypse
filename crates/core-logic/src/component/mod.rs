@@ -73,6 +73,9 @@ pub use fluid::Fluid;
 pub use fluid::FluidType;
 pub use fluid::FluidTypeAmount;
 
+mod sleep_state;
+pub use sleep_state::SleepState;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 
@@ -89,10 +92,11 @@ pub fn register_component_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(container::limit_container_contents, world);
 
-    NotificationHandlers::add_handler(vitals::reduce_vitals_on_tick, world);
+    NotificationHandlers::add_handler(vitals::change_vitals_on_tick, world);
     NotificationHandlers::add_handler(vitals::send_vitals_update_messages, world);
     NotificationHandlers::add_handler(vitals::interrupt_on_damage, world);
     NotificationHandlers::add_handler(vitals::kill_on_zero_health, world);
+    NotificationHandlers::add_handler(vitals::sleep_on_zero_energy, world);
 
     NotificationHandlers::add_handler(respawner::look_after_respawn, world);
 
