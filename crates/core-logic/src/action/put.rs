@@ -11,7 +11,7 @@ use crate::{
     BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -57,7 +57,7 @@ impl InputParser for PutParser {
         };
 
         if world.get::<Container>(source_container).is_none() {
-            let source_container_name = get_reference_name(source_container, world);
+            let source_container_name = get_reference_name(source_container, entity, world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!(
@@ -88,7 +88,7 @@ impl InputParser for PutParser {
             }
         };
 
-        let item_name = get_reference_name(item, world);
+        let item_name = get_reference_name(item, entity, world);
 
         if destination_target == CommandTarget::Myself {
             let inventory = world
@@ -125,7 +125,8 @@ impl InputParser for PutParser {
         };
 
         if world.get::<Container>(destination_container).is_none() {
-            let destination_container_name = get_reference_name(destination_container, world);
+            let destination_container_name =
+                get_reference_name(destination_container, entity, world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!(
@@ -268,17 +269,18 @@ impl Action for PutAction {
             .expect("item should have a location")
             .id;
         if item_location != self.source {
-            let item_name = get_reference_name(self.item, world);
-            let source_name = get_reference_name(self.source, world);
+            let item_name = get_reference_name(self.item, performing_entity, world);
+            let source_name = get_reference_name(self.source, performing_entity, world);
             return ActionResult::error(
                 performing_entity,
                 format!("{item_name} is not in {source_name}."),
             );
         }
 
+        let item_name = get_reference_name(self.item, performing_entity, world);
+
         move_entity(self.item, self.destination, world);
 
-        let item_name = get_reference_name(self.item, world);
         let performing_entity_location = world
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
@@ -294,7 +296,7 @@ impl Action for PutAction {
                     MessageDelay::Short,
                 )
             } else {
-                let source_name = get_reference_name(self.source, world);
+                let source_name = get_reference_name(self.source, performing_entity, world);
                 result_builder = result_builder.with_message(
                     performing_entity,
                     format!("You get {item_name} from {source_name}."),
@@ -308,7 +310,7 @@ impl Action for PutAction {
                 MessageDelay::Short,
             )
         } else {
-            let destination_name = get_reference_name(self.destination, world);
+            let destination_name = get_reference_name(self.destination, performing_entity, world);
             result_builder = result_builder.with_message(
                 performing_entity,
                 format!("You put {item_name} into {destination_name}."),
@@ -317,6 +319,14 @@ impl Action for PutAction {
         }
 
         result_builder.build_complete_should_tick(true)
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop moving items.".to_string(),
+            MessageDelay::None,
+        )
     }
 
     fn may_require_tick(&self) -> bool {

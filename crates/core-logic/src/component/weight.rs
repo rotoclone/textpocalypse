@@ -1,17 +1,18 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Div, Sub, SubAssign},
 };
 
 use bevy_ecs::prelude::*;
+use float_cmp::approx_eq;
 
 use crate::{get_weight, AttributeDescription};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
-/// The weight of an entity.
-#[derive(Debug, Clone, Component, PartialEq, PartialOrd)]
+/// The weight of an entity, in kilograms.
+#[derive(Debug, Clone, Copy, Component, PartialOrd)]
 pub struct Weight(pub f32);
 
 impl Add for Weight {
@@ -28,15 +29,45 @@ impl AddAssign for Weight {
     }
 }
 
+impl Div for Weight {
+    type Output = f32;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self.0 / rhs.0
+    }
+}
+
+impl Sub for Weight {
+    type Output = Weight;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Weight(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Weight {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
 impl Sum for Weight {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Weight(iter.map(|x| x.0).sum())
     }
 }
 
+impl PartialEq for Weight {
+    fn eq(&self, other: &Self) -> bool {
+        approx_eq!(f32, self.0, other.0)
+    }
+}
+
+impl Eq for Weight {}
+
 impl Display for Weight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 

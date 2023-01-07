@@ -3,26 +3,26 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::AfterActionNotification,
+    component::{AfterActionNotification, Vitals},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, GameMessage, HelpMessage, VerifyActionNotification, World,
+    BeforeActionNotification, GameMessage, VerifyActionNotification, VitalsDescription, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const HELP_FORMAT: &str = "help";
+const VITALS_FORMAT: &str = "vitals";
 
 lazy_static! {
-    static ref HELP_PATTERN: Regex = Regex::new("^help$").unwrap();
+    static ref VITALS_PATTERN: Regex = Regex::new("^(v|vi|vitals)$").unwrap();
 }
 
-pub struct HelpParser;
+pub struct VitalsParser;
 
-impl InputParser for HelpParser {
+impl InputParser for VitalsParser {
     fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if HELP_PATTERN.is_match(input) {
-            return Ok(Box::new(HelpAction {
+        if VITALS_PATTERN.is_match(input) {
+            return Ok(Box::new(VitalsAction {
                 notification_sender: ActionNotificationSender::new(),
             }));
         }
@@ -31,7 +31,7 @@ impl InputParser for HelpParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![HELP_FORMAT.to_string()]
+        vec![VITALS_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
@@ -40,17 +40,21 @@ impl InputParser for HelpParser {
 }
 
 #[derive(Debug)]
-struct HelpAction {
+struct VitalsAction {
     notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for HelpAction {
+impl Action for VitalsAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let message = GameMessage::Help(HelpMessage::for_entity(performing_entity, world));
+        if let Some(vitals) = world.get::<Vitals>(performing_entity) {
+            let message = GameMessage::Vitals(VitalsDescription::from_vitals(vitals));
 
-        ActionResult::builder()
-            .with_game_message(performing_entity, message)
-            .build_complete_no_tick(true)
+            ActionResult::builder()
+                .with_game_message(performing_entity, message)
+                .build_complete_no_tick(true)
+        } else {
+            ActionResult::error(performing_entity, "You have no vitals.".to_string())
+        }
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {

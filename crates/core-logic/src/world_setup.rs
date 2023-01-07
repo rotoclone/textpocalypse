@@ -3,11 +3,12 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Connection, Container, DescribeAttributes, Description, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Room, Volume, Weight,
+        Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
+        FluidContainer, FluidType, KeyId, KeyedLock, OpenState, ParseCustomInput, Respawner, Room,
+        Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, Direction, SpawnRoom,
+    move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) {
@@ -31,7 +32,6 @@ pub fn set_up_world(world: &mut World) {
             },
             Container::new_infinite(),
             middle_room_coords.clone(),
-            SpawnRoom,
         ))
         .id();
     world
@@ -165,29 +165,55 @@ pub fn set_up_world(world: &mut World) {
         .id();
     move_entity(east_room_west_connection_id, east_room_id, world);
 
+    let afterlife_room_desc = "There is nothing.";
+    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ', ' ']);
+    let afterlife_room_id = world
+        .spawn((
+            Room {
+                name: "Nowhere".to_string(),
+                description: afterlife_room_desc.to_string(),
+                map_icon: afterlife_room_icon,
+            },
+            Container::new_infinite(),
+            AFTERLIFE_ROOM_COORDINATES.clone(),
+        ))
+        .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(AFTERLIFE_ROOM_COORDINATES, afterlife_room_id);
+
+    let respawner_id = world.spawn(Respawner).id();
+    Respawner::register_custom_input_parser(respawner_id, world);
+    move_entity(respawner_id, afterlife_room_id, world);
+
     //
     // objects
     //
 
-    let small_thing_id = world
+    let candy_bar_id = world
         .spawn((
             Description {
-                name: "small thing".to_string(),
-                room_name: "small thing".to_string(),
-                plural_name: "small things".to_string(),
+                name: "candy bar".to_string(),
+                room_name: "candy bar".to_string(),
+                plural_name: "candy bars".to_string(),
                 article: Some("a".to_string()),
-                aliases: vec!["thing".to_string()],
-                description: "Some kind of smallish thing.".to_string(),
+                aliases: vec!["candy".to_string(), "bar".to_string()],
+                description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
                 attribute_describers: vec![
+                    Edible::get_attribute_describer(),
+                    Calories::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Volume(0.01),
+            Edible,
+            Calories(300),
+            Volume(0.1),
             Weight(0.1),
         ))
         .id();
-    move_entity(small_thing_id, middle_room_id, world);
+    move_entity(candy_bar_id, middle_room_id, world);
 
     let large_thing_id = world
         .spawn((
@@ -291,4 +317,31 @@ pub fn set_up_world(world: &mut World) {
         ))
         .id();
     move_entity(lead_weight_2_id, middle_room_id, world);
+
+    let water_jug_id = world
+        .spawn((
+            Description {
+                name: "water jug".to_string(),
+                room_name: "water jug".to_string(),
+                plural_name: "water jugs".to_string(),
+                article: Some("a".to_string()),
+                aliases: vec!["jug".to_string()],
+                description: "A large jug made for holding water.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    FluidContainer::get_attribute_describer(),
+                ],
+            },
+            Volume(2.0),
+            Weight(1.0),
+            FluidContainer {
+                contents: Fluid {
+                    contents: [(FluidType::Water, Volume(1.0))].into(),
+                },
+                volume: Some(Volume(2.0)),
+            },
+        ))
+        .id();
+    move_entity(water_jug_id, middle_room_id, world);
 }

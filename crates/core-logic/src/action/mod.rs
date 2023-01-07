@@ -34,8 +34,29 @@ mod put;
 pub use put::PutAction;
 pub use put::PutParser;
 
+mod pour;
+pub use pour::PourAction;
+pub use pour::PourAmount;
+pub use pour::PourParser;
+
+mod vitals;
+pub use vitals::VitalsParser;
+
+mod eat;
+pub use eat::EatAction;
+pub use eat::EatParser;
+
+mod drink;
+pub use drink::DrinkAction;
+pub use drink::DrinkParser;
+
+mod sleep;
+pub use sleep::SleepAction;
+pub use sleep::SleepParser;
+
+pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
+
 /// The result of a single tick of an action being performed.
-#[derive(Debug)]
 pub struct ActionResult {
     /// Any messages that should be sent.
     pub messages: HashMap<Entity, Vec<GameMessage>>,
@@ -45,6 +66,8 @@ pub struct ActionResult {
     pub is_complete: bool,
     /// Whether the intended effects of the action actually ocurred.
     pub was_successful: bool,
+    /// Functions to run after the action is complete and all its after action notification handlers have been invoked.
+    pub post_effects: Vec<PostEffectFn>,
 }
 
 impl ActionResult {
@@ -55,6 +78,7 @@ impl ActionResult {
             should_tick: false,
             is_complete: true,
             was_successful: true,
+            post_effects: Vec::new(),
         }
     }
 
@@ -74,6 +98,7 @@ impl ActionResult {
             should_tick,
             is_complete: true,
             was_successful: true,
+            post_effects: Vec::new(),
         }
     }
 
@@ -84,6 +109,7 @@ impl ActionResult {
             should_tick: false,
             is_complete: true,
             was_successful: false,
+            post_effects: Vec::new(),
         }
     }
 
@@ -140,7 +166,104 @@ impl ActionResultBuilder {
     }
 
     /// Adds a `GameMessage` to be sent to an entity.
-    fn with_game_message(mut self, entity_id: Entity, message: GameMessage) -> ActionResultBuilder {
+    pub fn with_game_message(
+        mut self,
+        entity_id: Entity,
+        message: GameMessage,
+    ) -> ActionResultBuilder {
+        self.result
+            .messages
+            .entry(entity_id)
+            .or_insert_with(Vec::new)
+            .push(message);
+
+        self
+    }
+
+    /// Adds a post-effect to be executed after all the action's after notification handlers have been invoked.
+    pub fn with_post_effect(mut self, effect: PostEffectFn) -> ActionResultBuilder {
+        self.result.post_effects.push(effect);
+
+        self
+    }
+}
+
+/// The result of an action being interrupted.
+#[derive(Debug)]
+pub struct ActionInterruptResult {
+    /// Any messages that should be sent.
+    pub messages: HashMap<Entity, Vec<GameMessage>>,
+}
+
+impl ActionInterruptResult {
+    /// Creates an action interrupt result with no messages.
+    pub fn none() -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: HashMap::new(),
+        }
+    }
+
+    /// Creates an action interrupt result with a single message for an entity.
+    pub fn message(
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+    ) -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: [(
+                entity_id,
+                vec![GameMessage::Message(message, message_delay)],
+            )]
+            .into(),
+        }
+    }
+
+    /// Creates an action interrupt result with a single error message for an entity.
+    pub fn error(entity_id: Entity, message: String) -> ActionInterruptResult {
+        ActionInterruptResult {
+            messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
+        }
+    }
+
+    /// Creates an `ActionInterruptResultBuilder`.
+    pub fn builder() -> ActionInterruptResultBuilder {
+        ActionInterruptResultBuilder {
+            result: ActionInterruptResult::none(),
+        }
+    }
+}
+
+pub struct ActionInterruptResultBuilder {
+    result: ActionInterruptResult,
+}
+
+impl ActionInterruptResultBuilder {
+    /// Builds the `ActionInterruptResult`.
+    pub fn build(self) -> ActionInterruptResult {
+        self.result
+    }
+
+    /// Adds a message to be sent to an entity.
+    pub fn with_message(
+        self,
+        entity_id: Entity,
+        message: String,
+        message_delay: MessageDelay,
+    ) -> ActionInterruptResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+    }
+
+    /// Adds an error message to be sent to an entity.
+    pub fn with_error(self, entity_id: Entity, message: String) -> ActionInterruptResultBuilder {
+        self.with_game_message(entity_id, GameMessage::Error(message))
+    }
+
+    /// Adds a `GameMessage` to be sent to an entity.
+    fn with_game_message(
+        mut self,
+        entity_id: Entity,
+        message: GameMessage,
+    ) -> ActionInterruptResultBuilder {
         self.result
             .messages
             .entry(entity_id)
@@ -154,6 +277,9 @@ impl ActionResultBuilder {
 pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
+
+    /// Called when the action has been interrupted.
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult;
 
     /// Returns whether the action might take game time to perform.
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world

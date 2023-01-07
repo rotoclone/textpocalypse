@@ -4,7 +4,9 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    component::{queue_action, AfterActionNotification, Connection, Container, Description, Room},
+    component::{
+        queue_action_first, AfterActionNotification, Connection, Container, Description, Room,
+    },
     game_map::Coordinates,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -15,7 +17,7 @@ use crate::{
     MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionNotificationSender, ActionResult, MoveAction};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -94,7 +96,7 @@ impl InputParser for LookParser {
 pub struct LookAction {
     pub target: Entity,
     pub detailed: bool,
-    notification_sender: ActionNotificationSender<Self>,
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for LookAction {
@@ -175,6 +177,10 @@ impl Action for LookAction {
         ActionResult::error(performing_entity, "You can't see that.".to_string())
     }
 
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
+    }
+
     fn may_require_tick(&self) -> bool {
         false
     }
@@ -218,7 +224,7 @@ pub fn look_after_move(
 
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action(
+        queue_action_first(
             world,
             performing_entity,
             Box::new(LookAction {

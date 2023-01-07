@@ -8,12 +8,13 @@ use crate::{
     color::Color,
     component::{
         AttributeDescription, AttributeDetailLevel, Connection, Container, Description, Location,
-        Room, Volume, Weight,
+        Room, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
-    get_weight,
+    get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
-    Direction,
+    value_change::ValueType,
+    ConstrainedValue, Direction,
 };
 
 const PLAYER_MAP_CHAR: MapChar = MapChar {
@@ -34,6 +35,8 @@ pub enum GameMessage {
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
     Container(ContainerDescription),
+    Vitals(VitalsDescription),
+    ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
     Message(String, MessageDelay),
     Error(String),
@@ -191,15 +194,15 @@ impl ContainerDescription {
             .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
             .collect::<Vec<ContainerEntityDescription>>();
 
-        let used_volume = items.iter().map(|item| item.volume.clone()).sum();
-        let used_weight = items.iter().map(|item| item.weight.clone()).sum();
+        let used_volume = items.iter().map(|item| item.volume).sum();
+        let used_weight = items.iter().map(|item| item.weight).sum();
 
         ContainerDescription {
             items,
             used_volume,
-            max_volume: container.volume.clone(),
+            max_volume: container.volume,
             used_weight,
-            max_weight: container.max_weight.clone(),
+            max_weight: container.max_weight,
         }
     }
 }
@@ -221,7 +224,7 @@ impl ContainerEntityDescription {
     pub fn from_entity(entity: Entity, world: &World) -> Option<ContainerEntityDescription> {
         let entity_ref = world.entity(entity);
         let desc = entity_ref.get::<Description>()?;
-        let volume = entity_ref.get::<Volume>().cloned().unwrap_or(Volume(0.0));
+        let volume = get_volume(entity, world);
         let weight = get_weight(entity, world);
 
         Some(ContainerEntityDescription {
@@ -230,6 +233,44 @@ impl ContainerEntityDescription {
             weight,
         })
     }
+}
+
+/// The description of an entity's vitals.
+#[derive(Debug, Clone)]
+pub struct VitalsDescription {
+    /// The health of the entity.
+    pub health: ConstrainedValue<f32>,
+    /// The non-hunger of the entity.
+    pub satiety: ConstrainedValue<f32>,
+    /// The non-thirst of the entity.
+    pub hydration: ConstrainedValue<f32>,
+    /// The non-tiredness of the entity.
+    pub energy: ConstrainedValue<f32>,
+}
+
+impl VitalsDescription {
+    /// Creates a vitals description for the provided vitals.
+    pub fn from_vitals(vitals: &Vitals) -> VitalsDescription {
+        VitalsDescription {
+            health: vitals.health.clone(),
+            satiety: vitals.satiety.clone(),
+            hydration: vitals.hydration.clone(),
+            energy: vitals.energy.clone(),
+        }
+    }
+}
+
+/// A description of a change of a single value.
+#[derive(Debug, Clone)]
+pub struct ValueChangeDescription {
+    /// The message to include with the display of the new value.
+    pub message: String,
+    /// The type of value that changed.
+    pub value_type: ValueType,
+    /// The old value.
+    pub old_value: ConstrainedValue<f32>,
+    /// The new value.
+    pub new_value: ConstrainedValue<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -349,10 +390,10 @@ pub struct ExitDescription {
 impl ExitDescription {
     /// Creates a list of exit descriptions for the provided container.
     pub fn from_container(container: &Container, world: &World) -> Vec<ExitDescription> {
-        // TODO order connections consistently
         container
             .get_connections(world)
             .iter()
+            .sorted_by(|a, b| a.1.direction.cmp(&b.1.direction))
             .map(|(_, connection)| {
                 let destination_room = world
                     .get::<Room>(connection.destination)

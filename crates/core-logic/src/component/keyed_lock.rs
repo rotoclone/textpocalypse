@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{Action, ActionNotificationSender, ActionResult, OpenAction},
+    action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -123,7 +123,7 @@ impl Action for LockAction {
             }
         }
 
-        let name = get_reference_name(self.target, world);
+        let name = get_reference_name(self.target, performing_entity, world);
 
         // make sure the performing entity has the key to this lock, if needed
         let mut key = None;
@@ -151,7 +151,7 @@ impl Action for LockAction {
             "unlock"
         };
         let key_message = if let Some(key) = key {
-            let key_name = get_reference_name(key, world);
+            let key_name = get_reference_name(key, performing_entity, world);
             format!("use {key_name} to ")
         } else {
             "".to_string()
@@ -162,6 +162,19 @@ impl Action for LockAction {
             format!("You {key_message}{lock_or_unlock} {name}."),
             MessageDelay::Short,
             true,
+        )
+    }
+
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
+        let locking_or_unlocking = if self.should_be_locked {
+            "locking"
+        } else {
+            "unlocking"
+        };
+        ActionInterruptResult::message(
+            performing_entity,
+            format!("You stop {locking_or_unlocking}."),
+            MessageDelay::None,
         )
     }
 

@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::{
     action::Action, component::Player, notification::NotificationType, send_messages, tick,
+    InterruptedEntities,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
@@ -103,6 +104,7 @@ pub fn try_perform_queued_actions(world: &mut World) {
         loops += 1;
 
         debug!("Performing queued actions...");
+        world.resource_mut::<InterruptedEntities>().0.clear();
 
         // first deal with actions that don't require a tick
         let players_with_action_queues = world
@@ -145,7 +147,7 @@ pub fn try_perform_queued_actions(world: &mut World) {
 
             if let Some(mut action) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
-                let result = action.perform(entity, world);
+                let mut result = action.perform(entity, world);
                 send_messages(&result.messages, world);
                 action.send_after_notification(
                     AfterActionNotification {
@@ -155,6 +157,8 @@ pub fn try_perform_queued_actions(world: &mut World) {
                     },
                     world,
                 );
+
+                result.post_effects.drain(..).for_each(|f| f(world));
 
                 results.push((entity, action, result));
             }
@@ -166,8 +170,17 @@ pub fn try_perform_queued_actions(world: &mut World) {
 
         for (entity, action, result) in results.into_iter() {
             if !result.is_complete {
-                //TODO interrupt action if something that would interrupt it has happened, like a hostile entity entering the performing entity's room
-                queue_action_first(world, entity, action);
+                if world.resource::<InterruptedEntities>().0.contains(&entity) {
+                    let interrupt_result = action.interrupt(entity, world);
+                    send_messages(&interrupt_result.messages, world);
+                    // cancel all other queued actions for this entity
+                    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+                        action_queue.actions.clear();
+                    }
+                    // the action was interrupted, so just drop it
+                } else {
+                    queue_action_first(world, entity, action);
+                }
             }
         }
     }
