@@ -11,83 +11,238 @@ use crate::{
     move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
-pub fn set_up_world(world: &mut World) {
+pub fn set_up_world(world: &mut World) -> Coordinates {
     //
     // rooms
     //
+    let street_room_name = "Street";
+    let horizontal_street_desc =
+        "An old street running east-west. The pavement is cracked and the lines are faded.";
+    let horizontal_street_icon =
+        MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['=', '=', '=']);
+    let street_1_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: horizontal_street_desc.to_string(),
+            map_icon: horizontal_street_icon.clone(),
+        },
+        Coordinates {
+            x: 0,
+            y: 0,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+
+    let street_2_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: horizontal_street_desc.to_string(),
+            map_icon: horizontal_street_icon.clone(),
+        },
+        Coordinates {
+            x: 1,
+            y: 0,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(street_2_id, Direction::West, street_1_id, world);
+
+    let street_3_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: horizontal_street_desc.to_string(),
+            map_icon: horizontal_street_icon,
+        },
+        Coordinates {
+            x: 2,
+            y: 0,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(street_3_id, Direction::West, street_2_id, world);
+
+    let intersection_room_name = "Street Intersection";
+    let intersection_desc =
+        "A T-intersection. The street stretches away in all four cardinal directions.";
+    let intersection_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['#', ' ', '#']);
+    let intersection_id = spawn_room(
+        Room {
+            name: intersection_room_name.to_string(),
+            description: intersection_desc.to_string(),
+            map_icon: intersection_icon,
+        },
+        Coordinates {
+            x: 3,
+            y: 0,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(intersection_id, Direction::West, street_3_id, world);
+
+    let vertical_street_desc =
+        "An old street running north-south. The pavement is cracked and the lines are faded.";
+    let vertical_street_icon =
+        MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['|', ' ', '|']);
+
+    let street_4_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: vertical_street_desc.to_string(),
+            map_icon: vertical_street_icon.clone(),
+        },
+        Coordinates {
+            x: 3,
+            y: 1,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(street_4_id, Direction::South, intersection_id, world);
+
+    let street_5_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: vertical_street_desc.to_string(),
+            map_icon: vertical_street_icon.clone(),
+        },
+        Coordinates {
+            x: 3,
+            y: 2,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(street_5_id, Direction::South, street_4_id, world);
+
+    let street_6_id = spawn_room(
+        Room {
+            name: street_room_name.to_string(),
+            description: vertical_street_desc.to_string(),
+            map_icon: vertical_street_icon,
+        },
+        Coordinates {
+            x: 3,
+            y: 3,
+            z: 0,
+            parent: None,
+        },
+        world,
+    );
+    connect_open(street_6_id, Direction::South, street_5_id, world);
+
+    let start_building_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ':', ']']);
+    let start_building_coords = Coordinates {
+        x: 1,
+        y: 1,
+        z: 0,
+        parent: None,
+    };
+    spawn_room(
+        Room {
+            // name and description aren't used because this is just so the map icon shows up
+            name: "".to_string(),
+            description: "".to_string(),
+            map_icon: start_building_icon,
+        },
+        start_building_coords.clone(),
+        world,
+    );
+
+    spawn_start_building(world, start_building_coords, street_2_id)
+}
+
+pub fn spawn_start_building(
+    world: &mut World,
+    parent_coords: Coordinates,
+    exit_room_id: Entity,
+) -> Coordinates {
+    //
+    // rooms
+    //
+
     let middle_room_desc = "A nondescript room. You feel uneasy here.";
     let middle_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
     let middle_room_coords = Coordinates {
         x: 0,
         y: 0,
         z: 0,
-        parent: None,
+        parent: Some(Box::new(parent_coords.clone())),
     };
-    let middle_room_id = world
-        .spawn((
-            Room {
-                name: "The middle room".to_string(),
-                description: middle_room_desc.to_string(),
-                map_icon: middle_room_icon,
-            },
-            Container::new_infinite(),
-            middle_room_coords.clone(),
-        ))
-        .id();
-    world
-        .resource_mut::<GameMap>()
-        .locations
-        .insert(middle_room_coords, middle_room_id);
+    let middle_room_id = spawn_room(
+        Room {
+            name: "The middle room".to_string(),
+            description: middle_room_desc.to_string(),
+            map_icon: middle_room_icon,
+        },
+        middle_room_coords.clone(),
+        world,
+    );
 
     let north_room_desc =
         "The trim along the floor and ceiling looks to be made of real gold. Fancy.";
     let north_room_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['[', ' ', ']']);
-    let north_room_coords = Coordinates {
-        x: 0,
-        y: 1,
-        z: 0,
-        parent: None,
-    };
-    let north_room_id = world
-        .spawn((
-            Room {
-                name: "The north room".to_string(),
-                description: north_room_desc.to_string(),
-                map_icon: north_room_icon,
-            },
-            Container::new_infinite(),
-            north_room_coords.clone(),
-        ))
-        .id();
-    world
-        .resource_mut::<GameMap>()
-        .locations
-        .insert(north_room_coords, north_room_id);
+    let north_room_id = spawn_room(
+        Room {
+            name: "The north room".to_string(),
+            description: north_room_desc.to_string(),
+            map_icon: north_room_icon,
+        },
+        Coordinates {
+            x: 0,
+            y: 1,
+            z: 0,
+            parent: Some(Box::new(parent_coords.clone())),
+        },
+        world,
+    );
 
     let east_room_desc =
         "This room is very small; you have to hunch over so your head doesn't hit the ceiling.";
     let east_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
-    let east_room_coords = Coordinates {
-        x: 1,
-        y: 0,
-        z: 0,
-        parent: None,
-    };
-    let east_room_id = world
-        .spawn((
-            Room {
-                name: "The east room".to_string(),
-                description: east_room_desc.to_string(),
-                map_icon: east_room_icon,
-            },
-            Container::new_infinite(),
-            east_room_coords.clone(),
-        ))
-        .id();
-    world
-        .resource_mut::<GameMap>()
-        .locations
-        .insert(east_room_coords, east_room_id);
+    let east_room_id = spawn_room(
+        Room {
+            name: "The east room".to_string(),
+            description: east_room_desc.to_string(),
+            map_icon: east_room_icon,
+        },
+        Coordinates {
+            x: 1,
+            y: 0,
+            z: 0,
+            parent: Some(Box::new(parent_coords)),
+        },
+        world,
+    );
+
+    let afterlife_room_desc = "There is nothing.";
+    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ', ' ']);
+    let afterlife_room_id = spawn_room(
+        Room {
+            name: "Nowhere".to_string(),
+            description: afterlife_room_desc.to_string(),
+            map_icon: afterlife_room_icon,
+        },
+        AFTERLIFE_ROOM_COORDINATES.clone(),
+        world,
+    );
+
+    let respawner_id = world.spawn(Respawner).id();
+    Respawner::register_custom_input_parser(respawner_id, world);
+    move_entity(respawner_id, afterlife_room_id, world);
+
+    //
+    // connections
+    //
 
     let north_room_south_door_id = world.spawn(()).id();
 
@@ -147,45 +302,8 @@ pub fn set_up_world(world: &mut World) {
     OpenState::register_custom_input_parser(north_room_south_door_id, world);
     move_entity(north_room_south_door_id, north_room_id, world);
 
-    let middle_room_east_connection_id = world
-        .spawn(Connection {
-            direction: Direction::East,
-            destination: east_room_id,
-            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
-        })
-        .id();
-    move_entity(middle_room_east_connection_id, middle_room_id, world);
-
-    let east_room_west_connection_id = world
-        .spawn(Connection {
-            direction: Direction::West,
-            destination: middle_room_id,
-            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
-        })
-        .id();
-    move_entity(east_room_west_connection_id, east_room_id, world);
-
-    let afterlife_room_desc = "There is nothing.";
-    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ', ' ']);
-    let afterlife_room_id = world
-        .spawn((
-            Room {
-                name: "Nowhere".to_string(),
-                description: afterlife_room_desc.to_string(),
-                map_icon: afterlife_room_icon,
-            },
-            Container::new_infinite(),
-            AFTERLIFE_ROOM_COORDINATES.clone(),
-        ))
-        .id();
-    world
-        .resource_mut::<GameMap>()
-        .locations
-        .insert(AFTERLIFE_ROOM_COORDINATES, afterlife_room_id);
-
-    let respawner_id = world.spawn(Respawner).id();
-    Respawner::register_custom_input_parser(respawner_id, world);
-    move_entity(respawner_id, afterlife_room_id, world);
+    connect_open(middle_room_id, Direction::East, east_room_id, world);
+    connect_open(middle_room_id, Direction::South, exit_room_id, world);
 
     //
     // objects
@@ -344,4 +462,40 @@ pub fn set_up_world(world: &mut World) {
         ))
         .id();
     move_entity(water_jug_id, middle_room_id, world);
+
+    middle_room_coords
+}
+
+/// Spawns the provided room at the provided coordinates.
+fn spawn_room(room: Room, coords: Coordinates, world: &mut World) -> Entity {
+    let room_id = world
+        .spawn((room, Container::new_infinite(), coords.clone()))
+        .id();
+    world
+        .resource_mut::<GameMap>()
+        .locations
+        .insert(coords, room_id);
+
+    room_id
+}
+
+/// Connects the provided entities with open connections.
+fn connect_open(room_1: Entity, dir: Direction, room_2: Entity, world: &mut World) {
+    let connection_1 = world
+        .spawn(Connection {
+            direction: dir,
+            destination: room_2,
+            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
+        })
+        .id();
+    move_entity(connection_1, room_1, world);
+
+    let connection_2 = world
+        .spawn(Connection {
+            direction: dir.opposite(),
+            destination: room_1,
+            other_side: None, // this is a lie but it's fine because this connection has no `OpenState`
+        })
+        .id();
+    move_entity(connection_2, room_2, world);
 }

@@ -125,17 +125,13 @@ impl Game {
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
         world.insert_resource(InterruptedEntities(HashSet::new()));
-        world.insert_resource(SpawnRoom(Coordinates {
-            x: 0,
-            y: 0,
-            z: 0,
-            parent: None,
-        }));
         world.insert_resource(AfterlifeRoom(AFTERLIFE_ROOM_COORDINATES));
         world.insert_resource(PlayerIdMapping(HashMap::new()));
         insert_resources(&mut world);
 
-        set_up_world(&mut world);
+        let spawn_room_coords = set_up_world(&mut world);
+
+        world.insert_resource(SpawnRoom(spawn_room_coords));
 
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
