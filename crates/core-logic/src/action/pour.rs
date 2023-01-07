@@ -23,6 +23,7 @@ const FILL_VERB_NAME: &str = "fill";
 const POUR_VERB_NAME: &str = "pour";
 
 const FILL_FORMAT: &str = "fill <> from <>";
+const POUR_ALL_FORMAT: &str = "pour <> into <>";
 const POUR_FORMAT: &str = "pour <> from <> into <>";
 
 const SOURCE_CAPTURE: &str = "source";
@@ -109,11 +110,19 @@ impl InputParser for PourParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![FILL_FORMAT.to_string(), POUR_FORMAT.to_string()]
+        vec![
+            FILL_FORMAT.to_string(),
+            POUR_ALL_FORMAT.to_string(),
+            POUR_FORMAT.to_string(),
+        ]
     }
 
     fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<FluidContainer>(entity, world, &[FILL_FORMAT, POUR_FORMAT])
+        input_formats_if_has_component::<FluidContainer>(
+            entity,
+            world,
+            &[FILL_FORMAT, POUR_ALL_FORMAT, POUR_FORMAT],
+        )
     }
 }
 

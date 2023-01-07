@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::{
     component::{AfterActionNotification, SleepState, Vitals},
-    input_parser::{InputParseError, InputParser},
+    input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
 };
@@ -13,12 +13,13 @@ use crate::{
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 /// The fraction of energy over which an entity cannot go to sleep if it's awake, and has a chance to wake up if it's asleep.
-const WAKE_THRESHOLD: f32 = 0.8;
+const WAKE_THRESHOLD: f32 = 0.75;
 
 /// The probability of an entity waking up each tick once it's reached the wake threshold.
-const WAKE_CHANCE_PER_TICK: f32 = 0.01;
+const WAKE_CHANCE_PER_TICK: f32 = 0.003;
 
 const SLEEP_FORMAT: &str = "sleep";
+const SLEEP_VERB_NAME: &str = "sleep";
 
 lazy_static! {
     static ref SLEEP_PATTERN: Regex = Regex::new("^sleep$").unwrap();
@@ -27,13 +28,39 @@ lazy_static! {
 pub struct SleepParser;
 
 impl InputParser for SleepParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
+    fn parse(
+        &self,
+        input: &str,
+        entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
         if SLEEP_PATTERN.is_match(input) {
-            //TODO stop from sleeping if not tired enough or has no vitals
-            return Ok(Box::new(SleepAction {
-                ticks_slept: 0,
-                notification_sender: ActionNotificationSender::new(),
-            }));
+            if let Some(vitals) = world.get::<Vitals>(entity) {
+                let energy_fraction = vitals.energy.get() / vitals.energy.get_max();
+                if energy_fraction < WAKE_THRESHOLD {
+                    // has vitals, and energy is under wake threshold
+                    return Ok(Box::new(SleepAction {
+                        ticks_slept: 0,
+                        notification_sender: ActionNotificationSender::new(),
+                    }));
+                } else {
+                    // has vitals, but energy not under wake threshold
+                    return Err(InputParseError::CommandParseError {
+                        verb: SLEEP_VERB_NAME.to_string(),
+                        error: CommandParseError::Other(
+                            "You're not tired enough to sleep.".to_string(),
+                        ),
+                    });
+                }
+            } else {
+                // doesn't have vitals
+                return Err(InputParseError::CommandParseError {
+                    verb: SLEEP_VERB_NAME.to_string(),
+                    error: CommandParseError::Other(
+                        "You have no energy to regain by sleeping.".to_string(),
+                    ),
+                });
+            }
         }
 
         Err(InputParseError::UnknownCommand)
@@ -74,8 +101,9 @@ impl Action for SleepAction {
             .expect("sleeping entity should have vitals");
 
         let energy_fraction = vitals.energy.get() / vitals.energy.get_max();
-        if energy_fraction >= WAKE_THRESHOLD
-            && rand::thread_rng().gen::<f32>() <= WAKE_CHANCE_PER_TICK
+        if vitals.energy.get() >= vitals.energy.get_max()
+            || (energy_fraction >= WAKE_THRESHOLD
+                && rand::thread_rng().gen::<f32>() <= WAKE_CHANCE_PER_TICK)
         {
             wake_up(performing_entity, world);
             return result_builder
