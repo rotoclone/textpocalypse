@@ -5,10 +5,10 @@ use crate::{
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
         FluidContainer, FluidType, KeyId, KeyedLock, OpenState, ParseCustomInput, Respawner, Room,
-        Volume, Weight,
+        SleepState, Vitals, Volume, WanderingAi, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -157,6 +157,36 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
         start_building_coords.clone(),
         world,
     );
+
+    //
+    // npcs
+    //
+
+    let npc_id = world
+        .spawn((
+            Description {
+                name: "Some Guy".to_string(),
+                room_name: "Some Guy".to_string(),
+                plural_name: "Some Guys".to_string(),
+                article: None,
+                aliases: vec!["guy".to_string()],
+                description:
+                    "It's just some guy. He looks around, not focusing on anything in particular."
+                        .to_string(),
+                attribute_describers: vec![SleepState::get_attribute_describer()],
+            },
+            WanderingAi {
+                move_chance_per_tick: 0.25,
+            },
+            Vitals {
+                health: ConstrainedValue::new_max(0.0, 25.0),
+                satiety: ConstrainedValue::new_max(0.0, 100.0),
+                hydration: ConstrainedValue::new_max(0.0, 100.0),
+                energy: ConstrainedValue::new_max(0.0, 100.0),
+            },
+        ))
+        .id();
+    move_entity(npc_id, street_2_id, world);
 
     spawn_start_building(world, start_building_coords, street_2_id)
 }

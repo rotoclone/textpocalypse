@@ -3,9 +3,11 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::component::AfterActionNotification;
+use crate::component::{AfterActionNotification, Container, Location};
 use crate::notification::{Notification, VerifyResult};
-use crate::{BeforeActionNotification, MessageDelay, VerifyActionNotification};
+use crate::{
+    can_receive_messages, BeforeActionNotification, MessageDelay, VerifyActionNotification,
+};
 use crate::{GameMessage, World};
 
 mod look;
@@ -158,6 +160,26 @@ impl ActionResultBuilder {
         message_delay: MessageDelay,
     ) -> ActionResultBuilder {
         self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+    }
+
+    /// Adds a message to be sent to all the entities in the same location as another entity.
+    pub fn with_message_for_other_entities_in_location(
+        mut self,
+        source_entity: Entity,
+        location: Entity,
+        message: String,
+        message_delay: MessageDelay,
+        world: &World,
+    ) -> ActionResultBuilder {
+        if let Some(container) = world.get::<Container>(location) {
+            for entity in &container.entities {
+                if *entity != source_entity && can_receive_messages(world, *entity) {
+                    self = self.with_message(*entity, message.clone(), message_delay);
+                }
+            }
+        }
+
+        self
     }
 
     /// Adds an error message to be sent to an entity.

@@ -99,7 +99,7 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        let name = get_reference_name(self.target, performing_entity, world);
+        let name = get_reference_name(self.target, Some(performing_entity), world);
         ActionResult::message(
             performing_entity,
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),

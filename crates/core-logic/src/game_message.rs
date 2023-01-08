@@ -43,7 +43,7 @@ pub enum GameMessage {
 }
 
 /// The amount of time to wait before any additional messages are displayed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum MessageDelay {
     /// No time should be waited.
     None,

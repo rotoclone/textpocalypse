@@ -567,14 +567,40 @@ fn get_name(entity: Entity, world: &World) -> Option<String> {
 /// Builds a string to use to refer to the provided entity from the point of view of another entity.
 ///
 /// For example, if the entity is named "book", this will return "the book".
-fn get_reference_name(entity: Entity, pov_entity: Entity, world: &World) -> String {
-    //TODO handle proper names, like names of people
-    let in_entity = world
-        .get::<Container>(pov_entity)
-        .map(|c| c.contains_recursive(entity, world))
-        .unwrap_or(false);
-    let article = if in_entity { "your" } else { "the" };
-    get_name(entity, world).map_or("it".to_string(), |name| format!("{article} {name}"))
+fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+    let article = get_definite_article(entity, pov_entity, world)
+        .map_or_else(|| "".to_string(), |a| format!("{a} "));
+    get_name(entity, world).map_or("it".to_string(), |name| format!("{article}{name}"))
+}
+
+/// Gets the definite article to use when referring to the provided entity.
+///
+/// If the entity has an article defined in its description, this will return `Some("the")` or `Some("your")` depending on if `pov_entity` is holding it.
+/// Otherwise, this will return `None`.
+fn get_definite_article(
+    entity: Entity,
+    pov_entity: Option<Entity>,
+    world: &World,
+) -> Option<String> {
+    let in_entity = if let Some(pov_entity) = pov_entity {
+        world
+            .get::<Container>(pov_entity)
+            .map(|c| c.contains_recursive(entity, world))
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    let desc = world.get::<Description>(entity);
+    if in_entity {
+        Some("your".to_string())
+    } else {
+        if let Some(desc) = desc {
+            // return `None` if the entity has no article
+            desc.article.as_ref()?;
+        }
+        Some("the".to_string())
+    }
 }
 
 /// Determines the total weight of an entity.

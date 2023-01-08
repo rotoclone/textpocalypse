@@ -1,16 +1,14 @@
-use std::collections::HashMap;
-
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    can_receive_messages,
     component::{AfterActionNotification, Container, Location},
+    get_reference_name,
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, Direction, GameMessage, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, Direction, MessageDelay, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -53,7 +51,7 @@ impl InputParser for MoveParser {
 #[derive(Debug)]
 pub struct MoveAction {
     pub direction: Direction,
-    notification_sender: ActionNotificationSender<Self>,
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for MoveAction {
@@ -66,10 +64,9 @@ impl Action for MoveAction {
         let current_location = world
             .get::<Container>(current_location_id)
             .expect("Moving entity's location should be a container");
-        let mut messages = HashMap::new();
+        let mut result_builder = ActionResult::builder();
         let mut should_tick = false;
         let mut was_successful = false;
-        let can_receive_messages = can_receive_messages(world, performing_entity);
 
         if let Some((_, connection)) =
             current_location.get_connection_in_direction(&self.direction, world)
@@ -79,30 +76,42 @@ impl Action for MoveAction {
             should_tick = true;
             was_successful = true;
 
-            if can_receive_messages {
-                messages.insert(
+            let entity_name = get_reference_name(performing_entity, None, world);
+
+            result_builder = result_builder
+                .with_message(
                     performing_entity,
-                    vec![GameMessage::Message(
-                        format!("You walk {}.", self.direction),
-                        MessageDelay::Long,
-                    )],
+                    format!("You walk {}.", self.direction),
+                    MessageDelay::Long,
+                )
+                .with_message_for_other_entities_in_location(
+                    performing_entity,
+                    current_location_id,
+                    format!("{entity_name} walks {}.", self.direction),
+                    MessageDelay::Short,
+                    world,
+                )
+                .with_message_for_other_entities_in_location(
+                    performing_entity,
+                    new_room_id,
+                    format!(
+                        "{entity_name} walks in from the {}.",
+                        self.direction.opposite()
+                    ),
+                    MessageDelay::Short,
+                    world,
                 );
-            }
-        } else if can_receive_messages {
-            messages.insert(
+        } else {
+            result_builder = result_builder.with_error(
                 performing_entity,
-                vec![GameMessage::Error(
-                    "You can't move in that direction.".to_string(),
-                )],
+                "You can't move in that direction.".to_string(),
             );
         }
 
-        ActionResult {
-            messages,
-            should_tick,
-            is_complete: true,
-            was_successful,
-            post_effects: Vec::new(),
+        if should_tick {
+            result_builder.build_complete_should_tick(was_successful)
+        } else {
+            result_builder.build_complete_no_tick(was_successful)
         }
     }
 

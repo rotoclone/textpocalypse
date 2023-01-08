@@ -107,20 +107,21 @@ pub fn try_perform_queued_actions(world: &mut World) {
         world.resource_mut::<InterruptedEntities>().0.clear();
 
         // first deal with actions that don't require a tick
-        let players_with_action_queues = world
-            .query::<(Entity, &mut ActionQueue, With<Player>)>()
+        let entities_with_action_queues = world
+            .query::<(Entity, &mut ActionQueue)>()
             .iter_mut(world)
-            .map(|(entity, mut action_queue, _)| {
+            .map(|(entity, mut action_queue)| {
                 action_queue.update_queue();
                 entity
             })
             .collect::<Vec<Entity>>();
-        players_with_action_queues
+        entities_with_action_queues
             .into_iter()
-            .for_each(|player| perform_tickless_actions(player, world));
+            .for_each(|entity| perform_tickless_actions(entity, world));
 
         // now each player's action queue should either be empty, or have an action at the front that may require a tick to perform
         let mut entities_with_actions = Vec::new();
+        // players with actions
         for (entity, mut action_queue, _) in world
             .query::<(Entity, &mut ActionQueue, With<Player>)>()
             .iter_mut(world)
@@ -138,6 +139,20 @@ pub fn try_perform_queued_actions(world: &mut World) {
 
         if entities_with_actions.is_empty() {
             return;
+        }
+
+        // non-players with actions
+        for (entity, mut action_queue, _) in world
+            .query::<(Entity, &mut ActionQueue, Without<Player>)>()
+            .iter_mut(world)
+        {
+            action_queue.update_queue();
+            if action_queue.actions.is_empty() {
+                continue;
+            }
+
+            debug!("{entity:?} has a queued action");
+            entities_with_actions.push(entity);
         }
 
         let mut results = Vec::new();

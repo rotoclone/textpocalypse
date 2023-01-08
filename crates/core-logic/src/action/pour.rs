@@ -66,7 +66,7 @@ impl InputParser for PourParser {
         };
 
         if world.get::<FluidContainer>(source).is_none() {
-            let source_name = get_reference_name(source, entity, world);
+            let source_name = get_reference_name(source, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!("{source_name} is not a fluid container.")),
@@ -84,7 +84,7 @@ impl InputParser for PourParser {
         };
 
         if source == target {
-            let target_name = get_reference_name(target, entity, world);
+            let target_name = get_reference_name(target, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!(
@@ -94,7 +94,7 @@ impl InputParser for PourParser {
         }
 
         if world.get::<FluidContainer>(target).is_none() {
-            let target_name = get_reference_name(target, entity, world);
+            let target_name = get_reference_name(target, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!("{target_name} is not a fluid container.")),
@@ -266,8 +266,8 @@ impl Action for PourAction {
         let removed_fluids = remove_fluid(self.source, amount_to_pour, world);
 
         let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
-        let source_name = get_reference_name(self.source, performing_entity, world);
-        let target_name = get_reference_name(self.target, performing_entity, world);
+        let source_name = get_reference_name(self.source, Some(performing_entity), world);
+        let target_name = get_reference_name(self.target, Some(performing_entity), world);
         if actual_poured_amount <= Volume(0.0) {
             let message = format!("You can't pour anything from {source_name} into {target_name}.");
             return ActionResult::builder()
