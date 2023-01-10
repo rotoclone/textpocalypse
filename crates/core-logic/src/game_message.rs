@@ -323,7 +323,13 @@ impl RoomEntityDescription {
     /// Creates a room entity description for the provided entity.
     pub fn from_entity(entity: Entity, world: &World) -> Option<RoomEntityDescription> {
         if let Some(desc) = world.get::<Description>(entity) {
-            if let Some(connection) = world.get::<Connection>(entity) {
+            if world.get::<Vitals>(entity).is_some() {
+                Some(RoomEntityDescription::Living(RoomLivingEntityDescription {
+                    name: desc.room_name.clone(),
+                    plural_name: desc.plural_name.clone(),
+                    article: desc.article.clone(),
+                }))
+            } else if let Some(connection) = world.get::<Connection>(entity) {
                 Some(RoomEntityDescription::Connection(
                     RoomConnectionEntityDescription {
                         name: desc.room_name.clone(),

@@ -354,7 +354,7 @@ fn living_entities_to_string(entities: &[(&RoomLivingEntityDescription, usize)])
     }
 
     Some(format!(
-        "{} {} here.",
+        "{} {} standing here.",
         format_list(&descriptions),
         is_or_are
     ))
