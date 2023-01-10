@@ -106,6 +106,7 @@ impl StandardInputParsers {
                 Box::new(InventoryParser),
                 Box::new(PutParser),
                 Box::new(PourParser),
+                Box::new(SayParser),
                 Box::new(VitalsParser),
                 Box::new(EatParser),
                 Box::new(DrinkParser),

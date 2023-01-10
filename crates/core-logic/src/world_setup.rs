@@ -4,8 +4,8 @@ use crate::{
     color::Color,
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
-        FluidContainer, FluidType, KeyId, KeyedLock, OpenState, ParseCustomInput, Respawner, Room,
-        SleepState, Vitals, Volume, WanderingAi, Weight,
+        FluidContainer, FluidType, GreetBehavior, KeyId, KeyedLock, OpenState, ParseCustomInput,
+        Respawner, Room, SleepState, Vitals, Volume, WanderBehavior, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -175,8 +175,11 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                         .to_string(),
                 attribute_describers: vec![SleepState::get_attribute_describer()],
             },
-            WanderingAi {
+            WanderBehavior {
                 move_chance_per_tick: 0.25,
+            },
+            GreetBehavior {
+                greeting: "Hey there!".to_string(),
             },
             Vitals {
                 health: ConstrainedValue::new_max(0.0, 25.0),

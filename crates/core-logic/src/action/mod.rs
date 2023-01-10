@@ -56,6 +56,10 @@ mod sleep;
 pub use sleep::SleepAction;
 pub use sleep::SleepParser;
 
+mod say;
+pub use say::SayAction;
+pub use say::SayParser;
+
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
 
 /// The result of a single tick of an action being performed.
