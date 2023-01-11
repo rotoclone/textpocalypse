@@ -7,7 +7,8 @@ use crate::{
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -141,6 +142,7 @@ impl Action for WaitAction {
                 .with_message(
                     performing_entity,
                     "You finish waiting.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
                 .build_complete_no_tick(true);
@@ -152,6 +154,7 @@ impl Action for WaitAction {
             result_builder = result_builder.with_message(
                 performing_entity,
                 "You start waiting...".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
             );
         }
@@ -164,6 +167,7 @@ impl Action for WaitAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop waiting.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

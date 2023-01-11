@@ -494,10 +494,11 @@ fn kill_entity(entity: Entity, world: &mut World) {
     send_message(
         world,
         entity,
-        GameMessage::Message(
-            "You crumple to the ground and gasp your last breath.".to_string(),
-            MessageDelay::Long,
-        ),
+        GameMessage::Message {
+            content: "You crumple to the ground and gasp your last breath.".to_string(),
+            category: MessageCategory::Internal(InternalMessageCategory::Misc),
+            delay: MessageDelay::Long,
+        },
     );
 
     let name = world

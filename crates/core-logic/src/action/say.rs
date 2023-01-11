@@ -7,7 +7,8 @@ use crate::{
     get_reference_name,
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -64,6 +65,7 @@ impl Action for SayAction {
         let mut result_builder = ActionResult::builder().with_message(
             performing_entity,
             format!("You say, \"{text}\""),
+            MessageCategory::Internal(InternalMessageCategory::Speech),
             MessageDelay::Short,
         );
 
@@ -72,6 +74,7 @@ impl Action for SayAction {
                 performing_entity,
                 location.id,
                 format!("{speaker_name} says, \"{text}\""),
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                 MessageDelay::Short,
                 world,
             );

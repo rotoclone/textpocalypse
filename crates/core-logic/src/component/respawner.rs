@@ -8,7 +8,8 @@ use crate::{
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification,
 };
 
 use super::{queue_action_first, AfterActionNotification, ParseCustomInput, Vitals};
@@ -58,6 +59,7 @@ impl Action for RespawnAction {
             .with_message(
                 performing_entity,
                 "You start to feel more corporeal...".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
             )
             .build_complete_should_tick(true)
@@ -67,6 +69,7 @@ impl Action for RespawnAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop respawning.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

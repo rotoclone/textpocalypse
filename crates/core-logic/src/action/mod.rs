@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::component::{AfterActionNotification, Container, Location};
+use crate::component::{AfterActionNotification, Container};
 use crate::notification::{Notification, VerifyResult};
 use crate::{
-    can_receive_messages, BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    can_receive_messages, BeforeActionNotification, MessageCategory, MessageDelay,
+    VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -92,13 +93,18 @@ impl ActionResult {
     pub fn message(
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
         should_tick: bool,
     ) -> ActionResult {
         ActionResult {
             messages: [(
                 entity_id,
-                vec![GameMessage::Message(message, message_delay)],
+                vec![GameMessage::Message {
+                    content: message,
+                    category,
+                    delay: message_delay,
+                }],
             )]
             .into(),
             should_tick,
@@ -161,9 +167,17 @@ impl ActionResultBuilder {
         self,
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionResultBuilder {
-        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+        self.with_game_message(
+            entity_id,
+            GameMessage::Message {
+                content: message,
+                category,
+                delay: message_delay,
+            },
+        )
     }
 
     /// Adds a message to be sent to all the entities in the same location as another entity.
@@ -172,13 +186,14 @@ impl ActionResultBuilder {
         source_entity: Entity,
         location: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
         world: &World,
     ) -> ActionResultBuilder {
         if let Some(container) = world.get::<Container>(location) {
             for entity in &container.entities {
                 if *entity != source_entity && can_receive_messages(world, *entity) {
-                    self = self.with_message(*entity, message.clone(), message_delay);
+                    self = self.with_message(*entity, message.clone(), category, message_delay);
                 }
             }
         }
@@ -233,12 +248,17 @@ impl ActionInterruptResult {
     pub fn message(
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionInterruptResult {
         ActionInterruptResult {
             messages: [(
                 entity_id,
-                vec![GameMessage::Message(message, message_delay)],
+                vec![GameMessage::Message {
+                    content: message,
+                    category,
+                    delay: message_delay,
+                }],
             )]
             .into(),
         }
@@ -274,9 +294,17 @@ impl ActionInterruptResultBuilder {
         self,
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionInterruptResultBuilder {
-        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+        self.with_game_message(
+            entity_id,
+            GameMessage::Message {
+                content: message,
+                category,
+                delay: message_delay,
+            },
+        )
     }
 
     /// Adds an error message to be sent to an entity.

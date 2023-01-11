@@ -14,7 +14,8 @@ use crate::{
     },
     notification::VerifyResult,
     resource::get_fluid_name,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -288,8 +289,14 @@ impl Action for PourAction {
 
         let message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
 
+        //TODO include message for other entities
         ActionResult::builder()
-            .with_message(performing_entity, message, MessageDelay::Short)
+            .with_message(
+                performing_entity,
+                message,
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::Short,
+            )
             .build_complete_should_tick(true)
     }
 
@@ -297,6 +304,7 @@ impl Action for PourAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop pouring.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

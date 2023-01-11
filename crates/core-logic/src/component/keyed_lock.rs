@@ -10,7 +10,7 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    AttributeDescription, GameMessage, MessageDelay,
+    AttributeDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
 };
 
 use super::{
@@ -110,6 +110,7 @@ impl Action for LockAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already locked.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -117,6 +118,7 @@ impl Action for LockAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already unlocked.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -157,9 +159,11 @@ impl Action for LockAction {
             "".to_string()
         };
 
+        //TODO include message for other entities
         ActionResult::message(
             performing_entity,
             format!("You {key_message}{lock_or_unlock} {name}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
             true,
         )
@@ -174,6 +178,7 @@ impl Action for LockAction {
         ActionInterruptResult::message(
             performing_entity,
             format!("You stop {locking_or_unlocking}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
@@ -317,7 +322,11 @@ pub fn prevent_opening_locked_keyed_locks(
                     });
                 return VerifyResult::invalid(
                     notification.notification_type.performing_entity,
-                    GameMessage::Message(message, MessageDelay::Short),
+                    GameMessage::Message {
+                        content: message,
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                        delay: MessageDelay::Short,
+                    },
                 );
             }
         }

@@ -8,7 +8,8 @@ use crate::{
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, Direction, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -82,12 +83,14 @@ impl Action for MoveAction {
                 .with_message(
                     performing_entity,
                     format!("You walk {}.", self.direction),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Long,
                 )
                 .with_message_for_other_entities_in_location(
                     performing_entity,
                     current_location_id,
                     format!("{entity_name} walks {}.", self.direction),
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyMovement),
                     MessageDelay::Short,
                     world,
                 )
@@ -98,6 +101,7 @@ impl Action for MoveAction {
                         "{entity_name} walks in from the {}.",
                         self.direction.opposite()
                     ),
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyMovement),
                     MessageDelay::Short,
                     world,
                 );
@@ -119,6 +123,7 @@ impl Action for MoveAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop moving.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

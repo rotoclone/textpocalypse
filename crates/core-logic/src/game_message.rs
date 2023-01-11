@@ -38,8 +38,51 @@ pub enum GameMessage {
     Vitals(VitalsDescription),
     ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
-    Message(String, MessageDelay),
+    Message {
+        content: String,
+        category: MessageCategory,
+        delay: MessageDelay,
+    },
     Error(String),
+}
+
+/// The category of a game message.
+#[derive(Debug, Clone, Copy)]
+pub enum MessageCategory {
+    /// A message from an entity's surroundings.
+    Surroundings(SurroundingsMessageCategory),
+    /// A message from the entity itself.
+    Internal(InternalMessageCategory),
+}
+
+/// A message from an entity's surroundings.
+#[derive(Debug, Clone, Copy)]
+pub enum SurroundingsMessageCategory {
+    // Someone saying something.
+    Speech,
+    // A non-speech sound.
+    Sound,
+    // Messages that are just for flavor, like describing wind whistling through the trees.
+    Flavor,
+    // A neutral or friendly entity entering or leaving the room.
+    NonEnemyMovement,
+    // A non-movement action performed by a neutral or friendly entity.
+    NonEnemyAction,
+    // An enemy entity entering or leaving the room.
+    EnemyMovement,
+    // A non-movement action performed by an enemy entity.
+    EnemyAction,
+}
+
+/// A message from the entity itself.
+#[derive(Debug, Clone, Copy)]
+pub enum InternalMessageCategory {
+    // The entity saying something.
+    Speech,
+    // A description of an action being performed.
+    Action,
+    // A miscellaneous message, perhaps just to provide context to another message.
+    Misc,
 }
 
 /// The amount of time to wait before any additional messages are displayed.

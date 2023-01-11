@@ -12,7 +12,8 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -126,6 +127,7 @@ impl Action for DrinkAction {
             .with_message(
                 performing_entity,
                 format!("You take a drink from {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
             .build_complete_should_tick(true)
@@ -135,6 +137,7 @@ impl Action for DrinkAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop drinking.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

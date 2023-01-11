@@ -7,7 +7,8 @@ use crate::{
     component::{AfterActionNotification, SleepState, Vitals},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -90,6 +91,7 @@ impl Action for SleepAction {
             result_builder = result_builder.with_message(
                 performing_entity,
                 "You close your eyes and drift off to sleep.".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
             );
         }
@@ -110,6 +112,7 @@ impl Action for SleepAction {
                 .with_message(
                     performing_entity,
                     "You open your eyes.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
                 .build_complete_should_tick(true);
@@ -124,6 +127,7 @@ impl Action for SleepAction {
         ActionInterruptResult::message(
             performing_entity,
             "You wake with a start.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

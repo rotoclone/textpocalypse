@@ -10,7 +10,8 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -91,6 +92,7 @@ impl Action for EatAction {
             .with_message(
                 performing_entity,
                 format!("You eat {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
             .with_post_effect(Box::new(move |w| despawn_entity(target, w)))
@@ -101,6 +103,7 @@ impl Action for EatAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop eating.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

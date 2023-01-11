@@ -8,7 +8,8 @@ use crate::{
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -179,7 +180,7 @@ impl InputParser for PutParser {
 fn parse_targets(
     input: &str,
 ) -> Result<(String, CommandTarget, CommandTarget, CommandTarget), InputParseError> {
-    //TODO disallow picking up living entities
+    //TODO disallow picking up living entities and doors and stuff
 
     // getting an item from something
     if let Some(captures) = GET_FROM_PATTERN.captures(input) {
@@ -290,11 +291,13 @@ impl Action for PutAction {
 
         let mut result_builder = ActionResult::builder();
 
+        //TODO include messages for other entities
         if self.destination == performing_entity {
             if self.source == performing_entity_location {
                 result_builder = result_builder.with_message(
                     performing_entity,
                     format!("You pick up {item_name}."),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
             } else {
@@ -302,6 +305,7 @@ impl Action for PutAction {
                 result_builder = result_builder.with_message(
                     performing_entity,
                     format!("You get {item_name} from {source_name}."),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
             }
@@ -309,6 +313,7 @@ impl Action for PutAction {
             result_builder = result_builder.with_message(
                 performing_entity,
                 format!("You drop {item_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
         } else {
@@ -317,6 +322,7 @@ impl Action for PutAction {
             result_builder = result_builder.with_message(
                 performing_entity,
                 format!("You put {item_name} into {destination_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
         }
@@ -328,6 +334,7 @@ impl Action for PutAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop moving items.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

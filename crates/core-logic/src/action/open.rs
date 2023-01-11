@@ -10,7 +10,8 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -106,6 +107,7 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already open.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -113,6 +115,7 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already closed.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -123,16 +126,20 @@ impl Action for OpenAction {
 
         let name = get_reference_name(self.target, Some(performing_entity), world);
         if self.should_be_open {
+            //TODO include message for other entities
             ActionResult::message(
                 performing_entity,
                 format!("You open {name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
                 true,
             )
         } else {
+            //TODO include message for other entities
             ActionResult::message(
                 performing_entity,
                 format!("You close {name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
                 true,
             )
@@ -143,6 +150,7 @@ impl Action for OpenAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop opening.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
