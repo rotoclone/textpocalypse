@@ -1,7 +1,12 @@
-use bevy_ecs::prelude::*;
-use flume::Sender;
+use std::collections::HashMap;
 
-use crate::{GameMessage, Time};
+use bevy_ecs::prelude::*;
+use flume::{SendError, Sender};
+use strum::IntoEnumIterator;
+
+use crate::{
+    GameMessage, InternalMessageCategory, MessageCategory, SurroundingsMessageCategory, Time,
+};
 
 /// A unique identifier for a player.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -18,6 +23,132 @@ impl PlayerId {
 pub struct Player {
     /// The unique ID of the player.
     pub id: PlayerId,
-    /// The sender to use to send messages to the entity.
-    pub sender: Sender<(GameMessage, Time)>,
+    /// The sender to use to send messages to the player.
+    sender: Sender<(GameMessage, Time)>,
+    /// Filter for messages to send to the player.
+    pub message_filter: MessageFilter,
+}
+
+impl Player {
+    /// Creates a player with the provided ID and message sender.
+    pub fn new(id: PlayerId, sender: Sender<(GameMessage, Time)>) -> Player {
+        Player {
+            id,
+            sender,
+            message_filter: MessageFilter::new(),
+        }
+    }
+
+    /// Sends a message to this player. Returns any errors from the message sender.
+    pub fn send_message(
+        &self,
+        message: GameMessage,
+        time: Time,
+    ) -> Result<(), SendError<(GameMessage, Time)>> {
+        if self.message_filter.accept(&message) {
+            self.sender.send((message, time))?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Keeps track of messages to be filtered.
+pub struct MessageFilter {
+    /// The number of active filters for different message categories.
+    categories: HashMap<MessageCategory, usize>,
+}
+
+impl MessageFilter {
+    /// Creates a message filter that doesn't filter any messages.
+    pub fn new() -> MessageFilter {
+        MessageFilter {
+            categories: HashMap::new(),
+        }
+    }
+
+    /// Adds filters for all `MessageCategory::Internal` messages.
+    pub fn filter_all_internal(&mut self) -> &mut Self {
+        for category in InternalMessageCategory::iter() {
+            self.filter(MessageCategory::Internal(category));
+        }
+
+        self
+    }
+
+    /// Removes filters for all `MessageCategory::Internal` messages.
+    pub fn unfilter_all_internal(&mut self) -> &mut Self {
+        for category in InternalMessageCategory::iter() {
+            self.unfilter(MessageCategory::Internal(category));
+        }
+
+        self
+    }
+
+    /// Adds filters for all `MessageCategory::Surroundings` messages.
+    pub fn filter_all_surroundings(&mut self) -> &mut Self {
+        self.filter_all_surroundings_except(&[])
+    }
+
+    /// Adds filters for all `MessageCategory::Surroundings` messages except ones in the provided list.
+    pub fn filter_all_surroundings_except(
+        &mut self,
+        exceptions: &[SurroundingsMessageCategory],
+    ) -> &mut Self {
+        for category in SurroundingsMessageCategory::iter() {
+            if !exceptions.contains(&category) {
+                self.filter(MessageCategory::Surroundings(category));
+            }
+        }
+
+        self
+    }
+
+    /// Removes filters for all `MessageCategory::Surroundings` messages.
+    pub fn unfilter_all_surroundings(&mut self) -> &mut Self {
+        self.unfilter_all_surroundings_except(&[])
+    }
+
+    /// Removes filters for all `MessageCategory::Surroundings` messages except ones in the provided list.
+    pub fn unfilter_all_surroundings_except(
+        &mut self,
+        exceptions: &[SurroundingsMessageCategory],
+    ) -> &mut Self {
+        for category in SurroundingsMessageCategory::iter() {
+            if !exceptions.contains(&category) {
+                self.unfilter(MessageCategory::Surroundings(category));
+            }
+        }
+
+        self
+    }
+
+    /// Adds a filter for messages in the provided category.
+    pub fn filter(&mut self, category: MessageCategory) -> &mut Self {
+        *self.categories.entry(category).or_insert(0) += 1;
+
+        self
+    }
+
+    /// Removes a filter for messages in the provided category.
+    pub fn unfilter(&mut self, category: MessageCategory) -> &mut Self {
+        let active_filters = self.categories.entry(category).or_insert(0);
+        *active_filters = active_filters.saturating_sub(1);
+
+        self
+    }
+
+    /// Returns `false` if the message should be filtered, `true` otherwise.
+    pub fn accept(&self, message: &GameMessage) -> bool {
+        let category = match message {
+            GameMessage::Message { category, .. } => category,
+            _ => return true,
+        };
+
+        if self.categories.get(category).unwrap_or(&0) > &0 {
+            return false;
+        }
+
+        true
+    }
 }

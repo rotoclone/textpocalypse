@@ -3,6 +3,7 @@ use std::{array, iter::once};
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use strum::EnumIter;
 
 use crate::{
     color::Color,
@@ -47,7 +48,7 @@ pub enum GameMessage {
 }
 
 /// The category of a game message.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MessageCategory {
     /// A message from an entity's surroundings.
     Surroundings(SurroundingsMessageCategory),
@@ -56,7 +57,7 @@ pub enum MessageCategory {
 }
 
 /// A message from an entity's surroundings.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum SurroundingsMessageCategory {
     // Someone saying something.
     Speech,
@@ -75,7 +76,7 @@ pub enum SurroundingsMessageCategory {
 }
 
 /// A message from the entity itself.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum InternalMessageCategory {
     // The entity saying something.
     Speech,

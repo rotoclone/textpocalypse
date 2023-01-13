@@ -155,10 +155,7 @@ impl Game {
         // add the player to the world
         let mut world = self.world.write().unwrap();
         let spawn_room_id = find_spawn_room(&world);
-        let player = Player {
-            id: player_id,
-            sender: messages_sender,
-        };
+        let player = Player::new(player_id, messages_sender);
         let player_entity = spawn_player(name, player, spawn_room_id, &mut world);
         self.spawn_command_thread(player_id, commands_receiver);
 
@@ -380,8 +377,7 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
 /// Sends a message to the provided player. Panics if the channel's message receiver has been dropped.
 fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
     player
-        .sender
-        .send((message, time))
+        .send_message(message, time)
         .expect("Message receiver should exist");
 }
 

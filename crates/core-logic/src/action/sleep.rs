@@ -4,7 +4,7 @@ use rand::Rng;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, SleepState, Vitals},
+    component::{AfterActionNotification, Player, SleepState, Vitals},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -166,6 +166,10 @@ impl Action for SleepAction {
 
 /// Makes an entity be sleeping.
 fn fall_asleep(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player.message_filter.filter_all_surroundings();
+    }
+
     world
         .entity_mut(entity)
         .insert(SleepState { is_asleep: true });
@@ -173,6 +177,10 @@ fn fall_asleep(entity: Entity, world: &mut World) {
 
 /// Makes an entity be not sleeping.
 fn wake_up(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player.message_filter.unfilter_all_surroundings();
+    }
+
     world
         .entity_mut(entity)
         .insert(SleepState { is_asleep: false });
