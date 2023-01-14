@@ -4,7 +4,6 @@ use regex::Regex;
 
 use crate::{
     component::{AfterActionNotification, Container, Location},
-    get_reference_name,
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
@@ -12,7 +11,10 @@ use crate::{
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -77,8 +79,6 @@ impl Action for MoveAction {
             should_tick = true;
             was_successful = true;
 
-            let entity_name = get_reference_name(performing_entity, None, world);
-
             result_builder = result_builder
                 .with_message(
                     performing_entity,
@@ -86,23 +86,30 @@ impl Action for MoveAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Long,
                 )
-                .with_message_for_other_entities_in_location(
+                .with_third_person_message(
                     performing_entity,
-                    current_location_id,
-                    format!("{entity_name} walks {}.", self.direction),
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyMovement),
-                    MessageDelay::Short,
+                    ThirdPersonMessageLocation::Location(current_location_id),
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(
+                            SurroundingsMessageCategory::NonEnemyMovement,
+                        ),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(format!(" walks {}.", self.direction)),
                     world,
                 )
-                .with_message_for_other_entities_in_location(
+                .with_third_person_message(
                     performing_entity,
-                    new_room_id,
-                    format!(
-                        "{entity_name} walks in from the {}.",
-                        self.direction.opposite()
-                    ),
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyMovement),
-                    MessageDelay::Short,
+                    ThirdPersonMessageLocation::Location(new_room_id),
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(
+                            SurroundingsMessageCategory::NonEnemyMovement,
+                        ),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(format!(" walks in from the {}.", self.direction.opposite())),
                     world,
                 );
         } else {

@@ -3,15 +3,17 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Location},
-    get_reference_name,
+    component::AfterActionNotification,
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const SAY_VERB_NAME: &str = "say";
 const SAY_FORMAT: &str = "say <>";
@@ -59,28 +61,27 @@ pub struct SayAction {
 
 impl Action for SayAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let speaker_name = get_reference_name(performing_entity, None, world);
         let text = &self.text;
 
-        let mut result_builder = ActionResult::builder().with_message(
-            performing_entity,
-            format!("You say, \"{text}\""),
-            MessageCategory::Internal(InternalMessageCategory::Speech),
-            MessageDelay::Short,
-        );
-
-        if let Some(location) = world.get::<Location>(performing_entity) {
-            result_builder = result_builder.with_message_for_other_entities_in_location(
+        ActionResult::builder()
+            .with_message(
                 performing_entity,
-                location.id,
-                format!("{speaker_name} says, \"{text}\""),
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
+                format!("You say, \"{text}\""),
+                MessageCategory::Internal(InternalMessageCategory::Speech),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                performing_entity,
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(format!(" says, \"{text}\"")),
                 world,
-            );
-        }
-
-        result_builder.build_complete_no_tick(true)
+            )
+            .build_complete_no_tick(true)
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {

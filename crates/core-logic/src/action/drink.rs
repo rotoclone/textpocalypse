@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, FluidContainer, FluidType, Location, Volume},
+    component::{AfterActionNotification, FluidContainer, FluidType, Volume},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -16,7 +16,10 @@ use crate::{
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
@@ -123,28 +126,26 @@ impl Action for DrinkAction {
 
         self.fluids_to_volume_drank = container.contents.reduce(self.amount);
 
-        let performing_entity_name = get_reference_name(performing_entity, None, world);
-        let third_person_target_name = get_reference_name(self.target, None, world);
-
-        let mut result_builder = ActionResult::builder().with_message(
-            performing_entity,
-            format!("You take a drink from {target_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        );
-
-        if let Some(location) = world.get::<Location>(performing_entity) {
-            result_builder = result_builder.with_message_for_other_entities_in_location(
+        ActionResult::builder()
+            .with_message(
                 performing_entity,
-                location.id,
-                format!("{performing_entity_name} takes a drink from {third_person_target_name}."),
-                MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyAction),
+                format!("You take a drink from {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                performing_entity,
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyAction),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" takes a drink from ".to_string())
+                .add_entity_name(self.target),
                 world,
-            );
-        }
-
-        result_builder.build_complete_should_tick(true)
+            )
+            .build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
