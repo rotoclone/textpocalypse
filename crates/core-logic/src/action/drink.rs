@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, FluidContainer, FluidType, Volume},
+    component::{AfterActionNotification, FluidContainer, FluidType, Location, Volume},
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -13,7 +13,7 @@ use crate::{
     },
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -123,14 +123,28 @@ impl Action for DrinkAction {
 
         self.fluids_to_volume_drank = container.contents.reduce(self.amount);
 
-        ActionResult::builder()
-            .with_message(
+        let performing_entity_name = get_reference_name(performing_entity, None, world);
+        let third_person_target_name = get_reference_name(self.target, None, world);
+
+        let mut result_builder = ActionResult::builder().with_message(
+            performing_entity,
+            format!("You take a drink from {target_name}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
+            MessageDelay::Short,
+        );
+
+        if let Some(location) = world.get::<Location>(performing_entity) {
+            result_builder = result_builder.with_message_for_other_entities_in_location(
                 performing_entity,
-                format!("You take a drink from {target_name}."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
+                location.id,
+                format!("{performing_entity_name} takes a drink from {third_person_target_name}."),
+                MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyAction),
                 MessageDelay::Short,
-            )
-            .build_complete_should_tick(true)
+                world,
+            );
+        }
+
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {

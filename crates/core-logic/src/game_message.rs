@@ -14,6 +14,7 @@ use crate::{
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
+    is_living_entity,
     value_change::ValueType,
     ConstrainedValue, Direction,
 };
@@ -367,7 +368,7 @@ impl RoomEntityDescription {
     /// Creates a room entity description for the provided entity.
     pub fn from_entity(entity: Entity, world: &World) -> Option<RoomEntityDescription> {
         if let Some(desc) = world.get::<Description>(entity) {
-            if world.get::<Vitals>(entity).is_some() {
+            if is_living_entity(entity, world) {
                 Some(RoomEntityDescription::Living(RoomLivingEntityDescription {
                     name: desc.room_name.clone(),
                     plural_name: desc.plural_name.clone(),

@@ -507,6 +507,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         .unwrap_or_else(|| "".to_string());
 
     let mut entity_ref = world.entity_mut(entity);
+    entity_ref.remove::<Vitals>();
     if let Some(desc) = entity_ref.remove::<Description>() {
         let mut aliases = desc.aliases;
         aliases.push("dead body".to_string());
@@ -577,32 +578,34 @@ fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World)
 
 /// Gets the definite article to use when referring to the provided entity.
 ///
-/// If the entity has an article defined in its description, this will return `Some("the")` or `Some("your")` depending on if `pov_entity` is holding it.
-/// Otherwise, this will return `None`.
+/// If `pov_entity` is holding it, this will return `Some("your")`.
+///
+/// If some other entity is holding it, this will return `Some("their")`.
+///
+/// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
 fn get_definite_article(
     entity: Entity,
     pov_entity: Option<Entity>,
     world: &World,
 ) -> Option<String> {
-    let in_entity = if let Some(pov_entity) = pov_entity {
-        world
-            .get::<Container>(pov_entity)
-            .map(|c| c.contains_recursive(entity, world))
-            .unwrap_or(false)
-    } else {
-        false
-    };
+    let holding_entity = find_holding_entity(entity, world);
 
     let desc = world.get::<Description>(entity);
-    if in_entity {
-        Some("your".to_string())
-    } else {
-        if let Some(desc) = desc {
-            // return `None` if the entity has no article
-            desc.article.as_ref()?;
+    if let Some(holding_entity) = holding_entity {
+        if let Some(pov_entity) = pov_entity {
+            if holding_entity == pov_entity {
+                return Some("your".to_string());
+            }
         }
-        Some("the".to_string())
+
+        return Some("their".to_string());
     }
+
+    if let Some(desc) = desc {
+        // return `None` if the entity has no article
+        desc.article.as_ref()?;
+    }
+    Some("the".to_string())
 }
 
 /// Determines the total weight of an entity.
@@ -658,4 +661,22 @@ fn get_weight_recursive(
 /// Determines the volume of an entity.
 fn get_volume(entity: Entity, world: &World) -> Volume {
     world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
+}
+
+/// Determines if an entity is living or not.
+fn is_living_entity(entity: Entity, world: &World) -> bool {
+    world.get::<Vitals>(entity).is_some()
+}
+
+/// Finds the living entity that currently controls the provided entity (i.e. it is holding it or holding a container that contains it)
+fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
+    if let Some(location) = world.get::<Location>(entity) {
+        if is_living_entity(location.id, world) {
+            return Some(location.id);
+        }
+
+        return find_holding_entity(location.id, world);
+    }
+
+    None
 }
