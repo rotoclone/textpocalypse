@@ -82,6 +82,9 @@ pub use wander_behavior::WanderBehavior;
 mod greet_behavior;
 pub use greet_behavior::GreetBehavior;
 
+mod item;
+pub use item::Item;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 

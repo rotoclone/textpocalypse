@@ -4,8 +4,8 @@ use crate::{
     color::Color,
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
-        FluidContainer, FluidType, GreetBehavior, KeyId, KeyedLock, OpenState, ParseCustomInput,
-        Respawner, Room, SleepState, Vitals, Volume, WanderBehavior, Weight,
+        FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
+        ParseCustomInput, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -358,6 +358,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Edible,
             Calories(300),
             Volume(0.1),
@@ -380,6 +381,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(5.0),
             Weight(1.0),
         ))
@@ -400,6 +402,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.1),
             Weight(0.1),
             middle_room_north_door_key_id,
@@ -422,6 +425,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(5.0),
             Weight(0.5),
             Container::new(Some(Volume(5.0)), None),
@@ -443,6 +447,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.5),
             Weight(15.0),
         ))
@@ -463,6 +468,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.5),
             Weight(15.0),
         ))
@@ -484,6 +490,7 @@ pub fn spawn_start_building(
                     FluidContainer::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(2.0),
             Weight(1.0),
             FluidContainer {

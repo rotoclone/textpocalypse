@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use crate::component::{AfterActionNotification, Container};
-use crate::notification::{Notification, VerifyResult};
+use crate::notification::{Notification, VerifyNotificationHandlers, VerifyResult};
 use crate::{
     can_receive_messages, BeforeActionNotification, MessageCategory, MessageDelay,
     VerifyActionNotification,
@@ -60,6 +60,16 @@ pub use sleep::SleepParser;
 mod say;
 pub use say::SayAction;
 pub use say::SayParser;
+
+/// Registers notification handlers related to actions.
+pub fn register_action_handlers(world: &mut World) {
+    VerifyNotificationHandlers::add_handler(
+        put::verify_source_and_destination_are_containers,
+        world,
+    );
+    VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
+    VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
+}
 
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
 

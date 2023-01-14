@@ -134,6 +134,7 @@ impl Game {
 
         world.insert_resource(SpawnRoom(spawn_room_coords));
 
+        register_action_handlers(&mut world);
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
 
@@ -174,6 +175,7 @@ impl Game {
                         Weight::get_attribute_describer(),
                     ],
                 },
+                Item,
                 Volume(0.25),
                 Weight(0.5),
             ))
@@ -194,6 +196,7 @@ impl Game {
                         Weight::get_attribute_describer(),
                     ],
                 },
+                Item,
                 Volume(0.5),
                 Weight(15.0),
             ))
@@ -215,6 +218,7 @@ impl Game {
                         FluidContainer::get_attribute_describer(),
                     ],
                 },
+                Item,
                 Volume(0.5),
                 Weight(0.1),
                 FluidContainer {
