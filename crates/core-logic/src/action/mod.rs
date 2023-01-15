@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use crate::component::{AfterActionNotification, Container, Location};
 use crate::notification::{Notification, VerifyNotificationHandlers, VerifyResult};
 use crate::{
-    can_receive_messages, get_reference_name, BeforeActionNotification, MessageCategory,
-    MessageDelay, VerifyActionNotification,
+    can_receive_messages, get_reference_name, send_message, BeforeActionNotification,
+    MessageCategory, MessageDelay, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -106,19 +106,40 @@ impl ThirdPersonMessage {
         self
     }
 
-    /// Builds messages for entities in `location` due to an action from `source_entity`.
+    /// Sends the message(s). If provided, no messages will be sent to `source_entity`.
+    pub fn send(
+        self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        world: &World,
+    ) {
+        for (entity, message) in self.into_game_messages(source_entity, message_location, world) {
+            send_message(world, entity, message);
+        }
+    }
+
+    /// Builds messages for entities in `location`, excluding `source_entity` if provided.
     fn into_game_messages(
         self,
-        source_entity: Entity,
-        location: Entity,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
         world: &World,
     ) -> HashMap<Entity, GameMessage> {
         let mut message_map = HashMap::new();
 
-        if let Some(container) = world.get::<Container>(location) {
-            for entity in &container.entities {
-                if *entity != source_entity && can_receive_messages(world, *entity) {
-                    message_map.insert(*entity, self.to_game_message_for(*entity, world));
+        let location = match message_location {
+            ThirdPersonMessageLocation::SourceEntity => source_entity
+                .and_then(|e| world.get::<Location>(e))
+                .map(|loc| loc.id),
+            ThirdPersonMessageLocation::Location(e) => Some(e),
+        };
+
+        if let Some(location) = location {
+            if let Some(container) = world.get::<Container>(location) {
+                for entity in &container.entities {
+                    if Some(*entity) != source_entity && can_receive_messages(world, *entity) {
+                        message_map.insert(*entity, self.to_game_message_for(*entity, world));
+                    }
                 }
             }
         }
@@ -295,27 +316,18 @@ impl ActionResultBuilder {
         )
     }
 
-    /// Adds messages to be sent to entities in `message_location` due to an action from `source_entity`.
+    /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
     pub fn with_third_person_message(
         mut self,
-        source_entity: Entity,
+        source_entity: Option<Entity>,
         message_location: ThirdPersonMessageLocation,
         third_person_message: ThirdPersonMessage,
         world: &World,
     ) -> ActionResultBuilder {
-        let location = match message_location {
-            ThirdPersonMessageLocation::SourceEntity => {
-                world.get::<Location>(source_entity).map(|loc| loc.id)
-            }
-            ThirdPersonMessageLocation::Location(e) => Some(e),
-        };
-
-        if let Some(location) = location {
-            for (entity, message) in
-                third_person_message.into_game_messages(source_entity, location, world)
-            {
-                self = self.with_game_message(entity, message);
-            }
+        for (entity, message) in
+            third_person_message.into_game_messages(source_entity, message_location, world)
+        {
+            self = self.with_game_message(entity, message);
         }
 
         self

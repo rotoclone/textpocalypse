@@ -87,7 +87,7 @@ impl Action for MoveAction {
                     MessageDelay::Long,
                 )
                 .with_third_person_message(
-                    performing_entity,
+                    Some(performing_entity),
                     ThirdPersonMessageLocation::Location(current_location_id),
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(
@@ -100,7 +100,7 @@ impl Action for MoveAction {
                     world,
                 )
                 .with_third_person_message(
-                    performing_entity,
+                    Some(performing_entity),
                     ThirdPersonMessageLocation::Location(new_room_id),
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(

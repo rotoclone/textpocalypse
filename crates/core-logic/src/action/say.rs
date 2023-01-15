@@ -71,7 +71,7 @@ impl Action for SayAction {
                 MessageDelay::Short,
             )
             .with_third_person_message(
-                performing_entity,
+                Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),

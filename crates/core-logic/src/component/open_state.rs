@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::{
     action::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
-        OpenAction,
+        OpenAction, ThirdPersonMessage, ThirdPersonMessageLocation,
     },
     get_reference_name,
     input_parser::{
@@ -14,7 +14,7 @@ use crate::{
     },
     notification::{Notification, VerifyResult},
     BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -170,8 +170,26 @@ impl OpenState {
         // other side
         if let Some(other_side_id) = world.get::<Connection>(entity).and_then(|c| c.other_side) {
             if let Some(mut other_side_state) = world.get_mut::<OpenState>(other_side_id) {
-                other_side_state.is_open = should_be_open;
-                //TODO send messages to entities on the other side of the entity telling them it opened or closed
+                if other_side_state.is_open != should_be_open {
+                    other_side_state.is_open = should_be_open;
+
+                    if let Some(location) = world.get::<Location>(other_side_id) {
+                        let open_or_closed = if should_be_open { "open" } else { "closed" };
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(
+                                SurroundingsMessageCategory::NonEnemyAction,
+                            ),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(other_side_id)
+                        .add_string(format!(" swings {open_or_closed}."))
+                        .send(
+                            None,
+                            ThirdPersonMessageLocation::Location(location.id),
+                            world,
+                        );
+                    }
+                }
             }
         }
     }

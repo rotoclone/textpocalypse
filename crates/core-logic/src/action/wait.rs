@@ -137,6 +137,18 @@ struct WaitAction {
 
 impl Action for WaitAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        if self.waited_ticks == 0 && self.total_ticks_to_wait == 1 {
+            self.waited_ticks = 1;
+            return ActionResult::builder()
+                .with_message(
+                    performing_entity,
+                    "You wait for a bit.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                )
+                .build_complete_should_tick(true);
+        }
+
         if self.waited_ticks >= self.total_ticks_to_wait {
             remove_wait_filter(performing_entity, world);
 
@@ -168,7 +180,9 @@ impl Action for WaitAction {
     }
 
     fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
-        remove_wait_filter(performing_entity, world);
+        if self.total_ticks_to_wait > 1 {
+            remove_wait_filter(performing_entity, world);
+        }
 
         ActionInterruptResult::message(
             performing_entity,

@@ -134,7 +134,7 @@ impl Action for DrinkAction {
                 MessageDelay::Short,
             )
             .with_third_person_message(
-                performing_entity,
+                Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyAction),
@@ -142,7 +142,8 @@ impl Action for DrinkAction {
                 )
                 .add_entity_name(performing_entity)
                 .add_string(" takes a drink from ".to_string())
-                .add_entity_name(self.target),
+                .add_entity_name(self.target)
+                .add_string(".".to_string()),
                 world,
             )
             .build_complete_should_tick(true)
