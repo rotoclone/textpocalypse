@@ -66,14 +66,10 @@ pub enum SurroundingsMessageCategory {
     Sound,
     // Messages that are just for flavor, like describing wind whistling through the trees.
     Flavor,
-    // A neutral or friendly entity entering or leaving the room.
-    NonEnemyMovement,
-    // A non-movement action performed by a neutral or friendly entity.
-    NonEnemyAction,
-    // An enemy entity entering or leaving the room.
-    EnemyMovement,
-    // A non-movement action performed by an enemy entity.
-    EnemyAction,
+    // Someone entering or leaving the room.
+    Movement,
+    // Someone performing a non-movement action.
+    Action,
 }
 
 /// A message from the entity itself.

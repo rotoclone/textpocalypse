@@ -88,6 +88,7 @@ impl Action for SleepAction {
 
         if self.ticks_slept == 0 {
             fall_asleep(performing_entity, world);
+            //TODO add third-person message
             result_builder = result_builder.with_message(
                 performing_entity,
                 "You close your eyes and drift off to sleep.".to_string(),
@@ -108,6 +109,7 @@ impl Action for SleepAction {
                 && rand::thread_rng().gen::<f32>() <= WAKE_CHANCE_PER_TICK)
         {
             wake_up(performing_entity, world);
+            //TODO add third-person message
             return result_builder
                 .with_message(
                     performing_entity,
@@ -124,6 +126,7 @@ impl Action for SleepAction {
     fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
         wake_up(performing_entity, world);
 
+        //TODO add third-person message
         ActionInterruptResult::message(
             performing_entity,
             "You wake with a start.".to_string(),

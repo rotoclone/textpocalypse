@@ -15,10 +15,13 @@ use crate::{
     notification::VerifyResult,
     resource::get_fluid_name,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification, World,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const FILL_VERB_NAME: &str = "fill";
 const POUR_VERB_NAME: &str = "pour";
@@ -287,15 +290,29 @@ impl Action for PourAction {
             "fluid".to_string()
         };
 
-        let message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
+        let first_person_message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
 
-        //TODO include message for other entities
         ActionResult::builder()
             .with_message(
                 performing_entity,
-                message,
+                first_person_message,
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(format!(" pours some {fluid_name} from "))
+                .add_entity_name(self.source)
+                .add_string(" into ".to_string())
+                .add_entity_name(self.target)
+                .add_string(".".to_string()),
+                world,
             )
             .build_complete_should_tick(true)
     }

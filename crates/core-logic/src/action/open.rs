@@ -145,7 +145,7 @@ impl Action for OpenAction {
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
                 ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::NonEnemyAction),
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
                 .add_entity_name(performing_entity)

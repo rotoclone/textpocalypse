@@ -176,9 +176,7 @@ impl OpenState {
                     if let Some(location) = world.get::<Location>(other_side_id) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
                         ThirdPersonMessage::new(
-                            MessageCategory::Surroundings(
-                                SurroundingsMessageCategory::NonEnemyAction,
-                            ),
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                             MessageDelay::Short,
                         )
                         .add_entity_name(other_side_id)

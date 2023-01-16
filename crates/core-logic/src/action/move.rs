@@ -90,9 +90,7 @@ impl Action for MoveAction {
                     Some(performing_entity),
                     ThirdPersonMessageLocation::Location(current_location_id),
                     ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(
-                            SurroundingsMessageCategory::NonEnemyMovement,
-                        ),
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
                     )
                     .add_entity_name(performing_entity)
@@ -103,9 +101,7 @@ impl Action for MoveAction {
                     Some(performing_entity),
                     ThirdPersonMessageLocation::Location(new_room_id),
                     ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(
-                            SurroundingsMessageCategory::NonEnemyMovement,
-                        ),
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
                     )
                     .add_entity_name(performing_entity)

@@ -11,10 +11,13 @@ use crate::{
     },
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const EAT_VERB_NAME: &str = "eat";
 const EAT_FORMAT: &str = "eat <>";
@@ -84,9 +87,8 @@ pub struct EatAction {
 
 impl Action for EatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let target_name = get_reference_name(self.target, Some(performing_entity), world);
-
         let target = self.target;
+        let target_name = get_reference_name(target, Some(performing_entity), world);
 
         ActionResult::builder()
             .with_message(
@@ -94,6 +96,19 @@ impl Action for EatAction {
                 format!("You eat {target_name}."),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" eats ".to_string())
+                .add_entity_name(target)
+                .add_string(".".to_string()),
+                world,
             )
             .with_post_effect(Box::new(move |w| despawn_entity(target, w)))
             .build_complete_should_tick(true)
