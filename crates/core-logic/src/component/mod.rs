@@ -76,6 +76,15 @@ pub use fluid::FluidTypeAmount;
 mod sleep_state;
 pub use sleep_state::SleepState;
 
+mod wander_behavior;
+pub use wander_behavior::WanderBehavior;
+
+mod greet_behavior;
+pub use greet_behavior::GreetBehavior;
+
+mod item;
+pub use item::Item;
+
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 
@@ -104,4 +113,8 @@ pub fn register_component_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(fluid_container::verify_source_container, world);
     VerifyNotificationHandlers::add_handler(fluid_container::limit_fluid_container_contents, world);
+
+    NotificationHandlers::add_handler(wander_behavior::wander_on_tick, world);
+
+    NotificationHandlers::add_handler(greet_behavior::greet_new_entities, world);
 }

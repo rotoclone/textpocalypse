@@ -10,10 +10,14 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const OPEN_VERB_NAME: &str = "open";
 const CLOSE_VERB_NAME: &str = "close";
@@ -106,6 +110,7 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already open.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -113,6 +118,7 @@ impl Action for OpenAction {
                 return ActionResult::message(
                     performing_entity,
                     "It's already closed.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
                 );
@@ -121,28 +127,41 @@ impl Action for OpenAction {
 
         OpenState::set_open(self.target, self.should_be_open, world);
 
-        let name = get_reference_name(self.target, performing_entity, world);
-        if self.should_be_open {
-            ActionResult::message(
-                performing_entity,
-                format!("You open {name}."),
-                MessageDelay::Short,
-                true,
-            )
+        let target_name = get_reference_name(self.target, Some(performing_entity), world);
+        let (open_or_close, opens_or_closes) = if self.should_be_open {
+            ("open", "opens")
         } else {
-            ActionResult::message(
+            ("close", "closes")
+        };
+
+        ActionResult::builder()
+            .with_message(
                 performing_entity,
-                format!("You close {name}."),
+                format!("You {open_or_close} {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
-                true,
             )
-        }
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(format!(" {opens_or_closes} "))
+                .add_entity_name(self.target)
+                .add_string(".".to_string()),
+                world,
+            )
+            .build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
             "You stop opening.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

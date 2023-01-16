@@ -3,11 +3,12 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::AfterActionNotification,
+    component::{AfterActionNotification, Player},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -135,12 +136,27 @@ struct WaitAction {
 }
 
 impl Action for WaitAction {
-    fn perform(&mut self, performing_entity: Entity, _: &mut World) -> ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        if self.waited_ticks == 0 && self.total_ticks_to_wait == 1 {
+            self.waited_ticks = 1;
+            return ActionResult::builder()
+                .with_message(
+                    performing_entity,
+                    "You wait for a few seconds.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                )
+                .build_complete_should_tick(true);
+        }
+
         if self.waited_ticks >= self.total_ticks_to_wait {
+            remove_wait_filter(performing_entity, world);
+
             return ActionResult::builder()
                 .with_message(
                     performing_entity,
                     "You finish waiting.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
                 .build_complete_no_tick(true);
@@ -149,9 +165,12 @@ impl Action for WaitAction {
         let mut result_builder = ActionResult::builder();
 
         if self.waited_ticks == 0 {
+            add_wait_filter(performing_entity, world);
+
             result_builder = result_builder.with_message(
                 performing_entity,
                 "You start waiting...".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
             );
         }
@@ -160,10 +179,15 @@ impl Action for WaitAction {
         result_builder.build_incomplete(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
+        if self.total_ticks_to_wait > 1 {
+            remove_wait_filter(performing_entity, world);
+        }
+
         ActionInterruptResult::message(
             performing_entity,
             "You stop waiting.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
@@ -197,5 +221,23 @@ impl Action for WaitAction {
     ) {
         self.notification_sender
             .send_after_notification(notification_type, self, world);
+    }
+}
+
+/// Applies filters for messages that shouldn't be sent to waiting entities.
+fn add_wait_filter(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player
+            .message_filter
+            .filter_all_surroundings_except(&[SurroundingsMessageCategory::Speech]);
+    }
+}
+
+/// Removes filters for messages that shouldn't be sent to waiting entities.
+fn remove_wait_filter(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player
+            .message_filter
+            .unfilter_all_surroundings_except(&[SurroundingsMessageCategory::Speech]);
     }
 }

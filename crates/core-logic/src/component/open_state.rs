@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::{
     action::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
-        OpenAction,
+        OpenAction, ThirdPersonMessage, ThirdPersonMessageLocation,
     },
     get_reference_name,
     input_parser::{
@@ -13,7 +13,8 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -92,6 +93,7 @@ impl Action for SlamAction {
             return ActionResult::message(
                 performing_entity,
                 "It's already closed.".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Misc),
                 MessageDelay::Short,
                 false,
             );
@@ -99,10 +101,11 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        let name = get_reference_name(self.target, performing_entity, world);
+        let name = get_reference_name(self.target, Some(performing_entity), world);
         ActionResult::message(
             performing_entity,
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Long,
             true,
         )
@@ -112,6 +115,7 @@ impl Action for SlamAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop slamming.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
@@ -166,8 +170,25 @@ impl OpenState {
         // other side
         if let Some(other_side_id) = world.get::<Connection>(entity).and_then(|c| c.other_side) {
             if let Some(mut other_side_state) = world.get_mut::<OpenState>(other_side_id) {
-                other_side_state.is_open = should_be_open;
-                //TODO send messages to entities on the other side of the entity telling them it opened or closed
+                if other_side_state.is_open != should_be_open {
+                    other_side_state.is_open = should_be_open;
+
+                    // send messages to entities on the other side
+                    if let Some(location) = world.get::<Location>(other_side_id) {
+                        let open_or_closed = if should_be_open { "open" } else { "closed" };
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(other_side_id)
+                        .add_string(format!(" swings {open_or_closed}."))
+                        .send(
+                            None,
+                            ThirdPersonMessageLocation::Location(location.id),
+                            world,
+                        );
+                    }
+                }
             }
         }
     }
@@ -259,7 +280,11 @@ pub fn prevent_moving_through_closed_connections(
                             });
                         return VerifyResult::invalid(
                             notification.notification_type.performing_entity,
-                            GameMessage::Message(message, MessageDelay::Short),
+                            GameMessage::Message {
+                                content: message,
+                                category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                                delay: MessageDelay::Short,
+                            },
                         );
                     }
                 }

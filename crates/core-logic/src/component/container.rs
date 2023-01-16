@@ -172,11 +172,12 @@ pub fn limit_container_contents(
             .map(|e| get_weight(*e, world))
             .sum::<Weight>();
         if used_weight + item_weight > *max_weight {
-            let item_name = get_reference_name(item, performing_entity, world);
+            let item_name = get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too heavy for you to hold.")
             } else {
-                let destination_name = get_reference_name(destination, performing_entity, world);
+                let destination_name =
+                    get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} is too heavy for {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
@@ -191,11 +192,12 @@ pub fn limit_container_contents(
             .map(|e| get_volume(*e, world))
             .sum::<Volume>();
         if used_volume + item_volume > *max_volume {
-            let item_name = get_reference_name(item, performing_entity, world);
+            let item_name = get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too big for you to hold.")
             } else {
-                let destination_name = get_reference_name(destination, performing_entity, world);
+                let destination_name =
+                    get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} won't fit in {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));

@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::component::AfterActionNotification;
-use crate::notification::{Notification, VerifyResult};
-use crate::{BeforeActionNotification, MessageDelay, VerifyActionNotification};
+use crate::component::{AfterActionNotification, Container, Location};
+use crate::notification::{Notification, VerifyNotificationHandlers, VerifyResult};
+use crate::{
+    can_receive_messages, get_reference_name, send_message, BeforeActionNotification,
+    MessageCategory, MessageDelay, VerifyActionNotification,
+};
 use crate::{GameMessage, World};
 
 mod look;
@@ -54,6 +57,147 @@ mod sleep;
 pub use sleep::SleepAction;
 pub use sleep::SleepParser;
 
+mod say;
+pub use say::SayAction;
+pub use say::SayParser;
+
+/// Registers notification handlers related to actions.
+pub fn register_action_handlers(world: &mut World) {
+    VerifyNotificationHandlers::add_handler(
+        put::verify_source_and_destination_are_containers,
+        world,
+    );
+    VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
+    VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
+    VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
+}
+
+/// A message caused by some other entity's action.
+pub struct ThirdPersonMessage {
+    /// The parts of the message.
+    pub parts: Vec<MessagePart>,
+    /// The category of the message.
+    pub category: MessageCategory,
+    /// The delay of the message.
+    pub delay: MessageDelay,
+}
+
+impl ThirdPersonMessage {
+    /// Creates a message with no parts.
+    pub fn new(category: MessageCategory, delay: MessageDelay) -> ThirdPersonMessage {
+        ThirdPersonMessage {
+            parts: Vec::new(),
+            category,
+            delay,
+        }
+    }
+
+    /// Adds a string to the message.
+    pub fn add_string<T: Into<String>>(mut self, string: T) -> ThirdPersonMessage {
+        self.parts.push(MessagePart::String(string.into()));
+
+        self
+    }
+
+    /// Adds an entity name token to the message.
+    pub fn add_entity_name(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::EntityName(entity)));
+
+        self
+    }
+
+    /// Sends the message(s). No messages will be sent to `source_entity` if provided.
+    pub fn send(
+        self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        world: &World,
+    ) {
+        for (entity, message) in self.into_game_messages(source_entity, message_location, world) {
+            send_message(world, entity, message);
+        }
+    }
+
+    /// Builds messages for entities in `location`, excluding `source_entity` if provided.
+    fn into_game_messages(
+        self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        world: &World,
+    ) -> HashMap<Entity, GameMessage> {
+        let mut message_map = HashMap::new();
+
+        let location = match message_location {
+            ThirdPersonMessageLocation::SourceEntity => source_entity
+                .and_then(|e| world.get::<Location>(e))
+                .map(|loc| loc.id),
+            ThirdPersonMessageLocation::Location(e) => Some(e),
+        };
+
+        if let Some(location) = location {
+            if let Some(container) = world.get::<Container>(location) {
+                for entity in &container.entities {
+                    if Some(*entity) != source_entity && can_receive_messages(world, *entity) {
+                        message_map.insert(*entity, self.to_game_message_for(*entity, world));
+                    }
+                }
+            }
+        }
+
+        message_map
+    }
+
+    /// Builds a message for the provided entity.
+    fn to_game_message_for(&self, pov_entity: Entity, world: &World) -> GameMessage {
+        let mut resolved_parts = Vec::new();
+
+        for part in &self.parts {
+            match part {
+                MessagePart::String(s) => resolved_parts.push(s.to_string()),
+                MessagePart::Token(t) => resolved_parts.push(t.to_string(pov_entity, world)),
+            }
+        }
+
+        GameMessage::Message {
+            content: resolved_parts.join(""),
+            category: self.category,
+            delay: self.delay,
+        }
+    }
+}
+
+/// A part of a third-person message.
+pub enum MessagePart {
+    /// A literal string.
+    String(String),
+    /// A token to be interpolated for each message recipient.
+    Token(MessageToken),
+}
+
+/// A token to be interpolated for each message recipient.
+pub enum MessageToken {
+    /// The name of an entity.
+    EntityName(Entity),
+}
+
+/// The location to send a third-person message in.
+pub enum ThirdPersonMessageLocation {
+    /// The location of the entity that caused the message to be sent.
+    SourceEntity,
+    /// A specific location.
+    Location(Entity),
+}
+
+impl MessageToken {
+    /// Resolves the token to a string.
+    fn to_string(&self, pov_entity: Entity, world: &World) -> String {
+        match self {
+            MessageToken::EntityName(e) => get_reference_name(*e, Some(pov_entity), world),
+        }
+    }
+}
+
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
 
 /// The result of a single tick of an action being performed.
@@ -86,13 +230,18 @@ impl ActionResult {
     pub fn message(
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
         should_tick: bool,
     ) -> ActionResult {
         ActionResult {
             messages: [(
                 entity_id,
-                vec![GameMessage::Message(message, message_delay)],
+                vec![GameMessage::Message {
+                    content: message,
+                    category,
+                    delay: message_delay,
+                }],
             )]
             .into(),
             should_tick,
@@ -155,9 +304,34 @@ impl ActionResultBuilder {
         self,
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionResultBuilder {
-        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+        self.with_game_message(
+            entity_id,
+            GameMessage::Message {
+                content: message,
+                category,
+                delay: message_delay,
+            },
+        )
+    }
+
+    /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
+    pub fn with_third_person_message(
+        mut self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        third_person_message: ThirdPersonMessage,
+        world: &World,
+    ) -> ActionResultBuilder {
+        for (entity, message) in
+            third_person_message.into_game_messages(source_entity, message_location, world)
+        {
+            self = self.with_game_message(entity, message);
+        }
+
+        self
     }
 
     /// Adds an error message to be sent to an entity.
@@ -207,12 +381,17 @@ impl ActionInterruptResult {
     pub fn message(
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionInterruptResult {
         ActionInterruptResult {
             messages: [(
                 entity_id,
-                vec![GameMessage::Message(message, message_delay)],
+                vec![GameMessage::Message {
+                    content: message,
+                    category,
+                    delay: message_delay,
+                }],
             )]
             .into(),
         }
@@ -248,9 +427,34 @@ impl ActionInterruptResultBuilder {
         self,
         entity_id: Entity,
         message: String,
+        category: MessageCategory,
         message_delay: MessageDelay,
     ) -> ActionInterruptResultBuilder {
-        self.with_game_message(entity_id, GameMessage::Message(message, message_delay))
+        self.with_game_message(
+            entity_id,
+            GameMessage::Message {
+                content: message,
+                category,
+                delay: message_delay,
+            },
+        )
+    }
+
+    /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
+    pub fn with_third_person_message(
+        mut self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        third_person_message: ThirdPersonMessage,
+        world: &World,
+    ) -> ActionInterruptResultBuilder {
+        for (entity, message) in
+            third_person_message.into_game_messages(source_entity, message_location, world)
+        {
+            self = self.with_game_message(entity, message);
+        }
+
+        self
     }
 
     /// Adds an error message to be sent to an entity.

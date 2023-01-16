@@ -91,7 +91,7 @@ fn main() -> Result<()> {
 /// Determines the amount of time to wait after displaying the provided message.
 fn delay_for_message(message: &GameMessage) -> Duration {
     let delay = match message {
-        GameMessage::Message(_, delay) => Some(delay),
+        GameMessage::Message { delay, .. } => Some(delay),
         GameMessage::ValueChange(_, delay) => Some(delay),
         _ => None,
     };
@@ -126,7 +126,7 @@ fn render_message(message: GameMessage, time: Time) -> Result<()> {
 fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
         GameMessage::Error(e) => e._capitalize(false),
-        GameMessage::Message(m, _) => m._capitalize(false),
+        GameMessage::Message { content, .. } => content._capitalize(false),
         GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
@@ -354,7 +354,7 @@ fn living_entities_to_string(entities: &[(&RoomLivingEntityDescription, usize)])
     }
 
     Some(format!(
-        "{} {} here.",
+        "{} {} standing here.",
         format_list(&descriptions),
         is_or_are
     ))

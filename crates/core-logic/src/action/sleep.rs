@@ -4,13 +4,17 @@ use rand::Rng;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, SleepState, Vitals},
+    component::{AfterActionNotification, Player, SleepState, Vitals},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 /// The fraction of energy over which an entity cannot go to sleep if it's awake, and has a chance to wake up if it's asleep.
 const WAKE_THRESHOLD: f32 = 0.75;
@@ -87,11 +91,24 @@ impl Action for SleepAction {
 
         if self.ticks_slept == 0 {
             fall_asleep(performing_entity, world);
-            result_builder = result_builder.with_message(
-                performing_entity,
-                "You close your eyes and drift off to sleep.".to_string(),
-                MessageDelay::Long,
-            );
+            result_builder = result_builder
+                .with_message(
+                    performing_entity,
+                    "You close your eyes and drift off to sleep.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                )
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::SourceEntity,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" falls asleep."),
+                    world,
+                );
         }
 
         self.ticks_slept += 1;
@@ -110,7 +127,19 @@ impl Action for SleepAction {
                 .with_message(
                     performing_entity,
                     "You open your eyes.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
+                )
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::SourceEntity,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" wakes up."),
+                    world,
                 )
                 .build_complete_should_tick(true);
         }
@@ -121,11 +150,25 @@ impl Action for SleepAction {
     fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
         wake_up(performing_entity, world);
 
-        ActionInterruptResult::message(
-            performing_entity,
-            "You wake with a start.".to_string(),
-            MessageDelay::None,
-        )
+        ActionInterruptResult::builder()
+            .with_message(
+                performing_entity,
+                "You wake with a start.".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::None,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" jolts awake."),
+                world,
+            )
+            .build()
     }
 
     fn may_require_tick(&self) -> bool {
@@ -162,6 +205,10 @@ impl Action for SleepAction {
 
 /// Makes an entity be sleeping.
 fn fall_asleep(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player.message_filter.filter_all_surroundings();
+    }
+
     world
         .entity_mut(entity)
         .insert(SleepState { is_asleep: true });
@@ -169,6 +216,10 @@ fn fall_asleep(entity: Entity, world: &mut World) {
 
 /// Makes an entity be not sleeping.
 fn wake_up(entity: Entity, world: &mut World) {
+    if let Some(mut player) = world.get_mut::<Player>(entity) {
+        player.message_filter.unfilter_all_surroundings();
+    }
+
     world
         .entity_mut(entity)
         .insert(SleepState { is_asleep: false });

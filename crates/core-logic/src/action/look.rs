@@ -14,7 +14,8 @@ use crate::{
     },
     notification::{Notification, VerifyResult},
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
-    MessageDelay, RoomDescription, VerifyActionNotification, World,
+    InternalMessageCategory, MessageCategory, MessageDelay, RoomDescription,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction};
@@ -168,6 +169,7 @@ impl Action for LookAction {
                 .with_message(
                     performing_entity,
                     format!("To the {}, you see:", connection.direction),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::None,
                 )
                 .with_game_message(performing_entity, room_description_message)

@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    game_map::Coordinates, AttributeDescription, Direction, GameMessage, MessageDelay,
-    RoomDescription,
+    game_map::Coordinates, AttributeDescription, Direction, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, RoomDescription,
 };
 
 use super::{
@@ -54,10 +54,11 @@ impl AttributeDescriber for ConnectionAttributeDescriber {
                 let destination_coords = world
                     .get::<Coordinates>(connection.destination)
                     .expect("connecting room should have coordinates");
-                descriptions.push(AttributeDescription::Message(GameMessage::Message(
-                    "Through it, you see:".to_string(),
-                    MessageDelay::None,
-                )));
+                descriptions.push(AttributeDescription::Message(GameMessage::Message {
+                    content: "Through it, you see:".to_string(),
+                    category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    delay: MessageDelay::None,
+                }));
                 descriptions.push(AttributeDescription::Message(GameMessage::Room(
                     RoomDescription::from_room(
                         destination_room,

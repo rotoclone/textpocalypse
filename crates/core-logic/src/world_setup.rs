@@ -4,11 +4,11 @@ use crate::{
     color::Color,
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
-        FluidContainer, FluidType, KeyId, KeyedLock, OpenState, ParseCustomInput, Respawner, Room,
-        Volume, Weight,
+        FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
+        ParseCustomInput, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, Direction, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -158,6 +158,39 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
         world,
     );
 
+    //
+    // npcs
+    //
+
+    let npc_id = world
+        .spawn((
+            Description {
+                name: "Some Guy".to_string(),
+                room_name: "Some Guy".to_string(),
+                plural_name: "Some Guys".to_string(),
+                article: None,
+                aliases: vec!["guy".to_string()],
+                description:
+                    "It's just some guy. He looks around, not focusing on anything in particular."
+                        .to_string(),
+                attribute_describers: vec![SleepState::get_attribute_describer()],
+            },
+            WanderBehavior {
+                move_chance_per_tick: 0.25,
+            },
+            GreetBehavior {
+                greeting: "Hey there!".to_string(),
+            },
+            Vitals {
+                health: ConstrainedValue::new_max(0.0, 25.0),
+                satiety: ConstrainedValue::new_max(0.0, 100.0),
+                hydration: ConstrainedValue::new_max(0.0, 100.0),
+                energy: ConstrainedValue::new_max(0.0, 100.0),
+            },
+        ))
+        .id();
+    move_entity(npc_id, street_2_id, world);
+
     spawn_start_building(world, start_building_coords, street_2_id)
 }
 
@@ -290,6 +323,7 @@ pub fn spawn_start_building(
             attribute_describers: vec![
                 Connection::get_attribute_describer(),
                 OpenState::get_attribute_describer(),
+                KeyedLock::get_attribute_describer(),
             ],
         },
         Connection {
@@ -298,8 +332,13 @@ pub fn spawn_start_building(
             other_side: Some(middle_room_north_door_id),
         },
         OpenState { is_open: false },
+        KeyedLock {
+            is_locked: true,
+            key_id: None,
+        },
     ));
     OpenState::register_custom_input_parser(north_room_south_door_id, world);
+    KeyedLock::register_custom_input_parser(north_room_south_door_id, world);
     move_entity(north_room_south_door_id, north_room_id, world);
 
     connect_open(middle_room_id, Direction::East, east_room_id, world);
@@ -325,6 +364,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Edible,
             Calories(300),
             Volume(0.1),
@@ -347,6 +387,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(5.0),
             Weight(1.0),
         ))
@@ -367,6 +408,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.1),
             Weight(0.1),
             middle_room_north_door_key_id,
@@ -389,6 +431,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(5.0),
             Weight(0.5),
             Container::new(Some(Volume(5.0)), None),
@@ -410,6 +453,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.5),
             Weight(15.0),
         ))
@@ -430,6 +474,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(0.5),
             Weight(15.0),
         ))
@@ -451,6 +496,7 @@ pub fn spawn_start_building(
                     FluidContainer::get_attribute_describer(),
                 ],
             },
+            Item,
             Volume(2.0),
             Weight(1.0),
             FluidContainer {

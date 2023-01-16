@@ -3,6 +3,7 @@ use std::{array, iter::once};
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use strum::EnumIter;
 
 use crate::{
     color::Color,
@@ -13,6 +14,7 @@ use crate::{
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
+    is_living_entity,
     value_change::ValueType,
     ConstrainedValue, Direction,
 };
@@ -38,12 +40,51 @@ pub enum GameMessage {
     Vitals(VitalsDescription),
     ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
-    Message(String, MessageDelay),
+    Message {
+        content: String,
+        category: MessageCategory,
+        delay: MessageDelay,
+    },
     Error(String),
 }
 
+/// The category of a game message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MessageCategory {
+    /// A message from an entity's surroundings.
+    Surroundings(SurroundingsMessageCategory),
+    /// A message from the entity itself.
+    Internal(InternalMessageCategory),
+}
+
+/// A message from an entity's surroundings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+pub enum SurroundingsMessageCategory {
+    // Someone saying something.
+    Speech,
+    // A non-speech sound.
+    Sound,
+    // Messages that are just for flavor, like describing wind whistling through the trees.
+    Flavor,
+    // Someone entering or leaving the room.
+    Movement,
+    // Someone performing a non-movement action.
+    Action,
+}
+
+/// A message from the entity itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+pub enum InternalMessageCategory {
+    // The entity saying something.
+    Speech,
+    // A description of an action being performed.
+    Action,
+    // A miscellaneous message, perhaps just to provide context to another message.
+    Misc,
+}
+
 /// The amount of time to wait before any additional messages are displayed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum MessageDelay {
     /// No time should be waited.
     None,
@@ -323,7 +364,13 @@ impl RoomEntityDescription {
     /// Creates a room entity description for the provided entity.
     pub fn from_entity(entity: Entity, world: &World) -> Option<RoomEntityDescription> {
         if let Some(desc) = world.get::<Description>(entity) {
-            if let Some(connection) = world.get::<Connection>(entity) {
+            if is_living_entity(entity, world) {
+                Some(RoomEntityDescription::Living(RoomLivingEntityDescription {
+                    name: desc.room_name.clone(),
+                    plural_name: desc.plural_name.clone(),
+                    article: desc.article.clone(),
+                }))
+            } else if let Some(connection) = world.get::<Connection>(entity) {
                 Some(RoomEntityDescription::Connection(
                     RoomConnectionEntityDescription {
                         name: desc.room_name.clone(),

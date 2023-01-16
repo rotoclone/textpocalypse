@@ -12,10 +12,14 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
@@ -53,7 +57,7 @@ impl InputParser for DrinkParser {
                         } else {
                             // target is empty
                             let target_name =
-                                get_reference_name(target_entity, source_entity, world);
+                                get_reference_name(target_entity, Some(source_entity), world);
                             return Err(InputParseError::CommandParseError {
                                 verb: DRINK_VERB_NAME.to_string(),
                                 error: CommandParseError::Other(format!("{target_name} is empty.")),
@@ -61,7 +65,8 @@ impl InputParser for DrinkParser {
                         }
                     } else {
                         // target isn't a fluid container
-                        let target_name = get_reference_name(target_entity, source_entity, world);
+                        let target_name =
+                            get_reference_name(target_entity, Some(source_entity), world);
                         return Err(InputParseError::CommandParseError {
                             verb: DRINK_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -101,7 +106,7 @@ pub struct DrinkAction {
 
 impl Action for DrinkAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let target_name = get_reference_name(self.target, performing_entity, world);
+        let target_name = get_reference_name(self.target, Some(performing_entity), world);
         let mut container = match world.get_mut::<FluidContainer>(self.target) {
             Some(s) => s,
             None => {
@@ -125,7 +130,21 @@ impl Action for DrinkAction {
             .with_message(
                 performing_entity,
                 format!("You take a drink from {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" takes a drink from ".to_string())
+                .add_entity_name(self.target)
+                .add_string(".".to_string()),
+                world,
             )
             .build_complete_should_tick(true)
     }
@@ -134,6 +153,7 @@ impl Action for DrinkAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop drinking.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

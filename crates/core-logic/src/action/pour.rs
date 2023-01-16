@@ -14,10 +14,14 @@ use crate::{
     },
     notification::VerifyResult,
     resource::get_fluid_name,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const FILL_VERB_NAME: &str = "fill";
 const POUR_VERB_NAME: &str = "pour";
@@ -66,7 +70,7 @@ impl InputParser for PourParser {
         };
 
         if world.get::<FluidContainer>(source).is_none() {
-            let source_name = get_reference_name(source, entity, world);
+            let source_name = get_reference_name(source, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!("{source_name} is not a fluid container.")),
@@ -84,7 +88,7 @@ impl InputParser for PourParser {
         };
 
         if source == target {
-            let target_name = get_reference_name(target, entity, world);
+            let target_name = get_reference_name(target, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!(
@@ -94,7 +98,7 @@ impl InputParser for PourParser {
         }
 
         if world.get::<FluidContainer>(target).is_none() {
-            let target_name = get_reference_name(target, entity, world);
+            let target_name = get_reference_name(target, Some(entity), world);
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
                 error: CommandParseError::Other(format!("{target_name} is not a fluid container.")),
@@ -266,8 +270,8 @@ impl Action for PourAction {
         let removed_fluids = remove_fluid(self.source, amount_to_pour, world);
 
         let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
-        let source_name = get_reference_name(self.source, performing_entity, world);
-        let target_name = get_reference_name(self.target, performing_entity, world);
+        let source_name = get_reference_name(self.source, Some(performing_entity), world);
+        let target_name = get_reference_name(self.target, Some(performing_entity), world);
         if actual_poured_amount <= Volume(0.0) {
             let message = format!("You can't pour anything from {source_name} into {target_name}.");
             return ActionResult::builder()
@@ -286,10 +290,30 @@ impl Action for PourAction {
             "fluid".to_string()
         };
 
-        let message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
+        let first_person_message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
 
         ActionResult::builder()
-            .with_message(performing_entity, message, MessageDelay::Short)
+            .with_message(
+                performing_entity,
+                first_person_message,
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(format!(" pours some {fluid_name} from "))
+                .add_entity_name(self.source)
+                .add_string(" into ".to_string())
+                .add_entity_name(self.target)
+                .add_string(".".to_string()),
+                world,
+            )
             .build_complete_should_tick(true)
     }
 
@@ -297,6 +321,7 @@ impl Action for PourAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop pouring.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

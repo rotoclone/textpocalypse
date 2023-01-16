@@ -1,19 +1,20 @@
-use std::collections::HashMap;
-
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    can_receive_messages,
     component::{AfterActionNotification, Container, Location},
     input_parser::{InputParseError, InputParser},
     move_entity,
     notification::VerifyResult,
-    BeforeActionNotification, Direction, GameMessage, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
@@ -53,7 +54,7 @@ impl InputParser for MoveParser {
 #[derive(Debug)]
 pub struct MoveAction {
     pub direction: Direction,
-    notification_sender: ActionNotificationSender<Self>,
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for MoveAction {
@@ -66,10 +67,9 @@ impl Action for MoveAction {
         let current_location = world
             .get::<Container>(current_location_id)
             .expect("Moving entity's location should be a container");
-        let mut messages = HashMap::new();
+        let mut result_builder = ActionResult::builder();
         let mut should_tick = false;
         let mut was_successful = false;
-        let can_receive_messages = can_receive_messages(world, performing_entity);
 
         if let Some((_, connection)) =
             current_location.get_connection_in_direction(&self.direction, world)
@@ -79,30 +79,46 @@ impl Action for MoveAction {
             should_tick = true;
             was_successful = true;
 
-            if can_receive_messages {
-                messages.insert(
+            result_builder = result_builder
+                .with_message(
                     performing_entity,
-                    vec![GameMessage::Message(
-                        format!("You walk {}.", self.direction),
-                        MessageDelay::Long,
-                    )],
+                    format!("You walk {}.", self.direction),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                )
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::Location(current_location_id),
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(format!(" walks {}.", self.direction)),
+                    world,
+                )
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::Location(new_room_id),
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(format!(" walks in from the {}.", self.direction.opposite())),
+                    world,
                 );
-            }
-        } else if can_receive_messages {
-            messages.insert(
+        } else {
+            result_builder = result_builder.with_error(
                 performing_entity,
-                vec![GameMessage::Error(
-                    "You can't move in that direction.".to_string(),
-                )],
+                "You can't move in that direction.".to_string(),
             );
         }
 
-        ActionResult {
-            messages,
-            should_tick,
-            is_complete: true,
-            was_successful,
-            post_effects: Vec::new(),
+        if should_tick {
+            result_builder.build_complete_should_tick(was_successful)
+        } else {
+            result_builder.build_complete_no_tick(was_successful)
         }
     }
 
@@ -110,6 +126,7 @@ impl Action for MoveAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop moving.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }

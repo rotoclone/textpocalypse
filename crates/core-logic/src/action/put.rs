@@ -3,15 +3,22 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Container, Location},
+    component::{AfterActionNotification, Container, Item, Location},
     get_reference_name,
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{
+        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
+        InputParser,
+    },
     move_entity,
-    notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification, World,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -56,16 +63,6 @@ impl InputParser for PutParser {
             }
         };
 
-        if world.get::<Container>(source_container).is_none() {
-            let source_container_name = get_reference_name(source_container, entity, world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(format!(
-                    "{source_container_name} is not a container."
-                )),
-            });
-        }
-
         let item = match &item_target {
             CommandTarget::Named(n) => {
                 //TODO have better error message if the item exists, but isn't in your inventory or whatever
@@ -88,7 +85,7 @@ impl InputParser for PutParser {
             }
         };
 
-        let item_name = get_reference_name(item, entity, world);
+        let item_name = get_reference_name(item, Some(entity), world);
 
         if destination_target == CommandTarget::Myself {
             let inventory = world
@@ -124,30 +121,6 @@ impl InputParser for PutParser {
             }
         };
 
-        if world.get::<Container>(destination_container).is_none() {
-            let destination_container_name =
-                get_reference_name(destination_container, entity, world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(format!(
-                    "{destination_container_name} is not a container."
-                )),
-            });
-        }
-
-        if let Some(container) = world.get::<Container>(item) {
-            if item == destination_container
-                || container.contains_recursive(destination_container, world)
-            {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::Other(format!(
-                        "You can't put {item_name} inside itself."
-                    )),
-                });
-            }
-        }
-
         Ok(Box::new(PutAction {
             item,
             source: source_container,
@@ -166,7 +139,9 @@ impl InputParser for PutParser {
     }
 
     fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        let mut formats = vec![GET_FORMAT.to_string(), DROP_FORMAT.to_string()];
+        let mut formats =
+            input_formats_if_has_component::<Item>(entity, world, &[GET_FORMAT, DROP_FORMAT])
+                .unwrap_or_default();
         if world.get::<Container>(entity).is_some() {
             formats.push(GET_FROM_FORMAT.to_string());
             formats.push(PUT_FORMAT.to_string());
@@ -263,60 +238,88 @@ pub struct PutAction {
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        // verify that the item is in the expected source location
-        let item_location = world
-            .get::<Location>(self.item)
-            .expect("item should have a location")
-            .id;
-        if item_location != self.source {
-            let item_name = get_reference_name(self.item, performing_entity, world);
-            let source_name = get_reference_name(self.source, performing_entity, world);
-            return ActionResult::error(
-                performing_entity,
-                format!("{item_name} is not in {source_name}."),
-            );
-        }
-
-        let item_name = get_reference_name(self.item, performing_entity, world);
-
-        move_entity(self.item, self.destination, world);
-
+        let item_name = get_reference_name(self.item, Some(performing_entity), world);
         let performing_entity_location = world
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
             .id;
 
-        let mut result_builder = ActionResult::builder();
-
-        if self.destination == performing_entity {
+        let (first_person_message, third_person_message) = if self.destination == performing_entity
+        {
             if self.source == performing_entity_location {
-                result_builder = result_builder.with_message(
-                    performing_entity,
+                (
                     format!("You pick up {item_name}."),
-                    MessageDelay::Short,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" picks up ")
+                    .add_entity_name(self.item)
+                    .add_string("."),
                 )
             } else {
-                let source_name = get_reference_name(self.source, performing_entity, world);
-                result_builder = result_builder.with_message(
-                    performing_entity,
+                let source_name = get_reference_name(self.source, Some(performing_entity), world);
+                (
                     format!("You get {item_name} from {source_name}."),
-                    MessageDelay::Short,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" gets ")
+                    .add_entity_name(self.item)
+                    .add_string(" from ")
+                    .add_entity_name(self.source)
+                    .add_string("."),
                 )
             }
         } else if self.destination == performing_entity_location {
-            result_builder = result_builder.with_message(
-                performing_entity,
+            (
                 format!("You drop {item_name}."),
-                MessageDelay::Short,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" drops ")
+                .add_entity_name(self.item)
+                .add_string("."),
             )
         } else {
-            let destination_name = get_reference_name(self.destination, performing_entity, world);
-            result_builder = result_builder.with_message(
-                performing_entity,
+            let destination_name =
+                get_reference_name(self.destination, Some(performing_entity), world);
+            (
                 format!("You put {item_name} into {destination_name}."),
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" puts ")
+                .add_entity_name(self.item)
+                .add_string(" into ")
+                .add_entity_name(self.destination)
+                .add_string("."),
+            )
+        };
+
+        let result_builder = ActionResult::builder()
+            .with_message(
+                performing_entity,
+                first_person_message,
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-        }
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                third_person_message,
+                world,
+            );
+
+        // move the entity after third person messages are generated so they refer to the item in the place it was before it moved
+        move_entity(self.item, self.destination, world);
 
         result_builder.build_complete_should_tick(true)
     }
@@ -325,6 +328,7 @@ impl Action for PutAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop moving items.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
@@ -359,4 +363,107 @@ impl Action for PutAction {
         self.notification_sender
             .send_after_notification(notification_type, self, world);
     }
+}
+
+/// Verifies that the source and destination entities are containers.
+pub fn verify_source_and_destination_are_containers(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let source = notification.contents.source;
+    let destination = notification.contents.destination;
+
+    if world.get::<Container>(source).is_none() {
+        let source_name = get_reference_name(source, Some(performing_entity), world);
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("{source_name} is not a container.")),
+        );
+    }
+
+    if world.get::<Container>(destination).is_none() {
+        let destination_name = get_reference_name(destination, Some(performing_entity), world);
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("{destination_name} is not a container.")),
+        );
+    }
+
+    VerifyResult::valid()
+}
+
+/// Verifies that the item is actually in the source container.
+pub fn verify_item_in_source(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.contents.item;
+    let source = notification.contents.source;
+
+    if let Some(container) = world.get::<Container>(source) {
+        if container.entities.contains(&item) {
+            return VerifyResult::valid();
+        }
+    }
+
+    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let source_name = get_reference_name(source, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("{item_name} is not in {source_name}.")),
+    )
+}
+
+/// Prevents putting items inside themselves.
+pub fn prevent_put_item_inside_itself(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.contents.item;
+    let destination = notification.contents.destination;
+
+    if let Some(container) = world.get::<Container>(item) {
+        if item == destination || container.contains_recursive(destination, world) {
+            let item_name = get_reference_name(item, Some(performing_entity), world);
+            return VerifyResult::invalid(
+                performing_entity,
+                GameMessage::Error(format!("You can't put {item_name} inside itself.")),
+            );
+        }
+    }
+
+    VerifyResult::valid()
+}
+
+/// Prevents picking up or dropping entities not marked as items.
+pub fn prevent_put_non_item(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.contents.item;
+
+    if world.get::<Item>(item).is_none() {
+        let performing_entity_location = world
+            .get::<Location>(performing_entity)
+            .expect("performing entity should have a location")
+            .id;
+        let item_name = get_reference_name(item, Some(performing_entity), world);
+
+        let message = if notification.contents.source == performing_entity_location {
+            format!("You can't get {item_name}.")
+        } else if notification.contents.destination == performing_entity_location {
+            format!("You can't drop {item_name}.")
+        } else {
+            format!("You can't put {item_name} anywhere.")
+        };
+
+        return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
+    }
+
+    VerifyResult::valid()
 }

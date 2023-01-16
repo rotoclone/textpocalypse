@@ -10,10 +10,14 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, MessageDelay, VerifyActionNotification,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const EAT_VERB_NAME: &str = "eat";
 const EAT_FORMAT: &str = "eat <>";
@@ -44,7 +48,8 @@ impl InputParser for EatParser {
                         }));
                     } else {
                         // target isn't edible
-                        let target_name = get_reference_name(target_entity, source_entity, world);
+                        let target_name =
+                            get_reference_name(target_entity, Some(source_entity), world);
                         return Err(InputParseError::CommandParseError {
                             verb: EAT_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -82,15 +87,28 @@ pub struct EatAction {
 
 impl Action for EatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let target_name = get_reference_name(self.target, performing_entity, world);
-
         let target = self.target;
+        let target_name = get_reference_name(target, Some(performing_entity), world);
 
         ActionResult::builder()
             .with_message(
                 performing_entity,
                 format!("You eat {target_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" eats ".to_string())
+                .add_entity_name(target)
+                .add_string(".".to_string()),
+                world,
             )
             .with_post_effect(Box::new(move |w| despawn_entity(target, w)))
             .build_complete_should_tick(true)
@@ -100,6 +118,7 @@ impl Action for EatAction {
         ActionInterruptResult::message(
             performing_entity,
             "You stop eating.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
     }
