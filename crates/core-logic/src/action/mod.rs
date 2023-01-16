@@ -92,8 +92,8 @@ impl ThirdPersonMessage {
     }
 
     /// Adds a string to the message.
-    pub fn add_string(mut self, string: String) -> ThirdPersonMessage {
-        self.parts.push(MessagePart::String(string));
+    pub fn add_string<T: Into<String>>(mut self, string: T) -> ThirdPersonMessage {
+        self.parts.push(MessagePart::String(string.into()));
 
         self
     }
@@ -106,7 +106,7 @@ impl ThirdPersonMessage {
         self
     }
 
-    /// Sends the message(s). If provided, no messages will be sent to `source_entity`.
+    /// Sends the message(s). No messages will be sent to `source_entity` if provided.
     pub fn send(
         self,
         source_entity: Option<Entity>,
@@ -437,6 +437,23 @@ impl ActionInterruptResultBuilder {
                 delay: message_delay,
             },
         )
+    }
+
+    /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
+    pub fn with_third_person_message(
+        mut self,
+        source_entity: Option<Entity>,
+        message_location: ThirdPersonMessageLocation,
+        third_person_message: ThirdPersonMessage,
+        world: &World,
+    ) -> ActionInterruptResultBuilder {
+        for (entity, message) in
+            third_person_message.into_game_messages(source_entity, message_location, world)
+        {
+            self = self.with_game_message(entity, message);
+        }
+
+        self
     }
 
     /// Adds an error message to be sent to an entity.

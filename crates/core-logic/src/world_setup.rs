@@ -323,6 +323,7 @@ pub fn spawn_start_building(
             attribute_describers: vec![
                 Connection::get_attribute_describer(),
                 OpenState::get_attribute_describer(),
+                KeyedLock::get_attribute_describer(),
             ],
         },
         Connection {
@@ -331,8 +332,13 @@ pub fn spawn_start_building(
             other_side: Some(middle_room_north_door_id),
         },
         OpenState { is_open: false },
+        KeyedLock {
+            is_locked: true,
+            key_id: None,
+        },
     ));
     OpenState::register_custom_input_parser(north_room_south_door_id, world);
+    KeyedLock::register_custom_input_parser(north_room_south_door_id, world);
     move_entity(north_room_south_door_id, north_room_id, world);
 
     connect_open(middle_room_id, Direction::East, east_room_id, world);

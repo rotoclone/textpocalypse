@@ -12,10 +12,13 @@ use crate::{
     move_entity,
     notification::{Notification, VerifyResult},
     BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification, World,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
+};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -250,51 +253,87 @@ impl Action for PutAction {
         }
 
         let item_name = get_reference_name(self.item, Some(performing_entity), world);
-
-        move_entity(self.item, self.destination, world);
-
         let performing_entity_location = world
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
             .id;
 
-        let mut result_builder = ActionResult::builder();
-
-        //TODO include messages for other entities
-        if self.destination == performing_entity {
+        let (first_person_message, third_person_message) = if self.destination == performing_entity
+        {
             if self.source == performing_entity_location {
-                result_builder = result_builder.with_message(
-                    performing_entity,
+                (
                     format!("You pick up {item_name}."),
-                    MessageCategory::Internal(InternalMessageCategory::Action),
-                    MessageDelay::Short,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" picks up ")
+                    .add_entity_name(self.item)
+                    .add_string("."),
                 )
             } else {
                 let source_name = get_reference_name(self.source, Some(performing_entity), world);
-                result_builder = result_builder.with_message(
-                    performing_entity,
+                (
                     format!("You get {item_name} from {source_name}."),
-                    MessageCategory::Internal(InternalMessageCategory::Action),
-                    MessageDelay::Short,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" gets ")
+                    .add_entity_name(self.item)
+                    .add_string(" from ")
+                    .add_entity_name(self.source)
+                    .add_string("."),
                 )
             }
         } else if self.destination == performing_entity_location {
-            result_builder = result_builder.with_message(
-                performing_entity,
+            (
                 format!("You drop {item_name}."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" drops ")
+                .add_entity_name(self.item)
+                .add_string("."),
             )
         } else {
             let destination_name =
                 get_reference_name(self.destination, Some(performing_entity), world);
-            result_builder = result_builder.with_message(
-                performing_entity,
+            (
                 format!("You put {item_name} into {destination_name}."),
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" puts ")
+                .add_entity_name(self.item)
+                .add_string(" into ")
+                .add_entity_name(self.destination)
+                .add_string("."),
+            )
+        };
+
+        let result_builder = ActionResult::builder()
+            .with_message(
+                performing_entity,
+                first_person_message,
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-        }
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                third_person_message,
+                world,
+            );
+
+        // move the entity after third person messages are generated so they refer to the item in the place it was before it moved
+        move_entity(self.item, self.destination, world);
 
         result_builder.build_complete_should_tick(true)
     }

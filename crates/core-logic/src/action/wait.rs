@@ -142,7 +142,7 @@ impl Action for WaitAction {
             return ActionResult::builder()
                 .with_message(
                     performing_entity,
-                    "You wait for a bit.".to_string(),
+                    "You wait for a few seconds.".to_string(),
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Long,
                 )

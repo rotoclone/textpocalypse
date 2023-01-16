@@ -173,6 +173,7 @@ impl OpenState {
                 if other_side_state.is_open != should_be_open {
                     other_side_state.is_open = should_be_open;
 
+                    // send messages to entities on the other side
                     if let Some(location) = world.get::<Location>(other_side_id) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
                         ThirdPersonMessage::new(
