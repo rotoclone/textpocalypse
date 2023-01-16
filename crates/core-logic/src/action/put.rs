@@ -238,20 +238,6 @@ pub struct PutAction {
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        // verify that the item is in the expected source location
-        let item_location = world
-            .get::<Location>(self.item)
-            .expect("item should have a location")
-            .id;
-        if item_location != self.source {
-            let item_name = get_reference_name(self.item, Some(performing_entity), world);
-            let source_name = get_reference_name(self.source, Some(performing_entity), world);
-            return ActionResult::error(
-                performing_entity,
-                format!("{item_name} is not in {source_name}."),
-            );
-        }
-
         let item_name = get_reference_name(self.item, Some(performing_entity), world);
         let performing_entity_location = world
             .get::<Location>(performing_entity)
@@ -405,6 +391,30 @@ pub fn verify_source_and_destination_are_containers(
     }
 
     VerifyResult::valid()
+}
+
+/// Verifies that the item is actually in the source container.
+pub fn verify_item_in_source(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.contents.item;
+    let source = notification.contents.source;
+
+    if let Some(container) = world.get::<Container>(source) {
+        if container.entities.contains(&item) {
+            return VerifyResult::valid();
+        }
+    }
+
+    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let source_name = get_reference_name(source, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("{item_name} is not in {source_name}.")),
+    )
 }
 
 /// Prevents putting items inside themselves.

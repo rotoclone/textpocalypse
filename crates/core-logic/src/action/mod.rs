@@ -67,6 +67,7 @@ pub fn register_action_handlers(world: &mut World) {
         put::verify_source_and_destination_are_containers,
         world,
     );
+    VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
 }
