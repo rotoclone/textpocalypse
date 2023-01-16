@@ -1606,9 +1606,13 @@ dependencies = [
  "core-logic",
  "crossterm",
  "env_logger",
+ "flume",
+ "futures",
  "itertools",
  "log",
  "russh",
+ "russh-keys",
+ "tokio",
  "voca_rs",
 ]
 

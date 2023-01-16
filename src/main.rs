@@ -5,9 +5,10 @@ use crossterm::{
     terminal::{Clear, ClearType},
     QueueableCommand,
 };
-use log::debug;
+use log::{debug, info};
 use std::{
     io::{stdin, stdout, Write},
+    str::FromStr,
     sync::{
         atomic::{self, AtomicBool},
         Arc,
@@ -21,14 +22,63 @@ use core_logic::*;
 mod message_to_string;
 use message_to_string::*;
 
+mod ssh_server;
+use ssh_server::*;
+
 const PROMPT: &str = "\n> ";
 
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 
-fn main() -> Result<()> {
+const SSH_SERVER_MODE: bool = true;
+
+/* TODO
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
 
+    if SSH_SERVER_MODE {
+        setup_ssh().await
+    } else {
+        setup_local()
+    }
+}
+*/
+
+#[tokio::main]
+async fn main() {
+    env_logger::init();
+
+    let client_key = russh_keys::key::KeyPair::generate_ed25519().unwrap();
+    let client_pubkey = Arc::new(client_key.clone_public_key().unwrap());
+    let mut config = russh::server::Config::default();
+    config.connection_timeout = Some(std::time::Duration::from_secs(10));
+    config.auth_rejection_time = std::time::Duration::from_secs(1);
+    /*
+    config
+        .keys
+        .push(russh_keys::key::KeyPair::generate_ed25519().unwrap());
+        */
+    let config = Arc::new(config);
+    let server = Server {
+        client_pubkey,
+        game: Game::new(),
+        next_id: 0,
+    };
+    info!("Starting server on port 2222");
+
+    russh::server::run(
+        config,
+        &std::net::SocketAddr::from_str("0.0.0.0:2222").unwrap(),
+        server,
+    )
+    .await
+    .unwrap();
+
+    debug!("Done with server I guess");
+}
+
+fn setup_local() -> Result<()> {
     let mut game = Game::new();
     let (commands_sender, messages_receiver) = game.add_player("Player".to_string());
 
