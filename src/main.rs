@@ -6,12 +6,14 @@ use crossterm::{
     QueueableCommand,
 };
 use log::{debug, info};
+use russh::MethodSet;
 use std::{
+    collections::HashMap,
     io::{stdin, stdout, Write},
     str::FromStr,
     sync::{
         atomic::{self, AtomicBool},
-        Arc,
+        Arc, Mutex,
     },
     thread,
     time::Duration,
@@ -49,26 +51,19 @@ async fn main() -> Result<()> {
 async fn main() {
     env_logger::init();
 
-    let client_key = russh_keys::key::KeyPair::generate_ed25519().unwrap();
-    let client_pubkey = Arc::new(client_key.clone_public_key().unwrap());
-    let mut config = russh::server::Config::default();
-    config.connection_timeout = Some(std::time::Duration::from_secs(10));
-    config.auth_rejection_time = std::time::Duration::from_secs(1);
-    /*
-    config
-        .keys
-        .push(russh_keys::key::KeyPair::generate_ed25519().unwrap());
-        */
-    let config = Arc::new(config);
-    let server = Server {
-        client_pubkey,
-        game: Game::new(),
-        next_id: 0,
+    let config = russh::server::Config {
+        methods: MethodSet::NONE,
+        ..Default::default()
     };
-    info!("Starting server on port 2222");
+    let server = Server {
+        game: Arc::new(Mutex::new(Game::new())),
+        clients: Arc::new(Mutex::new(HashMap::new())),
+        id: 0,
+    };
 
+    info!("Starting server on port 2222");
     russh::server::run(
-        config,
+        Arc::new(config),
         &std::net::SocketAddr::from_str("0.0.0.0:2222").unwrap(),
         server,
     )

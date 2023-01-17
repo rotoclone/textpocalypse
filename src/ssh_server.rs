@@ -1,11 +1,10 @@
+use async_trait::async_trait;
 use flume::{Receiver, Sender};
-use futures::Future;
 use log::debug;
-use russh::server::{Auth, Session};
+use russh::server::{Msg, Session};
 use russh::*;
-use russh_keys::*;
 use std::collections::HashMap;
-use std::str::{from_utf8, FromStr};
+use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -14,36 +13,31 @@ use core_logic::*;
 use crate::delay_for_message;
 use crate::message_to_string::message_to_string;
 
+#[derive(Clone)]
 pub struct Server {
-    pub game: Game,
-    pub client_pubkey: Arc<russh_keys::key::PublicKey>,
-    pub next_id: usize,
+    pub game: Arc<Mutex<Game>>,
+    pub id: usize,
+    pub clients: Arc<Mutex<HashMap<(usize, ChannelId), Client>>>,
 }
 
+#[derive(Clone)]
 pub struct Client {
-    id: usize,
     command_sender: Sender<String>,
     message_receiver: Receiver<(GameMessage, Time)>,
 }
 
 impl server::Server for Server {
-    type Handler = Client;
-    fn new_client(&mut self, _: Option<std::net::SocketAddr>) -> Client {
-        debug!("Got new client with ID {}", self.next_id);
-        let (command_sender, message_receiver) =
-            self.game.add_player(format!("Player {}", self.next_id));
-        let client = Client {
-            id: self.next_id,
-            command_sender,
-            message_receiver,
-        };
+    type Handler = Server;
+    fn new_client(&mut self, _: Option<std::net::SocketAddr>) -> Server {
+        debug!("Got new client with ID {}", self.id);
+        let server = self.clone();
+        self.id += 1;
 
-        self.next_id += 1;
-
-        client
+        server
     }
 }
 
+/* TODO
 impl server::Handler for Client {
     type Error = anyhow::Error;
     type FutureAuth = futures::future::Ready<Result<(Self, server::Auth), anyhow::Error>>;
@@ -115,5 +109,97 @@ impl server::Handler for Client {
                 self.disconnected(session)
             }
         }
+    }
+}
+*/
+
+#[async_trait]
+impl server::Handler for Server {
+    type Error = anyhow::Error;
+
+    async fn channel_open_session(
+        self,
+        channel: Channel<Msg>,
+        session: Session,
+    ) -> Result<(Self, bool, Session), Self::Error> {
+        debug!("Opening session for channel {channel:?}");
+
+        {
+            let mut game = self.game.lock().unwrap();
+            let (command_sender, message_receiver) = game.add_player(format!("Player {}", self.id));
+            let client = Client {
+                command_sender,
+                message_receiver,
+            };
+
+            let mut clients = self.clients.lock().unwrap();
+            clients.insert((self.id, channel.id()), client);
+        }
+
+        {
+            let clients = self.clients.lock().unwrap();
+
+            let session_handle = session.handle();
+            let client = clients.get(&(self.id, channel.id())).unwrap();
+            let thread_message_receiver = client.message_receiver.clone();
+
+            thread::Builder::new()
+                .name("message receiver".to_string())
+                .spawn(move || loop {
+                    let (message, game_time) = match thread_message_receiver.recv() {
+                        Ok(x) => x,
+                        Err(_) => {
+                            debug!("Message sender has been dropped");
+                            panic!("Disconnected from game")
+                        }
+                    };
+                    debug!("Got message: {message:?}");
+                    let delay = delay_for_message(&message);
+                    let rendered_message = message_to_string(message, Some(game_time));
+                    session_handle.data(channel.id(), rendered_message.into());
+                    thread::sleep(delay);
+                })
+                .expect("should be able to spawn thread");
+
+            debug!("Spawned thread");
+        }
+
+        Ok((self, true, session))
+    }
+
+    async fn data(
+        mut self,
+        channel: ChannelId,
+        data: &[u8],
+        session: Session,
+    ) -> Result<(Self, Session), Self::Error> {
+        let command_string = from_utf8(data)?;
+        {
+            let clients = self.clients.lock().unwrap();
+            let client = clients.get(&(self.id, channel)).unwrap();
+            client.command_sender.send(command_string.to_string())?;
+        }
+
+        Ok((self, session))
+    }
+
+    async fn tcpip_forward(
+        self,
+        address: &str,
+        port: &mut u32,
+        session: Session,
+    ) -> Result<(Self, bool, Session), Self::Error> {
+        let handle = session.handle();
+        let address = address.to_string();
+        let port = *port;
+        tokio::spawn(async move {
+            let mut channel = handle
+                .channel_open_forwarded_tcpip(address, port, "1.2.3.4", 1234)
+                .await
+                .unwrap();
+            let _ = channel.data(&b"Hello from a forwarded port"[..]).await;
+            let _ = channel.eof().await;
+        });
+        Ok((self, true, session))
     }
 }
