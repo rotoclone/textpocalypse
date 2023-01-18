@@ -6,7 +6,6 @@ use crossterm::{
     QueueableCommand,
 };
 use log::{debug, info};
-use russh::MethodSet;
 use std::{
     collections::HashMap,
     io::{stdin, stdout, Write},
@@ -24,53 +23,25 @@ use core_logic::*;
 mod message_to_string;
 use message_to_string::*;
 
-mod ssh_server;
-use ssh_server::*;
+mod tcp_server;
+use tcp_server::*;
 
 const PROMPT: &str = "\n> ";
 
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 
-const SSH_SERVER_MODE: bool = true;
+const SERVER_MODE: bool = true;
 
-/* TODO
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
 
-    if SSH_SERVER_MODE {
-        setup_ssh().await
+    if SERVER_MODE {
+        start_server().await
     } else {
         setup_local()
     }
-}
-*/
-
-#[tokio::main]
-async fn main() {
-    env_logger::init();
-
-    let config = russh::server::Config {
-        methods: MethodSet::NONE,
-        ..Default::default()
-    };
-    let server = Server {
-        game: Arc::new(Mutex::new(Game::new())),
-        clients: Arc::new(Mutex::new(HashMap::new())),
-        id: 0,
-    };
-
-    info!("Starting server on port 2222");
-    russh::server::run(
-        Arc::new(config),
-        &std::net::SocketAddr::from_str("0.0.0.0:2222").unwrap(),
-        server,
-    )
-    .await
-    .unwrap();
-
-    debug!("Done with server I guess");
 }
 
 fn setup_local() -> Result<()> {
