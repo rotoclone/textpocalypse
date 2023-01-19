@@ -53,6 +53,15 @@ pub struct ActionQueue {
 }
 
 impl ActionQueue {
+    /// Creates an empty action queue.
+    pub fn new() -> ActionQueue {
+        ActionQueue {
+            actions: VecDeque::new(),
+            to_add_front: Vec::new(),
+            to_add_back: Vec::new(),
+        }
+    }
+
     /// Determines if calling `update_queue` would modify the main actions queue.
     fn needs_update(&self) -> bool {
         !self.to_add_front.is_empty() || !self.to_add_back.is_empty()

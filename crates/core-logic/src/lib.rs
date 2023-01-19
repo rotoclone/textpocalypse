@@ -325,6 +325,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: Vec::new(),
     };
     let vitals = Vitals::new();
+    let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
             player,
@@ -333,6 +334,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             Weight(65.0),
             desc,
             vitals,
+            action_queue,
         ))
         .id();
     move_entity(player_entity, spawn_room, world);

@@ -16,6 +16,8 @@ const BAR_EMPTY: &str = " ";
 const BAR_REDUCTION: &str = "-";
 const BAR_ADDITION: &str = "+";
 
+const MAX_WIDTH: usize = 80;
+
 /// Transforms the provided message into a string for display.
 pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
@@ -50,7 +52,13 @@ fn room_to_string(room: RoomDescription, time: Option<Time>) -> String {
     };
     let exits = format!("Exits: {}", exits_to_string(room.exits));
 
-    let mini_map_and_desc = format_side_by_side(&map, &format!("{name} {time}\n\n{desc}"), " ");
+    let mini_map_width = room.map.tiles.len() * CHARS_PER_TILE;
+    let separator = " ";
+    let max_desc_width = MAX_WIDTH - mini_map_width - separator.len();
+    let wrapped_desc = desc._word_wrap(max_desc_width, "\n", "");
+
+    let mini_map_and_desc =
+        format_side_by_side(&map, &format!("{name} {time}\n\n{wrapped_desc}"), separator);
 
     format!("{mini_map_and_desc}{entities}\n\n{exits}")
 }
