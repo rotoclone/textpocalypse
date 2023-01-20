@@ -5,14 +5,12 @@ use crossterm::{
     terminal::{Clear, ClearType},
     QueueableCommand,
 };
-use log::{debug, info};
+use log::debug;
 use std::{
-    collections::HashMap,
     io::{stdin, stdout, Write},
-    str::FromStr,
     sync::{
         atomic::{self, AtomicBool},
-        Arc, Mutex,
+        Arc,
     },
     thread,
     time::Duration,

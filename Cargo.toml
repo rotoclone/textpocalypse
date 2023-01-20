@@ -16,11 +16,9 @@ env_logger = "0.10.0"
 crossterm = "0.25.0"
 voca_rs = "1.15.2"
 itertools = "0.10.5"
-#russh = "0.35.0-beta.9" # TODO remove
-#russh-keys = "0.22.0" # TODO remove
 futures = "0.3.25"
 flume = "0.10.14"
 tokio = { version = "1.24.1", features = ["full"] }
 tokio-stream = "0.1.11"
 tokio-util = { version = "0.7.4", features = ["full"] }
-#async-trait = "0.1.61" # TODO remove
+comfy-table = "6.1.4"

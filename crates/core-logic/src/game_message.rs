@@ -8,8 +8,8 @@ use strum::EnumIter;
 use crate::{
     color::Color,
     component::{
-        AttributeDescription, AttributeDetailLevel, Connection, Container, Description, Location,
-        Room, Vitals, Volume, Weight,
+        ActionQueue, AttributeDescription, AttributeDetailLevel, Connection, Container,
+        Description, Location, Player, Room, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
@@ -40,6 +40,7 @@ pub enum GameMessage {
     Vitals(VitalsDescription),
     ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
+    Players(PlayersMessage),
     Message {
         content: String,
         category: MessageCategory,
@@ -213,6 +214,24 @@ fn build_available_action_descriptions(
         .collect()
 }
 
+/// Builds a list of descriptions of players on the server.
+///
+/// `world` needs to be mutable so it can be queried.
+fn build_player_descriptions(pov_entity: Entity, world: &mut World) -> Vec<PlayerDescription> {
+    let mut descriptions = Vec::new();
+
+    let mut query = world.query::<(Entity, &ActionQueue, &Description, With<Player>)>();
+    for (entity, queue, desc, _) in query.iter(world) {
+        descriptions.push(PlayerDescription {
+            name: desc.name.clone(),
+            has_queued_action: !queue.is_empty(),
+            is_self: entity == pov_entity,
+        });
+    }
+
+    descriptions
+}
+
 /// The description of a container.
 #[derive(Debug, Clone)]
 pub struct ContainerDescription {
@@ -319,6 +338,13 @@ pub struct ValueChangeDescription {
 #[derive(Debug, Clone)]
 pub struct ActionDescription {
     pub format: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayerDescription {
+    pub name: String,
+    pub has_queued_action: bool,
+    pub is_self: bool,
 }
 
 /// The description of an entity as part of a room description.
@@ -536,6 +562,23 @@ impl HelpMessage {
     pub fn for_entity(entity: Entity, world: &World) -> HelpMessage {
         HelpMessage {
             actions: build_available_action_descriptions(entity, world),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayersMessage {
+    /// Descriptions of the players on the server.
+    pub players: Vec<PlayerDescription>,
+}
+
+impl PlayersMessage {
+    /// Creates a players message to be sent to the provided entity.
+    ///
+    /// `world` needs to be mutable so it can be queried.
+    pub fn for_entity(entity: Entity, world: &mut World) -> PlayersMessage {
+        PlayersMessage {
+            players: build_player_descriptions(entity, world),
         }
     }
 }

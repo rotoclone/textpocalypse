@@ -1,3 +1,4 @@
+use comfy_table::{Cell, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
 use std::{cmp::Ordering, hash::Hash};
@@ -30,6 +31,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Container(container) => container_to_string(container),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::ValueChange(change, _) => value_change_to_string(change),
+        GameMessage::Players(players) => players_to_string(players),
     }
 }
 
@@ -581,6 +583,32 @@ fn constrained_float_to_string(
     let values = style(format!("{:.0}/{:.0}", value.get(), value.get_max())).dark_grey();
 
     format!("{BAR_START}{bar}{BAR_END} {values}")
+}
+
+/// Transforms the provided players description into a string for display.
+fn players_to_string(players: PlayersMessage) -> String {
+    let mut table = Table::new();
+    table
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(MAX_WIDTH.try_into().expect("max size should fit in u16"))
+        .set_header(vec![Cell::new("Name"), Cell::new("Queued action?")]);
+
+    for player in players.players {
+        let mut name = Cell::new(player.name);
+        if player.is_self {
+            name = name.add_attribute(comfy_table::Attribute::Bold);
+        }
+
+        let has_queued_action = if player.has_queued_action {
+            Cell::new("Y").fg(comfy_table::Color::Green)
+        } else {
+            Cell::new("N").fg(comfy_table::Color::Red)
+        };
+
+        table.add_row(vec![name, has_queued_action]);
+    }
+
+    table.to_string()
 }
 
 /// Formats a list of items into a single string.
