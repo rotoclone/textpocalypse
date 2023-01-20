@@ -33,6 +33,7 @@ pub use player::Player;
 pub use player::PlayerId;
 
 mod action_queue;
+pub use action_queue::clear_action_queue;
 pub use action_queue::queue_action;
 pub use action_queue::queue_action_first;
 pub use action_queue::try_perform_queued_actions;

@@ -55,6 +55,8 @@ pub enum MessageCategory {
     Surroundings(SurroundingsMessageCategory),
     /// A message from the entity itself.
     Internal(InternalMessageCategory),
+    /// A message from the game itself, as opposed to the game world.
+    System,
 }
 
 /// A message from an entity's surroundings.

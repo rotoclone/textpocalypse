@@ -61,6 +61,10 @@ mod say;
 pub use say::SayAction;
 pub use say::SayParser;
 
+mod stop;
+pub use stop::StopAction;
+pub use stop::StopParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(

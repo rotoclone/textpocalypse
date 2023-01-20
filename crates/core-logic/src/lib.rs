@@ -112,6 +112,7 @@ impl StandardInputParsers {
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
                 Box::new(WaitParser),
+                Box::new(StopParser),
                 Box::new(HelpParser),
             ],
         }
@@ -400,7 +401,19 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             } else {
                 queue_action_first(&mut write_world, entity, action);
             }
-            try_perform_queued_actions(&mut write_world);
+            let any_action_performed = try_perform_queued_actions(&mut write_world);
+            drop(write_world);
+            if !any_action_performed {
+                send_message(
+                    &world.read().unwrap(),
+                    entity,
+                    GameMessage::Message {
+                        content: "Action queued.".to_string(),
+                        category: MessageCategory::System,
+                        delay: MessageDelay::None,
+                    },
+                )
+            }
         }
         Err(e) => handle_input_error(entity, e, &read_world),
     }
