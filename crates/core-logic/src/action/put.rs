@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::{
     component::{AfterActionNotification, Container, Item, Location},
-    get_reference_name,
+    find_holding_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -63,7 +63,12 @@ impl InputParser for PutParser {
             }
         };
 
-        if source_container != entity && is_living_entity(source_container, world) {
+        let source_held_by_other_living_entity = find_holding_entity(source_container, world)
+            .map(|h| h != entity)
+            .unwrap_or(false);
+        if source_held_by_other_living_entity
+            || (source_container != entity && is_living_entity(source_container, world))
+        {
             let source_name = get_reference_name(source_container, Some(entity), world);
             let message = format!("You can't get anything from {source_name}.");
             return Err(InputParseError::CommandParseError {
@@ -123,6 +128,7 @@ impl InputParser for PutParser {
         let destination_container = match destination_target.find_target_entity(entity, world) {
             Some(c) => c,
             None => {
+                // TODO this error may reveal inventory contents of another entity: you'll get different errors for trying to put something in a container someone else has vs a container they don't have
                 return Err(InputParseError::CommandParseError {
                     verb: verb_name,
                     error: CommandParseError::TargetNotFound(destination_target),
@@ -130,7 +136,13 @@ impl InputParser for PutParser {
             }
         };
 
-        if destination_container != entity && is_living_entity(destination_container, world) {
+        let destination_held_by_other_living_entity =
+            find_holding_entity(destination_container, world)
+                .map(|h| h != entity)
+                .unwrap_or(false);
+        if destination_held_by_other_living_entity
+            || (destination_container != entity && is_living_entity(destination_container, world))
+        {
             let destination_name = get_reference_name(destination_container, Some(entity), world);
             let message = format!("You can't put anything in {destination_name}.");
             return Err(InputParseError::CommandParseError {
