@@ -12,14 +12,70 @@ pub struct Description {
     pub room_name: String,
     /// The name to use when referring to multiple instances of the entity.
     pub plural_name: String,
-    /// The article to use when referring to the entity (usually "a" or "an")
+    /// The article to use when referring to the entity (usually "a" or "an").
     pub article: Option<String>,
+    /// The pronouns to use when referring to the entity.
+    pub pronouns: Pronouns,
     /// The alternate names of the entity.
     pub aliases: Vec<String>,
     /// The description of the entity.
     pub description: String,
     /// Describers for dynamic attributes of the entity.
     pub attribute_describers: Vec<Box<dyn AttributeDescriber>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Pronouns {
+    /// The personal subject form (e.g. he, she, they)
+    pub personal_subject: String,
+    /// The personal object form (e.g. him, her, them)
+    pub personal_object: String,
+    /// The possessive form (e.g. his, hers, their).
+    pub possessive: String,
+    /// Whether the pronouns are considered to be plural or not.
+    pub plural: bool,
+}
+
+impl Pronouns {
+    /// Creates a set of pronouns.
+    pub fn new<T: Into<String>>(
+        personal_subject: T,
+        personal_object: T,
+        possessive: T,
+        plural: bool,
+    ) -> Pronouns {
+        Pronouns {
+            personal_subject: personal_subject.into(),
+            personal_object: personal_object.into(),
+            possessive: possessive.into(),
+            plural,
+        }
+    }
+
+    /// Creates a set of pronouns with forms of "he".
+    pub fn he() -> Pronouns {
+        Pronouns::new("he", "him", "his", false)
+    }
+
+    /// Creates a set of pronouns with forms of "she".
+    pub fn she() -> Pronouns {
+        Pronouns::new("she", "her", "hers", false)
+    }
+
+    /// Creates a set of pronouns with forms of "they".
+    pub fn they() -> Pronouns {
+        Pronouns::new("they", "them", "their", true)
+    }
+
+    /// Creates a set of pronouns with forms of "you".
+    pub fn you() -> Pronouns {
+        Pronouns::new("you", "you", "your", true)
+    }
+
+    /// Creates a set of pronouns with forms of "it".
+    pub fn it() -> Pronouns {
+        Pronouns::new("it", "it", "its", false)
+    }
 }
 
 impl Description {
@@ -123,6 +179,7 @@ pub trait DescribeAttributes {
                 room_name: "".to_string(),
                 plural_name: "".to_string(),
                 article: None,
+                pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: "".to_string(),
                 attribute_describers: vec![Self::get_attribute_describer()],

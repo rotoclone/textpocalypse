@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::*;
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
-use log::debug;
+use log::{debug, warn};
 use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
     thread::{self},
+    time::{Duration, SystemTime},
 };
 
 mod action;
@@ -15,6 +16,7 @@ use action::*;
 mod component;
 pub use component::AttributeDescription;
 pub use component::AttributeType;
+pub use component::Pronouns;
 use component::*;
 
 mod resource;
@@ -85,12 +87,6 @@ pub struct Game {
     next_player_id: PlayerId,
 }
 
-impl Default for Game {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Resource)]
 struct StandardInputParsers {
     parsers: Vec<Box<dyn InputParser>>,
@@ -112,16 +108,27 @@ impl StandardInputParsers {
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
                 Box::new(WaitParser),
+                Box::new(StopParser),
+                Box::new(PlayersParser),
                 Box::new(HelpParser),
             ],
         }
     }
 }
 
+#[derive(Resource)]
+pub struct GameOptions {
+    /// How long a player can go without entering a command before they're considered to be AFK and they no longer prevent other players from performing actions that require ticks.
+    ///
+    /// If not set, players will never be considered AFK.
+    pub afk_timeout: Option<Duration>,
+}
+
 impl Game {
     /// Creates a game with a new, empty world
-    pub fn new() -> Game {
+    pub fn new(game_options: GameOptions) -> Game {
         let mut world = World::new();
+        world.insert_resource(game_options);
         world.insert_resource(Time::new());
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
@@ -139,10 +146,15 @@ impl Game {
         register_component_handlers(&mut world);
 
         NotificationHandlers::add_handler(look_after_move, &mut world);
-        Game {
+
+        let game = Game {
             world: Arc::new(RwLock::new(world)),
             next_player_id: PlayerId(0),
-        }
+        };
+
+        game.spawn_afk_checker_thread();
+
+        game
     }
 
     /// Adds a player to the game in the default spawn location.
@@ -168,6 +180,7 @@ impl Game {
                     room_name: "medium thing".to_string(),
                     plural_name: "medium things".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
                     attribute_describers: vec![
@@ -189,6 +202,7 @@ impl Game {
                     room_name: "heavy thing".to_string(),
                     plural_name: "heavy things".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
                     attribute_describers: vec![
@@ -210,6 +224,7 @@ impl Game {
                     room_name: "water bottle".to_string(),
                     plural_name: "water bottles".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["bottle".to_string()],
                     description: "A disposable plastic water bottle.".to_string(),
                     attribute_describers: vec![
@@ -260,6 +275,7 @@ impl Game {
                     Ok(c) => c,
                     Err(_) => {
                         debug!("Command sender for player {player_id:?} has been dropped");
+                        despawn_player(player_id, &mut player_thread_world.write().unwrap());
                         break;
                     }
                 };
@@ -276,6 +292,27 @@ impl Game {
             .unwrap_or_else(|e| {
                 panic!("failed to spawn thread to handle input for player {player_id:?}: {e}")
             });
+    }
+
+    /// Sets up a thread for checking if players are AFK.
+    fn spawn_afk_checker_thread(&self) {
+        let thread_world = Arc::clone(&self.world);
+
+        thread::Builder::new()
+            .name(format!("AFK checker"))
+            .spawn(move || loop {
+                thread::sleep(Duration::from_millis(1000));
+
+                let mut write_world = thread_world.write().unwrap();
+                let mut query = write_world.query::<&Player>();
+                if query
+                    .iter(&write_world)
+                    .any(|player| player.is_afk(write_world.resource::<GameOptions>().afk_timeout))
+                {
+                    try_perform_queued_actions(&mut write_world);
+                }
+            })
+            .unwrap_or_else(|e| panic!("failed to spawn thread to check if players are AFK: {e}"));
     }
 }
 
@@ -320,11 +357,13 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         room_name: name,
         plural_name: "people".to_string(),
         article: None,
+        pronouns: Pronouns::they(),
         aliases: Vec::new(),
         description: "A human-shaped person-type thing.".to_string(),
-        attribute_describers: Vec::new(),
+        attribute_describers: vec![SleepState::get_attribute_describer()],
     };
     let vitals = Vitals::new();
+    let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
             player,
@@ -333,6 +372,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             Weight(65.0),
             desc,
             vitals,
+            action_queue,
         ))
         .id();
     move_entity(player_entity, spawn_room, world);
@@ -342,7 +382,41 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .0
         .insert(player_id, player_entity);
 
+    ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+        MessageDelay::Short,
+    )
+    .add_entity_name(player_entity)
+    .add_string(" appears.")
+    .send(
+        Some(player_entity),
+        ThirdPersonMessageLocation::SourceEntity,
+        world,
+    );
+
     player_entity
+}
+
+/// Despawns the player with the provided ID.
+fn despawn_player(player_id: PlayerId, world: &mut World) {
+    if let Some(entity) = find_entity_for_player(player_id, world) {
+        ThirdPersonMessage::new(
+            MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+            MessageDelay::Short,
+        )
+        .add_entity_name(entity)
+        .add_string(" disappears.")
+        .send(
+            Some(entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            world,
+        );
+
+        despawn_entity(entity, world);
+
+        // that player might have been the only one without a queued action, so try performing actions
+        try_perform_queued_actions(world);
+    }
 }
 
 /// Finds the ID of the spawn room in the provided world.
@@ -370,7 +444,7 @@ fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
     world.entity(entity_id).contains::<Player>()
 }
 
-/// Sends a message to the provided entity, if possible. Panics if the entity's message receiver has been dropped.
+/// Sends a message to the provided entity, if possible.
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(player) = world.get::<Player>(entity_id) {
         let time = world.resource::<Time>().clone();
@@ -378,19 +452,29 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     }
 }
 
-/// Sends a message to the provided player. Panics if the channel's message receiver has been dropped.
+/// Sends a message to the provided player.
 fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
-    player
-        .send_message(message, time)
-        .expect("Message receiver should exist");
+    if let Err(e) = player.send_message(message, time) {
+        warn!("Error sending message to player {:?}: {}", player.id, e);
+    }
 }
 
 /// Handles input from an entity.
 fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
+    let mut write_world = world.write().unwrap();
+    if let Some(mut player) = write_world.get_mut::<Player>(entity) {
+        player.last_command_time = SystemTime::now();
+    }
+    drop(write_world);
+
     let read_world = world.read().unwrap();
     match parse_input(&input, entity, &read_world) {
         Ok(action) => {
             debug!("Parsed input into action: {action:?}");
+            let num_actions_before = read_world
+                .get::<ActionQueue>(entity)
+                .map(|q| q.number_of_actions())
+                .unwrap_or(0);
             drop(read_world);
             let mut write_world = world.write().unwrap();
             if action.may_require_tick() {
@@ -398,7 +482,25 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             } else {
                 queue_action_first(&mut write_world, entity, action);
             }
-            try_perform_queued_actions(&mut write_world);
+            let any_action_performed = try_perform_queued_actions(&mut write_world);
+            drop(write_world);
+            let read_world = world.read().unwrap();
+            let num_actions_after = read_world
+                .get::<ActionQueue>(entity)
+                .map(|q| q.number_of_actions())
+                .unwrap_or(0);
+
+            if !any_action_performed && num_actions_after > num_actions_before {
+                send_message(
+                    &read_world,
+                    entity,
+                    GameMessage::Message {
+                        content: "Action queued.".to_string(),
+                        category: MessageCategory::System,
+                        delay: MessageDelay::None,
+                    },
+                )
+            }
         }
         Err(e) => handle_input_error(entity, e, &read_world),
     }
@@ -484,6 +586,15 @@ fn interrupt_entity(entity: Entity, world: &mut World) {
     world.resource_mut::<InterruptedEntities>().0.insert(entity);
 }
 
+/// A notification that an entity has died.
+#[derive(Debug)]
+pub struct DeathNotification {
+    /// The entity that died.
+    entity: Entity,
+}
+
+impl NotificationType for DeathNotification {}
+
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
     if world.entity_mut(entity).remove::<Vitals>().is_none() {
@@ -500,6 +611,26 @@ fn kill_entity(entity: Entity, world: &mut World) {
             delay: MessageDelay::Long,
         },
     );
+
+    ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .add_entity_name(entity)
+    .add_string(" falls to the ground, dead.")
+    .send(
+        Some(entity),
+        ThirdPersonMessageLocation::SourceEntity,
+        world,
+    );
+
+    clear_action_queue(world, entity);
+
+    Notification {
+        notification_type: DeathNotification { entity },
+        contents: &(),
+    }
+    .send(world);
 
     let name = world
         .get::<Description>(entity)
@@ -523,6 +654,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
             room_name: format!("dead body of {}", desc.room_name),
             plural_name: format!("dead bodies of {}", desc.room_name),
             article: Some("the".to_string()),
+            pronouns: Pronouns::it(),
             aliases,
             description: desc.description,
             attribute_describers,

@@ -5,7 +5,8 @@ use crate::{
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
         FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior, Weight,
+        ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
+        Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -169,6 +170,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 room_name: "Some Guy".to_string(),
                 plural_name: "Some Guys".to_string(),
                 article: None,
+                pronouns: Pronouns::he(),
                 aliases: vec!["guy".to_string()],
                 description:
                     "It's just some guy. He looks around, not focusing on anything in particular."
@@ -288,6 +290,7 @@ pub fn spawn_start_building(
                 room_name: "fancy door".to_string(),
                 plural_name: "fancy doors".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["door".to_string(), "north".to_string(), "n".to_string()],
                 description: "A fancy-looking door.".to_string(),
                 attribute_describers: vec![
@@ -318,6 +321,7 @@ pub fn spawn_start_building(
             room_name: "fancy door".to_string(),
             plural_name: "fancy doors".to_string(),
             article: Some("a".to_string()),
+            pronouns: Pronouns::it(),
             aliases: vec!["door".to_string(), "south".to_string(), "s".to_string()],
             description: "A fancy-looking door.".to_string(),
             attribute_describers: vec![
@@ -355,6 +359,7 @@ pub fn spawn_start_building(
                 room_name: "candy bar".to_string(),
                 plural_name: "candy bars".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["candy".to_string(), "bar".to_string()],
                 description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
                 attribute_describers: vec![
@@ -380,6 +385,7 @@ pub fn spawn_start_building(
                 room_name: "large thing".to_string(),
                 plural_name: "large things".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["thing".to_string()],
                 description: "Some kind of largeish thing.".to_string(),
                 attribute_describers: vec![
@@ -401,6 +407,7 @@ pub fn spawn_start_building(
                 room_name: "fancy key".to_string(),
                 plural_name: "fancy keys".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["key".to_string()],
                 description: "A fancy-looking key.".to_string(),
                 attribute_describers: vec![
@@ -423,6 +430,7 @@ pub fn spawn_start_building(
                 room_name: "duffel bag".to_string(),
                 plural_name: "duffel bags".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["duffel".to_string(), "bag".to_string()],
                 description: "A large duffel bag.".to_string(),
                 attribute_describers: vec![
@@ -446,6 +454,7 @@ pub fn spawn_start_building(
                 room_name: "lead weight".to_string(),
                 plural_name: "lead weights".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
                 attribute_describers: vec![
@@ -467,6 +476,7 @@ pub fn spawn_start_building(
                 room_name: "lead weight".to_string(),
                 plural_name: "lead weights".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
                 attribute_describers: vec![
@@ -488,6 +498,7 @@ pub fn spawn_start_building(
                 room_name: "water jug".to_string(),
                 plural_name: "water jugs".to_string(),
                 article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
                 aliases: vec!["jug".to_string()],
                 description: "A large jug made for holding water.".to_string(),
                 attribute_describers: vec![

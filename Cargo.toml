@@ -16,3 +16,8 @@ env_logger = "0.10.0"
 crossterm = "0.25.0"
 voca_rs = "1.15.2"
 itertools = "0.10.5"
+futures = "0.3.25"
+flume = "0.10.14"
+tokio = { version = "1.24.1", features = ["full"] }
+tokio-util = { version = "0.7.4", features = ["full"] }
+comfy-table = "6.1.4"

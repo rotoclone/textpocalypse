@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use bevy_ecs::prelude::*;
 use flume::{SendError, Sender};
@@ -27,6 +30,8 @@ pub struct Player {
     sender: Sender<(GameMessage, Time)>,
     /// Filter for messages to send to the player.
     pub message_filter: MessageFilter,
+    /// The time this player last sent a command.
+    pub last_command_time: SystemTime,
 }
 
 impl Player {
@@ -36,6 +41,7 @@ impl Player {
             id,
             sender,
             message_filter: MessageFilter::new(),
+            last_command_time: SystemTime::now(),
         }
     }
 
@@ -50,6 +56,18 @@ impl Player {
         }
 
         Ok(())
+    }
+
+    /// Determines whether this player is AFK.
+    pub fn is_afk(&self, afk_timeout: Option<Duration>) -> bool {
+        if let Some(afk_timeout) = afk_timeout {
+            match SystemTime::now().duration_since(self.last_command_time) {
+                Ok(elapsed) => elapsed >= afk_timeout,
+                Err(_) => false,
+            }
+        } else {
+            false
+        }
     }
 }
 
