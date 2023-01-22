@@ -3,13 +3,16 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
+    action::{
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction,
+        ThirdPersonMessage, ThirdPersonMessageLocation,
+    },
     find_spawn_room,
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{queue_action_first, AfterActionNotification, ParseCustomInput, Vitals};
@@ -61,6 +64,17 @@ impl Action for RespawnAction {
                 "You start to feel more corporeal...".to_string(),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                    MessageDelay::Short,
+                )
+                .add_entity_name(performing_entity)
+                .add_string(" appears."),
+                world,
             )
             .build_complete_should_tick(true)
     }

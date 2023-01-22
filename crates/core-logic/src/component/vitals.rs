@@ -9,7 +9,7 @@ use crate::{
     ConstrainedValue, GameMessage, MessageDelay, TickNotification, ValueChangeDescription,
 };
 
-use super::{is_asleep, queue_action_first, SleepState};
+use super::{is_asleep, queue_action_first};
 
 const SATIETY_LOSS_PER_TICK: f32 = 0.005; // loss of 100 satiety in ~3 days
 const HYDRATION_LOSS_PER_TICK: f32 = 0.008; // loss of 100 hydration in ~2 days

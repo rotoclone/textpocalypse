@@ -25,6 +25,8 @@ pub fn greet_new_entities(
         return;
     }
 
+    //TODO don't greet multiple times if multiple entities walk in in the same tick
+
     let mut actions = Vec::new();
     for (entity, greet_behavior) in world.query::<(Entity, &GreetBehavior)>().iter(world) {
         if entity == notification.notification_type.performing_entity {

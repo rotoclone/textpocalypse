@@ -383,7 +383,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .insert(player_id, player_entity);
 
     ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
     )
     .add_entity_name(player_entity)
@@ -401,7 +401,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
 fn despawn_player(player_id: PlayerId, world: &mut World) {
     if let Some(entity) = find_entity_for_player(player_id, world) {
         ThirdPersonMessage::new(
-            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+            MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
         )
         .add_entity_name(entity)
@@ -586,6 +586,15 @@ fn interrupt_entity(entity: Entity, world: &mut World) {
     world.resource_mut::<InterruptedEntities>().0.insert(entity);
 }
 
+/// A notification that an entity has died.
+#[derive(Debug)]
+pub struct DeathNotification {
+    /// The entity that died.
+    entity: Entity,
+}
+
+impl NotificationType for DeathNotification {}
+
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
     if world.entity_mut(entity).remove::<Vitals>().is_none() {
@@ -602,6 +611,26 @@ fn kill_entity(entity: Entity, world: &mut World) {
             delay: MessageDelay::Long,
         },
     );
+
+    ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .add_entity_name(entity)
+    .add_string(" falls to the ground, dead.")
+    .send(
+        Some(entity),
+        ThirdPersonMessageLocation::SourceEntity,
+        world,
+    );
+
+    clear_action_queue(world, entity);
+
+    Notification {
+        notification_type: DeathNotification { entity },
+        contents: &(),
+    }
+    .send(world);
 
     let name = world
         .get::<Description>(entity)
