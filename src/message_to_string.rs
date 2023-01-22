@@ -612,21 +612,37 @@ fn players_to_string(players: PlayersMessage) -> String {
     table
         .set_content_arrangement(ContentArrangement::Dynamic)
         .set_width(MAX_WIDTH.try_into().expect("max size should fit in u16"))
-        .set_header(vec![Cell::new("Name"), Cell::new("Queued action?")]);
+        .set_header(vec![
+            Cell::new("Name"),
+            Cell::new("Queued action?"),
+            Cell::new("AFK?"),
+        ]);
 
     for player in players.players {
         let mut name = Cell::new(player.name);
         if player.is_self {
             name = name.add_attribute(comfy_table::Attribute::Bold);
+        } else if player.is_afk {
+            name = name.fg(comfy_table::Color::DarkGrey);
         }
 
-        let has_queued_action = if player.has_queued_action {
+        let mut has_queued_action = if player.has_queued_action {
             Cell::new("Y").fg(comfy_table::Color::Green)
         } else {
             Cell::new("N").fg(comfy_table::Color::Red)
         };
 
-        table.add_row(vec![name, has_queued_action]);
+        if player.is_afk {
+            has_queued_action = has_queued_action.fg(comfy_table::Color::Grey)
+        }
+
+        let is_afk = if player.is_afk {
+            Cell::new("Y").fg(comfy_table::Color::Green)
+        } else {
+            Cell::new("N").fg(comfy_table::Color::Red)
+        };
+
+        table.add_row(vec![name, has_queued_action, is_afk]);
     }
 
     table.to_string()

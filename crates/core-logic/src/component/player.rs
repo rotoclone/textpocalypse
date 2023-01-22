@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::SystemTime};
 
 use bevy_ecs::prelude::*;
 use flume::{SendError, Sender};
@@ -7,6 +7,9 @@ use strum::IntoEnumIterator;
 use crate::{
     GameMessage, InternalMessageCategory, MessageCategory, SurroundingsMessageCategory, Time,
 };
+
+/// The number of seconds after which a player is considered to be AFK and they no longer prevent other players from performing actions that require ticks.
+const AFK_SECONDS: u64 = 90;
 
 /// A unique identifier for a player.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -27,6 +30,8 @@ pub struct Player {
     sender: Sender<(GameMessage, Time)>,
     /// Filter for messages to send to the player.
     pub message_filter: MessageFilter,
+    /// The time this player last sent a command.
+    pub last_command_time: SystemTime,
 }
 
 impl Player {
@@ -36,6 +41,7 @@ impl Player {
             id,
             sender,
             message_filter: MessageFilter::new(),
+            last_command_time: SystemTime::now(),
         }
     }
 
@@ -50,6 +56,14 @@ impl Player {
         }
 
         Ok(())
+    }
+
+    /// Determines whether this player is AFK.
+    pub fn is_afk(&self) -> bool {
+        match SystemTime::now().duration_since(self.last_command_time) {
+            Ok(elapsed) => elapsed.as_secs() >= AFK_SECONDS,
+            Err(_) => false,
+        }
     }
 }
 

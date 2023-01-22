@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::*;
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
-use log::debug;
+use log::{debug, warn};
 use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
     thread::{self},
+    time::{Duration, SystemTime},
 };
 
 mod action;
@@ -142,10 +143,15 @@ impl Game {
         register_component_handlers(&mut world);
 
         NotificationHandlers::add_handler(look_after_move, &mut world);
-        Game {
+
+        let game = Game {
             world: Arc::new(RwLock::new(world)),
             next_player_id: PlayerId(0),
-        }
+        };
+
+        game.spawn_afk_checker_thread();
+
+        game
     }
 
     /// Adds a player to the game in the default spawn location.
@@ -284,6 +290,24 @@ impl Game {
                 panic!("failed to spawn thread to handle input for player {player_id:?}: {e}")
             });
     }
+
+    /// Sets up a thread for checking if players are AFK.
+    fn spawn_afk_checker_thread(&self) {
+        let thread_world = Arc::clone(&self.world);
+
+        thread::Builder::new()
+            .name(format!("AFK checker"))
+            .spawn(move || loop {
+                thread::sleep(Duration::from_millis(1000));
+
+                let mut write_world = thread_world.write().unwrap();
+                let mut query = write_world.query::<&Player>();
+                if query.iter(&write_world).any(|player| player.is_afk()) {
+                    try_perform_queued_actions(&mut write_world);
+                }
+            })
+            .unwrap_or_else(|e| panic!("failed to spawn thread to check if players are AFK: {e}"));
+    }
 }
 
 /// Sends a message to an entity with their current location.
@@ -414,7 +438,7 @@ fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
     world.entity(entity_id).contains::<Player>()
 }
 
-/// Sends a message to the provided entity, if possible. Panics if the entity's message receiver has been dropped.
+/// Sends a message to the provided entity, if possible.
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(player) = world.get::<Player>(entity_id) {
         let time = world.resource::<Time>().clone();
@@ -422,16 +446,21 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     }
 }
 
-/// Sends a message to the provided player. Panics if the channel's message receiver has been dropped.
+/// Sends a message to the provided player.
 fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
     if let Err(e) = player.send_message(message, time) {
-        debug!("Error sending message to player {:?}: {}", player.id, e);
-        //TODO despawn_player(player.id, world);
+        warn!("Error sending message to player {:?}: {}", player.id, e);
     }
 }
 
 /// Handles input from an entity.
 fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
+    let mut write_world = world.write().unwrap();
+    if let Some(mut player) = write_world.get_mut::<Player>(entity) {
+        player.last_command_time = SystemTime::now();
+    }
+    drop(write_world);
+
     let read_world = world.read().unwrap();
     match parse_input(&input, entity, &read_world) {
         Ok(action) => {
