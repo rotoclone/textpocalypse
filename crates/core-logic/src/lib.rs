@@ -266,6 +266,7 @@ impl Game {
                     Ok(c) => c,
                     Err(_) => {
                         debug!("Command sender for player {player_id:?} has been dropped");
+                        despawn_player(player_id, &mut player_thread_world.write().unwrap());
                         break;
                     }
                 };
@@ -351,7 +352,38 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .0
         .insert(player_id, player_entity);
 
+    ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .add_entity_name(player_entity)
+    .add_string(" appears.")
+    .send(
+        Some(player_entity),
+        ThirdPersonMessageLocation::SourceEntity,
+        world,
+    );
+
     player_entity
+}
+
+/// Despawns the player with the provided ID.
+fn despawn_player(player_id: PlayerId, world: &mut World) {
+    if let Some(entity) = find_entity_for_player(player_id, world) {
+        ThirdPersonMessage::new(
+            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+            MessageDelay::Short,
+        )
+        .add_entity_name(entity)
+        .add_string(" disappears.")
+        .send(
+            Some(entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            world,
+        );
+
+        despawn_entity(entity, world);
+    }
 }
 
 /// Finds the ID of the spawn room in the provided world.
@@ -389,9 +421,10 @@ fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
 
 /// Sends a message to the provided player. Panics if the channel's message receiver has been dropped.
 fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
-    player
-        .send_message(message, time)
-        .expect("Message receiver should exist");
+    if let Err(e) = player.send_message(message, time) {
+        debug!("Error sending message to player {:?}: {}", player.id, e);
+        //TODO despawn_player(player.id, world);
+    }
 }
 
 /// Handles input from an entity.

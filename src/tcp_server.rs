@@ -1,7 +1,7 @@
 use anyhow::Result;
 use core_logic::Game;
 use futures::{SinkExt, StreamExt};
-use log::debug;
+use log::{debug, info};
 use tokio::net::TcpListener;
 use tokio_util::codec::{Decoder, LinesCodec};
 
@@ -18,16 +18,19 @@ pub async fn start_server() -> Result<()> {
     // to our event loop. After the socket's created we inform that we're ready
     // to go and start accepting connections.
     let listener = TcpListener::bind(&addr).await?;
-    println!("Listening on: {}", addr);
+    info!("Listening on: {}", addr);
 
     let mut next_player_id = 0;
     loop {
         // Asynchronously wait for an inbound socket.
         let (socket, _) = listener.accept().await?;
 
-        let (command_sender, message_receiver) =
-            game.add_player(format!("Player {}", next_player_id));
+        let player_id = next_player_id;
         next_player_id += 1;
+
+        info!("Player {player_id} has connected");
+
+        let (command_sender, message_receiver) = game.add_player(format!("Player {player_id}"));
 
         let (mut sink, mut stream) = LinesCodec::new().framed(socket).split::<String>();
 
@@ -38,7 +41,7 @@ pub async fn start_server() -> Result<()> {
                     Ok(x) => x,
                     Err(_) => {
                         debug!("Message sender has been dropped");
-                        panic!("Disconnected from game")
+                        break;
                     }
                 };
                 debug!("Got message: {message:?}");
@@ -58,15 +61,18 @@ pub async fn start_server() -> Result<()> {
                 match message {
                     Ok(input) => {
                         debug!("Raw input: {input:?}");
+                        if input == "quit" {
+                            break;
+                        }
                         command_sender
                             .send(input)
                             .expect("Command receiver should exist")
                     }
-                    Err(err) => println!("Socket closed with error: {:?}", err),
+                    Err(err) => println!("Socket closed with error: {err:?}"),
                 }
             }
-            println!("Socket received FIN packet and closed connection");
-            //TODO remove player from game
+
+            info!("Player {player_id} has disconnected");
         });
     }
 }
