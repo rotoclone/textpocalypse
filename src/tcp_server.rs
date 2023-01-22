@@ -1,7 +1,7 @@
 use anyhow::Result;
 use core_logic::Game;
 use futures::{SinkExt, StreamExt};
-use log::{debug, info};
+use log::{debug, info, warn};
 use tokio::net::TcpListener;
 use tokio_util::codec::{Decoder, LinesCodec};
 
@@ -68,7 +68,7 @@ pub async fn start_server() -> Result<()> {
                             .send(input)
                             .expect("Command receiver should exist")
                     }
-                    Err(err) => println!("Socket closed with error: {err:?}"),
+                    Err(err) => warn!("Socket closed with error: {err:?}"),
                 }
             }
 

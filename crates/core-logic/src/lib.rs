@@ -383,6 +383,9 @@ fn despawn_player(player_id: PlayerId, world: &mut World) {
         );
 
         despawn_entity(entity, world);
+
+        // that player might have been the only one without a queued action, so try performing actions
+        try_perform_queued_actions(world);
     }
 }
 
