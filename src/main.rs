@@ -29,7 +29,11 @@ const PROMPT: &str = "\n> ";
 const SHORT_MESSAGE_DELAY: Duration = Duration::from_millis(333);
 const LONG_MESSAGE_DELAY: Duration = Duration::from_millis(666);
 
+/// Whether the game should be run as a server or just locally.
 const SERVER_MODE: bool = true;
+
+/// The amount of time after which a player is considered to be AFK.
+const AFK_TIMEOUT: Duration = Duration::from_secs(90);
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -37,15 +41,18 @@ async fn main() -> Result<()> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
+    let game = Game::new(GameOptions {
+        afk_timeout: Some(AFK_TIMEOUT),
+    });
+
     if SERVER_MODE {
-        start_server().await
+        start_server(game).await
     } else {
-        setup_local()
+        setup_local(game)
     }
 }
 
-fn setup_local() -> Result<()> {
-    let mut game = Game::new();
+fn setup_local(mut game: Game) -> Result<()> {
     let (commands_sender, messages_receiver) = game.add_player("Player".to_string());
 
     let quitting = Arc::new(AtomicBool::new(false));

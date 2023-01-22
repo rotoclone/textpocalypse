@@ -87,12 +87,6 @@ pub struct Game {
     next_player_id: PlayerId,
 }
 
-impl Default for Game {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Resource)]
 struct StandardInputParsers {
     parsers: Vec<Box<dyn InputParser>>,
@@ -122,10 +116,19 @@ impl StandardInputParsers {
     }
 }
 
+#[derive(Resource)]
+pub struct GameOptions {
+    /// How long a player can go without entering a command before they're considered to be AFK and they no longer prevent other players from performing actions that require ticks.
+    ///
+    /// If not set, players will never be considered AFK.
+    pub afk_timeout: Option<Duration>,
+}
+
 impl Game {
     /// Creates a game with a new, empty world
-    pub fn new() -> Game {
+    pub fn new(game_options: GameOptions) -> Game {
         let mut world = World::new();
+        world.insert_resource(game_options);
         world.insert_resource(Time::new());
         world.insert_resource(GameMap::new());
         world.insert_resource(StandardInputParsers::new());
@@ -302,7 +305,10 @@ impl Game {
 
                 let mut write_world = thread_world.write().unwrap();
                 let mut query = write_world.query::<&Player>();
-                if query.iter(&write_world).any(|player| player.is_afk()) {
+                if query
+                    .iter(&write_world)
+                    .any(|player| player.is_afk(write_world.resource::<GameOptions>().afk_timeout))
+                {
                     try_perform_queued_actions(&mut write_world);
                 }
             })

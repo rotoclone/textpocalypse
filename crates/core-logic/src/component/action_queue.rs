@@ -5,7 +5,7 @@ use log::debug;
 
 use crate::{
     action::Action, component::Player, notification::NotificationType, send_messages, tick,
-    InterruptedEntities,
+    GameOptions, InterruptedEntities,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
@@ -185,6 +185,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
         // now each player's action queue should either be empty, or have an action at the front that may require a tick to perform
         let mut entities_with_actions = Vec::new();
+        let afk_timeout = world.resource::<GameOptions>().afk_timeout;
         // players with actions
         for (entity, mut action_queue, player) in world
             .query::<(Entity, &mut ActionQueue, &Player)>()
@@ -194,7 +195,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             if !action_queue.actions.is_empty() {
                 debug!("{entity:?} has a queued action");
                 entities_with_actions.push(entity);
-            } else if !player.is_afk() {
+            } else if !player.is_afk(afk_timeout) {
                 // somebody doesn't have any action queued yet, so don't perform any
                 debug!("{entity:?} has no queued actions, not performing any");
                 return any_actions_performed;

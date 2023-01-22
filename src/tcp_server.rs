@@ -7,9 +7,7 @@ use tokio_util::codec::{Decoder, LinesCodec};
 
 use crate::{delay_for_message, message_to_string};
 
-pub async fn start_server() -> Result<()> {
-    let mut game = Game::new();
-
+pub async fn start_server(mut game: Game) -> Result<()> {
     let addr = "0.0.0.0:8080".to_string();
 
     // Next up we create a TCP listener which will listen for incoming

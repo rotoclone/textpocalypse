@@ -16,7 +16,7 @@ use crate::{
     input_parser::find_parsers_relevant_for,
     is_living_entity,
     value_change::ValueType,
-    ConstrainedValue, Direction,
+    ConstrainedValue, Direction, GameOptions,
 };
 
 const PLAYER_MAP_CHAR: MapChar = MapChar {
@@ -234,7 +234,7 @@ fn build_player_descriptions(pov_entity: Entity, world: &mut World) -> Vec<Playe
         descriptions.push(PlayerDescription {
             name: desc.name.clone(),
             has_queued_action: !queue.is_empty(),
-            is_afk: player.is_afk(),
+            is_afk: player.is_afk(world.resource::<GameOptions>().afk_timeout),
             is_self: entity == pov_entity,
         });
     }
