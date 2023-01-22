@@ -6,14 +6,14 @@ use regex::Regex;
 use crate::{
     component::{AfterActionNotification, Player, SleepState, Vitals},
     input_parser::{CommandParseError, InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction, SayAction,
-    ThirdPersonMessage, ThirdPersonMessageLocation,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
 };
 
 /// The fraction of energy over which an entity cannot go to sleep if it's awake, and has a chance to wake up if it's asleep.

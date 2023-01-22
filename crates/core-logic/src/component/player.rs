@@ -8,8 +8,7 @@ use flume::{SendError, Sender};
 use strum::IntoEnumIterator;
 
 use crate::{
-    GameMessage, GameOptions, InternalMessageCategory, MessageCategory,
-    SurroundingsMessageCategory, Time,
+    GameMessage, InternalMessageCategory, MessageCategory, SurroundingsMessageCategory, Time,
 };
 
 /// A unique identifier for a player.
