@@ -1,7 +1,14 @@
 use bevy_ecs::prelude::*;
 
+use crate::{
+    action::{LookAction, SayAction},
+    notification::{Notification, VerifyResult},
+    GameMessage,
+};
+
 use super::{
-    description::DescribeAttributes, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
+    description::DescribeAttributes, AttributeDescriber, AttributeDescription,
+    AttributeDetailLevel, VerifyActionNotification,
 };
 
 /// Describes whether an entity is asleep or awake.
@@ -37,4 +44,41 @@ impl DescribeAttributes for SleepState {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
         Box::new(SleepStateAttributeDescriber)
     }
+}
+
+/// Determines whether the provided entity is asleep.
+pub fn is_asleep(entity: Entity, world: &World) -> bool {
+    world
+        .get::<SleepState>(entity)
+        .map_or(false, |s| s.is_asleep)
+}
+
+/// Prevents an entity from looking at anything while it is asleep.
+pub fn prevent_look_while_asleep(
+    notification: &Notification<VerifyActionNotification, LookAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if is_asleep(performing_entity, world) {
+        let message = GameMessage::Error("You can't look while you're asleep.".to_string());
+        return VerifyResult::invalid(performing_entity, message);
+    }
+
+    VerifyResult::valid()
+}
+
+/// Prevents an entity from saying anything while it is asleep.
+pub fn prevent_say_while_asleep(
+    notification: &Notification<VerifyActionNotification, SayAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if is_asleep(performing_entity, world) {
+        let message = GameMessage::Error("You can't talk while you're asleep.".to_string());
+        return VerifyResult::invalid(performing_entity, message);
+    }
+
+    VerifyResult::valid()
 }

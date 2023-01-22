@@ -7,6 +7,7 @@ pub use description::AttributeDetailLevel;
 pub use description::AttributeType;
 pub use description::DescribeAttributes;
 pub use description::Description;
+pub use description::Pronouns;
 
 mod location;
 pub use location::Location;
@@ -75,6 +76,7 @@ pub use fluid::FluidType;
 pub use fluid::FluidTypeAmount;
 
 mod sleep_state;
+pub use sleep_state::is_asleep;
 pub use sleep_state::SleepState;
 
 mod wander_behavior;
@@ -118,4 +120,7 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(wander_behavior::wander_on_tick, world);
 
     NotificationHandlers::add_handler(greet_behavior::greet_new_entities, world);
+
+    VerifyNotificationHandlers::add_handler(sleep_state::prevent_look_while_asleep, world);
+    VerifyNotificationHandlers::add_handler(sleep_state::prevent_say_while_asleep, world);
 }

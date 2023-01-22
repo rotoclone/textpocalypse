@@ -344,14 +344,17 @@ fn entity_to_string(entity: EntityDescription) -> String {
             .to_string()
     };
     let desc = entity.description;
-    let attributes = entity_attributes_to_string(entity.attributes)
+    let attributes = entity_attributes_to_string(entity.attributes, entity.pronouns)
         .map_or_else(|| "".to_string(), |s| format!("\n\n{s}"));
 
     format!("{name}{aliases}\n{desc}{attributes}")
 }
 
-/// Transforms the provided entity attribute descriptions into a string for display.
-fn entity_attributes_to_string(attributes: Vec<AttributeDescription>) -> Option<String> {
+/// Transforms the provided entity attribute descriptions into a string for display on the entity with the provided pronouns.
+fn entity_attributes_to_string(
+    attributes: Vec<AttributeDescription>,
+    pronouns: Pronouns,
+) -> Option<String> {
     if attributes.is_empty() {
         return None;
     }
@@ -374,22 +377,40 @@ fn entity_attributes_to_string(attributes: Vec<AttributeDescription>) -> Option<
         }
     }
 
+    let capitalized_personal_subj_pronoun = pronouns.personal_subject._capitalize(false);
+
     let is_description = if is_descriptions.is_empty() {
         None
     } else {
-        Some(format!("It's {}.", format_list(&is_descriptions)))
+        let is_or_are = if pronouns.plural { "are" } else { "is" };
+        Some(format!(
+            "{} {} {}.",
+            capitalized_personal_subj_pronoun,
+            is_or_are,
+            format_list(&is_descriptions)
+        ))
     };
 
     let does_description = if does_descriptions.is_empty() {
         None
     } else {
-        Some(format!("It {}.", format_list(&does_descriptions)))
+        Some(format!(
+            "{} {}.",
+            capitalized_personal_subj_pronoun,
+            format_list(&does_descriptions)
+        ))
     };
 
     let has_description = if has_descriptions.is_empty() {
         None
     } else {
-        Some(format!("It has {}.", format_list(&has_descriptions)))
+        let has_or_have = if pronouns.plural { "have" } else { "has" };
+        Some(format!(
+            "{} {} {}.",
+            capitalized_personal_subj_pronoun,
+            has_or_have,
+            format_list(&has_descriptions)
+        ))
     };
 
     let messages_description = if messages.is_empty() {

@@ -76,6 +76,11 @@ impl ActionQueue {
         self.actions.is_empty() && self.to_add_front.is_empty() && self.to_add_back.is_empty()
     }
 
+    /// Determines the total number of actions in the queue.
+    pub fn number_of_actions(&self) -> usize {
+        self.actions.len() + self.to_add_front.len() + self.to_add_back.len()
+    }
+
     /// Determines if calling `update_queue` would modify the main actions queue.
     fn needs_update(&self) -> bool {
         !self.to_add_front.is_empty() || !self.to_add_back.is_empty()

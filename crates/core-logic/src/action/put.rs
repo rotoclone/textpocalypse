@@ -9,7 +9,7 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    move_entity,
+    is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
@@ -62,6 +62,15 @@ impl InputParser for PutParser {
                 });
             }
         };
+
+        if source_container != entity && is_living_entity(source_container, world) {
+            let source_name = get_reference_name(source_container, Some(entity), world);
+            let message = format!("You can't get anything from {source_name}.");
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name,
+                error: CommandParseError::Other(message),
+            });
+        }
 
         let item = match &item_target {
             CommandTarget::Named(n) => {
@@ -120,6 +129,15 @@ impl InputParser for PutParser {
                 });
             }
         };
+
+        if destination_container != entity && is_living_entity(destination_container, world) {
+            let destination_name = get_reference_name(destination_container, Some(entity), world);
+            let message = format!("You can't put anything in {destination_name}.");
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name,
+                error: CommandParseError::Other(message),
+            });
+        }
 
         Ok(Box::new(PutAction {
             item,

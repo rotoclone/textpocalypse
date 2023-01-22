@@ -9,7 +9,7 @@ use crate::{
     color::Color,
     component::{
         ActionQueue, AttributeDescription, AttributeDetailLevel, Connection, Container,
-        Description, Location, Player, Room, Vitals, Volume, Weight,
+        Description, Location, Player, Pronouns, Room, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
@@ -104,8 +104,10 @@ pub struct EntityDescription {
     pub name: String,
     /// Other names for the entity.
     pub aliases: Vec<String>,
-    /// The article to use when referring to the entity (usually "a" or "an")
+    /// The article to use when referring to the entity (usually "a" or "an").
     pub article: Option<String>,
+    /// The pronouns to use when referring to the entity.
+    pub pronouns: Pronouns,
     /// The description of the entity.
     pub description: String,
     /// Descriptions of dynamic attributes of the entity.
@@ -137,10 +139,17 @@ impl EntityDescription {
         detail_level: AttributeDetailLevel,
         world: &World,
     ) -> EntityDescription {
+        let pronouns = if entity == pov_entity {
+            Pronouns::you()
+        } else {
+            desc.pronouns.clone()
+        };
+
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
             article: desc.article.clone(),
+            pronouns,
             description: desc.description.clone(),
             attributes: desc
                 .attribute_describers

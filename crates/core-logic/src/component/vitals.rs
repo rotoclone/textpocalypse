@@ -9,7 +9,7 @@ use crate::{
     ConstrainedValue, GameMessage, MessageDelay, TickNotification, ValueChangeDescription,
 };
 
-use super::{queue_action_first, SleepState};
+use super::{is_asleep, queue_action_first, SleepState};
 
 const SATIETY_LOSS_PER_TICK: f32 = 0.005; // loss of 100 satiety in ~3 days
 const HYDRATION_LOSS_PER_TICK: f32 = 0.008; // loss of 100 hydration in ~2 days
@@ -156,10 +156,7 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
             message: None,
         });
 
-        let is_sleeping = world
-            .get::<SleepState>(entity)
-            .map_or(false, |s| s.is_asleep);
-        if is_sleeping {
+        if is_asleep(entity, world) {
             value_changes.push(ValueChange {
                 entity,
                 value_type: ValueType::Energy,

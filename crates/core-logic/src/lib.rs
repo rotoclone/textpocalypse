@@ -15,6 +15,7 @@ use action::*;
 mod component;
 pub use component::AttributeDescription;
 pub use component::AttributeType;
+pub use component::Pronouns;
 use component::*;
 
 mod resource;
@@ -170,6 +171,7 @@ impl Game {
                     room_name: "medium thing".to_string(),
                     plural_name: "medium things".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
                     attribute_describers: vec![
@@ -191,6 +193,7 @@ impl Game {
                     room_name: "heavy thing".to_string(),
                     plural_name: "heavy things".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
                     attribute_describers: vec![
@@ -212,6 +215,7 @@ impl Game {
                     room_name: "water bottle".to_string(),
                     plural_name: "water bottles".to_string(),
                     article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
                     aliases: vec!["bottle".to_string()],
                     description: "A disposable plastic water bottle.".to_string(),
                     attribute_describers: vec![
@@ -322,9 +326,10 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         room_name: name,
         plural_name: "people".to_string(),
         article: None,
+        pronouns: Pronouns::they(),
         aliases: Vec::new(),
         description: "A human-shaped person-type thing.".to_string(),
-        attribute_describers: Vec::new(),
+        attribute_describers: vec![SleepState::get_attribute_describer()],
     };
     let vitals = Vitals::new();
     let action_queue = ActionQueue::new();
@@ -395,6 +400,10 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
     match parse_input(&input, entity, &read_world) {
         Ok(action) => {
             debug!("Parsed input into action: {action:?}");
+            let num_actions_before = read_world
+                .get::<ActionQueue>(entity)
+                .map(|q| q.number_of_actions())
+                .unwrap_or(0);
             drop(read_world);
             let mut write_world = world.write().unwrap();
             if action.may_require_tick() {
@@ -404,9 +413,15 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             }
             let any_action_performed = try_perform_queued_actions(&mut write_world);
             drop(write_world);
-            if !any_action_performed {
+            let read_world = world.read().unwrap();
+            let num_actions_after = read_world
+                .get::<ActionQueue>(entity)
+                .map(|q| q.number_of_actions())
+                .unwrap_or(0);
+
+            if !any_action_performed && num_actions_after > num_actions_before {
                 send_message(
-                    &world.read().unwrap(),
+                    &read_world,
                     entity,
                     GameMessage::Message {
                         content: "Action queued.".to_string(),
@@ -539,6 +554,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
             room_name: format!("dead body of {}", desc.room_name),
             plural_name: format!("dead bodies of {}", desc.room_name),
             article: Some("the".to_string()),
+            pronouns: Pronouns::it(),
             aliases,
             description: desc.description,
             attribute_describers,
