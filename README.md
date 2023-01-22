@@ -17,12 +17,15 @@ Non-goals:
 * being an MMO
 
 Planned features (in no particular order):
-* base building
-* "survival needs" (hunger, thirst, etc.)
-* stats/skills
-* combat
-* crafting
-* mini-map
-* audio
-* environmental hazards (extreme cold, radiation, etc.)
-* multiplayer
+- [ ] base building
+- [x] "survival needs" (hunger, thirst, etc.)
+- [ ] stats/skills
+- [ ] combat
+- [ ] crafting
+- [x] mini-map
+- [ ] audio
+- [ ] environmental hazards (extreme cold, radiation, etc.)
+- [ ] multiplayer
+  - [x] allowing multiple players to connect to the same world
+  - [ ] maintaining player state when you reconnect
+- [ ] procedurally generated world
