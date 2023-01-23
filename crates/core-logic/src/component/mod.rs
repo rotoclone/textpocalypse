@@ -38,8 +38,9 @@ pub use action_queue::clear_action_queue;
 pub use action_queue::queue_action;
 pub use action_queue::queue_action_first;
 pub use action_queue::try_perform_queued_actions;
+pub use action_queue::ActionEndNotification;
 pub use action_queue::ActionQueue;
-pub use action_queue::AfterActionNotification;
+pub use action_queue::AfterActionPerformNotification;
 pub use action_queue::BeforeActionNotification;
 pub use action_queue::VerifyActionNotification;
 

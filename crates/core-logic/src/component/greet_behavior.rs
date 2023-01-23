@@ -5,7 +5,7 @@ use crate::{
     notification::Notification,
 };
 
-use super::{queue_action, AfterActionNotification, Container, Location};
+use super::{queue_action, AfterActionPerformNotification, Container, Location};
 
 /// Makes an entity greet entities that enter its location.
 #[derive(Component)]
@@ -16,7 +16,7 @@ pub struct GreetBehavior {
 
 /// Makes greeting NPCs greet.
 pub fn greet_new_entities(
-    notification: &Notification<AfterActionNotification, MoveAction>,
+    notification: &Notification<AfterActionPerformNotification, MoveAction>,
     world: &mut World,
 ) {
     if !notification.notification_type.action_complete
@@ -25,7 +25,7 @@ pub fn greet_new_entities(
         return;
     }
 
-    //TODO don't greet multiple times if multiple entities walk in in the same tick
+    //TODO don't greet multiple times if multiple entities enter in the same tick
 
     let mut actions = Vec::new();
     for (entity, greet_behavior) in world.query::<(Entity, &GreetBehavior)>().iter(world) {

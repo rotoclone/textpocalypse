@@ -3,15 +3,17 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Player},
-    input_parser::{CommandParseError, InputParseError, InputParser},
-    notification::VerifyResult,
+    component::{
+        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Player,
+    },
+    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    notification::{Notification, VerifyResult},
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction};
 
 const TICKS_PER_MINUTE: u64 = SECONDS_PER_MINUTE as u64 / TICK_DURATION.as_secs();
 const TICKS_PER_HOUR: u64 = TICKS_PER_MINUTE * MINUTES_PER_HOUR as u64;
@@ -27,6 +29,7 @@ lazy_static! {
         Regex::new("^(\\d+)( )?(m|min|mins|minute|minutes)$").unwrap();
     static ref HOURS_PATTERN: Regex = Regex::new("^(\\d+)( )?(h|hr|hrs|hour|hours)$").unwrap();
     static ref DAYS_PATTERN: Regex = Regex::new("^(\\d+)( )?(d|day|days)$").unwrap();
+    //TODO add some way to wait until the only queued actions across all players are wait actions
 }
 
 pub struct WaitParser;
@@ -129,7 +132,7 @@ fn parse_time_to_ticks(time_str: &str) -> Result<u64, InputParseError> {
 }
 
 #[derive(Debug)]
-struct WaitAction {
+pub struct WaitAction {
     total_ticks_to_wait: u64,
     waited_ticks: u64,
     notification_sender: ActionNotificationSender<Self>,
@@ -214,13 +217,18 @@ impl Action for WaitAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }
 
@@ -239,5 +247,28 @@ fn remove_wait_filter(entity: Entity, world: &mut World) {
         player
             .message_filter
             .unfilter_all_surroundings_except(&[SurroundingsMessageCategory::Speech]);
+    }
+}
+
+/// Notification handler that queues up a look action after an entity stops waiting, so they can see what's goin on.
+pub fn look_on_end_wait(
+    notification: &Notification<ActionEndNotification, WaitAction>,
+    world: &mut World,
+) {
+    if notification.contents.total_ticks_to_wait == 1 {
+        return;
+    }
+
+    let performing_entity = notification.notification_type.performing_entity;
+    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
+        queue_action_first(
+            world,
+            performing_entity,
+            Box::new(LookAction {
+                target,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }

@@ -138,8 +138,6 @@ impl Game {
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
 
-        NotificationHandlers::add_handler(look_after_move, &mut world);
-
         let game = Game {
             world: Arc::new(RwLock::new(world)),
             next_player_id: PlayerId(0),

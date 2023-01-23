@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    AfterActionNotification, AttributeDescriber, AttributeDetailLevel, DescribeAttributes,
+    AfterActionPerformNotification, AttributeDescriber, AttributeDetailLevel, DescribeAttributes,
 };
 
 /// The amount of satiety gained per calorie eaten.
@@ -51,7 +51,7 @@ impl DescribeAttributes for Calories {
 
 /// Increases satiety when an entity is eaten based on its calories.
 pub fn increase_satiety_on_eat(
-    notification: &Notification<AfterActionNotification, EatAction>,
+    notification: &Notification<AfterActionPerformNotification, EatAction>,
     world: &mut World,
 ) {
     if notification.notification_type.action_complete

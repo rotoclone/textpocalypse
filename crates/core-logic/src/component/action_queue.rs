@@ -29,9 +29,9 @@ pub struct BeforeActionNotification {
 
 impl NotificationType for BeforeActionNotification {}
 
-/// A notification sent after an action is performed.
+/// A notification sent after `perform` is called on an action.
 #[derive(Debug)]
-pub struct AfterActionNotification {
+pub struct AfterActionPerformNotification {
     /// The entity that performed the action.
     pub performing_entity: Entity,
     /// Whether the action is now complete.
@@ -40,7 +40,18 @@ pub struct AfterActionNotification {
     pub action_successful: bool,
 }
 
-impl NotificationType for AfterActionNotification {}
+impl NotificationType for AfterActionPerformNotification {}
+
+/// A notification sent after an action is done being performed, whether it completed successfully or was interrupted.
+#[derive(Debug)]
+pub struct ActionEndNotification {
+    /// The entity that performed the action.
+    pub performing_entity: Entity,
+    /// Whether the action was interrupted.
+    pub action_interrupted: bool,
+}
+
+impl NotificationType for ActionEndNotification {}
 
 /// The state of a queued action.
 #[derive(Clone, Copy)]
@@ -230,14 +241,24 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
                 let mut result = action.perform(entity, world);
                 any_actions_performed = true;
                 send_messages(&result.messages, world);
-                action.send_after_notification(
-                    AfterActionNotification {
+                action.send_after_perform_notification(
+                    AfterActionPerformNotification {
                         performing_entity: entity,
                         action_complete: result.is_complete,
                         action_successful: result.was_successful,
                     },
                     world,
                 );
+
+                if result.is_complete {
+                    action.send_end_notification(
+                        ActionEndNotification {
+                            performing_entity: entity,
+                            action_interrupted: false,
+                        },
+                        world,
+                    );
+                }
 
                 result.post_effects.drain(..).for_each(|f| f(world));
 
@@ -252,11 +273,11 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
         for (entity, action, result) in results.into_iter() {
             if !result.is_complete {
                 if world.resource::<InterruptedEntities>().0.contains(&entity) {
-                    interrupt_action(action.as_ref(), entity, world);
                     // cancel all other queued actions for this entity
                     if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
                         action_queue.actions.clear();
                     }
+                    interrupt_action(action.as_ref(), entity, world);
                     // the action was interrupted, so just drop it
                 } else {
                     queue_action_first_with_state(world, entity, action, ActionState::InProgress);
@@ -280,6 +301,7 @@ fn determine_action_to_perform(
         loops += 1;
 
         let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
+        action_queue.update_queue();
 
         if action_queue
             .actions
@@ -339,11 +361,11 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
             determine_action_to_perform(entity, world, |action| !action.may_require_tick())
         {
             debug!("Entity {entity:?} is performing action {action:?}");
-            let result = action.perform(entity, world);
+            let mut result = action.perform(entity, world);
             any_actions_performed = true;
             send_messages(&result.messages, world);
-            action.send_after_notification(
-                AfterActionNotification {
+            action.send_after_perform_notification(
+                AfterActionPerformNotification {
                     performing_entity: entity,
                     action_complete: result.is_complete,
                     action_successful: result.was_successful,
@@ -351,10 +373,23 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
                 world,
             );
 
+            if result.is_complete {
+                action.send_end_notification(
+                    ActionEndNotification {
+                        performing_entity: entity,
+                        action_interrupted: false,
+                    },
+                    world,
+                );
+            }
+
+            result.post_effects.drain(..).for_each(|f| f(world));
+
             if !result.is_complete {
                 queue_action_first(world, entity, action);
             }
         } else {
+            debug!("Done performing tickless actions for entity {entity:?}");
             return any_actions_performed;
         }
     }
@@ -364,4 +399,12 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
 fn interrupt_action(action: &dyn Action, entity: Entity, world: &mut World) {
     let interrupt_result = action.interrupt(entity, world);
     send_messages(&interrupt_result.messages, world);
+
+    action.send_end_notification(
+        ActionEndNotification {
+            performing_entity: entity,
+            action_interrupted: true,
+        },
+        world,
+    );
 }

@@ -3,8 +3,12 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::component::{AfterActionNotification, Container, Location};
-use crate::notification::{Notification, VerifyNotificationHandlers, VerifyResult};
+use crate::component::{
+    ActionEndNotification, AfterActionPerformNotification, Container, Location,
+};
+use crate::notification::{
+    Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
+};
 use crate::{
     can_receive_messages, get_reference_name, send_message, BeforeActionNotification,
     MessageCategory, MessageDelay, VerifyActionNotification,
@@ -12,7 +16,6 @@ use crate::{
 use crate::{GameMessage, World};
 
 mod look;
-pub use look::look_after_move;
 pub use look::LookAction;
 pub use look::LookParser;
 
@@ -78,6 +81,12 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
+
+    NotificationHandlers::add_handler(r#move::look_after_move, world);
+
+    NotificationHandlers::add_handler(wait::look_on_end_wait, world);
+
+    NotificationHandlers::add_handler(sleep::look_on_end_sleep, world);
 }
 
 /// A message caused by some other entity's action.
@@ -511,12 +520,15 @@ pub trait Action: std::fmt::Debug + Send + Sync {
         world: &mut World,
     ) -> VerifyResult;
 
-    /// Sends a notification that this action was just performed.
-    fn send_after_notification(
+    /// Sends a notification that `perform` was just called on this action.
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     );
+
+    /// Sends a notification that this action is done being performed.
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World);
 }
 
 /// Sends notifications about actions.
@@ -566,10 +578,24 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         .verify(world)
     }
 
-    /// Sends a notification that an action was just performed.
-    pub fn send_after_notification(
+    /// Sends a notification that `perform` was called on an action.
+    pub fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
+        contents: &C,
+        world: &mut World,
+    ) {
+        Notification {
+            notification_type,
+            contents,
+        }
+        .send(world);
+    }
+
+    /// Sends a notification that an action is done being performed.
+    pub fn send_end_notification(
+        &self,
+        notification_type: ActionEndNotification,
         contents: &C,
         world: &mut World,
     ) {

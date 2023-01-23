@@ -5,20 +5,21 @@ use regex::Regex;
 use crate::{
     can_receive_messages,
     component::{
-        queue_action_first, AfterActionNotification, Connection, Container, Description, Room,
+        ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
+        Room,
     },
     game_map::Coordinates,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
     InternalMessageCategory, MessageCategory, MessageDelay, RoomDescription,
     VerifyActionNotification, World,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const LOOK_VERB_NAME: &str = "look";
 const DETAILED_LOOK_VERB_NAME: &str = "examine";
@@ -205,35 +206,17 @@ impl Action for LookAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
-    }
-}
-
-/// Notification handler that queues up a look action after an entity moves, so they can see where they ended up.
-pub fn look_after_move(
-    notification: &Notification<AfterActionNotification, MoveAction>,
-    world: &mut World,
-) {
-    if !notification.notification_type.action_successful {
-        return;
+            .send_after_perform_notification(notification_type, self, world);
     }
 
-    let performing_entity = notification.notification_type.performing_entity;
-    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
-            world,
-            performing_entity,
-            Box::new(LookAction {
-                target,
-                detailed: false,
-                notification_sender: ActionNotificationSender::new(),
-            }),
-        );
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }

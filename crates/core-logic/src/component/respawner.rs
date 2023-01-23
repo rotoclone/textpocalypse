@@ -15,7 +15,10 @@ use crate::{
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{queue_action_first, AfterActionNotification, ParseCustomInput, Vitals};
+use super::{
+    queue_action_first, ActionEndNotification, AfterActionPerformNotification, ParseCustomInput,
+    Vitals,
+};
 
 const RESPAWN_FORMAT: &str = "respawn";
 
@@ -110,13 +113,18 @@ impl Action for RespawnAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }
 
@@ -132,10 +140,12 @@ impl ParseCustomInput for Respawner {
 
 /// Notification handler that queues up a look action after an entity respawns, so they can see where they ended up.
 pub fn look_after_respawn(
-    notification: &Notification<AfterActionNotification, RespawnAction>,
+    notification: &Notification<AfterActionPerformNotification, RespawnAction>,
     world: &mut World,
 ) {
-    if !notification.notification_type.action_successful {
+    if !notification.notification_type.action_complete
+        || !notification.notification_type.action_successful
+    {
         return;
     }
 

@@ -4,16 +4,19 @@ use rand::Rng;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Player, SleepState, Vitals},
-    input_parser::{CommandParseError, InputParseError, InputParser},
-    notification::VerifyResult,
+    component::{
+        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Player,
+        SleepState, Vitals,
+    },
+    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    notification::{Notification, VerifyResult},
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction,
+    ThirdPersonMessage, ThirdPersonMessageLocation,
 };
 
 /// The fraction of energy over which an entity cannot go to sleep if it's awake, and has a chance to wake up if it's asleep.
@@ -193,13 +196,18 @@ impl Action for SleepAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }
 
@@ -223,4 +231,23 @@ fn wake_up(entity: Entity, world: &mut World) {
     world
         .entity_mut(entity)
         .insert(SleepState { is_asleep: false });
+}
+
+/// Notification handler that queues up a look action after an entity stops sleeping, so they can see what's goin on.
+pub fn look_on_end_sleep(
+    notification: &Notification<ActionEndNotification, SleepAction>,
+    world: &mut World,
+) {
+    let performing_entity = notification.notification_type.performing_entity;
+    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
+        queue_action_first(
+            world,
+            performing_entity,
+            Box::new(LookAction {
+                target,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
+    }
 }

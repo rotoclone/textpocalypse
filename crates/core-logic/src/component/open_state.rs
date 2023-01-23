@@ -18,9 +18,9 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, queue_action_first, AfterActionNotification,
-    AttributeDescriber, AttributeDescription, AttributeDetailLevel, Connection, Container,
-    Description, Location, ParseCustomInput,
+    description::DescribeAttributes, queue_action_first, ActionEndNotification,
+    AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
+    Connection, Container, Description, Location, ParseCustomInput,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -142,13 +142,18 @@ impl Action for SlamAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }
 

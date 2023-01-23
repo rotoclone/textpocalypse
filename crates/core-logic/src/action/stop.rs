@@ -3,8 +3,11 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{clear_action_queue, ActionQueue, AfterActionNotification},
+    component::{
+        clear_action_queue, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
+    },
     input_parser::{InputParseError, InputParser},
+    interrupt_entity,
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     VerifyActionNotification, World,
@@ -97,12 +100,17 @@ impl Action for StopAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }

@@ -18,9 +18,9 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, AfterActionNotification, AttributeDescriber, AttributeDetailLevel,
-    BeforeActionNotification, Connection, Container, DescribeAttributes, Description, Location,
-    ParseCustomInput, VerifyActionNotification,
+    queue_action_first, ActionEndNotification, AfterActionPerformNotification, AttributeDescriber,
+    AttributeDetailLevel, BeforeActionNotification, Connection, Container, DescribeAttributes,
+    Description, Location, ParseCustomInput, VerifyActionNotification,
 };
 
 const UNLOCK_VERB_NAME: &str = "unlock";
@@ -157,15 +157,31 @@ impl Action for LockAction {
             ("unlock", "unlocks")
         };
 
-        let (first_person_key_message, third_person_key_message) = if let Some(key) = key {
+        let first_person_key_message = if let Some(key) = key {
             let key_name = get_reference_name(key, Some(performing_entity), world);
-            (
-                format!("use {key_name} to "),
-                format!("uses {key_name} to "),
-            )
+            format!("use {key_name} to ")
         } else {
-            ("".to_string(), "".to_string())
+            "".to_string()
         };
+
+        let mut third_person_message = ThirdPersonMessage::new(
+            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+            MessageDelay::Short,
+        )
+        .add_entity_name(performing_entity);
+
+        if let Some(key) = key {
+            third_person_message = third_person_message
+                .add_string(" uses ")
+                .add_entity_name(key)
+                .add_string(format!(" to {lock_or_unlock} "));
+        } else {
+            third_person_message = third_person_message.add_string(format!(" {locks_or_unlocks} "));
+        }
+
+        third_person_message = third_person_message
+            .add_entity_name(self.target)
+            .add_string(".");
 
         ActionResult::builder()
             .with_message(
@@ -177,14 +193,7 @@ impl Action for LockAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                )
-                .add_entity_name(performing_entity)
-                .add_string(format!(" {third_person_key_message}{locks_or_unlocks} "))
-                .add_entity_name(self.target)
-                .add_string("."),
+                third_person_message,
                 world,
             )
             .build_complete_should_tick(true)
@@ -226,13 +235,18 @@ impl Action for LockAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
     }
 }
 

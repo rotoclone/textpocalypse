@@ -3,17 +3,20 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{AfterActionNotification, Container, Location},
-    input_parser::{InputParseError, InputParser},
+    component::{
+        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Container,
+        Location,
+    },
+    input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
-    notification::VerifyResult,
+    notification::{Notification, VerifyResult},
     BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction,
+    ThirdPersonMessage, ThirdPersonMessageLocation,
 };
 
 const MOVE_FORMAT: &str = "go <>";
@@ -153,12 +156,42 @@ impl Action for MoveAction {
             .send_verify_notification(notification_type, self, world)
     }
 
-    fn send_after_notification(
+    fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionNotification,
+        notification_type: AfterActionPerformNotification,
         world: &mut World,
     ) {
         self.notification_sender
-            .send_after_notification(notification_type, self, world);
+            .send_after_perform_notification(notification_type, self, world);
+    }
+
+    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
+        self.notification_sender
+            .send_end_notification(notification_type, self, world);
+    }
+}
+
+/// Notification handler that queues up a look action after an entity moves, so they can see where they ended up.
+pub fn look_after_move(
+    notification: &Notification<AfterActionPerformNotification, MoveAction>,
+    world: &mut World,
+) {
+    if !notification.notification_type.action_successful
+        || !notification.notification_type.action_complete
+    {
+        return;
+    }
+
+    let performing_entity = notification.notification_type.performing_entity;
+    if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
+        queue_action_first(
+            world,
+            performing_entity,
+            Box::new(LookAction {
+                target,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }
