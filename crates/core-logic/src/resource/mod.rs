@@ -2,6 +2,9 @@ use bevy_ecs::prelude::*;
 
 use crate::notification::NotificationHandlers;
 
+mod game_options;
+pub use game_options::GameOptions;
+
 mod fluid_hydration_factor_catalog;
 pub use fluid_hydration_factor_catalog::FluidHydrationFactorCatalog;
 

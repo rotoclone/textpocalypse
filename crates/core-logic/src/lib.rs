@@ -20,6 +20,7 @@ pub use component::Pronouns;
 use component::*;
 
 mod resource;
+pub use resource::GameOptions;
 
 mod time;
 pub use time::Time;
@@ -114,14 +115,6 @@ impl StandardInputParsers {
             ],
         }
     }
-}
-
-#[derive(Resource)]
-pub struct GameOptions {
-    /// How long a player can go without entering a command before they're considered to be AFK and they no longer prevent other players from performing actions that require ticks.
-    ///
-    /// If not set, players will never be considered AFK.
-    pub afk_timeout: Option<Duration>,
 }
 
 impl Game {
