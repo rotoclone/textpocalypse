@@ -2,44 +2,34 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 
-use crate::GameMessage;
+use crate::{action::MoveAction, component::BeforeActionNotification, GameMessage};
 
-/// Trait for types that represent a category of notifications.
-pub trait NotificationType: Debug + Send + Sync {}
-
-/// A notification.
-#[derive(Debug)]
-pub struct Notification<'c, T: NotificationType, Contents> {
-    /// The type of the notification.
-    pub notification_type: T,
-    /// The contents of the notification.
-    pub contents: &'c Contents,
-}
-
-impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'c, T, C> {
-    /// Sends this notification to all the handlers registered for it.
-    pub fn send(&self, world: &mut World) {
-        if let Some(handlers) = world.get_resource::<NotificationHandlers<T, C>>() {
+/// Trait for types that can be sent as notifications.
+pub trait Notification: Debug + Send + Sync + Sized {
+    /* TODO
+    fn send(&self, world: &mut World) {
+        if let Some(handlers) = world.get_resource::<NotificationHandlers<Self>>() {
             let handle_fns = handlers
                 .handlers
                 .values()
                 .cloned()
-                .collect::<Vec<HandleFn<T, C>>>();
+                .collect::<Vec<HandleFn<Self>>>();
 
             for handle_fn in handle_fns {
                 handle_fn(self, world);
             }
         }
     }
+    */
 
-    /// Sends this notification to all the verify handlers registered for it.
-    pub fn verify(&self, world: &World) -> VerifyResult {
-        if let Some(handlers) = world.get_resource::<VerifyNotificationHandlers<T, C>>() {
+    /* TODO
+    fn verify(&self, world: &World) -> VerifyResult {
+        if let Some(handlers) = world.get_resource::<VerifyNotificationHandlers<Self>>() {
             let handle_fns = handlers
                 .handlers
                 .values()
                 .cloned()
-                .collect::<Vec<HandleVerifyFn<T, C>>>();
+                .collect::<Vec<HandleVerifyFn<Self>>>();
 
             for handle_fn in handle_fns {
                 let response = handle_fn(self, world);
@@ -51,84 +41,138 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
 
         VerifyResult::valid()
     }
+    */
+}
+
+//TODO remove
+fn send_notification_specific(
+    notification: BeforeActionNotification<MoveAction>,
+    world: &mut World,
+) {
+    if let Some(handlers) =
+        world.get_resource::<NotificationHandlers<BeforeActionNotification<MoveAction>>>()
+    {
+        let handle_fns = handlers
+            .handlers
+            .values()
+            .cloned()
+            .collect::<Vec<HandleFn<BeforeActionNotification<MoveAction>>>>();
+
+        for handle_fn in handle_fns {
+            handle_fn(&notification, world);
+        }
+    }
+}
+
+pub fn send_notification<N: Notification + 'static>(notification: N, world: &mut World) {
+    if let Some(handlers) = world.get_resource::<NotificationHandlers<N>>() {
+        let handle_fns = handlers
+            .handlers
+            .values()
+            .cloned()
+            .collect::<Vec<HandleFn<N>>>();
+
+        for handle_fn in handle_fns {
+            handle_fn(&notification, world);
+        }
+    }
+}
+
+pub fn send_verify_notification<N: Notification + 'static>(
+    notification: N,
+    world: &World,
+) -> VerifyResult {
+    if let Some(handlers) = world.get_resource::<VerifyNotificationHandlers<N>>() {
+        let handle_fns = handlers
+            .handlers
+            .values()
+            .cloned()
+            .collect::<Vec<HandleVerifyFn<N>>>();
+
+        for handle_fn in handle_fns {
+            let response = handle_fn(&notification, world);
+            if !response.is_valid {
+                return response;
+            }
+        }
+    }
+
+    VerifyResult::valid()
 }
 
 /// An identifier for a registered notification handler.
 ///
-/// This is only unique to the notification type + contents + resource type type combo.
-/// For example, the first handler registered for `BeforeActionNotification` and `MoveAction` and the first one registered for
-/// `BeforeActionNotification` and `LookAction` will both have the same internal value, just different associated types.
-pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync, R> {
+/// This is only unique to the notification type + resource type combo.
+/// For example, the first handler registered for `BeforeActionNotification<MoveAction>` and the first one registered for
+/// `BeforeActionNotification<LookAction>` will both have the same internal value, just different associated types.
+pub struct NotificationHandlerId<N: Notification, R> {
     value: u64,
-    _t: PhantomData<fn(T)>,
-    _c: PhantomData<fn(C)>,
+    _n: PhantomData<fn(N)>,
     _r: PhantomData<fn(R)>,
 }
 
 // need to manually implement traits due to https://github.com/rust-lang/rust/issues/26925
-impl<T: NotificationType, C: Send + Sync, R> Clone for NotificationHandlerId<T, C, R> {
+impl<N: Notification, R> Clone for NotificationHandlerId<N, R> {
     fn clone(&self) -> Self {
         Self {
             value: self.value,
-            _t: PhantomData,
-            _c: PhantomData,
+            _n: PhantomData,
             _r: PhantomData,
         }
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> Copy for NotificationHandlerId<T, C, R> {}
+impl<N: Notification, R> Copy for NotificationHandlerId<N, R> {}
 
-impl<T: NotificationType, C: Send + Sync, R> PartialEq for NotificationHandlerId<T, C, R> {
+impl<N: Notification, R> PartialEq for NotificationHandlerId<N, R> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> Eq for NotificationHandlerId<T, C, R> {}
+impl<N: Notification, R> Eq for NotificationHandlerId<N, R> {}
 
-impl<T: NotificationType, C: Send + Sync, R> Hash for NotificationHandlerId<T, C, R> {
+impl<N: Notification, R> Hash for NotificationHandlerId<N, R> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> NotificationHandlerId<T, C, R> {
+impl<N: Notification, R> NotificationHandlerId<N, R> {
     /// Creates a new notification handler ID with the minimum starting value.
-    fn new() -> NotificationHandlerId<T, C, R> {
+    fn new() -> NotificationHandlerId<N, R> {
         NotificationHandlerId {
             value: 0,
-            _t: PhantomData,
-            _c: PhantomData,
+            _n: PhantomData,
             _r: PhantomData,
         }
     }
 
     /// Increments this notification handler ID's value.
-    fn next(mut self) -> NotificationHandlerId<T, C, R> {
+    fn next(mut self) -> NotificationHandlerId<N, R> {
         self.value += 1;
         self
     }
 }
 
 /// Signature of a function to handle notifications.
-type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
+type HandleFn<N> = fn(&N, &mut World);
 
 /// Type of the notification handler ID for regular notifications.
-type HandlerId<T, C> = NotificationHandlerId<T, C, NotificationHandlers<T, C>>;
+type HandlerId<N> = NotificationHandlerId<N, NotificationHandlers<N>>;
 
-/// The set of notification handlers for a single notification type and contents type combination.
+/// The set of notification handlers for a single notification type.
 #[derive(Resource)]
-pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
+pub struct NotificationHandlers<N: Notification> {
     /// The ID to be assigned to the next registered handler.
-    next_id: NotificationHandlerId<T, C, NotificationHandlers<T, C>>,
+    next_id: HandlerId<N>,
     /// The handlers, keyed by their assigned IDs.
-    handlers: HashMap<HandlerId<T, C>, HandleFn<T, C>>,
+    handlers: HashMap<HandlerId<N>, HandleFn<N>>,
 }
 
-impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C> {
+impl<N: Notification + 'static> NotificationHandlers<N> {
     /// Creates a new, empty set of handlers.
-    fn new() -> NotificationHandlers<T, C> {
+    fn new() -> NotificationHandlers<N> {
         NotificationHandlers {
             next_id: NotificationHandlerId::new(),
             handlers: HashMap::new(),
@@ -136,7 +180,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Adds the provided handler to this set of handlers and returns its assigned ID.
-    fn add(&mut self, handle_fn: HandleFn<T, C>) -> HandlerId<T, C> {
+    fn add(&mut self, handle_fn: HandleFn<N>) -> HandlerId<N> {
         let id = self.next_id;
         self.handlers.insert(id, handle_fn);
         self.next_id = self.next_id.next();
@@ -145,8 +189,8 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
-    pub fn add_handler(handler: HandleFn<T, C>, world: &mut World) -> HandlerId<T, C> {
-        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+    pub fn add_handler(handler: HandleFn<N>, world: &mut World) -> HandlerId<N> {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<N>>() {
             return handlers.add(handler);
         }
 
@@ -158,9 +202,9 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Removes the handler with the provided ID.
-    pub fn remove_handler(id: HandlerId<T, C>, world: &mut World) {
+    pub fn remove_handler(id: HandlerId<N>, world: &mut World) {
         let mut remove_resource = false;
-        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<N>>() {
             handlers.handlers.remove(&id);
 
             if handlers.handlers.is_empty() {
@@ -169,7 +213,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
         }
 
         if remove_resource {
-            world.remove_resource::<NotificationHandlers<T, C>>();
+            world.remove_resource::<NotificationHandlers<N>>();
         }
     }
 }
@@ -207,25 +251,25 @@ impl VerifyResult {
 
 /// Signature of a function to handle verify notifications.
 /// TODO if verify notifications will all have their own `VerifySomething` notification type, maybe just make handlers generic over their return type instead of having a special handler type that specifically returns `VerifyResult`
-type HandleVerifyFn<T, Contents> = fn(&Notification<T, Contents>, &World) -> VerifyResult;
+type HandleVerifyFn<N> = fn(&N, &World) -> VerifyResult;
 
 /// Type of the notification handler ID for verify notifications.
-type VerifyHandlerId<T, C> = NotificationHandlerId<T, C, VerifyNotificationHandlers<T, C>>;
+type VerifyHandlerId<N> = NotificationHandlerId<N, VerifyNotificationHandlers<N>>;
 
 // TODO consider removing this duplication
 
-/// The set of verify notification handlers for a single notification type and contents type combination.
+/// The set of verify notification handlers for a single notification type.
 #[derive(Resource)]
-pub struct VerifyNotificationHandlers<T: NotificationType, C: Send + Sync> {
+pub struct VerifyNotificationHandlers<N: Notification> {
     /// The ID to be assigned to the next registered handler.
-    next_id: NotificationHandlerId<T, C, VerifyNotificationHandlers<T, C>>,
+    next_id: VerifyHandlerId<N>,
     /// The handlers, keyed by their assigned IDs.
-    handlers: HashMap<VerifyHandlerId<T, C>, HandleVerifyFn<T, C>>,
+    handlers: HashMap<VerifyHandlerId<N>, HandleVerifyFn<N>>,
 }
 
-impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotificationHandlers<T, C> {
+impl<N: Notification + 'static> VerifyNotificationHandlers<N> {
     /// Creates a new, empty set of handlers.
-    fn new() -> VerifyNotificationHandlers<T, C> {
+    fn new() -> VerifyNotificationHandlers<N> {
         VerifyNotificationHandlers {
             next_id: NotificationHandlerId::new(),
             handlers: HashMap::new(),
@@ -233,7 +277,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotification
     }
 
     /// Adds the provided handler to this set of handlers and returns its assigned ID.
-    fn add(&mut self, handle_fn: HandleVerifyFn<T, C>) -> VerifyHandlerId<T, C> {
+    fn add(&mut self, handle_fn: HandleVerifyFn<N>) -> VerifyHandlerId<N> {
         let id = self.next_id;
         self.handlers.insert(id, handle_fn);
         self.next_id = self.next_id.next();
@@ -242,8 +286,8 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotification
     }
 
     /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
-    pub fn add_handler(handler: HandleVerifyFn<T, C>, world: &mut World) -> VerifyHandlerId<T, C> {
-        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<T, C>>() {
+    pub fn add_handler(handler: HandleVerifyFn<N>, world: &mut World) -> VerifyHandlerId<N> {
+        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<N>>() {
             return handlers.add(handler);
         }
 
@@ -255,9 +299,9 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotification
     }
 
     /// Removes the handler with the provided ID.
-    pub fn remove_handler(id: VerifyHandlerId<T, C>, world: &mut World) {
+    pub fn remove_handler(id: VerifyHandlerId<N>, world: &mut World) {
         let mut remove_resource = false;
-        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<T, C>>() {
+        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<N>>() {
             handlers.handlers.remove(&id);
 
             if handlers.handlers.is_empty() {
@@ -266,7 +310,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotification
         }
 
         if remove_resource {
-            world.remove_resource::<VerifyNotificationHandlers<T, C>>();
+            world.remove_resource::<VerifyNotificationHandlers<N>>();
         }
     }
 }

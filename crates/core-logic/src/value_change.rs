@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::Vitals,
-    notification::{Notification, NotificationType},
+    notification::{send_notification, Notification},
     send_message, ConstrainedValue, GameMessage, MessageDelay, ValueChangeDescription,
 };
 
@@ -53,7 +53,7 @@ pub struct ValueChangedNotification {
     pub new_value: ConstrainedValue<f32>,
 }
 
-impl NotificationType for ValueChangedNotification {}
+impl Notification for ValueChangedNotification {}
 
 impl ValueChange {
     /// Applies the value change.
@@ -91,16 +91,15 @@ impl ValueChange {
                 );
             }
 
-            Notification {
-                notification_type: ValueChangedNotification {
+            send_notification(
+                ValueChangedNotification {
                     entity: self.entity,
                     value_type: self.value_type,
                     old_value,
                     new_value,
                 },
-                contents: &(),
-            }
-            .send(world);
+                world,
+            );
         }
     }
 }

@@ -3,7 +3,6 @@ use rand::{seq::SliceRandom, Rng};
 
 use crate::{
     action::{ActionNotificationSender, MoveAction},
-    notification::Notification,
     TickNotification,
 };
 
@@ -17,7 +16,7 @@ pub struct WanderBehavior {
 }
 
 /// Makes wandering NPCs wander.
-pub fn wander_on_tick(_: &Notification<TickNotification, ()>, world: &mut World) {
+pub fn wander_on_tick(_: &TickNotification, world: &mut World) {
     let mut actions = Vec::new();
     for (entity, wander_behavior) in world.query::<(Entity, &WanderBehavior)>().iter(world) {
         if rand::thread_rng().gen::<f32>() <= wander_behavior.move_chance_per_tick {

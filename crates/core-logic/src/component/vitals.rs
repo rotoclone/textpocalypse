@@ -2,9 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{ActionNotificationSender, SleepAction},
-    interrupt_entity, kill_entity,
-    notification::Notification,
-    send_message,
+    interrupt_entity, kill_entity, send_message,
     value_change::{ValueChange, ValueChangeOperation, ValueChangedNotification, ValueType},
     ConstrainedValue, GameMessage, MessageDelay, TickNotification, ValueChangeDescription,
 };
@@ -115,7 +113,7 @@ impl Vitals {
 }
 
 /// Changes vitals over time.
-pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut World) {
+pub fn change_vitals_on_tick(_: &TickNotification, world: &mut World) {
     let mut value_changes = Vec::new();
     let mut query = world.query::<(Entity, &Vitals)>();
     for (entity, vitals) in query.iter(world) {
@@ -181,14 +179,11 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
 }
 
 /// Sends update messages when vitals reach certain thresholds.
-pub fn send_vitals_update_messages(
-    notification: &Notification<ValueChangedNotification, ()>,
-    world: &mut World,
-) {
-    let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
-    let old_value = &notification.notification_type.old_value;
-    let new_value = &notification.notification_type.new_value;
+pub fn send_vitals_update_messages(notification: &ValueChangedNotification, world: &mut World) {
+    let entity = notification.entity;
+    let value_type = notification.value_type;
+    let old_value = &notification.old_value;
+    let new_value = &notification.new_value;
 
     let increased = new_value.get() > old_value.get();
     let messages: &[ValueChangeMessage] = match value_type {
@@ -239,14 +234,11 @@ pub fn send_vitals_update_messages(
 }
 
 /// Sets entities' actions to be interrupted when they take damage.
-pub fn interrupt_on_damage(
-    notification: &Notification<ValueChangedNotification, ()>,
-    world: &mut World,
-) {
-    let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
-    let old_value = &notification.notification_type.old_value;
-    let new_value = &notification.notification_type.new_value;
+pub fn interrupt_on_damage(notification: &ValueChangedNotification, world: &mut World) {
+    let entity = notification.entity;
+    let value_type = notification.value_type;
+    let old_value = &notification.old_value;
+    let new_value = &notification.new_value;
 
     if let ValueType::Health = value_type {
         if new_value.get() < old_value.get() {
@@ -256,13 +248,10 @@ pub fn interrupt_on_damage(
 }
 
 /// Kills entities when they reach 0 health.
-pub fn kill_on_zero_health(
-    notification: &Notification<ValueChangedNotification, ()>,
-    world: &mut World,
-) {
-    let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
-    let new_value = &notification.notification_type.new_value;
+pub fn kill_on_zero_health(notification: &ValueChangedNotification, world: &mut World) {
+    let entity = notification.entity;
+    let value_type = notification.value_type;
+    let new_value = &notification.new_value;
 
     if let ValueType::Health = value_type {
         if new_value.get() <= 0.0 {
@@ -272,13 +261,10 @@ pub fn kill_on_zero_health(
 }
 
 /// Makes entities pass out when they reach 0 energy.
-pub fn sleep_on_zero_energy(
-    notification: &Notification<ValueChangedNotification, ()>,
-    world: &mut World,
-) {
-    let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
-    let new_value = &notification.notification_type.new_value;
+pub fn sleep_on_zero_energy(notification: &ValueChangedNotification, world: &mut World) {
+    let entity = notification.entity;
+    let value_type = notification.value_type;
+    let new_value = &notification.new_value;
 
     if let ValueType::Energy = value_type {
         if new_value.get() <= 0.0 {

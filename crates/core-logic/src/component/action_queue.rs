@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action, component::Player, notification::NotificationType, send_messages, tick,
+    action::Action, component::Player, notification::Notification, send_messages, tick,
     GameOptions, InterruptedEntities,
 };
 
@@ -13,45 +13,53 @@ const MAX_ACTION_NOTIFICATION_LOOPS: u32 = 100000;
 
 /// A notification sent to verify an action before it is performed.
 #[derive(Debug)]
-pub struct VerifyActionNotification {
+pub struct VerifyActionNotification<'a, A: Action> {
     /// The entity that wants to perform the action.
     pub performing_entity: Entity,
+    /// The action.
+    pub action: &'a A,
 }
 
-impl NotificationType for VerifyActionNotification {}
+impl<A: Action> Notification for VerifyActionNotification<'static, A> {}
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]
-pub struct BeforeActionNotification {
+pub struct BeforeActionNotification<'a, A: Action> {
     /// The entity that will perform the action.
     pub performing_entity: Entity,
+    /// The action.
+    pub action: &'a A,
 }
 
-impl NotificationType for BeforeActionNotification {}
+impl<'a, A: Action + 'static> Notification for BeforeActionNotification<'a, A> {}
 
 /// A notification sent after `perform` is called on an action.
 #[derive(Debug)]
-pub struct AfterActionPerformNotification {
+pub struct AfterActionPerformNotification<'a, A: Action> {
     /// The entity that performed the action.
     pub performing_entity: Entity,
     /// Whether the action is now complete.
     pub action_complete: bool,
     /// Whether the intended effects of the action actually ocurred.
     pub action_successful: bool,
+    /// The action.
+    pub action: &'a A,
 }
 
-impl NotificationType for AfterActionPerformNotification {}
+impl<A: Action> Notification for AfterActionPerformNotification<'static, A> {}
 
 /// A notification sent after an action is done being performed, whether it completed successfully or was interrupted.
 #[derive(Debug)]
-pub struct ActionEndNotification {
+pub struct ActionEndNotification<'a, A: Action> {
     /// The entity that performed the action.
     pub performing_entity: Entity,
     /// Whether the action was interrupted.
     pub action_interrupted: bool,
+    /// The action.
+    pub action: &'a A,
 }
 
-impl NotificationType for ActionEndNotification {}
+impl<A: Action> Notification for ActionEndNotification<'static, A> {}
 
 /// The state of a queued action.
 #[derive(Clone, Copy)]
@@ -242,22 +250,14 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
                 any_actions_performed = true;
                 send_messages(&result.messages, world);
                 action.send_after_perform_notification(
-                    AfterActionPerformNotification {
-                        performing_entity: entity,
-                        action_complete: result.is_complete,
-                        action_successful: result.was_successful,
-                    },
+                    entity,
+                    result.is_complete,
+                    result.was_successful,
                     world,
                 );
 
                 if result.is_complete {
-                    action.send_end_notification(
-                        ActionEndNotification {
-                            performing_entity: entity,
-                            action_interrupted: false,
-                        },
-                        world,
-                    );
+                    action.send_end_notification(entity, false, world);
                 }
 
                 result.post_effects.drain(..).for_each(|f| f(world));
@@ -313,12 +313,7 @@ fn determine_action_to_perform(
 
         let (action, state) = action_queue.actions.pop_front()?;
 
-        action.send_before_notification(
-            BeforeActionNotification {
-                performing_entity: entity,
-            },
-            world,
-        );
+        action.send_before_notification(entity, world);
 
         let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
         if action_queue.needs_update() {
@@ -332,12 +327,7 @@ fn determine_action_to_perform(
             continue;
         }
 
-        let verify_result = action.send_verify_notification(
-            VerifyActionNotification {
-                performing_entity: entity,
-            },
-            world,
-        );
+        let verify_result = action.send_verify_notification(entity, world);
 
         if verify_result.is_valid {
             return Some(action);
@@ -365,22 +355,14 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
             any_actions_performed = true;
             send_messages(&result.messages, world);
             action.send_after_perform_notification(
-                AfterActionPerformNotification {
-                    performing_entity: entity,
-                    action_complete: result.is_complete,
-                    action_successful: result.was_successful,
-                },
+                entity,
+                result.is_complete,
+                result.was_successful,
                 world,
             );
 
             if result.is_complete {
-                action.send_end_notification(
-                    ActionEndNotification {
-                        performing_entity: entity,
-                        action_interrupted: false,
-                    },
-                    world,
-                );
+                action.send_end_notification(entity, false, world);
             }
 
             result.post_effects.drain(..).for_each(|f| f(world));
@@ -400,11 +382,5 @@ fn interrupt_action(action: &dyn Action, entity: Entity, world: &mut World) {
     let interrupt_result = action.interrupt(entity, world);
     send_messages(&interrupt_result.messages, world);
 
-    action.send_end_notification(
-        ActionEndNotification {
-            performing_entity: entity,
-            action_interrupted: true,
-        },
-        world,
-    );
+    action.send_end_notification(entity, true, world);
 }

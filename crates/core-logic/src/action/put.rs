@@ -367,47 +367,59 @@ impl Action for PutAction {
         true
     }
 
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
+    fn send_before_notification(&self, performing_entity: Entity, world: &mut World) {
         self.notification_sender
-            .send_before_notification(notification_type, self, world);
+            .send_before_notification(performing_entity, self, world);
     }
 
     fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
+        performing_entity: Entity,
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, self, world)
+            .send_verify_notification(performing_entity, self, world)
     }
 
     fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
         world: &mut World,
     ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
+        self.notification_sender.send_after_perform_notification(
+            performing_entity,
+            action_complete,
+            action_successful,
+            self,
+            world,
+        );
     }
 
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
+    fn send_end_notification(
+        &self,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        world: &mut World,
+    ) {
+        self.notification_sender.send_end_notification(
+            performing_entity,
+            action_interrupted,
+            self,
+            world,
+        );
     }
 }
 
 /// Verifies that the source and destination entities are containers.
 pub fn verify_source_and_destination_are_containers(
-    notification: &Notification<VerifyActionNotification, PutAction>,
+    notification: &VerifyActionNotification<PutAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let source = notification.contents.source;
-    let destination = notification.contents.destination;
+    let performing_entity = notification.performing_entity;
+    let source = notification.action.source;
+    let destination = notification.action.destination;
 
     if world.get::<Container>(source).is_none() {
         let source_name = get_reference_name(source, Some(performing_entity), world);
@@ -430,12 +442,12 @@ pub fn verify_source_and_destination_are_containers(
 
 /// Verifies that the item is actually in the source container.
 pub fn verify_item_in_source(
-    notification: &Notification<VerifyActionNotification, PutAction>,
+    notification: &VerifyActionNotification<PutAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let item = notification.contents.item;
-    let source = notification.contents.source;
+    let performing_entity = notification.performing_entity;
+    let item = notification.action.item;
+    let source = notification.action.source;
 
     if let Some(container) = world.get::<Container>(source) {
         if container.entities.contains(&item) {
@@ -454,12 +466,12 @@ pub fn verify_item_in_source(
 
 /// Prevents putting items inside themselves.
 pub fn prevent_put_item_inside_itself(
-    notification: &Notification<VerifyActionNotification, PutAction>,
+    notification: &VerifyActionNotification<PutAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let item = notification.contents.item;
-    let destination = notification.contents.destination;
+    let performing_entity = notification.performing_entity;
+    let item = notification.action.item;
+    let destination = notification.action.destination;
 
     if let Some(container) = world.get::<Container>(item) {
         if item == destination || container.contains_recursive(destination, world) {
@@ -476,11 +488,11 @@ pub fn prevent_put_item_inside_itself(
 
 /// Prevents picking up or dropping entities not marked as items.
 pub fn prevent_put_non_item(
-    notification: &Notification<VerifyActionNotification, PutAction>,
+    notification: &VerifyActionNotification<PutAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let item = notification.contents.item;
+    let performing_entity = notification.performing_entity;
+    let item = notification.action.item;
 
     if world.get::<Item>(item).is_none() {
         let performing_entity_location = world
@@ -489,9 +501,9 @@ pub fn prevent_put_non_item(
             .id;
         let item_name = get_reference_name(item, Some(performing_entity), world);
 
-        let message = if notification.contents.source == performing_entity_location {
+        let message = if notification.action.source == performing_entity_location {
             format!("You can't get {item_name}.")
-        } else if notification.contents.destination == performing_entity_location {
+        } else if notification.action.destination == performing_entity_location {
             format!("You can't drop {item_name}.")
         } else {
             format!("You can't put {item_name} anywhere.")

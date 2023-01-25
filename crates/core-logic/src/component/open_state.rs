@@ -18,9 +18,8 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, queue_action_first, ActionEndNotification,
-    AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
-    Connection, Container, Description, Location, ParseCustomInput,
+    description::DescribeAttributes, queue_action_first, AttributeDescriber, AttributeDescription,
+    AttributeDetailLevel, Connection, Container, Description, Location, ParseCustomInput,
 };
 
 const SLAM_VERB_NAME: &str = "slam";
@@ -124,36 +123,48 @@ impl Action for SlamAction {
         true
     }
 
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
+    fn send_before_notification(&self, performing_entity: Entity, world: &mut World) {
         self.notification_sender
-            .send_before_notification(notification_type, self, world);
+            .send_before_notification(performing_entity, self, world);
     }
 
     fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
+        performing_entity: Entity,
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, self, world)
+            .send_verify_notification(performing_entity, self, world)
     }
 
     fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
         world: &mut World,
     ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
+        self.notification_sender.send_after_perform_notification(
+            performing_entity,
+            action_complete,
+            action_successful,
+            self,
+            world,
+        );
     }
 
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
+    fn send_end_notification(
+        &self,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        world: &mut World,
+    ) {
+        self.notification_sender.send_end_notification(
+            performing_entity,
+            action_interrupted,
+            self,
+            world,
+        );
     }
 }
 
@@ -235,21 +246,19 @@ impl DescribeAttributes for OpenState {
 
 /// Attempts to open openable entities automatically before an attempt is made to move through a closed one.
 pub fn auto_open_connections(
-    notification: &Notification<BeforeActionNotification, MoveAction>,
+    notification: &BeforeActionNotification<MoveAction>,
     world: &mut World,
 ) {
-    if let Some(current_location) =
-        world.get::<Location>(notification.notification_type.performing_entity)
-    {
+    if let Some(current_location) = world.get::<Location>(notification.performing_entity) {
         if let Some(location) = world.get::<Container>(current_location.id) {
             if let Some((connecting_entity, _)) =
-                location.get_connection_in_direction(&notification.contents.direction, world)
+                location.get_connection_in_direction(&notification.action.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
                         queue_action_first(
                             world,
-                            notification.notification_type.performing_entity,
+                            notification.performing_entity,
                             Box::new(OpenAction {
                                 target: connecting_entity,
                                 should_be_open: true,
@@ -265,16 +274,16 @@ pub fn auto_open_connections(
 
 /// Notification handler for preventing entities from moving through closed entities.
 pub fn prevent_moving_through_closed_connections(
-    notification: &Notification<VerifyActionNotification, MoveAction>,
+    notification: &VerifyActionNotification<MoveAction>,
     world: &World,
 ) -> VerifyResult {
     if let Some(location_id) = world
-        .get::<Location>(notification.notification_type.performing_entity)
+        .get::<Location>(notification.performing_entity)
         .map(|location| location.id)
     {
         if let Some(current_location) = world.get::<Container>(location_id) {
-            if let Some((connecting_entity, _)) = current_location
-                .get_connection_in_direction(&notification.contents.direction, world)
+            if let Some((connecting_entity, _)) =
+                current_location.get_connection_in_direction(&notification.action.direction, world)
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
@@ -284,7 +293,7 @@ pub fn prevent_moving_through_closed_connections(
                                 format!("The {} is closed.", desc.name)
                             });
                         return VerifyResult::invalid(
-                            notification.notification_type.performing_entity,
+                            notification.performing_entity,
                             GameMessage::Message {
                                 content: message,
                                 category: MessageCategory::Internal(InternalMessageCategory::Misc),

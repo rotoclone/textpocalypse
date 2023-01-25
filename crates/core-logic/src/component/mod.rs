@@ -89,7 +89,6 @@ pub use greet_behavior::GreetBehavior;
 mod item;
 pub use item::Item;
 
-use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
 use crate::DeathNotification;
@@ -131,11 +130,6 @@ pub fn register_component_handlers(world: &mut World) {
 }
 
 /// Removes a component from an entity when it dies.
-fn remove_on_death<T: Bundle>(
-    notification: &Notification<DeathNotification, ()>,
-    world: &mut World,
-) {
-    world
-        .entity_mut(notification.notification_type.entity)
-        .remove::<T>();
+fn remove_on_death<T: Bundle>(notification: &DeathNotification, world: &mut World) {
+    world.entity_mut(notification.entity).remove::<T>();
 }

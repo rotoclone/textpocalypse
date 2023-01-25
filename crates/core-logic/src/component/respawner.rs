@@ -95,36 +95,48 @@ impl Action for RespawnAction {
         true
     }
 
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
+    fn send_before_notification(&self, performing_entity: Entity, world: &mut World) {
         self.notification_sender
-            .send_before_notification(notification_type, self, world);
+            .send_before_notification(performing_entity, self, world);
     }
 
     fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
+        performing_entity: Entity,
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, self, world)
+            .send_verify_notification(performing_entity, self, world)
     }
 
     fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
         world: &mut World,
     ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
+        self.notification_sender.send_after_perform_notification(
+            performing_entity,
+            action_complete,
+            action_successful,
+            self,
+            world,
+        );
     }
 
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
+    fn send_end_notification(
+        &self,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        world: &mut World,
+    ) {
+        self.notification_sender.send_end_notification(
+            performing_entity,
+            action_interrupted,
+            self,
+            world,
+        );
     }
 }
 
@@ -140,16 +152,14 @@ impl ParseCustomInput for Respawner {
 
 /// Notification handler that queues up a look action after an entity respawns, so they can see where they ended up.
 pub fn look_after_respawn(
-    notification: &Notification<AfterActionPerformNotification, RespawnAction>,
+    notification: &AfterActionPerformNotification<RespawnAction>,
     world: &mut World,
 ) {
-    if !notification.notification_type.action_complete
-        || !notification.notification_type.action_successful
-    {
+    if !notification.action_complete || !notification.action_successful {
         return;
     }
 
-    let performing_entity = notification.notification_type.performing_entity;
+    let performing_entity = notification.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
         queue_action_first(
             world,

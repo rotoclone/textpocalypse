@@ -536,17 +536,13 @@ fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
 #[derive(Debug)]
 pub struct TickNotification;
 
-impl NotificationType for TickNotification {}
+impl Notification for TickNotification {}
 
 /// Performs one game tick.
 fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
 
-    Notification {
-        notification_type: TickNotification,
-        contents: &(),
-    }
-    .send(world);
+    send_notification(TickNotification, world);
 }
 
 /// Moves an entity to a container.
@@ -584,7 +580,7 @@ pub struct DeathNotification {
     entity: Entity,
 }
 
-impl NotificationType for DeathNotification {}
+impl Notification for DeathNotification {}
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
@@ -617,11 +613,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
     clear_action_queue(world, entity);
 
-    Notification {
-        notification_type: DeathNotification { entity },
-        contents: &(),
-    }
-    .send(world);
+    send_notification(DeathNotification { entity }, world);
 
     let name = world
         .get::<Description>(entity)

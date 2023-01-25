@@ -5,7 +5,6 @@ use bevy_ecs::prelude::*;
 use crate::{
     action::DrinkAction,
     component::{AfterActionPerformNotification, FluidType},
-    notification::Notification,
     value_change::{ValueChange, ValueChangeOperation},
     ValueType,
 };
@@ -45,14 +44,12 @@ impl FluidHydrationFactorCatalog {
 
 /// Increases hydration when an entity is drank based on its hydration factor.
 pub fn increase_hydration_on_drink(
-    notification: &Notification<AfterActionPerformNotification, DrinkAction>,
+    notification: &AfterActionPerformNotification<DrinkAction>,
     world: &mut World,
 ) {
-    if notification.notification_type.action_complete
-        && notification.notification_type.action_successful
-    {
+    if notification.action_complete && notification.action_successful {
         let hydration_increase = notification
-            .contents
+            .action
             .fluids_to_volume_drank
             .iter()
             .map(|(fluid_type, volume)| {
@@ -66,7 +63,7 @@ pub fn increase_hydration_on_drink(
 
         if hydration_increase > 0.0 {
             ValueChange {
-                entity: notification.notification_type.performing_entity,
+                entity: notification.performing_entity,
                 value_type: ValueType::Hydration,
                 operation: ValueChangeOperation::Add,
                 amount: hydration_increase,

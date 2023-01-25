@@ -2,7 +2,6 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::EatAction,
-    notification::Notification,
     value_change::{ValueChange, ValueChangeOperation},
     AttributeDescription, ValueType,
 };
@@ -51,15 +50,13 @@ impl DescribeAttributes for Calories {
 
 /// Increases satiety when an entity is eaten based on its calories.
 pub fn increase_satiety_on_eat(
-    notification: &Notification<AfterActionPerformNotification, EatAction>,
+    notification: &AfterActionPerformNotification<EatAction>,
     world: &mut World,
 ) {
-    if notification.notification_type.action_complete
-        && notification.notification_type.action_successful
-    {
-        if let Some(calories) = world.get::<Calories>(notification.contents.target) {
+    if notification.action_complete && notification.action_successful {
+        if let Some(calories) = world.get::<Calories>(notification.action.target) {
             ValueChange {
-                entity: notification.notification_type.performing_entity,
+                entity: notification.performing_entity,
                 value_type: ValueType::Satiety,
                 operation: ValueChangeOperation::Add,
                 amount: f32::from(calories.0) * SATIETY_GAIN_PER_CALORIE,

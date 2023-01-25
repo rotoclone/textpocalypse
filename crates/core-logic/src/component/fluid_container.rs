@@ -6,7 +6,7 @@ use itertools::Itertools;
 use crate::{
     action::{PourAction, PourAmount},
     get_reference_name,
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     resource::FluidNameCatalog,
     AttributeDescription, GameMessage,
 };
@@ -145,12 +145,12 @@ impl DescribeAttributes for FluidContainer {
 
 /// Prevents more fluid being poured out of a fluid container than it contains.
 pub fn verify_source_container(
-    notification: &Notification<VerifyActionNotification, PourAction>,
+    notification: &VerifyActionNotification<PourAction>,
     world: &World,
 ) -> VerifyResult {
-    let source = notification.contents.source;
-    let amount = &notification.contents.amount;
-    let performing_entity = notification.notification_type.performing_entity;
+    let source = notification.action.source;
+    let amount = &notification.action.amount;
+    let performing_entity = notification.performing_entity;
 
     let container = world
         .get::<FluidContainer>(source)
@@ -182,12 +182,12 @@ pub fn verify_source_container(
 
 /// Prevents fluid containers from getting overfilled.
 pub fn limit_fluid_container_contents(
-    notification: &Notification<VerifyActionNotification, PourAction>,
+    notification: &VerifyActionNotification<PourAction>,
     world: &World,
 ) -> VerifyResult {
-    let target = notification.contents.target;
-    let amount = &notification.contents.amount;
-    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.action.target;
+    let amount = &notification.action.amount;
+    let performing_entity = notification.performing_entity;
 
     let container = world
         .get::<FluidContainer>(target)

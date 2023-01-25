@@ -3,9 +3,7 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 
 use crate::{
-    action::PutAction,
-    get_reference_name, get_volume, get_weight,
-    notification::{Notification, VerifyResult},
+    action::PutAction, get_reference_name, get_volume, get_weight, notification::VerifyResult,
     AttributeDescription, ContainerDescription, Direction, GameMessage,
 };
 
@@ -153,12 +151,12 @@ impl DescribeAttributes for Container {
 
 /// Prevents containers from getting overfilled.
 pub fn limit_container_contents(
-    notification: &Notification<VerifyActionNotification, PutAction>,
+    notification: &VerifyActionNotification<PutAction>,
     world: &World,
 ) -> VerifyResult {
-    let item = notification.contents.item;
-    let destination = notification.contents.destination;
-    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.action.item;
+    let destination = notification.action.destination;
+    let performing_entity = notification.performing_entity;
 
     let container = world
         .get::<Container>(destination)

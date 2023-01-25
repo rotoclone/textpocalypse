@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{LookAction, SayAction},
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     GameMessage,
 };
 
@@ -55,10 +55,10 @@ pub fn is_asleep(entity: Entity, world: &World) -> bool {
 
 /// Prevents an entity from looking at anything while it is asleep.
 pub fn prevent_look_while_asleep(
-    notification: &Notification<VerifyActionNotification, LookAction>,
+    notification: &VerifyActionNotification<LookAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
+    let performing_entity = notification.performing_entity;
 
     if is_asleep(performing_entity, world) {
         let message = GameMessage::Error("You can't look while you're asleep.".to_string());
@@ -70,10 +70,10 @@ pub fn prevent_look_while_asleep(
 
 /// Prevents an entity from saying anything while it is asleep.
 pub fn prevent_say_while_asleep(
-    notification: &Notification<VerifyActionNotification, SayAction>,
+    notification: &VerifyActionNotification<SayAction>,
     world: &World,
 ) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
+    let performing_entity = notification.performing_entity;
 
     if is_asleep(performing_entity, world) {
         let message = GameMessage::Error("You can't talk while you're asleep.".to_string());

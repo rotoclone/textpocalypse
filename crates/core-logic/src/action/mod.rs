@@ -7,7 +7,7 @@ use crate::component::{
     ActionEndNotification, AfterActionPerformNotification, Container, Location,
 };
 use crate::notification::{
-    Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
+    send_notification, Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
     can_receive_messages, get_reference_name, send_message, BeforeActionNotification,
@@ -507,102 +507,120 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     fn may_require_tick(&self) -> bool;
 
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    );
+    fn send_before_notification(&self, performing_entity: Entity, world: &mut World);
 
     /// Sends a notification to verify that this action is valid.
     fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
+        performing_entity: Entity,
         world: &mut World,
     ) -> VerifyResult;
 
     /// Sends a notification that `perform` was just called on this action.
     fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
         world: &mut World,
     );
 
     /// Sends a notification that this action is done being performed.
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World);
+    fn send_end_notification(
+        &self,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        world: &mut World,
+    );
 }
 
 /// Sends notifications about actions.
 #[derive(Debug)]
-pub struct ActionNotificationSender<C: Send + Sync> {
+pub struct ActionNotificationSender<A: Action> {
     before_notification_sent: Mutex<bool>,
-    _c: PhantomData<fn(C)>,
+    _a: PhantomData<fn(A)>,
 }
 
-impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
+impl<A: Action> ActionNotificationSender<A> {
     /// Creates a new `ActionNotificationSender`.
     pub fn new() -> Self {
         Self {
             before_notification_sent: Mutex::new(false),
-            _c: PhantomData,
+            _a: PhantomData,
         }
     }
 
     /// Sends a notification that an action is about to be performed, if one hasn't already been sent by this sender.
     pub fn send_before_notification(
         &self,
-        notification_type: BeforeActionNotification,
-        contents: &C,
+        performing_entity: Entity,
+        action: &A,
         world: &mut World,
     ) {
         if !*self.before_notification_sent.lock().unwrap() {
             *self.before_notification_sent.lock().unwrap() = true;
-            Notification {
-                notification_type,
-                contents,
-            }
-            .send(world);
+            send_notification(
+                BeforeActionNotification {
+                    performing_entity,
+                    action,
+                },
+                world,
+            );
         }
     }
 
     /// Sends a notification to verify that an action is valid.
     pub fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
-        contents: &C,
+        performing_entity: Entity,
+        action: &A,
         world: &World,
     ) -> VerifyResult {
-        Notification {
-            notification_type,
-            contents,
+        /* TODO
+        VerifyActionNotification {
+            performing_entity,
+            action,
         }
         .verify(world)
+        */
+        todo!() //TODO
     }
 
     /// Sends a notification that `perform` was called on an action.
     pub fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
-        contents: &C,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
+        action: &A,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents,
+        /* TODO
+        AfterActionPerformNotification {
+            performing_entity,
+            action_complete,
+            action_successful,
+            action,
         }
         .send(world);
+        */
     }
 
     /// Sends a notification that an action is done being performed.
     pub fn send_end_notification(
         &self,
-        notification_type: ActionEndNotification,
-        contents: &C,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        action: &A,
         world: &mut World,
     ) {
-        Notification {
-            notification_type,
-            contents,
+        /* TODO
+        ActionEndNotification {
+            performing_entity,
+            action_interrupted,
+            action,
         }
         .send(world);
+        */
     }
 }

@@ -18,9 +18,9 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, ActionEndNotification, AfterActionPerformNotification, AttributeDescriber,
-    AttributeDetailLevel, BeforeActionNotification, Connection, Container, DescribeAttributes,
-    Description, Location, ParseCustomInput, VerifyActionNotification,
+    queue_action_first, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
+    Connection, Container, DescribeAttributes, Description, Location, ParseCustomInput,
+    VerifyActionNotification,
 };
 
 const UNLOCK_VERB_NAME: &str = "unlock";
@@ -217,36 +217,48 @@ impl Action for LockAction {
         true
     }
 
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
+    fn send_before_notification(&self, performing_entity: Entity, world: &mut World) {
         self.notification_sender
-            .send_before_notification(notification_type, self, world);
+            .send_before_notification(performing_entity, self, world);
     }
 
     fn send_verify_notification(
         &self,
-        notification_type: VerifyActionNotification,
+        performing_entity: Entity,
         world: &mut World,
     ) -> VerifyResult {
         self.notification_sender
-            .send_verify_notification(notification_type, self, world)
+            .send_verify_notification(performing_entity, self, world)
     }
 
     fn send_after_perform_notification(
         &self,
-        notification_type: AfterActionPerformNotification,
+        performing_entity: Entity,
+        action_complete: bool,
+        action_successful: bool,
         world: &mut World,
     ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
+        self.notification_sender.send_after_perform_notification(
+            performing_entity,
+            action_complete,
+            action_successful,
+            self,
+            world,
+        );
     }
 
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
+    fn send_end_notification(
+        &self,
+        performing_entity: Entity,
+        action_interrupted: bool,
+        world: &mut World,
+    ) {
+        self.notification_sender.send_end_notification(
+            performing_entity,
+            action_interrupted,
+            self,
+            world,
+        );
     }
 }
 
@@ -338,17 +350,17 @@ impl DescribeAttributes for KeyedLock {
 
 /// Attempts to unlock keyed locks automatically before an attempt is made to open a locked one.
 pub fn auto_unlock_keyed_locks(
-    notification: &Notification<BeforeActionNotification, OpenAction>,
+    notification: &BeforeActionNotification<OpenAction>,
     world: &mut World,
 ) {
-    if notification.contents.should_be_open {
-        if let Some(keyed_lock) = world.get::<KeyedLock>(notification.contents.target) {
+    if notification.action.should_be_open {
+        if let Some(keyed_lock) = world.get::<KeyedLock>(notification.action.target) {
             if keyed_lock.is_locked {
                 queue_action_first(
                     world,
-                    notification.notification_type.performing_entity,
+                    notification.performing_entity,
                     Box::new(LockAction {
-                        target: notification.contents.target,
+                        target: notification.action.target,
                         should_be_locked: false,
                         notification_sender: ActionNotificationSender::new(),
                     }),
@@ -360,19 +372,19 @@ pub fn auto_unlock_keyed_locks(
 
 /// Notification handler for preventing entities from opening entities locked with a keyed lock.
 pub fn prevent_opening_locked_keyed_locks(
-    notification: &Notification<VerifyActionNotification, OpenAction>,
+    notification: &VerifyActionNotification<OpenAction>,
     world: &World,
 ) -> VerifyResult {
-    if notification.contents.should_be_open {
-        if let Some(keyed_lock) = world.get::<KeyedLock>(notification.contents.target) {
+    if notification.action.should_be_open {
+        if let Some(keyed_lock) = world.get::<KeyedLock>(notification.action.target) {
             if keyed_lock.is_locked {
                 let message = world
-                    .get::<Description>(notification.contents.target)
+                    .get::<Description>(notification.action.target)
                     .map_or("It's locked.".to_string(), |desc| {
                         format!("The {} is locked.", desc.name)
                     });
                 return VerifyResult::invalid(
-                    notification.notification_type.performing_entity,
+                    notification.performing_entity,
                     GameMessage::Message {
                         content: message,
                         category: MessageCategory::Internal(InternalMessageCategory::Misc),

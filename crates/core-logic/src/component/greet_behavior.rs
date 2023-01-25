@@ -1,9 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use crate::{
-    action::{ActionNotificationSender, MoveAction, SayAction},
-    notification::Notification,
-};
+use crate::action::{ActionNotificationSender, MoveAction, SayAction};
 
 use super::{queue_action, AfterActionPerformNotification, Container, Location};
 
@@ -16,12 +13,10 @@ pub struct GreetBehavior {
 
 /// Makes greeting NPCs greet.
 pub fn greet_new_entities(
-    notification: &Notification<AfterActionPerformNotification, MoveAction>,
+    notification: &AfterActionPerformNotification<MoveAction>,
     world: &mut World,
 ) {
-    if !notification.notification_type.action_complete
-        || !notification.notification_type.action_successful
-    {
+    if !notification.action_complete || !notification.action_successful {
         return;
     }
 
@@ -29,16 +24,13 @@ pub fn greet_new_entities(
 
     let mut actions = Vec::new();
     for (entity, greet_behavior) in world.query::<(Entity, &GreetBehavior)>().iter(world) {
-        if entity == notification.notification_type.performing_entity {
+        if entity == notification.performing_entity {
             // don't need to greet yourself
             continue;
         }
         if let Some(location) = world.get::<Location>(entity) {
             if let Some(container) = world.get::<Container>(location.id) {
-                if container
-                    .entities
-                    .contains(&notification.notification_type.performing_entity)
-                {
+                if container.entities.contains(&notification.performing_entity) {
                     // the move action was successful, and the entity that performed it is standing here, so they must have just arrived
                     actions.push((
                         entity,
