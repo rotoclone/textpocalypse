@@ -156,7 +156,7 @@ impl<N: Notification, R> NotificationHandlerId<N, R> {
 }
 
 /// Signature of a function to handle notifications.
-type HandleFn<N> = fn(&N, &mut World);
+type HandleFn<N: Notification> = fn(&N, &mut World);
 
 /// Type of the notification handler ID for regular notifications.
 type HandlerId<N> = NotificationHandlerId<N, NotificationHandlers<N>>;

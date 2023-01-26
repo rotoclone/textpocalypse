@@ -20,7 +20,7 @@ pub struct VerifyActionNotification<'a, A: Action> {
     pub action: &'a A,
 }
 
-impl<A: Action> Notification for VerifyActionNotification<'static, A> {}
+impl<'a, A: Action> Notification for VerifyActionNotification<'a, A> {}
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]
@@ -31,7 +31,7 @@ pub struct BeforeActionNotification<'a, A: Action> {
     pub action: &'a A,
 }
 
-impl<'a, A: Action + 'static> Notification for BeforeActionNotification<'a, A> {}
+impl<A: Action> Notification for BeforeActionNotification<'_, A> {}
 
 /// A notification sent after `perform` is called on an action.
 #[derive(Debug)]
@@ -46,7 +46,7 @@ pub struct AfterActionPerformNotification<'a, A: Action> {
     pub action: &'a A,
 }
 
-impl<A: Action> Notification for AfterActionPerformNotification<'static, A> {}
+impl<'a, A: Action> Notification for AfterActionPerformNotification<'a, A> {}
 
 /// A notification sent after an action is done being performed, whether it completed successfully or was interrupted.
 #[derive(Debug)]
@@ -59,7 +59,7 @@ pub struct ActionEndNotification<'a, A: Action> {
     pub action: &'a A,
 }
 
-impl<A: Action> Notification for ActionEndNotification<'static, A> {}
+impl<'a, A: Action> Notification for ActionEndNotification<'a, A> {}
 
 /// The state of a queued action.
 #[derive(Clone, Copy)]
