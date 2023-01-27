@@ -91,7 +91,9 @@ pub use item::Item;
 
 mod stats;
 pub use stats::Attribute;
+pub use stats::Attributes;
 pub use stats::Skill;
+pub use stats::Skills;
 pub use stats::Stats;
 
 use crate::notification::Notification;

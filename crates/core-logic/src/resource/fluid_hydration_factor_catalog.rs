@@ -24,6 +24,7 @@ impl FluidHydrationFactorCatalog {
     /// Creates the default catalog of hydration factors.
     pub fn new() -> FluidHydrationFactorCatalog {
         FluidHydrationFactorCatalog {
+            //TODO use a match somewhere
             standard: [
                 (FluidType::Water, 1.0),
                 (FluidType::DirtyWater, 0.9),
@@ -34,8 +35,16 @@ impl FluidHydrationFactorCatalog {
         }
     }
 
+    /// Sets the hydration factor of the provided fluid type.
+    pub fn set(&mut self, fluid_type: &FluidType, factor: f32) {
+        match fluid_type {
+            FluidType::Custom(id) => self.custom.insert(id.clone(), factor),
+            _ => self.standard.insert(fluid_type.clone(), factor),
+        };
+    }
+
     /// Determines the hydration factor for the provided fluid type.
-    pub fn for_fluid(&self, fluid_type: &FluidType) -> f32 {
+    pub fn get(&self, fluid_type: &FluidType) -> f32 {
         match fluid_type {
             FluidType::Custom(id) => *self.custom.get(id).unwrap_or(&0.0),
             _ => *self.standard.get(fluid_type).unwrap_or(&0.0),
@@ -58,7 +67,7 @@ pub fn increase_hydration_on_drink(
             .map(|(fluid_type, volume)| {
                 let hydration_factor = world
                     .resource::<FluidHydrationFactorCatalog>()
-                    .for_fluid(fluid_type);
+                    .get(fluid_type);
 
                 volume.0 * HYDRATION_GAIN_PER_LITER_OF_WATER * hydration_factor
             })

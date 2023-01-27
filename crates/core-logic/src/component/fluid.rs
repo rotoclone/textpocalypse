@@ -31,7 +31,7 @@ impl Fluid {
         self.contents
             .iter()
             .map(|(fluid_type, volume)| {
-                let density = density_catalog.for_fluid(fluid_type);
+                let density = density_catalog.get(fluid_type);
                 density.weight_of_volume(*volume)
             })
             .sum::<Weight>()

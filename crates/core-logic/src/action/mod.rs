@@ -48,6 +48,9 @@ pub use pour::PourParser;
 mod vitals;
 pub use vitals::VitalsParser;
 
+mod stats;
+pub use stats::StatsParser;
+
 mod eat;
 pub use eat::EatAction;
 pub use eat::EatParser;

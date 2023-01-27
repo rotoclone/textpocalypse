@@ -15,6 +15,7 @@ impl FluidNameCatalog {
     /// Creates the default catalog of names.
     pub fn new() -> FluidNameCatalog {
         FluidNameCatalog {
+            //TODO use a match somewhere
             standard: [
                 (FluidType::Water, "water".to_string()),
                 (FluidType::DirtyWater, "dirty water".to_string()),
@@ -25,8 +26,16 @@ impl FluidNameCatalog {
         }
     }
 
+    /// Sets the name of the provided fluid type.
+    pub fn set(&mut self, fluid_type: &FluidType, name: String) {
+        match fluid_type {
+            FluidType::Custom(id) => self.custom.insert(id.clone(), name),
+            _ => self.standard.insert(fluid_type.clone(), name),
+        };
+    }
+
     /// Determines the name for the provided fluid type.
-    pub fn for_fluid(&self, fluid_type: &FluidType) -> String {
+    pub fn get(&self, fluid_type: &FluidType) -> String {
         match fluid_type {
             FluidType::Custom(id) => self.custom.get(id),
             _ => self.standard.get(fluid_type),
@@ -38,5 +47,5 @@ impl FluidNameCatalog {
 
 /// Gets the name of the provided fluid type.
 pub fn get_fluid_name(fluid_type: &FluidType, world: &World) -> String {
-    world.resource::<FluidNameCatalog>().for_fluid(fluid_type)
+    world.resource::<FluidNameCatalog>().get(fluid_type)
 }

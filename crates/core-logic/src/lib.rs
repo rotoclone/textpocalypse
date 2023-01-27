@@ -55,6 +55,8 @@ pub use constrained_value::ConstrainedValue;
 mod value_change;
 pub use value_change::ValueType;
 
+mod swap_tuple;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
@@ -105,6 +107,7 @@ impl StandardInputParsers {
                 Box::new(PourParser),
                 Box::new(SayParser),
                 Box::new(VitalsParser),
+                Box::new(StatsParser),
                 Box::new(EatParser),
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
@@ -354,7 +357,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: vec![SleepState::get_attribute_describer()],
     };
     let vitals = Vitals::new();
-    let stats = Stats::new();
+    let stats = build_starting_stats();
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -388,6 +391,18 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     );
 
     player_entity
+}
+
+fn build_starting_stats() -> Stats {
+    let mut stats = Stats::new();
+
+    stats.set_attribute(&Attribute::Strength, 10);
+    stats.set_attribute(&Attribute::Intelligence, 12);
+
+    stats.set_skill(&Skill::Construction, 10);
+    stats.set_skill(&Skill::Cooking, 11);
+
+    stats
 }
 
 /// Despawns the player with the provided ID.
