@@ -89,6 +89,11 @@ pub use greet_behavior::GreetBehavior;
 mod item;
 pub use item::Item;
 
+mod stats;
+pub use stats::Attribute;
+pub use stats::Skill;
+pub use stats::Stats;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;

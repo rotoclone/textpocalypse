@@ -354,6 +354,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: vec![SleepState::get_attribute_describer()],
     };
     let vitals = Vitals::new();
+    let stats = Stats::new();
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -363,6 +364,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             Weight(65.0),
             desc,
             vitals,
+            stats,
             action_queue,
         ))
         .id();

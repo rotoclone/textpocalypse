@@ -16,11 +16,16 @@ mod fluid_density_catalog;
 pub use fluid_density_catalog::get_fluid_density;
 pub use fluid_density_catalog::FluidDensityCatalog;
 
+mod skill_base_attribute_catalog;
+pub use skill_base_attribute_catalog::get_base_attribute;
+pub use skill_base_attribute_catalog::SkillBaseAttributeCatalog;
+
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
     world.insert_resource(FluidNameCatalog::new());
     world.insert_resource(FluidHydrationFactorCatalog::new());
     world.insert_resource(FluidDensityCatalog::new());
+    world.insert_resource(SkillBaseAttributeCatalog::new());
 }
 
 /// Registers notification handlers related to resources.
