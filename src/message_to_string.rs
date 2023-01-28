@@ -1,4 +1,4 @@
-use comfy_table::{Cell, ContentArrangement, Table, TableComponent};
+use comfy_table::{Cell, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
 use std::{cmp::Ordering, hash::Hash};

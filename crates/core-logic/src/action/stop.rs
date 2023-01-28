@@ -7,7 +7,6 @@ use crate::{
         clear_action_queue, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
     },
     input_parser::{InputParseError, InputParser},
-    interrupt_entity,
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     VerifyActionNotification, World,
