@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use strum::IntoEnumIterator;
 
 use crate::{
     action::DrinkAction,
     component::{AfterActionPerformNotification, FluidType},
     notification::Notification,
+    swap_tuple::swapped,
     value_change::{ValueChange, ValueChangeOperation},
     ValueType,
 };
@@ -24,13 +26,7 @@ impl FluidHydrationFactorCatalog {
     /// Creates the default catalog of hydration factors.
     pub fn new() -> FluidHydrationFactorCatalog {
         FluidHydrationFactorCatalog {
-            //TODO use a match somewhere
-            standard: [
-                (FluidType::Water, 1.0),
-                (FluidType::DirtyWater, 0.9),
-                (FluidType::Alcohol, 0.5),
-            ]
-            .into(),
+            standard: build_standard_hydration_factors(),
             custom: HashMap::new(),
         }
     }
@@ -49,6 +45,23 @@ impl FluidHydrationFactorCatalog {
             FluidType::Custom(id) => *self.custom.get(id).unwrap_or(&0.0),
             _ => *self.standard.get(fluid_type).unwrap_or(&0.0),
         }
+    }
+}
+
+/// Builds the default hydration factors of standard fluid types.
+fn build_standard_hydration_factors() -> HashMap<FluidType, f32> {
+    FluidType::iter()
+        .map(|fluid_type| swapped(get_default_hydration_factor(&fluid_type), fluid_type))
+        .collect()
+}
+
+/// Gets the default hydration factor of a fluid type.
+fn get_default_hydration_factor(fluid_type: &FluidType) -> f32 {
+    match fluid_type {
+        FluidType::Water => 1.0,
+        FluidType::DirtyWater => 0.9,
+        FluidType::Alcohol => 0.5,
+        FluidType::Custom(_) => 0.0,
     }
 }
 

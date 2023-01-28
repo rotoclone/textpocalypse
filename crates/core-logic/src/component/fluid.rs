@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use strum::EnumIter;
 
 use crate::resource::FluidDensityCatalog;
 
@@ -102,7 +103,7 @@ pub struct FluidTypeAmount {
     pub fraction: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum FluidType {
     Water,
     DirtyWater,

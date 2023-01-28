@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use strum::IntoEnumIterator;
 
-use crate::component::{Density, FluidType};
+use crate::{
+    component::{Density, FluidType},
+    swap_tuple::swapped,
+};
 
 /// Map of fluid types to their densities.
 #[derive(Resource)]
@@ -15,13 +19,7 @@ impl FluidDensityCatalog {
     /// Creates the default catalog of densities.
     pub fn new() -> FluidDensityCatalog {
         FluidDensityCatalog {
-            //TODO use a match somewhere
-            standard: [
-                (FluidType::Water, Density(1.0)),
-                (FluidType::DirtyWater, Density(1.1)),
-                (FluidType::Alcohol, Density(0.79)),
-            ]
-            .into(),
+            standard: build_standard_densities(),
             custom: HashMap::new(),
         }
     }
@@ -42,6 +40,23 @@ impl FluidDensityCatalog {
         }
         .cloned()
         .unwrap_or(Density(1.0))
+    }
+}
+
+/// Builds the default densities of standard fluid types.
+fn build_standard_densities() -> HashMap<FluidType, Density> {
+    FluidType::iter()
+        .map(|fluid_type| swapped(get_default_density(&fluid_type), fluid_type))
+        .collect()
+}
+
+/// Gets the default density of a fluid type.
+fn get_default_density(fluid_type: &FluidType) -> Density {
+    match fluid_type {
+        FluidType::Water => Density(1.0),
+        FluidType::DirtyWater => Density(1.1),
+        FluidType::Alcohol => Density(0.79),
+        FluidType::Custom(_) => Density(0.0),
     }
 }
 

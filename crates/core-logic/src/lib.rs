@@ -293,17 +293,30 @@ impl Game {
         let thread_world = Arc::clone(&self.world);
 
         thread::Builder::new()
-            .name(format!("AFK checker"))
-            .spawn(move || loop {
-                thread::sleep(Duration::from_millis(1000));
+            .name("AFK checker".to_string())
+            .spawn(move || {
+                let mut afk_players = HashSet::new();
+                loop {
+                    thread::sleep(Duration::from_millis(1000));
 
-                let mut write_world = thread_world.write().unwrap();
-                let mut query = write_world.query::<&Player>();
-                if query
-                    .iter(&write_world)
-                    .any(|player| player.is_afk(write_world.resource::<GameOptions>().afk_timeout))
-                {
-                    try_perform_queued_actions(&mut write_world);
+                    let mut should_perform_actions = false;
+                    let mut write_world = thread_world.write().unwrap();
+                    let mut query = write_world.query::<&Player>();
+                    for player in query.iter(&write_world) {
+                        if player.is_afk(write_world.resource::<GameOptions>().afk_timeout) {
+                            if !afk_players.contains(&player.id) {
+                                afk_players.insert(player.id);
+                                // a player just became AFK, so try to perform queued actions in case they were the only one without one
+                                should_perform_actions = true;
+                            }
+                        } else if afk_players.contains(&player.id) {
+                            afk_players.remove(&player.id);
+                        }
+                    }
+
+                    if should_perform_actions {
+                        try_perform_queued_actions(&mut write_world);
+                    }
                 }
             })
             .unwrap_or_else(|e| panic!("failed to spawn thread to check if players are AFK: {e}"));
