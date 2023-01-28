@@ -44,6 +44,7 @@ impl Stats {
     }
 }
 
+/// The innate attributes of an entity, like strength.
 pub struct Attributes {
     standard: HashMap<Attribute, u32>,
     custom: HashMap<String, u32>,
@@ -73,6 +74,7 @@ impl Attributes {
     }
 }
 
+/// The learned skills of an entity, like cooking.
 pub struct Skills {
     standard: HashMap<Skill, u32>,
     custom: HashMap<String, u32>,
