@@ -367,6 +367,7 @@ impl StatAttributeDescription {
                 name: get_attribute_name(&attribute, world).full,
                 value,
             })
+            .sorted_by(|a, b| a.name.cmp(&b.name))
             .collect()
     }
 }
@@ -389,6 +390,14 @@ impl SkillDescription {
                     name: get_skill_name(&skill, world),
                     base_attribute_name: get_attribute_name(&base_attribute, world).short,
                     value,
+                }
+            })
+            .sorted_by(|a, b| {
+                // group skills by base attribute, then alphabetically
+                if a.base_attribute_name == b.base_attribute_name {
+                    a.name.cmp(&b.name)
+                } else {
+                    a.base_attribute_name.cmp(&b.base_attribute_name)
                 }
             })
             .collect()

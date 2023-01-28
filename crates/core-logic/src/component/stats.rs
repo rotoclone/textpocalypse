@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
-use strum::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 
-/// The stats f an entity.
+/// The stats of an entity.
 #[derive(Component)]
 pub struct Stats {
     /// The innate attributes of the entity, like strength.
@@ -12,18 +12,12 @@ pub struct Stats {
     pub skills: Skills,
 }
 
-impl Default for Stats {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Stats {
-    /// Creates a new empty set of stats.
-    pub fn new() -> Stats {
+    /// Creates a new set of stats with attributes and skills set to the provided default values.
+    pub fn new(default_attribute_value: u32, default_skill_value: u32) -> Stats {
         Stats {
-            attributes: Attributes::new(),
-            skills: Skills::new(),
+            attributes: Attributes::new(default_attribute_value),
+            skills: Skills::new(default_skill_value),
         }
     }
 
@@ -51,9 +45,19 @@ pub struct Attributes {
 }
 
 impl Attributes {
-    fn new() -> Attributes {
+    fn new(default_value: u32) -> Attributes {
+        let mut standard = HashMap::new();
+        for attribute in Attribute::iter() {
+            match attribute {
+                Attribute::Custom(_) => (),
+                a => {
+                    standard.insert(a, default_value);
+                }
+            }
+        }
+
         Attributes {
-            standard: HashMap::new(),
+            standard,
             custom: HashMap::new(),
         }
     }
@@ -81,9 +85,19 @@ pub struct Skills {
 }
 
 impl Skills {
-    fn new() -> Skills {
+    fn new(default_value: u32) -> Skills {
+        let mut standard = HashMap::new();
+        for skill in Skill::iter() {
+            match skill {
+                Skill::Custom(_) => (),
+                s => {
+                    standard.insert(s, default_value);
+                }
+            }
+        }
+
         Skills {
-            standard: HashMap::new(),
+            standard,
             custom: HashMap::new(),
         }
     }

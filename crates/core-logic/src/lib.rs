@@ -407,13 +407,13 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
 }
 
 fn build_starting_stats() -> Stats {
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(10, 10);
 
-    stats.set_attribute(&Attribute::Strength, 10);
-    stats.set_attribute(&Attribute::Intelligence, 12);
+    stats.set_attribute(&Attribute::Strength, 12);
+    stats.set_attribute(&Attribute::Intelligence, 8);
 
-    stats.set_skill(&Skill::Construction, 10);
-    stats.set_skill(&Skill::Cooking, 11);
+    stats.set_skill(&Skill::Construction, 12);
+    stats.set_skill(&Skill::Cooking, 8);
 
     stats
 }
