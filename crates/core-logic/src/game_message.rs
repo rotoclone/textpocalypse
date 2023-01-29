@@ -8,13 +8,14 @@ use strum::EnumIter;
 use crate::{
     color::Color,
     component::{
-        ActionQueue, AttributeDescription, AttributeDetailLevel, Connection, Container,
-        Description, Location, Player, Pronouns, Room, Vitals, Volume, Weight,
+        ActionQueue, AttributeDescription, AttributeDetailLevel, Attributes, Connection, Container,
+        Description, Location, Player, Pronouns, Room, Skills, Stats, Vitals, Volume, Weight,
     },
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
     is_living_entity,
+    resource::{get_attribute_name, get_base_attribute, get_skill_name},
     value_change::ValueType,
     ConstrainedValue, Direction, GameOptions,
 };
@@ -38,6 +39,7 @@ pub enum GameMessage {
     DetailedEntity(DetailedEntityDescription),
     Container(ContainerDescription),
     Vitals(VitalsDescription),
+    Stats(StatsDescription),
     ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpMessage),
     Players(PlayersMessage),
@@ -329,6 +331,76 @@ impl VitalsDescription {
             hydration: vitals.hydration.clone(),
             energy: vitals.energy.clone(),
         }
+    }
+}
+
+/// The description of an entity's stats.
+#[derive(Debug, Clone)]
+pub struct StatsDescription {
+    /// The attributes of the entity.
+    pub attributes: Vec<StatAttributeDescription>,
+    /// The skills of the entity.
+    pub skills: Vec<SkillDescription>,
+}
+
+impl StatsDescription {
+    pub fn from_stats(stats: &Stats, world: &World) -> StatsDescription {
+        StatsDescription {
+            attributes: StatAttributeDescription::from_attributes(&stats.attributes, world),
+            skills: SkillDescription::from_skills(&stats.skills, world),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StatAttributeDescription {
+    pub name: String,
+    pub value: u32,
+}
+
+impl StatAttributeDescription {
+    fn from_attributes(attributes: &Attributes, world: &World) -> Vec<StatAttributeDescription> {
+        attributes
+            .get_all()
+            .into_iter()
+            .map(|(attribute, value)| StatAttributeDescription {
+                name: get_attribute_name(&attribute, world).full,
+                value,
+            })
+            .sorted_by(|a, b| a.name.cmp(&b.name))
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SkillDescription {
+    pub name: String,
+    pub base_attribute_name: String,
+    pub value: u32,
+}
+
+impl SkillDescription {
+    fn from_skills(skills: &Skills, world: &World) -> Vec<SkillDescription> {
+        skills
+            .get_all()
+            .into_iter()
+            .map(|(skill, value)| {
+                let base_attribute = get_base_attribute(&skill, world);
+                SkillDescription {
+                    name: get_skill_name(&skill, world),
+                    base_attribute_name: get_attribute_name(&base_attribute, world).short,
+                    value,
+                }
+            })
+            .sorted_by(|a, b| {
+                // group skills by base attribute, then alphabetically
+                if a.base_attribute_name == b.base_attribute_name {
+                    a.name.cmp(&b.name)
+                } else {
+                    a.base_attribute_name.cmp(&b.base_attribute_name)
+                }
+            })
+            .collect()
     }
 }
 

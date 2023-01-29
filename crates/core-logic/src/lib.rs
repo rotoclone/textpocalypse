@@ -55,6 +55,8 @@ pub use constrained_value::ConstrainedValue;
 mod value_change;
 pub use value_change::ValueType;
 
+mod swap_tuple;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
@@ -105,6 +107,7 @@ impl StandardInputParsers {
                 Box::new(PourParser),
                 Box::new(SayParser),
                 Box::new(VitalsParser),
+                Box::new(StatsParser),
                 Box::new(EatParser),
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
@@ -290,17 +293,30 @@ impl Game {
         let thread_world = Arc::clone(&self.world);
 
         thread::Builder::new()
-            .name(format!("AFK checker"))
-            .spawn(move || loop {
-                thread::sleep(Duration::from_millis(1000));
+            .name("AFK checker".to_string())
+            .spawn(move || {
+                let mut afk_players = HashSet::new();
+                loop {
+                    thread::sleep(Duration::from_millis(1000));
 
-                let mut write_world = thread_world.write().unwrap();
-                let mut query = write_world.query::<&Player>();
-                if query
-                    .iter(&write_world)
-                    .any(|player| player.is_afk(write_world.resource::<GameOptions>().afk_timeout))
-                {
-                    try_perform_queued_actions(&mut write_world);
+                    let mut should_perform_actions = false;
+                    let mut write_world = thread_world.write().unwrap();
+                    let mut query = write_world.query::<&Player>();
+                    for player in query.iter(&write_world) {
+                        if player.is_afk(write_world.resource::<GameOptions>().afk_timeout) {
+                            if !afk_players.contains(&player.id) {
+                                afk_players.insert(player.id);
+                                // a player just became AFK, so try to perform queued actions in case they were the only one without one
+                                should_perform_actions = true;
+                            }
+                        } else if afk_players.contains(&player.id) {
+                            afk_players.remove(&player.id);
+                        }
+                    }
+
+                    if should_perform_actions {
+                        try_perform_queued_actions(&mut write_world);
+                    }
                 }
             })
             .unwrap_or_else(|e| panic!("failed to spawn thread to check if players are AFK: {e}"));
@@ -354,6 +370,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: vec![SleepState::get_attribute_describer()],
     };
     let vitals = Vitals::new();
+    let stats = build_starting_stats();
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -363,6 +380,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             Weight(65.0),
             desc,
             vitals,
+            stats,
             action_queue,
         ))
         .id();
@@ -386,6 +404,18 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     );
 
     player_entity
+}
+
+fn build_starting_stats() -> Stats {
+    let mut stats = Stats::new(10, 10);
+
+    stats.set_attribute(&Attribute::Strength, 12);
+    stats.set_attribute(&Attribute::Intelligence, 8);
+
+    stats.set_skill(&Skill::Construction, 12);
+    stats.set_skill(&Skill::Cooking, 8);
+
+    stats
 }
 
 /// Despawns the player with the provided ID.

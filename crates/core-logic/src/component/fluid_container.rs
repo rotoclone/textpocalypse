@@ -68,7 +68,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                 .contents
                 .contents
                 .iter()
-                .into_group_map_by(|(fluid_type, _)| fluid_names.for_fluid(fluid_type))
+                .into_group_map_by(|(fluid_type, _)| fluid_names.get(fluid_type))
                 .into_iter()
                 .map(|(name, fluids)| {
                     let total_volume = fluids

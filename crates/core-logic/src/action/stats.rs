@@ -3,29 +3,26 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{
-        clear_action_queue, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
-    },
+    component::{ActionEndNotification, AfterActionPerformNotification, Stats},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification, World,
+    BeforeActionNotification, GameMessage, StatsDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const STOP_FORMAT: &str = "stop";
+const STATS_FORMAT: &str = "stats";
 
 lazy_static! {
-    static ref STOP_PATTERN: Regex = Regex::new("^(stop|cancel)$").unwrap();
+    static ref STATS_PATTERN: Regex = Regex::new("^(st|stat|stats)$").unwrap();
 }
 
-pub struct StopParser;
+pub struct StatsParser;
 
-impl InputParser for StopParser {
+impl InputParser for StatsParser {
     fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if STOP_PATTERN.is_match(input) {
-            return Ok(Box::new(StopAction {
+        if STATS_PATTERN.is_match(input) {
+            return Ok(Box::new(StatsAction {
                 notification_sender: ActionNotificationSender::new(),
             }));
         }
@@ -34,7 +31,7 @@ impl InputParser for StopParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![STOP_FORMAT.to_string()]
+        vec![STATS_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
@@ -43,34 +40,21 @@ impl InputParser for StopParser {
 }
 
 #[derive(Debug)]
-pub struct StopAction {
-    pub notification_sender: ActionNotificationSender<Self>,
+struct StatsAction {
+    notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for StopAction {
+impl Action for StatsAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        if let Some(queue) = world.get::<ActionQueue>(performing_entity) {
-            if !queue.is_empty() {
-                clear_action_queue(world, performing_entity);
-                return ActionResult::builder()
-                    .with_message(
-                        performing_entity,
-                        "You stop what you were doing.".to_string(),
-                        MessageCategory::Internal(InternalMessageCategory::Misc),
-                        MessageDelay::None,
-                    )
-                    .build_complete_no_tick(true);
-            }
-        }
+        if let Some(stats) = world.get::<Stats>(performing_entity) {
+            let message = GameMessage::Stats(StatsDescription::from_stats(stats, world));
 
-        ActionResult::builder()
-            .with_message(
-                performing_entity,
-                "You aren't doing anything.".to_string(),
-                MessageCategory::Internal(InternalMessageCategory::Misc),
-                MessageDelay::None,
-            )
-            .build_complete_no_tick(false)
+            ActionResult::builder()
+                .with_game_message(performing_entity, message)
+                .build_complete_no_tick(true)
+        } else {
+            ActionResult::error(performing_entity, "You have no stats.".to_string())
+        }
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {

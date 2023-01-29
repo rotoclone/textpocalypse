@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use strum::EnumIter;
 
 use crate::resource::FluidDensityCatalog;
 
@@ -31,7 +32,7 @@ impl Fluid {
         self.contents
             .iter()
             .map(|(fluid_type, volume)| {
-                let density = density_catalog.for_fluid(fluid_type);
+                let density = density_catalog.get(fluid_type);
                 density.weight_of_volume(*volume)
             })
             .sum::<Weight>()
@@ -102,7 +103,7 @@ pub struct FluidTypeAmount {
     pub fraction: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum FluidType {
     Water,
     DirtyWater,

@@ -30,6 +30,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
         GameMessage::Container(container) => container_to_string(container),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
+        GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::ValueChange(change, _) => value_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
     }
@@ -534,6 +535,33 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
     [health, satiety, hydration, energy].join("\n")
 }
 
+/// Transforms the provided stats description into a string for display.
+fn stats_to_string(stats: StatsDescription) -> String {
+    let mut attributes_table = new_table();
+    attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
+
+    for attribute in stats.attributes {
+        attributes_table.add_row(vec![Cell::new(attribute.name), Cell::new(attribute.value)]);
+    }
+
+    let mut skills_table = new_table();
+    skills_table.set_header(vec![
+        Cell::new("Name"),
+        Cell::new("Base"),
+        Cell::new("Value"),
+    ]);
+
+    for skill in stats.skills {
+        skills_table.add_row(vec![
+            Cell::new(skill.name),
+            Cell::new(skill.base_attribute_name),
+            Cell::new(skill.value),
+        ]);
+    }
+
+    format!("Attributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
+}
+
 /// Transforms the provided value change description into a string for display.
 fn value_change_to_string(change: ValueChangeDescription) -> String {
     let bar_title = format!("{}: ", value_type_to_bar_title(&change.value_type));
@@ -608,15 +636,12 @@ fn constrained_float_to_string(
 
 /// Transforms the provided players description into a string for display.
 fn players_to_string(players: PlayersMessage) -> String {
-    let mut table = Table::new();
-    table
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_width(MAX_WIDTH.try_into().expect("max size should fit in u16"))
-        .set_header(vec![
-            Cell::new("Name"),
-            Cell::new("Queued action?"),
-            Cell::new("AFK?"),
-        ]);
+    let mut table = new_table();
+    table.set_header(vec![
+        Cell::new("Name"),
+        Cell::new("Queued action?"),
+        Cell::new("AFK?"),
+    ]);
 
     for player in players.players {
         let mut name = Cell::new(player.name);
@@ -698,4 +723,15 @@ fn format_side_by_side(str1: &str, str2: &str, separator: &str) -> String {
             format!("{a}{separator}{b}")
         })
         .join("\n")
+}
+
+/// Creates a new empty table.
+fn new_table() -> Table {
+    let mut table = Table::new();
+    table
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(MAX_WIDTH.try_into().expect("max size should fit in u16"))
+        .load_preset(comfy_table::presets::ASCII_FULL_CONDENSED);
+
+    table
 }
