@@ -96,6 +96,12 @@ pub use stats::Skill;
 pub use stats::Skills;
 pub use stats::Stats;
 
+mod wearable;
+pub use wearable::Wearable;
+
+mod worn_items;
+pub use worn_items::WornItems;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
