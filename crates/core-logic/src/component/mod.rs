@@ -100,6 +100,7 @@ mod wearable;
 pub use wearable::Wearable;
 
 mod worn_items;
+pub use worn_items::WearError;
 pub use worn_items::WornItems;
 
 use crate::notification::Notification;

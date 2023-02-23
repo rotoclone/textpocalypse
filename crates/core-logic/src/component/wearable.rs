@@ -12,3 +12,5 @@ pub struct Wearable {
     /// THe body parts the entity covers when worn.
     pub body_parts: HashSet<BodyPart>,
 }
+
+//TODO add attribute describer

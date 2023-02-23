@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 
-use crate::BodyPart;
+use crate::{get_article_reference_name, AttributeDescription, BodyPart};
 
-use super::Wearable;
+use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Wearable};
 
 /// The things an entity is wearing.
 #[derive(Component)]
@@ -15,13 +16,21 @@ pub struct WornItems {
     items: HashMap<BodyPart, Vec<Entity>>,
 }
 
+/// An error when trying to wear something.
 pub enum WearError {
+    /// The entity cannot wear things.
+    CannotWear,
+    /// The item is not wearable.
     NotWearable,
+    /// The entity is already wearing the item.
     AlreadyWorn,
-    TooThick(BodyPart),
+    /// The item is too thick for a body part due to another item on it.
+    TooThick(BodyPart, Entity),
 }
 
+/// An error when trying to take something off.
 pub enum RemoveError {
+    /// The entity is not wearing the item.
     NotWorn,
 }
 
@@ -46,7 +55,25 @@ impl WornItems {
     }
 
     /// Puts on the provided entity, if possible.
-    pub fn try_wear(&mut self, entity: Entity, world: &World) -> Result<(), WearError> {
+    pub fn try_wear(
+        wearing_entity: Entity,
+        to_wear: Entity,
+        world: &mut World,
+    ) -> Result<(), WearError> {
+        let mut worn_items = match world.entity_mut(wearing_entity).remove::<WornItems>() {
+            Some(w) => w,
+            None => return Err(WearError::CannotWear),
+        };
+
+        let result = worn_items.try_wear_internal(to_wear, world);
+
+        world.entity_mut(wearing_entity).insert(worn_items);
+
+        result
+    }
+
+    /// Puts on the provided entity, if possible.
+    fn try_wear_internal(&mut self, entity: Entity, world: &World) -> Result<(), WearError> {
         let wearable = match world.get::<Wearable>(entity) {
             Some(w) => w,
             None => return Err(WearError::NotWearable),
@@ -54,14 +81,23 @@ impl WornItems {
 
         for body_part in &wearable.body_parts {
             if let Some(already_worn) = self.items.get(body_part) {
+                if already_worn.contains(&entity) {
+                    return Err(WearError::AlreadyWorn);
+                }
+
                 // check total thickness, but only if there's already at least one thing on this body part
+                // TODO do this in a validate notification handler for the wear action instead?
                 if !already_worn.is_empty() {
                     let total_thickness = already_worn
                         .iter()
                         .map(|e| get_thickness(*e, world))
                         .sum::<u32>();
                     if total_thickness + wearable.thickness > self.max_thickness {
-                        return Err(WearError::TooThick(*body_part));
+                        return Err(WearError::TooThick(
+                            *body_part,
+                            // unwrap is safe because we've already checked if `already_worn` is empty
+                            *already_worn.last().unwrap(),
+                        ));
                     }
                 }
             }
@@ -100,3 +136,42 @@ fn get_thickness(entity: Entity, world: &World) -> u32 {
         0
     }
 }
+
+/// Describes the items being worn by an entity.
+#[derive(Debug)]
+struct WornItemsAttributeDescriber;
+
+impl AttributeDescriber for WornItemsAttributeDescriber {
+    fn describe(
+        &self,
+        _: Entity,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
+        let mut descriptions = Vec::new();
+        if let Some(worn_items) = world.get::<WornItems>(entity) {
+            let worn_entity_names = worn_items
+                .items
+                .values()
+                .flat_map(|items| items.last())
+                .unique()
+                .map(|e| get_article_reference_name(*e, world))
+                .collect::<Vec<String>>();
+
+            for name in worn_entity_names {
+                descriptions.push(AttributeDescription::wears(name))
+            }
+        }
+
+        descriptions
+    }
+}
+
+impl DescribeAttributes for WornItems {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(WornItemsAttributeDescriber)
+    }
+}
+
+//TODO queue up a remove action before dropping a worn item

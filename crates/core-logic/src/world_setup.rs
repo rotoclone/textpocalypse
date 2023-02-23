@@ -6,10 +6,10 @@ use crate::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
         FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
         ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
-        Weight,
+        Wearable, Weight,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -519,6 +519,119 @@ pub fn spawn_start_building(
         ))
         .id();
     move_entity(water_jug_id, middle_room_id, world);
+
+    let red_shirt_id = world
+        .spawn((
+            Description {
+                name: "red shirt".to_string(),
+                room_name: "red shirt".to_string(),
+                plural_name: "red shirts".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["shirt".to_string()],
+                description: "A bright red t-shirt.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item,
+            Volume(0.5),
+            Weight(0.5),
+            Wearable {
+                thickness: 1,
+                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+            },
+        ))
+        .id();
+    move_entity(red_shirt_id, middle_room_id, world);
+
+    let green_shirt_id = world
+        .spawn((
+            Description {
+                name: "green shirt".to_string(),
+                room_name: "green shirt".to_string(),
+                plural_name: "green shirts".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["shirt".to_string()],
+                description: "A bright green t-shirt.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item,
+            Volume(0.5),
+            Weight(0.5),
+            Wearable {
+                thickness: 1,
+                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+            },
+        ))
+        .id();
+    move_entity(green_shirt_id, middle_room_id, world);
+
+    let blue_shirt_id = world
+        .spawn((
+            Description {
+                name: "blue shirt".to_string(),
+                room_name: "blue shirt".to_string(),
+                plural_name: "blue shirts".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["shirt".to_string()],
+                description: "A bright blue t-shirt.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item,
+            Volume(0.5),
+            Weight(0.5),
+            Wearable {
+                thickness: 1,
+                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+            },
+        ))
+        .id();
+    move_entity(blue_shirt_id, middle_room_id, world);
+
+    let footie_pajamas_id = world
+        .spawn((
+            Description {
+                name: "pink fluffy footie pajamas".to_string(),
+                room_name: "footie pajamas".to_string(),
+                plural_name: "footie pajamas".to_string(),
+                article: Some("some".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["pajamas".to_string(), "pjs".to_string()],
+                description: "A pair of bright pink footie pajamas. Looks comfy.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item,
+            Volume(0.75),
+            Weight(0.75),
+            Wearable {
+                thickness: 3,
+                body_parts: [
+                    BodyPart::Torso,
+                    BodyPart::LeftArm,
+                    BodyPart::RightArm,
+                    BodyPart::LeftLeg,
+                    BodyPart::RightLeg,
+                    BodyPart::LeftFoot,
+                    BodyPart::RightFoot,
+                ]
+                .into(),
+            },
+        ))
+        .id();
+    move_entity(footie_pajamas_id, middle_room_id, world);
 
     middle_room_coords
 }

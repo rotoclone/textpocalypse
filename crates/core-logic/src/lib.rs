@@ -108,6 +108,7 @@ impl StandardInputParsers {
                 Box::new(InventoryParser),
                 Box::new(PutParser),
                 Box::new(PourParser),
+                Box::new(WearParser),
                 Box::new(SayParser),
                 Box::new(VitalsParser),
                 Box::new(StatsParser),
@@ -370,10 +371,14 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         pronouns: Pronouns::they(),
         aliases: Vec::new(),
         description: "A human-shaped person-type thing.".to_string(),
-        attribute_describers: vec![SleepState::get_attribute_describer()],
+        attribute_describers: vec![
+            SleepState::get_attribute_describer(),
+            WornItems::get_attribute_describer(),
+        ],
     };
     let vitals = Vitals::new();
     let stats = build_starting_stats();
+    let worn_items = WornItems::new(5);
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -384,6 +389,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             desc,
             vitals,
             stats,
+            worn_items,
             action_queue,
         ))
         .id();
@@ -762,6 +768,23 @@ fn get_definite_article(
         desc.article.as_ref()?;
     }
     Some("the".to_string())
+}
+
+/// Builds a string to use to refer to the provided entity generically.
+///
+/// For example, if the entity is named "book" and has its article set to "a", this will return "a book".
+fn get_article_reference_name(entity: Entity, world: &World) -> String {
+    if let Some(desc) = world.get::<Description>(entity) {
+        if let Some(article) = &desc.article {
+            format!("{} {}", article, desc.name)
+        } else {
+            desc.name.clone()
+        }
+    } else if is_living_entity(entity, world) {
+        "someone".to_string()
+    } else {
+        "something".to_string()
+    }
 }
 
 /// Determines the total weight of an entity.

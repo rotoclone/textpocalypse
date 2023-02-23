@@ -144,6 +144,14 @@ impl AttributeDescription {
             description,
         })
     }
+
+    /// Creates a description of something an entity is wearing, like "pants".
+    pub fn wears(description: String) -> AttributeDescription {
+        AttributeDescription::Basic(BasicAttributeDescription {
+            attribute_type: AttributeType::Wears,
+            description,
+        })
+    }
 }
 
 /// A basic description of a single attribute of an entity.
@@ -163,6 +171,8 @@ pub enum AttributeType {
     Does,
     /// Something the entity has, like "3 uses left" or "some bites taken out of it".
     Has,
+    /// Something the entity is wearing, like "pants".
+    Wears,
 }
 
 /// Trait for components that have describable attributes.
