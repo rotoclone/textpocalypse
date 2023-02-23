@@ -601,10 +601,10 @@ pub fn spawn_start_building(
     let footie_pajamas_id = world
         .spawn((
             Description {
-                name: "pink fluffy footie pajamas".to_string(),
-                room_name: "footie pajamas".to_string(),
-                plural_name: "footie pajamas".to_string(),
-                article: Some("some".to_string()),
+                name: "pair of pink fluffy footie pajamas".to_string(),
+                room_name: "pair of footie pajamas".to_string(),
+                plural_name: "pairs of footie pajamas".to_string(),
+                article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["pajamas".to_string(), "pjs".to_string()],
                 description: "A pair of bright pink footie pajamas. Looks comfy.".to_string(),
