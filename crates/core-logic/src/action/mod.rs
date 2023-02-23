@@ -45,6 +45,10 @@ pub use pour::PourAction;
 pub use pour::PourAmount;
 pub use pour::PourParser;
 
+mod wear;
+pub use wear::WearAction;
+pub use wear::WearParser;
+
 mod vitals;
 pub use vitals::VitalsParser;
 
