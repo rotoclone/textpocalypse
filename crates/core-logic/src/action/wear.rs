@@ -4,15 +4,16 @@ use regex::Regex;
 
 use crate::{
     component::{
-        ActionEndNotification, AfterActionPerformNotification, WearError, Wearable, WornItems,
+        ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
+        WornItems,
     },
-    get_reference_name,
+    find_holding_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -41,7 +42,6 @@ impl InputParser for WearParser {
         if let Some(captures) = WEAR_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
                 let target = CommandTarget::parse(target_match.as_str());
-                //TODO only search source entity's inventory
                 if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                     if world.get::<Wearable>(target_entity).is_some() {
                         // target exists and is wearable
@@ -193,3 +193,27 @@ impl Action for WearAction {
             .send_end_notification(notification_type, self, world);
     }
 }
+
+/// Verifies that the entity trying to put on an item is holding it.
+pub fn verify_holding_item_to_wear(
+    notification: &Notification<VerifyActionNotification, WearAction>,
+    world: &World,
+) -> VerifyResult {
+    let item = notification.contents.target;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if let Some(location) = world.get::<Location>(item) {
+        if location.id == performing_entity {
+            return VerifyResult::valid();
+        }
+    }
+
+    let item_name = get_reference_name(item, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You aren't holding {item_name}.")),
+    )
+}
+
+//TODO queue an action to pick up an item or take it out of its container before attempting to wear it

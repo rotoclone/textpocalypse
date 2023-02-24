@@ -11,6 +11,7 @@ use crate::{
         ActionQueue, AttributeDescription, AttributeDetailLevel, Attributes, Connection, Container,
         Description, Location, Player, Pronouns, Room, Skills, Stats, Vitals, Volume, Weight,
     },
+    find_wearing_entity,
     game_map::{Coordinates, GameMap, MapChar, MapIcon},
     get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
@@ -290,6 +291,8 @@ pub struct ContainerEntityDescription {
     pub volume: Volume,
     /// The weight of the item.
     pub weight: Weight,
+    /// Whether the item is being worn.
+    pub is_being_worn: bool,
 }
 
 impl ContainerEntityDescription {
@@ -300,11 +303,13 @@ impl ContainerEntityDescription {
         let desc = entity_ref.get::<Description>()?;
         let volume = get_volume(entity, world);
         let weight = get_weight(entity, world);
+        let is_being_worn = find_wearing_entity(entity, world).is_some();
 
         Some(ContainerEntityDescription {
             name: desc.name.clone(),
             volume,
             weight,
+            is_being_worn,
         })
     }
 }
