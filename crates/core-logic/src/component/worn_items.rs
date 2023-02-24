@@ -174,4 +174,4 @@ impl DescribeAttributes for WornItems {
     }
 }
 
-//TODO queue up a remove action before dropping a worn item
+//TODO queue up a remove action before dropping a worn item or putting it in a container
