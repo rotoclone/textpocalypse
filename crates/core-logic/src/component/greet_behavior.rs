@@ -5,7 +5,7 @@ use crate::{
     notification::Notification,
 };
 
-use super::{queue_action, AfterActionPerformNotification, Container, Location};
+use super::{location::get_containing_container, queue_action, AfterActionPerformNotification};
 
 /// Makes an entity greet entities that enter its location.
 #[derive(Component)]
@@ -33,21 +33,19 @@ pub fn greet_new_entities(
             // don't need to greet yourself
             continue;
         }
-        if let Some(location) = world.get::<Location>(entity) {
-            if let Some(container) = world.get::<Container>(location.id) {
-                if container
-                    .entities
-                    .contains(&notification.notification_type.performing_entity)
-                {
-                    // the move action was successful, and the entity that performed it is standing here, so they must have just arrived
-                    actions.push((
-                        entity,
-                        Box::new(SayAction {
-                            text: greet_behavior.greeting.clone(),
-                            notification_sender: ActionNotificationSender::new(),
-                        }),
-                    ));
-                }
+        if let Some(container) = get_containing_container(entity, world) {
+            if container
+                .entities
+                .contains(&notification.notification_type.performing_entity)
+            {
+                // the move action was successful, and the entity that performed it is standing here, so they must have just arrived
+                actions.push((
+                    entity,
+                    Box::new(SayAction {
+                        text: greet_behavior.greeting.clone(),
+                        notification_sender: ActionNotificationSender::new(),
+                    }),
+                ));
             }
         }
     }

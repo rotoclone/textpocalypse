@@ -3,7 +3,9 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
+    component::{
+        get_container_id, ActionEndNotification, AfterActionPerformNotification, Container, Item,
+    },
     find_holding_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
@@ -269,10 +271,8 @@ pub struct PutAction {
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let item_name = get_reference_name(self.item, Some(performing_entity), world);
-        let performing_entity_location = world
-            .get::<Location>(performing_entity)
-            .expect("performing entity should have a location")
-            .id;
+        let performing_entity_location = get_container_id(performing_entity, world)
+            .expect("performing entity should be in a container");
 
         let (first_person_message, third_person_message) = if self.destination == performing_entity
         {
@@ -483,10 +483,8 @@ pub fn prevent_put_non_item(
     let item = notification.contents.item;
 
     if world.get::<Item>(item).is_none() {
-        let performing_entity_location = world
-            .get::<Location>(performing_entity)
-            .expect("performing entity should have a location")
-            .id;
+        let performing_entity_location = get_container_id(performing_entity, world)
+            .expect("performing entity should be in a container");
         let item_name = get_reference_name(item, Some(performing_entity), world);
 
         let message = if notification.contents.source == performing_entity_location {

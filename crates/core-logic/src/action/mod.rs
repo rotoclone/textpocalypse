@@ -157,7 +157,10 @@ impl ThirdPersonMessage {
         let location = match message_location {
             ThirdPersonMessageLocation::SourceEntity => source_entity
                 .and_then(|e| world.get::<Location>(e))
-                .map(|loc| loc.id),
+                .and_then(|loc| match loc {
+                    Location::Container(e) => Some(*e),
+                    _ => None,
+                }),
             ThirdPersonMessageLocation::Location(e) => Some(e),
         };
 

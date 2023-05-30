@@ -750,17 +750,17 @@ fn get_definite_article(
     pov_entity: Option<Entity>,
     world: &World,
 ) -> Option<String> {
-    let holding_entity = find_holding_entity(entity, world);
+    let controlling_entity = find_controlling_entity(entity, world);
 
     let desc = world.get::<Description>(entity);
-    if let Some(holding_entity) = holding_entity {
+    if let Some(controlling_entity) = controlling_entity {
         if let Some(pov_entity) = pov_entity {
-            if holding_entity == pov_entity {
+            if controlling_entity == pov_entity {
                 return Some("your".to_string());
             }
         }
 
-        return Some("their".to_string());
+        return Some("their".to_string()); //TODO use correct pronoun
     }
 
     if let Some(desc) = desc {
@@ -847,29 +847,29 @@ fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()
 }
 
-/// Finds the living entity that currently controls the provided entity (i.e. it is holding it or holding a container that contains it)
-fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
-    if let Some(location) = world.get::<Location>(entity) {
-        if is_living_entity(location.id, world) {
-            return Some(location.id);
+/// Finds the living entity that currently controls the provided entity (i.e. it is holding it, wearing it, or holding a container that contains it)
+fn find_controlling_entity(entity: Entity, world: &World) -> Option<Entity> {
+    let location = match world.get::<Location>(entity) {
+        Some(Location::Container(container)) => Some(container),
+        Some(Location::Worn(wearing_entity)) => Some(wearing_entity),
+        None => None,
+    };
+
+    if let Some(location) = location {
+        if is_living_entity(*location, world) {
+            return Some(*location);
         }
 
-        return find_holding_entity(location.id, world);
+        return find_controlling_entity(*location, world);
     }
 
     None
 }
 
-/// Finds the living entity that is currently wearing the provided entity.
+/// Finds the entity that is currently wearing the provided entity.
 fn find_wearing_entity(entity: Entity, world: &World) -> Option<Entity> {
-    if let Some(location) = world.get::<Location>(entity) {
-        if is_living_entity(location.id, world) {
-            if let Some(worn_items) = world.get::<WornItems>(location.id) {
-                if worn_items.is_wearing(entity) {
-                    return Some(location.id);
-                }
-            }
-        }
+    if let Some(Location::Worn(wearing_entity)) = world.get::<Location>(entity) {
+        return Some(*wearing_entity);
     }
 
     None

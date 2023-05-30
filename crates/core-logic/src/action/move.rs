@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Container,
-        Location,
+        get_concrete_location, queue_action_first, ActionEndNotification,
+        AfterActionPerformNotification, ConcreteLocation,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
@@ -62,14 +62,14 @@ pub struct MoveAction {
 
 impl Action for MoveAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let current_location_id = world
-            .get::<Location>(performing_entity)
-            .expect("Moving entity should have a location")
-            .id;
+        let (current_location_id, current_location) =
+            match get_concrete_location(performing_entity, world)
+                .expect("Moving entity should have a location")
+            {
+                ConcreteLocation::Container(e, c) => (e, c),
+                _ => panic!("Moving entity's location should be a container"),
+            };
 
-        let current_location = world
-            .get::<Container>(current_location_id)
-            .expect("Moving entity's location should be a container");
         let mut result_builder = ActionResult::builder();
         let mut should_tick = false;
         let mut was_successful = false;

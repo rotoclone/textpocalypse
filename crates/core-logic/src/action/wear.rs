@@ -4,10 +4,10 @@ use regex::Regex;
 
 use crate::{
     component::{
-        ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
-        WornItems,
+        get_container_id, ActionEndNotification, AfterActionPerformNotification, WearError,
+        Wearable, WornItems,
     },
-    find_holding_entity, get_reference_name,
+    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -202,8 +202,8 @@ pub fn verify_holding_item_to_wear(
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
 
-    if let Some(location) = world.get::<Location>(item) {
-        if location.id == performing_entity {
+    if let Some(container) = get_container_id(item, world) {
+        if container == performing_entity {
             return VerifyResult::valid();
         }
     }
