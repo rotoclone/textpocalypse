@@ -7,7 +7,7 @@ use crate::{
         ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
         WornItems,
     },
-    find_holding_entity, get_reference_name,
+    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
