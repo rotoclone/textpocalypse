@@ -18,9 +18,9 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, ActionEndNotification, AfterActionPerformNotification, AttributeDescriber,
-    AttributeDetailLevel, BeforeActionNotification, Connection, Container, DescribeAttributes,
-    Description, Location, ParseCustomInput, VerifyActionNotification,
+    get_container_id, queue_action_first, ActionEndNotification, AfterActionPerformNotification,
+    AttributeDescriber, AttributeDetailLevel, BeforeActionNotification, Connection, Container,
+    DescribeAttributes, Description, ParseCustomInput, VerifyActionNotification,
 };
 
 const UNLOCK_VERB_NAME: &str = "unlock";
@@ -278,7 +278,7 @@ impl KeyedLock {
                 other_side_lock.is_locked = should_be_locked;
 
                 // send messages to entities on the other side
-                if let Some(location) = world.get::<Location>(other_side_id) {
+                if let Some(location_id) = get_container_id(other_side_id, world) {
                     let open_or_closed = if should_be_locked { "closed" } else { "open" };
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
@@ -289,7 +289,7 @@ impl KeyedLock {
                     .add_string(format!(" clicks {open_or_closed}."))
                     .send(
                         None,
-                        ThirdPersonMessageLocation::Location(location.id),
+                        ThirdPersonMessageLocation::Location(location_id),
                         world,
                     );
                 }

@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     location::{get_concrete_location, ConcreteLocation},
-    queue_action, Container, Location,
+    queue_action,
 };
 
 /// Makes an entity wander around.
@@ -24,7 +24,7 @@ pub fn wander_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
     let mut actions = Vec::new();
     for (entity, wander_behavior) in world.query::<(Entity, &WanderBehavior)>().iter(world) {
         if rand::thread_rng().gen::<f32>() <= wander_behavior.move_chance_per_tick {
-            if let Some(ConcreteLocation::Container(container)) =
+            if let Some(ConcreteLocation::Container(_, container)) =
                 get_concrete_location(entity, world)
             {
                 if let Some((_, connection)) = container

@@ -33,7 +33,7 @@ pub fn greet_new_entities(
             // don't need to greet yourself
             continue;
         }
-        if let Some(container) = get_containing_container(entity, world) {
+        if let Some((_, container)) = get_containing_container(entity, world) {
             if container
                 .entities
                 .contains(&notification.notification_type.performing_entity)

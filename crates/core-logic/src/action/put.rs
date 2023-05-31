@@ -6,7 +6,7 @@ use crate::{
     component::{
         get_container_id, ActionEndNotification, AfterActionPerformNotification, Container, Item,
     },
-    find_holding_entity, get_reference_name,
+    find_controlling_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -65,10 +65,11 @@ impl InputParser for PutParser {
             }
         };
 
-        let source_held_by_other_living_entity = find_holding_entity(source_container, world)
-            .map(|h| h != entity)
-            .unwrap_or(false);
-        if source_held_by_other_living_entity
+        let source_controlled_by_other_living_entity =
+            find_controlling_entity(source_container, world)
+                .map(|h| h != entity)
+                .unwrap_or(false);
+        if source_controlled_by_other_living_entity
             || (source_container != entity && is_living_entity(source_container, world))
         {
             let source_name = get_reference_name(source_container, Some(entity), world);
@@ -138,11 +139,11 @@ impl InputParser for PutParser {
             }
         };
 
-        let destination_held_by_other_living_entity =
-            find_holding_entity(destination_container, world)
+        let destination_controlled_by_other_living_entity =
+            find_controlling_entity(destination_container, world)
                 .map(|h| h != entity)
                 .unwrap_or(false);
-        if destination_held_by_other_living_entity
+        if destination_controlled_by_other_living_entity
             || (destination_container != entity && is_living_entity(destination_container, world))
         {
             let destination_name = get_reference_name(destination_container, Some(entity), world);

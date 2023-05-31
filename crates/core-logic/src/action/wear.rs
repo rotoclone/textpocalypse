@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        get_container_id, ActionEndNotification, AfterActionPerformNotification, WearError,
-        Wearable, WornItems,
+        get_container_id, ActionEndNotification, AfterActionPerformNotification, Location,
+        WearError, Wearable, WornItems,
     },
     get_reference_name,
     input_parser::{
@@ -93,7 +93,7 @@ impl Action for WearAction {
         let target = self.target;
         let target_name = get_reference_name(target, Some(performing_entity), world);
 
-        match WornItems::try_wear(performing_entity, target, world) {
+        match WornItems::wear(performing_entity, target, world) {
             Ok(()) => (),
             Err(WearError::CannotWear) => {
                 return ActionResult::builder()

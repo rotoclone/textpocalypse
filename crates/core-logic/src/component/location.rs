@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use super::{Container, WornItems};
 
 /// The location of an entity.
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub enum Location {
     /// The entity is in a container.
     Container(Entity),
@@ -17,6 +17,14 @@ pub enum ConcreteLocation<'a> {
     Container(Entity, &'a Container),
     /// A set of worn items on an entity.
     Worn(Entity, &'a WornItems),
+}
+
+/// The actual specific data structure containing an entity, in mutable form.
+pub enum ConcreteLocationMut<'a> {
+    /// A container on an entity.
+    Container(Entity, Mut<'a, Container>),
+    /// A set of worn items on an entity.
+    Worn(Entity, Mut<'a, WornItems>),
 }
 
 /// Gets the concrete location of the provided entity.
@@ -57,21 +65,21 @@ pub fn get_concrete_location<'w>(entity: Entity, world: &'w World) -> Option<Con
 pub fn get_concrete_location_mut<'w>(
     entity: Entity,
     world: &'w mut World,
-) -> Option<ConcreteLocation<'w>> {
+) -> Option<ConcreteLocationMut<'w>> {
     if let Some(location) = world.get::<Location>(entity) {
         match location {
             Location::Container(e) => {
-                return Some(ConcreteLocation::Container(
+                return Some(ConcreteLocationMut::Container(
                     *e,
-                    &world
+                    world
                         .get_mut::<Container>(*e)
                         .expect("location should be a container"),
                 ))
             }
             Location::Worn(e) => {
-                return Some(ConcreteLocation::Worn(
+                return Some(ConcreteLocationMut::Worn(
                     *e,
-                    &world
+                    world
                         .get_mut::<WornItems>(*e)
                         .expect("location should have worn items"),
                 ))
@@ -82,11 +90,27 @@ pub fn get_concrete_location_mut<'w>(
     None
 }
 
-/// Gets the container the provided entity is in.
+/// Gets the container (and corresponding entity) the provided entity is in.
 ///
 /// Returns `None` if the entity doesn't have a location, or is not in a container.
-pub fn get_containing_container(entity: Entity, world: &World) -> Option<&Container> {
-    todo!() //TODO
+pub fn get_containing_container(entity: Entity, world: &World) -> Option<(Entity, &Container)> {
+    match get_concrete_location(entity, world) {
+        Some(ConcreteLocation::Container(entity, container)) => Some((entity, container)),
+        _ => None,
+    }
+}
+
+/// Mutably gets the container (and corresponding entity) the provided entity is in.
+///
+/// Returns `None` if the entity doesn't have a location, or is not in a container.
+pub fn get_containing_container_mut<'w>(
+    entity: Entity,
+    world: &'w mut World,
+) -> Option<(Entity, Mut<'w, Container>)> {
+    match get_concrete_location_mut(entity, world) {
+        Some(ConcreteLocationMut::Container(entity, container)) => Some((entity, container)),
+        _ => None,
+    }
 }
 
 /// Gets the ID of the container the provided entity is in.

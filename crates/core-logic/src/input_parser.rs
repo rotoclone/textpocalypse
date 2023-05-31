@@ -7,7 +7,10 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    component::{Container, CustomInputParser, Location},
+    component::{
+        get_concrete_location, get_container_id, get_containing_container, ConcreteLocation,
+        Container, CustomInputParser,
+    },
     Direction, StandardInputParsers,
 };
 
@@ -50,17 +53,12 @@ pub fn find_parsers_relevant_for(
 
 /// Finds all the entities the provided entity can currently directly interact with.
 fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
-    let location_id = world
-        .get::<Location>(entity)
-        .expect("Entity should have a location")
-        .id;
-
     // include entities in the provided entity's location
-    let location = world
-        .get::<Container>(location_id)
-        .expect("Entity's location should be a container");
+    let container = get_containing_container(entity, world)
+        .expect("Entity should be in a container")
+        .1;
 
-    let mut entities = location.entities.clone();
+    let mut entities = container.entities.clone();
 
     // include entities in the provided entity's inventory
     if let Some(inventory) = world.get::<Container>(entity) {
@@ -117,20 +115,14 @@ impl CommandTarget {
         match self {
             CommandTarget::Myself => Some(looking_entity),
             CommandTarget::Here => {
-                let location_id = world
-                    .get::<Location>(looking_entity)
-                    .expect("Looking entity should have a location")
-                    .id;
+                let location_id = get_container_id(looking_entity, world)
+                    .expect("Looking entity should have a container location");
                 Some(location_id)
             }
             CommandTarget::Direction(dir) => {
-                let location_id = world
-                    .get::<Location>(looking_entity)
-                    .expect("Looking entity should have a location")
-                    .id;
-                let container = world
-                    .get::<Container>(location_id)
-                    .expect("Looking entity's location should be a container");
+                let container = get_containing_container(looking_entity, world)
+                    .expect("Looking entity should be in a container")
+                    .1;
                 if let Some((connecting_entity, _)) =
                     container.get_connection_in_direction(dir, world)
                 {
@@ -173,14 +165,14 @@ impl CommandTargetName {
         }
 
         // search the looking entity's location
-        let location_id = world
-            .get::<Location>(looking_entity)
+        match get_concrete_location(looking_entity, world)
             .expect("Looking entity should have a location")
-            .id;
-        let location = world
-            .get::<Container>(location_id)
-            .expect("Looking entity's location should be a container");
-        location.find_entity_by_name(&self.name, world)
+        {
+            ConcreteLocation::Container(_, container) => {
+                container.find_entity_by_name(&self.name, world)
+            }
+            _ => panic!("Looking entity's location should be a container"),
+        }
     }
 
     /// Finds the entity described by this target, if it exists in the provided container.

@@ -329,18 +329,13 @@ impl Game {
 
 /// Sends a message to an entity with their current location.
 fn send_current_location_message(entity: Entity, world: &World) {
-    let room_id = world
-        .get::<Location>(entity)
-        .expect("Entity should have a location")
-        .id;
+    let (location_id, container) =
+        get_containing_container(entity, world).expect("Entity should be in a container");
     let room = world
-        .get::<Room>(room_id)
+        .get::<Room>(location_id)
         .expect("Entity's location should be a room");
-    let container = world
-        .get::<Container>(room_id)
-        .expect("Entity's location should be a container");
     let coords = world
-        .get::<Coordinates>(room_id)
+        .get::<Coordinates>(location_id)
         .expect("Entity's location should have coordinates");
     send_message(
         world,
@@ -591,11 +586,8 @@ fn tick(world: &mut World) {
 /// Moves an entity to a container.
 fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
     // remove from source container, if necessary
-    if let Some(location) = world.get_mut::<Location>(moving_entity) {
-        let source_location_id = location.id;
-        if let Some(mut source_location) = world.get_mut::<Container>(source_location_id) {
-            source_location.entities.remove(&moving_entity);
-        }
+    if let Some((_, mut source_container)) = get_containing_container_mut(moving_entity, world) {
+        source_container.entities.remove(&moving_entity);
     }
 
     // add to destination container
@@ -606,9 +598,9 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
         .insert(moving_entity);
 
     // update location
-    world.entity_mut(moving_entity).insert(Location {
-        id: destination_entity,
-    });
+    world
+        .entity_mut(moving_entity)
+        .insert(Location::Container(destination_entity));
 }
 
 /// Sets an entity's actions to be interrupted.
@@ -705,18 +697,29 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
 /// Despawns an entity.
 fn despawn_entity(entity: Entity, world: &mut World) {
-    // remove entity from its container
-    if let Some(location) = world.get::<Location>(entity) {
-        let location_id = location.id;
-        if let Some(mut container) = world.get_mut::<Container>(location_id) {
+    // remove entity from its location
+    match get_concrete_location_mut(entity, world) {
+        Some(ConcreteLocationMut::Container(_, mut container)) => {
             container.entities.remove(&entity);
         }
-    }
+        Some(ConcreteLocationMut::Worn(wearing_entity, _)) => {
+            WornItems::remove(wearing_entity, entity, world)
+                .expect("Worn item should be able to be removed")
+        }
+        None => (),
+    };
 
     // despawn contained entities
     if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
         for contained_entity in contained_entities {
             despawn_entity(contained_entity, world);
+        }
+    }
+
+    // despawn worn entities
+    if let Some(worn_items) = world.get::<WornItems>(entity) {
+        for worn_entity in worn_items.get_all_items() {
+            despawn_entity(worn_entity, world);
         }
     }
 

@@ -5,7 +5,9 @@ use itertools::Itertools;
 
 use crate::{get_article_reference_name, AttributeDescription, BodyPart};
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Wearable};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, Container, DescribeAttributes, Location, Wearable,
+};
 
 /// The things an entity is wearing.
 #[derive(Component)]
@@ -17,6 +19,7 @@ pub struct WornItems {
 }
 
 /// An error when trying to wear something.
+#[derive(Debug)]
 pub enum WearError {
     /// The entity cannot wear things.
     CannotWear,
@@ -29,6 +32,7 @@ pub enum WearError {
 }
 
 /// An error when trying to take something off.
+#[derive(Debug)]
 pub enum RemoveError {
     /// The entity is not wearing the item.
     NotWorn,
@@ -55,7 +59,7 @@ impl WornItems {
     }
 
     /// Puts on the provided entity, if possible.
-    pub fn try_wear(
+    pub fn wear(
         wearing_entity: Entity,
         to_wear: Entity,
         world: &mut World,
@@ -68,6 +72,10 @@ impl WornItems {
         let result = worn_items.try_wear_internal(to_wear, world);
 
         world.entity_mut(wearing_entity).insert(worn_items);
+        world.entity_mut(to_wear).remove::<Location>();
+        world
+            .entity_mut(to_wear)
+            .insert(Location::Worn(wearing_entity));
 
         result
     }
@@ -78,6 +86,10 @@ impl WornItems {
             Some(w) => w,
             None => return Err(WearError::NotWearable),
         };
+
+        if let Some(Location::Worn(_)) = world.get::<Location>(entity) {
+            return Err(WearError::AlreadyWorn);
+        }
 
         for body_part in &wearable.body_parts {
             if let Some(already_worn) = self.items.get(body_part) {
@@ -111,20 +123,58 @@ impl WornItems {
     }
 
     /// Removes the provided entity, if possible.
-    pub fn remove(&mut self, entity: Entity) -> Result<(), RemoveError> {
+    pub fn remove(
+        wearing_entity: Entity,
+        to_remove: Entity,
+        world: &mut World,
+    ) -> Result<(), RemoveError> {
+        let mut worn_items;
+        match world.get_mut::<WornItems>(wearing_entity) {
+            Some(w) => worn_items = w,
+            None => return Err(RemoveError::NotWorn),
+        };
+
         let mut removed = false;
-        for worn_items in &mut self.items.values_mut() {
-            if worn_items.contains(&entity) {
-                worn_items.retain(|e| *e != entity);
+        for items in worn_items.items.values_mut() {
+            if items.contains(&to_remove) {
+                items.retain(|e| *e != to_remove);
                 removed = true;
             }
         }
 
         if removed {
+            world.entity_mut(to_remove).remove::<Location>();
+            if let Some(mut container) = world.get_mut::<Container>(wearing_entity) {
+                container.entities.insert(to_remove);
+                world
+                    .entity_mut(to_remove)
+                    .insert(Location::Container(wearing_entity));
+            }
             Ok(())
         } else {
             Err(RemoveError::NotWorn)
         }
+    }
+
+    /// Removes all the items worn by the provided entity.
+    pub fn remove_all(wearing_entity: Entity, world: &mut World) {
+        let items_to_remove;
+        if let Some(worn_items) = world.get::<WornItems>(wearing_entity) {
+            items_to_remove = worn_items.get_all_items();
+        } else {
+            items_to_remove = vec![];
+        };
+
+        for item in items_to_remove {
+            // this is inefficient because it looks up `WornItems` for `wearing_entity` a bunch of times
+            Self::remove(wearing_entity, item, world)
+                .expect("Worn item should be able to be removed");
+        }
+    }
+
+    /// Gets all the worn items.
+    pub fn get_all_items(&self) -> Vec<Entity> {
+        self.items.values().flatten().cloned().unique().collect()
     }
 }
 

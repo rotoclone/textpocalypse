@@ -12,9 +12,11 @@ pub use description::Pronouns;
 mod location;
 pub use location::get_concrete_location;
 pub use location::get_concrete_location_mut;
-pub use location::get_container;
 pub use location::get_container_id;
+pub use location::get_containing_container;
+pub use location::get_containing_container_mut;
 pub use location::ConcreteLocation;
+pub use location::ConcreteLocationMut;
 pub use location::Location;
 
 mod room;

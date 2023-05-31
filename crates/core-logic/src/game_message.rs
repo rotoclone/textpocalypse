@@ -624,8 +624,12 @@ fn find_coordinates_of_entity(entity: Entity, world: &World) -> &Coordinates {
         .get::<Location>(entity)
         .expect("entity should have a location");
 
+    let location_id = match location {
+        Location::Container(id) => id,
+        Location::Worn(id) => id,
+    };
     world
-        .get::<Coordinates>(location.id)
+        .get::<Coordinates>(*location_id)
         .expect("entity should be located in an entity with coordinates")
 }
 

@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, queue_action_first, ActionEndNotification,
+    description::DescribeAttributes, get_container_id, queue_action_first, ActionEndNotification,
     AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
     Connection, Container, Description, Location, ParseCustomInput,
 };
@@ -179,7 +179,7 @@ impl OpenState {
                     other_side_state.is_open = should_be_open;
 
                     // send messages to entities on the other side
-                    if let Some(location) = world.get::<Location>(other_side_id) {
+                    if let Some(location_id) = get_container_id(other_side_id, world) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
@@ -189,7 +189,7 @@ impl OpenState {
                         .add_string(format!(" swings {open_or_closed}."))
                         .send(
                             None,
-                            ThirdPersonMessageLocation::Location(location.id),
+                            ThirdPersonMessageLocation::Location(location_id),
                             world,
                         );
                     }
@@ -238,10 +238,10 @@ pub fn auto_open_connections(
     notification: &Notification<BeforeActionNotification, MoveAction>,
     world: &mut World,
 ) {
-    if let Some(current_location) =
+    if let Some(Location::Container(current_location_id)) =
         world.get::<Location>(notification.notification_type.performing_entity)
     {
-        if let Some(location) = world.get::<Container>(current_location.id) {
+        if let Some(location) = world.get::<Container>(*current_location_id) {
             if let Some((connecting_entity, _)) =
                 location.get_connection_in_direction(&notification.contents.direction, world)
             {
@@ -268,11 +268,10 @@ pub fn prevent_moving_through_closed_connections(
     notification: &Notification<VerifyActionNotification, MoveAction>,
     world: &World,
 ) -> VerifyResult {
-    if let Some(location_id) = world
-        .get::<Location>(notification.notification_type.performing_entity)
-        .map(|location| location.id)
+    if let Some(Location::Container(location_id)) =
+        world.get::<Location>(notification.notification_type.performing_entity)
     {
-        if let Some(current_location) = world.get::<Container>(location_id) {
+        if let Some(current_location) = world.get::<Container>(*location_id) {
             if let Some((connecting_entity, _)) = current_location
                 .get_connection_in_direction(&notification.contents.direction, world)
             {
