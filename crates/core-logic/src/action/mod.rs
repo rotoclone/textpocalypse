@@ -49,6 +49,10 @@ mod wear;
 pub use wear::WearAction;
 pub use wear::WearParser;
 
+mod remove;
+pub use remove::RemoveAction;
+pub use remove::RemoveParser;
+
 mod vitals;
 pub use vitals::VitalsParser;
 

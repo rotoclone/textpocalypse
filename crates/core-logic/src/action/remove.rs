@@ -4,16 +4,15 @@ use regex::Regex;
 
 use crate::{
     component::{
-        ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
-        WornItems,
+        ActionEndNotification, AfterActionPerformNotification, RemoveError, Wearable, WornItems,
     },
     get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    notification::VerifyResult,
+    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -22,30 +21,31 @@ use super::{
     ThirdPersonMessageLocation,
 };
 
-const WEAR_VERB_NAME: &str = "wear";
-const WEAR_FORMAT: &str = "wear <>";
+const REMOVE_VERB_NAME: &str = "remove";
+const REMOVE_FORMAT: &str = "remove <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
-    static ref WEAR_PATTERN: Regex = Regex::new("^(wear|put on) (the )?(?P<name>.*)").unwrap();
+    static ref REMOVE_PATTERN: Regex =
+        Regex::new("^(remove|take off) (the )?(?P<name>.*)").unwrap();
 }
 
-pub struct WearParser;
+pub struct RemoveParser;
 
-impl InputParser for WearParser {
+impl InputParser for RemoveParser {
     fn parse(
         &self,
         input: &str,
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = WEAR_PATTERN.captures(input) {
+        if let Some(captures) = REMOVE_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
                 let target = CommandTarget::parse(target_match.as_str());
                 if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                     if world.get::<Wearable>(target_entity).is_some() {
                         // target exists and is wearable
-                        return Ok(Box::new(WearAction {
+                        return Ok(Box::new(RemoveAction {
                             target: target_entity,
                             notification_sender: ActionNotificationSender::new(),
                         }));
@@ -54,16 +54,16 @@ impl InputParser for WearParser {
                         let target_name =
                             get_reference_name(target_entity, Some(source_entity), world);
                         return Err(InputParseError::CommandParseError {
-                            verb: WEAR_VERB_NAME.to_string(),
+                            verb: REMOVE_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
-                                "You can't wear {target_name}."
+                                "You're not wearing {target_name}, and you couldn't if you tried."
                             )),
                         });
                     }
                 } else {
                     // target doesn't exist
                     return Err(InputParseError::CommandParseError {
-                        verb: WEAR_VERB_NAME.to_string(),
+                        verb: REMOVE_VERB_NAME.to_string(),
                         error: CommandParseError::TargetNotFound(target),
                     });
                 }
@@ -74,61 +74,41 @@ impl InputParser for WearParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![WEAR_FORMAT.to_string()]
+        vec![REMOVE_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Wearable>(entity, world, &[WEAR_FORMAT])
+        input_formats_if_has_component::<Wearable>(entity, world, &[REMOVE_FORMAT])
     }
 }
 
 #[derive(Debug)]
-pub struct WearAction {
+pub struct RemoveAction {
     pub target: Entity,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for WearAction {
+impl Action for RemoveAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
         let target_name = get_reference_name(target, Some(performing_entity), world);
 
-        match WornItems::wear(performing_entity, target, world) {
+        match WornItems::remove(performing_entity, target, world) {
             Ok(()) => (),
-            Err(WearError::CannotWear) => {
-                return ActionResult::builder()
-                    .with_error(performing_entity, "You can't wear things.".to_string())
-                    .build_complete_no_tick(false)
-            }
-            Err(WearError::NotWearable) => {
-                return ActionResult::builder()
-                    .with_error(performing_entity, format!("You can't wear {target_name}."))
-                    .build_complete_no_tick(false)
-            }
-            Err(WearError::AlreadyWorn) => {
+            Err(RemoveError::NotWorn) => {
                 return ActionResult::builder()
                     .with_error(
                         performing_entity,
-                        format!("You're already wearing {target_name}."),
+                        format!("You're not wearing {target_name}."),
                     )
                     .build_complete_no_tick(false)
-            }
-            Err(WearError::TooThick(_, other_item)) => {
-                let other_item_name =
-                    get_reference_name(other_item, Some(performing_entity), world);
-                return ActionResult::builder()
-                    .with_error(
-                        performing_entity,
-                        format!("You can't fit {target_name} over {other_item_name}."),
-                    )
-                    .build_complete_no_tick(false);
             }
         }
 
         ActionResult::builder()
             .with_message(
                 performing_entity,
-                format!("You put on {target_name}."),
+                format!("You take off {target_name}."),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
@@ -140,7 +120,7 @@ impl Action for WearAction {
                     MessageDelay::Short,
                 )
                 .add_entity_name(performing_entity)
-                .add_string(" puts on ".to_string())
+                .add_string(" takes off ".to_string())
                 .add_entity_name(target)
                 .add_string(".".to_string()),
                 world,
@@ -151,7 +131,7 @@ impl Action for WearAction {
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::message(
             performing_entity,
-            "You stop putting things on.".to_string(),
+            "You stop taking things off.".to_string(),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::None,
         )
@@ -193,27 +173,3 @@ impl Action for WearAction {
             .send_end_notification(notification_type, self, world);
     }
 }
-
-/// Verifies that the entity trying to put on an item is holding it.
-pub fn verify_holding_item_to_wear(
-    notification: &Notification<VerifyActionNotification, WearAction>,
-    world: &World,
-) -> VerifyResult {
-    let item = notification.contents.target;
-    let performing_entity = notification.notification_type.performing_entity;
-
-    if let Some(location) = world.get::<Location>(item) {
-        if location.id == performing_entity {
-            return VerifyResult::valid();
-        }
-    }
-
-    let item_name = get_reference_name(item, Some(performing_entity), world);
-
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("You aren't holding {item_name}.")),
-    )
-}
-
-//TODO queue an action to pick up an item or take it out of its container before attempting to wear it

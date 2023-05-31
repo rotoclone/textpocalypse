@@ -64,7 +64,7 @@ impl WornItems {
     }
 
     /// Puts on the provided entity, if possible.
-    pub fn try_wear(
+    pub fn wear(
         wearing_entity: Entity,
         to_wear: Entity,
         world: &mut World,
@@ -74,7 +74,7 @@ impl WornItems {
             None => return Err(WearError::CannotWear),
         };
 
-        let result = worn_items.try_wear_internal(to_wear, world);
+        let result = worn_items.wear_internal(to_wear, world);
 
         world.entity_mut(wearing_entity).insert(worn_items);
 
@@ -82,7 +82,7 @@ impl WornItems {
     }
 
     /// Puts on the provided entity, if possible.
-    fn try_wear_internal(&mut self, entity: Entity, world: &World) -> Result<(), WearError> {
+    fn wear_internal(&mut self, entity: Entity, world: &World) -> Result<(), WearError> {
         let wearable = match world.get::<Wearable>(entity) {
             Some(w) => w,
             None => return Err(WearError::NotWearable),
@@ -120,11 +120,21 @@ impl WornItems {
     }
 
     /// Removes the provided entity, if possible.
-    pub fn remove(&mut self, entity: Entity) -> Result<(), RemoveError> {
+    pub fn remove(
+        wearing_entity: Entity,
+        to_remove: Entity,
+        world: &mut World,
+    ) -> Result<(), RemoveError> {
+        let mut worn_items;
+        match world.get_mut::<WornItems>(wearing_entity) {
+            Some(w) => worn_items = w,
+            None => return Err(RemoveError::NotWorn),
+        };
+
         let mut removed = false;
-        for worn_items in &mut self.items.values_mut() {
-            if worn_items.contains(&entity) {
-                worn_items.retain(|e| *e != entity);
+        for items in worn_items.items.values_mut() {
+            if items.contains(&to_remove) {
+                items.retain(|e| *e != to_remove);
                 removed = true;
             }
         }
