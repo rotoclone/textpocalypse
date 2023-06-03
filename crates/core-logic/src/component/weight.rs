@@ -86,7 +86,7 @@ impl AttributeDescriber for WeightAttributeDescriber {
         if detail_level >= AttributeDetailLevel::Advanced {
             let weight = get_weight(entity, world);
 
-            vec![AttributeDescription::does(format!("weighs {weight} kg"))]
+            vec![AttributeDescription::does(format!("weighs {weight:.2} kg"))]
         } else {
             Vec::new()
         }

@@ -269,8 +269,8 @@ impl ContainerDescription {
             .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
             .collect::<Vec<ContainerEntityDescription>>();
 
-        let used_volume = items.iter().map(|item| item.volume).sum();
-        let used_weight = items.iter().map(|item| item.weight).sum();
+        let used_volume = container.used_volume(world);
+        let used_weight = container.used_weight(world);
 
         ContainerDescription {
             items,

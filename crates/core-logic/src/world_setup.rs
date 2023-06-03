@@ -172,6 +172,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 article: None,
                 pronouns: Pronouns::he(),
                 aliases: vec!["guy".to_string()],
+                //TODO add some way to specify a separate description for if the entity is dead
                 description:
                     "It's just some guy. He looks around, not focusing on anything in particular."
                         .to_string(),

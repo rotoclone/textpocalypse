@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     queue_action_first, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
-    DescribeAttributes, VerifyActionNotification, Wearable,
+    DescribeAttributes, Location, VerifyActionNotification, Wearable,
 };
 
 /// The things an entity is wearing.
@@ -210,6 +210,8 @@ pub fn auto_remove_on_put(
             }),
         );
     }
+
+    //TODO also remove worn items from other entities, for example a dead body
 }
 
 // Blocks moving items around if they're being worn
@@ -218,11 +220,12 @@ pub fn verify_not_wearing_item_to_put(
     world: &World,
 ) -> VerifyResult {
     let source = notification.contents.source;
+    let destination = notification.contents.destination;
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
         let item_name = get_reference_name(item, Some(performing_entity), world);
-        let wearer_string = if wearing_entity == source {
+        let wearer_string = if wearing_entity == performing_entity {
             "you're".to_string()
         } else {
             let wearer_name = get_reference_name(wearing_entity, Some(performing_entity), world);
@@ -238,12 +241,22 @@ pub fn verify_not_wearing_item_to_put(
             format!("{wearer_name} {is_or_are}")
         };
 
-        let message =
-            format!("You can't put {item_name} there because {wearer_string} wearing it.",);
+        let action_desc = if source == performing_entity {
+            let location = world
+                .get::<Location>(performing_entity)
+                .expect("Performing entity should have a location");
+            if destination == location.id {
+                format!("drop {item_name}")
+            } else {
+                format!("put {item_name} there")
+            }
+        } else {
+            format!("get {item_name}")
+        };
+
+        let message = format!("You can't {action_desc} because {wearer_string} wearing it.",);
         return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
     }
 
     VerifyResult::valid()
 }
-
-//TODO queue up a remove action before dropping a worn item or putting it in a container

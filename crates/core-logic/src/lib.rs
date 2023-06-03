@@ -864,14 +864,12 @@ fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
     None
 }
 
-/// Finds the living entity that is currently wearing the provided entity.
+/// Finds the entity that is currently wearing the provided entity.
 fn find_wearing_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
-        if is_living_entity(location.id, world) {
-            if let Some(worn_items) = world.get::<WornItems>(location.id) {
-                if worn_items.is_wearing(entity) {
-                    return Some(location.id);
-                }
+        if let Some(worn_items) = world.get::<WornItems>(location.id) {
+            if worn_items.is_wearing(entity) {
+                return Some(location.id);
             }
         }
     }
