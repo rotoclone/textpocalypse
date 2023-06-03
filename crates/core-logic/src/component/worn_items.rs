@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    action::PutAction,
+    action::{ActionNotificationSender, PutAction, RemoveAction},
     component::Description,
     find_wearing_entity, get_article_reference_name, get_reference_name,
     notification::{Notification, VerifyResult},
@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, VerifyActionNotification,
-    Wearable,
+    queue_action_first, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
+    DescribeAttributes, VerifyActionNotification, Wearable,
 };
 
 /// The things an entity is wearing.
@@ -190,6 +190,25 @@ impl AttributeDescriber for WornItemsAttributeDescriber {
 impl DescribeAttributes for WornItems {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
         Box::new(WornItemsAttributeDescriber)
+    }
+}
+
+/// Attempts to remove wearable entities automatically before an attempt is made to move a worn one.
+pub fn auto_remove_on_put(
+    notification: &Notification<BeforeActionNotification, PutAction>,
+    world: &mut World,
+) {
+    let item = notification.contents.item;
+    let performing_entity = notification.notification_type.performing_entity;
+    if find_wearing_entity(item, world) == Some(performing_entity) {
+        queue_action_first(
+            world,
+            performing_entity,
+            Box::new(RemoveAction {
+                target: item,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }
 
