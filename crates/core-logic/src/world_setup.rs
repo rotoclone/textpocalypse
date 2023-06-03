@@ -533,6 +533,7 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Wearable::get_attribute_describer(),
                 ],
             },
             Item,
@@ -559,6 +560,7 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Wearable::get_attribute_describer(),
                 ],
             },
             Item,
@@ -585,6 +587,7 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Wearable::get_attribute_describer(),
                 ],
             },
             Item,
@@ -611,6 +614,7 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Wearable::get_attribute_describer(),
                 ],
             },
             Item,

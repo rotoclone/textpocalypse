@@ -60,6 +60,9 @@ mod swap_tuple;
 mod body_part;
 pub use body_part::BodyPart;
 
+mod formatting;
+pub use formatting::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
