@@ -216,5 +216,3 @@ pub fn verify_holding_item_to_wear(
         GameMessage::Error(format!("You aren't holding {item_name}.")),
     )
 }
-
-//TODO queue an action to pick up an item or take it out of its container before attempting to wear it
