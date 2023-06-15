@@ -104,6 +104,11 @@ pub use worn_items::RemoveError;
 pub use worn_items::WearError;
 pub use worn_items::WornItems;
 
+mod held_items;
+pub use held_items::HeldItems;
+pub use held_items::HoldError;
+pub use held_items::UnholdError;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
