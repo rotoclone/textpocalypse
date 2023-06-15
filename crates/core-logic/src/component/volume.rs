@@ -87,7 +87,7 @@ impl AttributeDescriber for VolumeAttributeDescriber {
             let volume = get_volume(entity, world);
 
             vec![AttributeDescription::does(format!(
-                "takes up {volume} L of space"
+                "takes up {volume:.2} L of space"
             ))]
         } else {
             Vec::new()

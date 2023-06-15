@@ -96,6 +96,14 @@ pub use stats::Skill;
 pub use stats::Skills;
 pub use stats::Stats;
 
+mod wearable;
+pub use wearable::Wearable;
+
+mod worn_items;
+pub use worn_items::RemoveError;
+pub use worn_items::WearError;
+pub use worn_items::WornItems;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
@@ -135,6 +143,9 @@ pub fn register_component_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(sleep_state::prevent_look_while_asleep, world);
     VerifyNotificationHandlers::add_handler(sleep_state::prevent_say_while_asleep, world);
+
+    NotificationHandlers::add_handler(worn_items::auto_remove_on_put, world);
+    VerifyNotificationHandlers::add_handler(worn_items::verify_not_wearing_item_to_put, world);
 }
 
 /// Removes a component from an entity when it dies.

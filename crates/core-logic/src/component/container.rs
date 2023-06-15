@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    get_reference_name, get_volume, get_weight,
+    find_wearing_entity, get_reference_name, get_volume, get_weight,
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage,
 };
@@ -115,6 +115,24 @@ impl Container {
 
         found_entities
     }
+
+    /// Determines the total weight of all the items in the container.
+    pub fn used_weight(&self, world: &World) -> Weight {
+        self.entities
+            .iter()
+            .map(|e| get_weight(*e, world))
+            .sum::<Weight>()
+    }
+
+    /// Determines the total volume used by all the items in the container.
+    pub fn used_volume(&self, world: &World) -> Volume {
+        self.entities
+            .iter()
+            // items being worn are considered to have 0 volume for purposes of inventory size limits
+            .filter(|e| find_wearing_entity(**e, world).is_none())
+            .map(|e| get_volume(*e, world))
+            .sum::<Volume>()
+    }
 }
 
 /// Describes the contents of an entity.
@@ -166,11 +184,7 @@ pub fn limit_container_contents(
 
     let item_weight = get_weight(item, world);
     if let Some(max_weight) = &container.max_weight {
-        let used_weight = container
-            .entities
-            .iter()
-            .map(|e| get_weight(*e, world))
-            .sum::<Weight>();
+        let used_weight = container.used_weight(world);
         if used_weight + item_weight > *max_weight {
             let item_name = get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
@@ -186,11 +200,7 @@ pub fn limit_container_contents(
 
     let item_volume = get_volume(item, world);
     if let Some(max_volume) = &container.volume {
-        let used_volume = container
-            .entities
-            .iter()
-            .map(|e| get_volume(*e, world))
-            .sum::<Volume>();
+        let used_volume = container.used_volume(world);
         if used_volume + item_volume > *max_volume {
             let item_name = get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
