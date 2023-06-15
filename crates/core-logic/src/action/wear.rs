@@ -84,6 +84,7 @@ impl InputParser for WearParser {
 
 #[derive(Debug)]
 pub struct WearAction {
+    //TODO allow putting things on entities other than yourself
     pub target: Entity,
     pub notification_sender: ActionNotificationSender<Self>,
 }

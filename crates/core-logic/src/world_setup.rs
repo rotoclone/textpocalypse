@@ -6,7 +6,7 @@ use crate::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
         FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
         ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
-        Wearable, Weight,
+        Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -176,7 +176,10 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 description:
                     "It's just some guy. He looks around, not focusing on anything in particular."
                         .to_string(),
-                attribute_describers: vec![SleepState::get_attribute_describer()],
+                attribute_describers: vec![
+                    SleepState::get_attribute_describer(),
+                    WornItems::get_attribute_describer(),
+                ],
             },
             WanderBehavior {
                 move_chance_per_tick: 0.25,
@@ -190,9 +193,39 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 hydration: ConstrainedValue::new_max(0.0, 100.0),
                 energy: ConstrainedValue::new_max(0.0, 100.0),
             },
+            Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
+            WornItems::new(5),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);
+
+    let npc_shirt_id = world
+        .spawn((
+            Description {
+                name: "cool shirt".to_string(),
+                room_name: "cool shirt".to_string(),
+                plural_name: "cool shirts".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["shirt".to_string()],
+                description: "A pretty cool t-shirt.".to_string(),
+                attribute_describers: vec![
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    Wearable::get_attribute_describer(),
+                ],
+            },
+            Item,
+            Volume(0.5),
+            Weight(0.5),
+            Wearable {
+                thickness: 1,
+                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+            },
+        ))
+        .id();
+    move_entity(npc_shirt_id, npc_id, world);
+    WornItems::wear(npc_id, npc_shirt_id, world).expect("NPC should be able to wear shirt");
 
     spawn_start_building(world, start_building_coords, street_2_id)
 }

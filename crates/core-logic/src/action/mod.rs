@@ -100,6 +100,8 @@ pub fn register_action_handlers(world: &mut World) {
     NotificationHandlers::add_handler(sleep::look_on_end_sleep, world);
 
     VerifyNotificationHandlers::add_handler(wear::verify_holding_item_to_wear, world);
+
+    VerifyNotificationHandlers::add_handler(remove::prevent_remove_from_other_living_entity, world);
 }
 
 /// A message caused by some other entity's action.

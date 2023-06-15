@@ -26,6 +26,7 @@ pub struct WornItems {
 }
 
 /// An error when trying to wear something.
+#[derive(Debug)]
 pub enum WearError {
     /// The entity cannot wear things.
     CannotWear,
@@ -200,18 +201,17 @@ pub fn auto_remove_on_put(
 ) {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
-    if find_wearing_entity(item, world) == Some(performing_entity) {
+    if let Some(wearing_entity) = find_wearing_entity(item, world) {
         queue_action_first(
             world,
             performing_entity,
             Box::new(RemoveAction {
+                wearing_entity,
                 target: item,
                 notification_sender: ActionNotificationSender::new(),
             }),
         );
     }
-
-    //TODO also remove worn items from other entities, for example a dead body
 }
 
 // Blocks moving items around if they're being worn

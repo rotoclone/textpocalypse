@@ -11,8 +11,9 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    is_living_entity,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -46,6 +47,7 @@ impl InputParser for RemoveParser {
                     if world.get::<Wearable>(target_entity).is_some() {
                         // target exists and is wearable
                         return Ok(Box::new(RemoveAction {
+                            wearing_entity: source_entity,
                             target: target_entity,
                             notification_sender: ActionNotificationSender::new(),
                         }));
@@ -84,57 +86,108 @@ impl InputParser for RemoveParser {
 
 #[derive(Debug)]
 pub struct RemoveAction {
+    pub wearing_entity: Entity,
     pub target: Entity,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for RemoveAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let wearing_entity = self.wearing_entity;
         let target = self.target;
+        let wearing_entity_name =
+            get_reference_name(wearing_entity, Some(performing_entity), world);
         let target_name = get_reference_name(target, Some(performing_entity), world);
 
-        match WornItems::remove(performing_entity, target, world) {
+        match WornItems::remove(wearing_entity, target, world) {
             Ok(()) => (),
             Err(RemoveError::NotWorn) => {
+                if wearing_entity == performing_entity {
+                    return ActionResult::builder()
+                        .with_error(
+                            performing_entity,
+                            format!("You're not wearing {target_name}."),
+                        )
+                        .build_complete_no_tick(false);
+                }
+
                 return ActionResult::builder()
                     .with_error(
                         performing_entity,
-                        format!("You're not wearing {target_name}."),
+                        format!("{wearing_entity_name} is not wearing {target_name}."),
                     )
-                    .build_complete_no_tick(false)
+                    .build_complete_no_tick(false);
             }
         }
 
-        ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You take off {target_name}."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
-                Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        let mut result_builder = ActionResult::builder();
+
+        if wearing_entity == performing_entity {
+            result_builder = result_builder
+                .with_message(
+                    performing_entity,
+                    format!("You take off {target_name}."),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
-                .add_string(" takes off ".to_string())
-                .add_entity_name(target)
-                .add_string(".".to_string()),
-                world,
-            )
-            .build_complete_should_tick(true)
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::SourceEntity,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" takes off ".to_string())
+                    .add_entity_name(target)
+                    .add_string(".".to_string()),
+                    world,
+                );
+        } else {
+            result_builder = result_builder
+                .with_message(
+                    performing_entity,
+                    format!("You take {target_name} off of {wearing_entity_name}."),
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .with_third_person_message(
+                    Some(performing_entity),
+                    ThirdPersonMessageLocation::SourceEntity,
+                    ThirdPersonMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .add_entity_name(performing_entity)
+                    .add_string(" takes ".to_string())
+                    .add_entity_name(target)
+                    .add_string(" off of ")
+                    .add_entity_name(wearing_entity)
+                    .add_string(".".to_string()),
+                    world,
+                );
+        }
+        result_builder.build_complete_should_tick(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
-        ActionInterruptResult::message(
-            performing_entity,
-            "You stop taking things off.".to_string(),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::None,
-        )
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
+        if self.wearing_entity == performing_entity {
+            ActionInterruptResult::message(
+                performing_entity,
+                "You stop taking things off.".to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::None,
+            )
+        } else {
+            let wearing_entity_name =
+                get_reference_name(self.wearing_entity, Some(performing_entity), world);
+            ActionInterruptResult::message(
+                performing_entity,
+                format!("You stop taking things off of {wearing_entity_name}."),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::None,
+            )
+        }
     }
 
     fn may_require_tick(&self) -> bool {
@@ -172,4 +225,22 @@ impl Action for RemoveAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
+}
+
+/// Prevents removing items from living entities other than the one performing the action.
+pub fn prevent_remove_from_other_living_entity(
+    notification: &Notification<VerifyActionNotification, RemoveAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let wearing_entity = notification.contents.wearing_entity;
+
+    if performing_entity != wearing_entity && is_living_entity(wearing_entity, world) {
+        let wearing_entity_name =
+            get_reference_name(wearing_entity, Some(performing_entity), world);
+        let message = format!("You can't remove anything from {wearing_entity_name}.");
+        return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
+    }
+
+    VerifyResult::valid()
 }

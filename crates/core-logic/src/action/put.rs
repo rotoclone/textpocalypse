@@ -136,6 +136,7 @@ impl InputParser for PutParser {
             }
         };
 
+        //TODO this should probably be in a verify handler instead
         let destination_held_by_other_living_entity =
             find_holding_entity(destination_container, world)
                 .map(|h| h != entity)
