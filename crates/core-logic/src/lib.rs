@@ -190,7 +190,7 @@ impl Game {
                         Weight::get_attribute_describer(),
                     ],
                 },
-                Item,
+                Item::new_one_handed(),
                 Volume(0.25),
                 Weight(0.5),
             ))
@@ -212,7 +212,7 @@ impl Game {
                         Weight::get_attribute_describer(),
                     ],
                 },
-                Item,
+                Item::new_one_handed(),
                 Volume(0.5),
                 Weight(15.0),
             ))
@@ -235,7 +235,7 @@ impl Game {
                         FluidContainer::get_attribute_describer(),
                     ],
                 },
-                Item,
+                Item::new_one_handed(),
                 Volume(0.5),
                 Weight(0.1),
                 FluidContainer {

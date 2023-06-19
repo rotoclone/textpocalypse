@@ -1,4 +1,8 @@
+use std::num::NonZeroU8;
+
 use bevy_ecs::prelude::*;
+
+use crate::component::Item;
 
 /// The things an entity is holding.
 #[derive(Component)]
@@ -14,6 +18,8 @@ pub struct HeldItems {
 pub enum HoldError {
     /// The entity cannot hold things.
     CannotHold,
+    /// The item in question cannot be held.
+    CannotBeHeld,
     /// The entity is already holding the item.
     AlreadyHeld,
     /// The entity's hands are already all holding items.
@@ -42,7 +48,23 @@ impl HeldItems {
         to_hold: Entity,
         world: &mut World,
     ) -> Result<(), HoldError> {
-        todo!() //TODO
+        let num_hands_required = match get_hands_to_hold(to_hold, world) {
+            Some(hands) => hands,
+            None => return Err(HoldError::CannotBeHeld),
+        };
+
+        if let Some(held_items) = world.get::<HeldItems>(holding_entity) {
+            let num_hands_used: u8 = held_items
+                .items
+                .iter()
+                .map(|item| get_hands_to_hold(*item, world))
+                .sum();
+            //TODO
+        } else {
+            return Err(HoldError::CannotHold);
+        }
+
+        Ok(())
     }
 
     /// Stops holding the provided entity, if possible.
@@ -53,4 +75,9 @@ impl HeldItems {
     ) -> Result<(), UnholdError> {
         todo!() //TODO
     }
+}
+
+/// Gets the number of hands needed to hold the provided entity, if it's an item.
+fn get_hands_to_hold(entity: Entity, world: &World) -> Option<NonZeroU8> {
+    world.get::<Item>(entity).map(|item| item.hands_to_hold)
 }

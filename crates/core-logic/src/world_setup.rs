@@ -215,7 +215,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -403,7 +403,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Edible,
             Calories(300),
             Volume(0.1),
@@ -427,7 +427,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_two_handed(),
             Volume(5.0),
             Weight(1.0),
         ))
@@ -449,7 +449,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.1),
             Weight(0.1),
             middle_room_north_door_key_id,
@@ -473,7 +473,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(5.0),
             Weight(0.5),
             Container::new(Some(Volume(5.0)), None),
@@ -496,7 +496,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(15.0),
         ))
@@ -518,7 +518,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(15.0),
         ))
@@ -541,7 +541,7 @@ pub fn spawn_start_building(
                     FluidContainer::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(2.0),
             Weight(1.0),
             FluidContainer {
@@ -570,7 +570,7 @@ pub fn spawn_start_building(
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -597,7 +597,7 @@ pub fn spawn_start_building(
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -624,7 +624,7 @@ pub fn spawn_start_building(
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -651,7 +651,7 @@ pub fn spawn_start_building(
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.75),
             Weight(0.75),
             Wearable {
