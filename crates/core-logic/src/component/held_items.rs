@@ -2,7 +2,9 @@ use std::num::NonZeroU8;
 
 use bevy_ecs::prelude::*;
 
-use crate::component::Item;
+use crate::{component::Item, get_article_reference_name, AttributeDescription};
+
+use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
 /// The things an entity is holding.
 #[derive(Component)]
@@ -22,8 +24,8 @@ pub enum HoldError {
     CannotBeHeld,
     /// The entity is already holding the item.
     AlreadyHeld,
-    /// The entity's hands are already all holding items.
-    HandsFull,
+    /// The entity doesn't have enough free hands to hold the item.
+    NotEnoughHands,
 }
 
 /// An error when trying to stop holding something.
@@ -42,6 +44,11 @@ impl HeldItems {
         }
     }
 
+    /// Determines whether the provided entity is being held.
+    pub fn is_holding(&self, entity: Entity) -> bool {
+        self.items.contains(&entity)
+    }
+
     /// Holds the provided entity, if possible.
     pub fn hold(
         holding_entity: Entity,
@@ -54,16 +61,26 @@ impl HeldItems {
         };
 
         if let Some(held_items) = world.get::<HeldItems>(holding_entity) {
+            if held_items.items.contains(&to_hold) {
+                return Err(HoldError::AlreadyHeld);
+            }
+
             let num_hands_used: u8 = held_items
                 .items
                 .iter()
-                .map(|item| get_hands_to_hold(*item, world))
+                .flat_map(|item| get_hands_to_hold(*item, world).map(|h: NonZeroU8| h.get()))
                 .sum();
-            //TODO
+
+            if num_hands_used + num_hands_required.get() > held_items.hands {
+                return Err(HoldError::NotEnoughHands);
+            }
         } else {
             return Err(HoldError::CannotHold);
         }
 
+        if let Some(mut held_items) = world.get_mut::<HeldItems>(holding_entity) {
+            held_items.items.push(to_hold);
+        }
         Ok(())
     }
 
@@ -73,11 +90,53 @@ impl HeldItems {
         to_unhold: Entity,
         world: &mut World,
     ) -> Result<(), UnholdError> {
-        todo!() //TODO
+        if let Some(mut held_items) = world.get_mut::<HeldItems>(holding_entity) {
+            if let Some(index) = held_items.items.iter().position(|item| *item == to_unhold) {
+                held_items.items.remove(index);
+                return Ok(());
+            }
+        }
+
+        Err(UnholdError::NotHolding)
     }
 }
 
 /// Gets the number of hands needed to hold the provided entity, if it's an item.
 fn get_hands_to_hold(entity: Entity, world: &World) -> Option<NonZeroU8> {
     world.get::<Item>(entity).map(|item| item.hands_to_hold)
+}
+
+/// Describes the items being held by an entity.
+#[derive(Debug)]
+struct HeldItemsAttributeDescriber;
+
+impl AttributeDescriber for HeldItemsAttributeDescriber {
+    fn describe(
+        &self,
+        _: Entity,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
+        let mut descriptions = Vec::new();
+        if let Some(held_items) = world.get::<HeldItems>(entity) {
+            let held_entity_names = held_items
+                .items
+                .iter()
+                .map(|e| get_article_reference_name(*e, world))
+                .collect::<Vec<String>>();
+
+            for name in held_entity_names {
+                descriptions.push(AttributeDescription::holds(name))
+            }
+        }
+
+        descriptions
+    }
+}
+
+impl DescribeAttributes for HeldItems {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(HeldItemsAttributeDescriber)
+    }
 }

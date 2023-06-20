@@ -195,8 +195,8 @@ impl Action for WearAction {
     }
 }
 
-/// Verifies that the entity trying to put on an item is holding it.
-pub fn verify_holding_item_to_wear(
+/// Verifies that the entity trying to put on an item contains it.
+pub fn verify_has_item_to_wear(
     notification: &Notification<VerifyActionNotification, WearAction>,
     world: &World,
 ) -> VerifyResult {
@@ -213,6 +213,6 @@ pub fn verify_holding_item_to_wear(
 
     VerifyResult::invalid(
         performing_entity,
-        GameMessage::Error(format!("You aren't holding {item_name}.")),
+        GameMessage::Error(format!("You don't have {item_name}.")),
     )
 }

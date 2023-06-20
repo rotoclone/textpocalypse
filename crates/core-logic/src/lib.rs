@@ -383,6 +383,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     let vitals = Vitals::new();
     let stats = build_starting_stats();
     let worn_items = WornItems::new(5);
+    let held_items = HeldItems::new(2);
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -394,6 +395,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             vitals,
             stats,
             worn_items,
+            held_items,
             action_queue,
         ))
         .id();
@@ -744,9 +746,9 @@ fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World)
 
 /// Gets the definite article to use when referring to the provided entity.
 ///
-/// If `pov_entity` is holding it, this will return `Some("your")`.
+/// If `pov_entity` owns it, this will return `Some("your")`.
 ///
-/// If some other entity is holding it, this will return `Some("their")`.
+/// If some other entity owns it, this will return `Some("their")`.
 ///
 /// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
 fn get_definite_article(
@@ -754,12 +756,12 @@ fn get_definite_article(
     pov_entity: Option<Entity>,
     world: &World,
 ) -> Option<String> {
-    let holding_entity = find_holding_entity(entity, world);
+    let owning_entity = find_owning_entity(entity, world);
 
     let desc = world.get::<Description>(entity);
-    if let Some(holding_entity) = holding_entity {
+    if let Some(owning_entity) = owning_entity {
         if let Some(pov_entity) = pov_entity {
-            if holding_entity == pov_entity {
+            if owning_entity == pov_entity {
                 return Some("your".to_string());
             }
         }
@@ -851,14 +853,14 @@ fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()
 }
 
-/// Finds the living entity that currently controls the provided entity (i.e. it is holding it or holding a container that contains it)
-fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
+/// Finds the living entity that currently controls the provided entity (i.e. it contains it or contains a container that contains it)
+fn find_owning_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
         if is_living_entity(location.id, world) {
             return Some(location.id);
         }
 
-        return find_holding_entity(location.id, world);
+        return find_owning_entity(location.id, world);
     }
 
     None
@@ -869,6 +871,19 @@ fn find_wearing_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
         if let Some(worn_items) = world.get::<WornItems>(location.id) {
             if worn_items.is_wearing(entity) {
+                return Some(location.id);
+            }
+        }
+    }
+
+    None
+}
+
+/// Finds the entity that is currently holding the provided entity.
+fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
+    if let Some(location) = world.get::<Location>(entity) {
+        if let Some(held_items) = world.get::<HeldItems>(location.id) {
+            if held_items.is_holding(entity) {
                 return Some(location.id);
             }
         }
