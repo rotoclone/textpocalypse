@@ -113,6 +113,7 @@ impl StandardInputParsers {
                 Box::new(PourParser),
                 Box::new(WearParser),
                 Box::new(RemoveParser),
+                Box::new(HoldParser),
                 Box::new(SayParser),
                 Box::new(VitalsParser),
                 Box::new(StatsParser),
@@ -378,6 +379,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: vec![
             SleepState::get_attribute_describer(),
             WornItems::get_attribute_describer(),
+            HeldItems::get_attribute_describer(),
         ],
     };
     let vitals = Vitals::new();

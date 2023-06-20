@@ -528,11 +528,13 @@ fn container_to_string(container: ContainerDescription) -> String {
 fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
     let volume_and_weight = format!("[{:.2}L] [{:.2}kg]", entity.volume, entity.weight);
     let worn_tag = if entity.is_being_worn { " (worn)" } else { "" };
+    let held_tag = if entity.is_being_held { " (held)" } else { "" };
 
     format!(
-        "{}{} {}",
+        "{}{}{} {}",
         style(entity.name.clone()).bold(),
         worn_tag,
+        held_tag,
         style(volume_and_weight).dark_grey(),
     )
 }
