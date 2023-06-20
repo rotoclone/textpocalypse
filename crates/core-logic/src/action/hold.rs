@@ -6,7 +6,7 @@ use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, HeldItems, HoldError, Item, Location,
     },
-    get_reference_name,
+    find_wearing_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -215,4 +215,25 @@ pub fn verify_has_item_to_hold(
     )
 }
 
-//TODO automatically unhold items if they get moved out of someone's inventory
+/// Verifies that the entity trying to hold an item is not wearing it.
+pub fn verify_not_wearing_item_to_hold(
+    notification: &Notification<VerifyActionNotification, HoldAction>,
+    world: &World,
+) -> VerifyResult {
+    let item = notification.contents.target;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if let Some(wearing_entity) = find_wearing_entity(item, world) {
+        if wearing_entity == performing_entity {
+            let item_name = get_reference_name(item, Some(performing_entity), world);
+            return VerifyResult::invalid(
+                performing_entity,
+                GameMessage::Error(format!(
+                    "You'll have to take off {item_name} before you can hold it."
+                )),
+            );
+        }
+    }
+
+    VerifyResult::valid()
+}

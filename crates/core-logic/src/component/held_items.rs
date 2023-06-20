@@ -2,9 +2,17 @@ use std::num::NonZeroU8;
 
 use bevy_ecs::prelude::*;
 
-use crate::{component::Item, get_article_reference_name, AttributeDescription};
+use crate::{
+    action::{PutAction, WearAction},
+    component::Item,
+    find_holding_entity, get_article_reference_name,
+    notification::Notification,
+    AttributeDescription,
+};
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, BeforeActionNotification, DescribeAttributes,
+};
 
 /// The things an entity is holding.
 #[derive(Component)]
@@ -138,5 +146,37 @@ impl AttributeDescriber for HeldItemsAttributeDescriber {
 impl DescribeAttributes for HeldItems {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
         Box::new(HeldItemsAttributeDescriber)
+    }
+}
+
+/// Un-holds an item before it's moved out of the holding entity's inventory
+pub fn unhold_on_put(
+    notification: &Notification<BeforeActionNotification, PutAction>,
+    world: &mut World,
+) {
+    let item = notification.contents.item;
+    if let Some(holding_entity) = find_holding_entity(item, world) {
+        match HeldItems::unhold(holding_entity, item, world) {
+            Ok(_) => (),
+            Err(UnholdError::NotHolding) => {
+                panic!("{item:?} has holding entity but can't be un-held")
+            }
+        }
+    }
+}
+
+/// Un-holds an item before the holding entity wears it
+pub fn unhold_on_wear(
+    notification: &Notification<BeforeActionNotification, WearAction>,
+    world: &mut World,
+) {
+    let item = notification.contents.target;
+    if let Some(holding_entity) = find_holding_entity(item, world) {
+        match HeldItems::unhold(holding_entity, item, world) {
+            Ok(_) => (),
+            Err(UnholdError::NotHolding) => {
+                panic!("{item:?} has holding entity but can't be un-held")
+            }
+        }
     }
 }
