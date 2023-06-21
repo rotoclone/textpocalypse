@@ -187,6 +187,7 @@ impl Game {
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
                     attribute_describers: vec![
+                        Item::get_attribute_describer(),
                         Volume::get_attribute_describer(),
                         Weight::get_attribute_describer(),
                     ],
@@ -209,6 +210,7 @@ impl Game {
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
                     attribute_describers: vec![
+                        Item::get_attribute_describer(),
                         Volume::get_attribute_describer(),
                         Weight::get_attribute_describer(),
                     ],
@@ -231,6 +233,7 @@ impl Game {
                     aliases: vec!["bottle".to_string()],
                     description: "A disposable plastic water bottle.".to_string(),
                     attribute_describers: vec![
+                        Item::get_attribute_describer(),
                         Volume::get_attribute_describer(),
                         Weight::get_attribute_describer(),
                         FluidContainer::get_attribute_describer(),

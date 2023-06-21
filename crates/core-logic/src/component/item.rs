@@ -2,6 +2,10 @@ use std::num::NonZeroU8;
 
 use bevy_ecs::prelude::*;
 
+use crate::AttributeDescription;
+
+use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
+
 /// Marks an entity as able to be picked up.
 #[derive(Component)]
 pub struct Item {
@@ -35,4 +39,40 @@ pub fn get_hands_to_hold(entity: Entity, world: &World) -> Option<NonZeroU8> {
     world.get::<Item>(entity).map(|item| item.hands_to_hold)
 }
 
-//TODO attribute describer to say how many hands are required to hold an item
+/// Describes the number of hands needed to hold an entity.
+#[derive(Debug)]
+struct HandsNeededAttributeDescriber;
+
+impl AttributeDescriber for HandsNeededAttributeDescriber {
+    fn describe(
+        &self,
+        _: Entity,
+        entity: Entity,
+        detail_level: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
+        if detail_level >= AttributeDetailLevel::Advanced {
+            if let Some(item) = world.get::<Item>(entity) {
+                let hand_or_hands = if item.hands_to_hold.get() > 1 {
+                    "hands"
+                } else {
+                    "hand"
+                };
+
+                return vec![AttributeDescription::does(format!(
+                    "requires {} {} to hold",
+                    item.hands_to_hold.get(),
+                    hand_or_hands,
+                ))];
+            }
+        }
+
+        Vec::new()
+    }
+}
+
+impl DescribeAttributes for Item {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(HandsNeededAttributeDescriber)
+    }
+}
