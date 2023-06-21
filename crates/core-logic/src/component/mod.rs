@@ -87,6 +87,7 @@ mod greet_behavior;
 pub use greet_behavior::GreetBehavior;
 
 mod item;
+pub use item::get_hands_to_hold;
 pub use item::Item;
 
 mod stats;

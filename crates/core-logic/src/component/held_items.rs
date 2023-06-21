@@ -4,21 +4,21 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{PutAction, WearAction},
-    component::Item,
     find_holding_entity, get_article_reference_name,
     notification::Notification,
     AttributeDescription,
 };
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, BeforeActionNotification, DescribeAttributes,
+    get_hands_to_hold, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
+    DescribeAttributes,
 };
 
 /// The things an entity is holding.
 #[derive(Component)]
 pub struct HeldItems {
     /// The number of hands the entity can hold things in.
-    hands: u8,
+    pub hands: u8,
     /// The items being held.
     items: Vec<Entity>,
 }
@@ -57,6 +57,19 @@ impl HeldItems {
         self.items.contains(&entity)
     }
 
+    /// Determines how many hands are currently holding items.
+    pub fn get_num_hands_used(&self, world: &World) -> u8 {
+        self.items
+            .iter()
+            .flat_map(|item| get_hands_to_hold(*item, world).map(|h: NonZeroU8| h.get()))
+            .sum()
+    }
+
+    /// Returns the item that has been held the longest, skipping the provided number of items, if there is one.
+    pub fn get_oldest_item(&self, to_skip: usize) -> Option<Entity> {
+        self.items.iter().nth(to_skip).map(|item| *item)
+    }
+
     /// Holds the provided entity, if possible.
     pub fn hold(
         holding_entity: Entity,
@@ -73,12 +86,7 @@ impl HeldItems {
                 return Err(HoldError::AlreadyHeld);
             }
 
-            let num_hands_used: u8 = held_items
-                .items
-                .iter()
-                .flat_map(|item| get_hands_to_hold(*item, world).map(|h: NonZeroU8| h.get()))
-                .sum();
-
+            let num_hands_used: u8 = held_items.get_num_hands_used(world);
             if num_hands_used + num_hands_required.get() > held_items.hands {
                 return Err(HoldError::NotEnoughHands);
             }
@@ -107,11 +115,6 @@ impl HeldItems {
 
         Err(UnholdError::NotHolding)
     }
-}
-
-/// Gets the number of hands needed to hold the provided entity, if it's an item.
-fn get_hands_to_hold(entity: Entity, world: &World) -> Option<NonZeroU8> {
-    world.get::<Item>(entity).map(|item| item.hands_to_hold)
 }
 
 /// Describes the items being held by an entity.

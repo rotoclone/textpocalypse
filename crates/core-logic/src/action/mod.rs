@@ -109,6 +109,7 @@ pub fn register_action_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(hold::verify_has_item_to_hold, world);
     VerifyNotificationHandlers::add_handler(hold::verify_not_wearing_item_to_hold, world);
+    NotificationHandlers::add_handler(hold::auto_unhold_on_hold, world);
 }
 
 /// A message caused by some other entity's action.

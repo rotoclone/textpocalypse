@@ -29,3 +29,10 @@ impl Item {
         }
     }
 }
+
+/// Gets the number of hands needed to hold the provided entity, if it's an item.
+pub fn get_hands_to_hold(entity: Entity, world: &World) -> Option<NonZeroU8> {
+    world.get::<Item>(entity).map(|item| item.hands_to_hold)
+}
+
+//TODO attribute describer to say how many hands are required to hold an item

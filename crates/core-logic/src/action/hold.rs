@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        ActionEndNotification, AfterActionPerformNotification, HeldItems, HoldError, Item,
-        Location, UnholdError,
+        get_hands_to_hold, queue_action_first, ActionEndNotification,
+        AfterActionPerformNotification, HeldItems, HoldError, Item, Location, UnholdError,
     },
     find_wearing_entity, get_reference_name,
     input_parser::{
@@ -277,4 +277,53 @@ pub fn verify_not_wearing_item_to_hold(
     }
 
     VerifyResult::valid()
+}
+
+/// Attempts to unhold items to make room before holding another item.
+pub fn auto_unhold_on_hold(
+    notification: &Notification<BeforeActionNotification, HoldAction>,
+    world: &mut World,
+) {
+    let item = notification.contents.target;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if notification.contents.should_be_held {
+        // about to hold something
+        if let Some(num_hands_needed) = get_hands_to_hold(item, world) {
+            if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
+                let num_hands_used = held_items.get_num_hands_used(world);
+                let num_hands_available = held_items.hands - num_hands_used;
+                if num_hands_needed.get() > num_hands_available {
+                    // not enough free hands to hold item, figure out which items to unhold
+                    let num_hands_to_free = num_hands_needed.get() - num_hands_available;
+                    let mut num_hands_freed = 0;
+                    let mut items_to_unhold = Vec::new();
+                    while num_hands_to_free > num_hands_freed {
+                        if let Some(oldest_item) = held_items.get_oldest_item(items_to_unhold.len())
+                        {
+                            num_hands_freed += get_hands_to_hold(oldest_item, world)
+                                .map(|h| h.get())
+                                .unwrap_or(0);
+                            items_to_unhold.push(oldest_item);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // queue up unhold actions
+                    for item_to_unhold in items_to_unhold {
+                        queue_action_first(
+                            world,
+                            performing_entity,
+                            Box::new(HoldAction {
+                                target: item_to_unhold,
+                                should_be_held: false,
+                                notification_sender: ActionNotificationSender::new(),
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
