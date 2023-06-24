@@ -4,7 +4,7 @@ use crate::{
     color::Color,
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
-        FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
+        FluidContainer, FluidType, GreetBehavior, HeldItems, Item, KeyId, KeyedLock, OpenState,
         ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
         Wearable, Weight, WornItems,
     },
@@ -179,6 +179,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 attribute_describers: vec![
                     SleepState::get_attribute_describer(),
                     WornItems::get_attribute_describer(),
+                    HeldItems::get_attribute_describer(),
                 ],
             },
             WanderBehavior {
@@ -195,6 +196,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             },
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
+            HeldItems::new(2),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);
@@ -210,12 +212,13 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 aliases: vec!["shirt".to_string()],
                 description: "A pretty cool t-shirt.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -397,13 +400,14 @@ pub fn spawn_start_building(
                 aliases: vec!["candy".to_string(), "bar".to_string()],
                 description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Edible::get_attribute_describer(),
                     Calories::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Edible,
             Calories(300),
             Volume(0.1),
@@ -423,11 +427,12 @@ pub fn spawn_start_building(
                 aliases: vec!["thing".to_string()],
                 description: "Some kind of largeish thing.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_two_handed(),
             Volume(5.0),
             Weight(1.0),
         ))
@@ -445,11 +450,12 @@ pub fn spawn_start_building(
                 aliases: vec!["key".to_string()],
                 description: "A fancy-looking key.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.1),
             Weight(0.1),
             middle_room_north_door_key_id,
@@ -468,12 +474,13 @@ pub fn spawn_start_building(
                 aliases: vec!["duffel".to_string(), "bag".to_string()],
                 description: "A large duffel bag.".to_string(),
                 attribute_describers: vec![
-                    Container::get_attribute_describer(),
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Container::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(5.0),
             Weight(0.5),
             Container::new(Some(Volume(5.0)), None),
@@ -492,11 +499,12 @@ pub fn spawn_start_building(
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(15.0),
         ))
@@ -514,11 +522,12 @@ pub fn spawn_start_building(
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(15.0),
         ))
@@ -536,12 +545,13 @@ pub fn spawn_start_building(
                 aliases: vec!["jug".to_string()],
                 description: "A large jug made for holding water.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     FluidContainer::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(2.0),
             Weight(1.0),
             FluidContainer {
@@ -565,12 +575,13 @@ pub fn spawn_start_building(
                 aliases: vec!["shirt".to_string()],
                 description: "A bright red t-shirt.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -592,12 +603,13 @@ pub fn spawn_start_building(
                 aliases: vec!["shirt".to_string()],
                 description: "A bright green t-shirt.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -619,12 +631,13 @@ pub fn spawn_start_building(
                 aliases: vec!["shirt".to_string()],
                 description: "A bright blue t-shirt.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.5),
             Weight(0.5),
             Wearable {
@@ -646,12 +659,13 @@ pub fn spawn_start_building(
                 aliases: vec!["pajamas".to_string(), "pjs".to_string()],
                 description: "A pair of bright pink footie pajamas. Looks comfy.".to_string(),
                 attribute_describers: vec![
+                    Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     Wearable::get_attribute_describer(),
                 ],
             },
-            Item,
+            Item::new_one_handed(),
             Volume(0.75),
             Weight(0.75),
             Wearable {

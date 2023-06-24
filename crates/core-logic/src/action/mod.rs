@@ -53,6 +53,10 @@ mod remove;
 pub use remove::RemoveAction;
 pub use remove::RemoveParser;
 
+mod hold;
+pub use hold::HoldAction;
+pub use hold::HoldParser;
+
 mod vitals;
 pub use vitals::VitalsParser;
 
@@ -99,9 +103,13 @@ pub fn register_action_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(sleep::look_on_end_sleep, world);
 
-    VerifyNotificationHandlers::add_handler(wear::verify_holding_item_to_wear, world);
+    VerifyNotificationHandlers::add_handler(wear::verify_has_item_to_wear, world);
 
     VerifyNotificationHandlers::add_handler(remove::prevent_remove_from_other_living_entity, world);
+
+    VerifyNotificationHandlers::add_handler(hold::verify_has_item_to_hold, world);
+    VerifyNotificationHandlers::add_handler(hold::verify_not_wearing_item_to_hold, world);
+    NotificationHandlers::add_handler(hold::auto_unhold_on_hold, world);
 }
 
 /// A message caused by some other entity's action.

@@ -87,6 +87,7 @@ mod greet_behavior;
 pub use greet_behavior::GreetBehavior;
 
 mod item;
+pub use item::get_hands_to_hold;
 pub use item::Item;
 
 mod stats;
@@ -103,6 +104,11 @@ mod worn_items;
 pub use worn_items::RemoveError;
 pub use worn_items::WearError;
 pub use worn_items::WornItems;
+
+mod held_items;
+pub use held_items::HeldItems;
+pub use held_items::HoldError;
+pub use held_items::UnholdError;
 
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
@@ -146,6 +152,9 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(worn_items::auto_remove_on_put, world);
     VerifyNotificationHandlers::add_handler(worn_items::verify_not_wearing_item_to_put, world);
+
+    NotificationHandlers::add_handler(held_items::unhold_on_put, world);
+    NotificationHandlers::add_handler(held_items::unhold_on_wear, world);
 }
 
 /// Removes a component from an entity when it dies.

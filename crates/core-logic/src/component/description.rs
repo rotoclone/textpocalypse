@@ -152,6 +152,14 @@ impl AttributeDescription {
             description,
         })
     }
+
+    /// Creates a description of something an entity is holding, like "a rock".
+    pub fn holds(description: String) -> AttributeDescription {
+        AttributeDescription::Basic(BasicAttributeDescription {
+            attribute_type: AttributeType::Holds,
+            description,
+        })
+    }
 }
 
 /// A basic description of a single attribute of an entity.
@@ -173,6 +181,8 @@ pub enum AttributeType {
     Has,
     /// Something the entity is wearing, like "pants".
     Wears,
+    /// Something the entity is holding, like "a rock".
+    Holds,
 }
 
 /// Trait for components that have describable attributes.

@@ -364,6 +364,7 @@ fn entity_attributes_to_string(
     let mut does_descriptions = Vec::new();
     let mut has_descriptions = Vec::new();
     let mut wears_descriptions = Vec::new();
+    let mut holds_descriptions = Vec::new();
     let mut messages = Vec::new();
     for attribute in attributes {
         match attribute {
@@ -374,6 +375,7 @@ fn entity_attributes_to_string(
                     AttributeType::Does => does_descriptions.push(description),
                     AttributeType::Has => has_descriptions.push(description),
                     AttributeType::Wears => wears_descriptions.push(description),
+                    AttributeType::Holds => holds_descriptions.push(description),
                 }
             }
             AttributeDescription::Message(m) => messages.push(m),
@@ -428,6 +430,18 @@ fn entity_attributes_to_string(
         ))
     };
 
+    let holds_description = if holds_descriptions.is_empty() {
+        None
+    } else {
+        let is_or_are = if pronouns.plural { "are" } else { "is" };
+        Some(format!(
+            "{} {} holding {}.",
+            capitalized_personal_subj_pronoun,
+            is_or_are,
+            format_list(&holds_descriptions)
+        ))
+    };
+
     let messages_description = if messages.is_empty() {
         None
     } else {
@@ -446,6 +460,7 @@ fn entity_attributes_to_string(
             does_description,
             has_description,
             wears_description,
+            holds_description,
             messages_description,
         ]
         .join("\n\n"),
@@ -513,11 +528,13 @@ fn container_to_string(container: ContainerDescription) -> String {
 fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
     let volume_and_weight = format!("[{:.2}L] [{:.2}kg]", entity.volume, entity.weight);
     let worn_tag = if entity.is_being_worn { " (worn)" } else { "" };
+    let held_tag = if entity.is_being_held { " (held)" } else { "" };
 
     format!(
-        "{}{} {}",
+        "{}{}{} {}",
         style(entity.name.clone()).bold(),
         worn_tag,
+        held_tag,
         style(volume_and_weight).dark_grey(),
     )
 }
