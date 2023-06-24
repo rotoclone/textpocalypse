@@ -7,7 +7,7 @@ use crate::{
         get_hands_to_hold, queue_action_first, ActionEndNotification,
         AfterActionPerformNotification, HeldItems, HoldError, Item, Location, UnholdError,
     },
-    find_wearing_entity, get_reference_name,
+    find_holding_entity, find_wearing_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -287,40 +287,49 @@ pub fn auto_unhold_on_hold(
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
 
-    if notification.contents.should_be_held {
+    // need to check holding entity to make sure the item isn't already being held, to avoid unholding the entity just to hold it again
+    if notification.contents.should_be_held && find_holding_entity(item, world).is_none() {
         // about to hold something
-        if let Some(num_hands_needed) = get_hands_to_hold(item, world) {
-            if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
-                let num_hands_used = held_items.get_num_hands_used(world);
-                let num_hands_available = held_items.hands - num_hands_used;
-                if num_hands_needed.get() > num_hands_available {
-                    // not enough free hands to hold item, figure out which items to unhold
-                    let num_hands_to_free = num_hands_needed.get() - num_hands_available;
-                    let mut num_hands_freed = 0;
-                    let mut items_to_unhold = Vec::new();
-                    while num_hands_to_free > num_hands_freed {
-                        if let Some(oldest_item) = held_items.get_oldest_item(items_to_unhold.len())
-                        {
-                            num_hands_freed += get_hands_to_hold(oldest_item, world)
-                                .map(|h| h.get())
-                                .unwrap_or(0);
-                            items_to_unhold.push(oldest_item);
-                        } else {
-                            break;
+        // NOTE: this verification only works because checking free hands is done as part of the action being performed rather than in a verify handler
+        if notification
+            .contents
+            .send_verify_notification(VerifyActionNotification { performing_entity }, world)
+            .is_valid
+        {
+            if let Some(num_hands_needed) = get_hands_to_hold(item, world) {
+                if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
+                    let num_hands_used = held_items.get_num_hands_used(world);
+                    let num_hands_available = held_items.hands - num_hands_used;
+                    if num_hands_needed.get() > num_hands_available {
+                        // not enough free hands to hold item, figure out which items to unhold
+                        let num_hands_to_free = num_hands_needed.get() - num_hands_available;
+                        let mut num_hands_freed = 0;
+                        let mut items_to_unhold = Vec::new();
+                        while num_hands_to_free > num_hands_freed {
+                            if let Some(oldest_item) =
+                                held_items.get_oldest_item(items_to_unhold.len())
+                            {
+                                num_hands_freed += get_hands_to_hold(oldest_item, world)
+                                    .map(|h| h.get())
+                                    .unwrap_or(0);
+                                items_to_unhold.push(oldest_item);
+                            } else {
+                                break;
+                            }
                         }
-                    }
 
-                    // queue up unhold actions
-                    for item_to_unhold in items_to_unhold {
-                        queue_action_first(
-                            world,
-                            performing_entity,
-                            Box::new(HoldAction {
-                                target: item_to_unhold,
-                                should_be_held: false,
-                                notification_sender: ActionNotificationSender::new(),
-                            }),
-                        );
+                        // queue up unhold actions
+                        for item_to_unhold in items_to_unhold {
+                            queue_action_first(
+                                world,
+                                performing_entity,
+                                Box::new(HoldAction {
+                                    target: item_to_unhold,
+                                    should_be_held: false,
+                                    notification_sender: ActionNotificationSender::new(),
+                                }),
+                            );
+                        }
                     }
                 }
             }
