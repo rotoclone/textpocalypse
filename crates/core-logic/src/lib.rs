@@ -63,6 +63,9 @@ pub use body_part::BodyPart;
 mod formatting;
 pub use formatting::*;
 
+mod checks;
+use checks::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
