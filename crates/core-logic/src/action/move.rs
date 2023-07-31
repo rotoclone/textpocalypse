@@ -3,9 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    checks::{CheckDifficulty, CheckResult},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Container,
-        Location,
+        Location, Skill, Stats,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
@@ -81,6 +82,30 @@ impl Action for MoveAction {
             move_entity(performing_entity, new_room_id, world);
             should_tick = true;
             was_successful = true;
+
+            //TODO remove vvv
+            let stealth_message = match Stats::check_skill(
+                performing_entity,
+                Skill::Stealth,
+                CheckDifficulty::moderate(),
+                world,
+            ) {
+                CheckResult::ExtremeFailure => {
+                    "You stumble around and make a bunch of noise. Everyone notices."
+                }
+                CheckResult::Failure => "You make some noise as you move.",
+                CheckResult::Success => "You move very quietly, barely making any noise.",
+                CheckResult::ExtremeSuccess => {
+                    "You move with extreme stealthiness, making no noise whatsoever."
+                }
+            };
+            result_builder = result_builder.with_message(
+                performing_entity,
+                stealth_message.to_string(),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::Short,
+            );
+            //TODO remove ^^^
 
             result_builder = result_builder
                 .with_message(
