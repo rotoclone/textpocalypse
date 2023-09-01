@@ -67,7 +67,7 @@ impl HeldItems {
 
     /// Returns the item that has been held the longest, skipping the provided number of items, if there is one.
     pub fn get_oldest_item(&self, to_skip: usize) -> Option<Entity> {
-        self.items.iter().nth(to_skip).map(|item| *item)
+        self.items.get(to_skip).copied()
     }
 
     /// Holds the provided entity, if possible.

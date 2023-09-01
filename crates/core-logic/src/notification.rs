@@ -68,12 +68,7 @@ pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync, R> {
 // need to manually implement traits due to https://github.com/rust-lang/rust/issues/26925
 impl<T: NotificationType, C: Send + Sync, R> Clone for NotificationHandlerId<T, C, R> {
     fn clone(&self) -> Self {
-        Self {
-            value: self.value,
-            _t: PhantomData,
-            _c: PhantomData,
-            _r: PhantomData,
-        }
+        *self
     }
 }
 
