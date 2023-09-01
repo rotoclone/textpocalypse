@@ -226,6 +226,7 @@ pub enum CommandParseError {
 
 pub trait InputParser: Send + Sync {
     /// Parses input from the provided entity into an action.
+    /// TODO should this be in 2 stages: first convert from the input string to some intermediate representation, then convert from that into an action?
     fn parse(
         &self,
         input: &str,

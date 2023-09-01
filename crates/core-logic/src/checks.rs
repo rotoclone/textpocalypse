@@ -4,7 +4,7 @@ use rand_distr::StandardNormal;
 
 use crate::component::{Attribute, Attributes, Skill, Skills, Stats};
 
-const STANDARD_DEVIATION: f64 = 3.0;
+const STANDARD_DEVIATION: f64 = 4.0;
 
 /// The difficulty of a check.
 #[derive(Clone, Copy, Debug)]

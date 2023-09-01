@@ -40,6 +40,10 @@ mod put;
 pub use put::PutAction;
 pub use put::PutParser;
 
+mod throw;
+pub use throw::ThrowAction;
+pub use throw::ThrowParser;
+
 mod pour;
 pub use pour::PourAction;
 pub use pour::PourAmount;
