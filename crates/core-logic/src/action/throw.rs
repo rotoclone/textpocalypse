@@ -3,24 +3,49 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    action::{ThirdPersonMessage, ThirdPersonMessageLocation},
+    checks::{CheckDifficulty, CheckResult},
     component::{
-        ActionEndNotification, AfterActionPerformNotification, Attribute, Item, Stats, Weight,
+        ActionEndNotification, AfterActionPerformNotification, Attribute, Item, Location, Stats,
+        Weight,
     },
-    get_reference_name, get_volume, get_weight,
+    get_article_reference_name, get_reference_name, get_volume, get_weight,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    is_living_entity,
+    is_living_entity, move_entity,
     notification::VerifyResult,
+    value_change::{ValueChange, ValueChangeOperation},
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    VerifyActionNotification,
+    SurroundingsMessageCategory, ValueType, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 /// The number of kilograms an entity can throw per point of strength they have.
 const KG_CAN_THROW_PER_STRENGTH: f32 = 2.0;
+
+/// The amount of damage to do to an entity that is hit by a thrown object per kilogram the thrown object weighs.
+const HIT_DAMAGE_PER_KG: f32 = 3.0;
+
+/// The amount to multiply the hit damage by if it's a really good throw.
+const DIRECT_HIT_DAMAGE_MULT: f32 = 2.0;
+
+/// The amount to multiply the difficulty multiplier of a throw check by for hitting an inanimate object with a volume of 1 liter
+const VOLUME_DIFFICULTY_MULT_MULT: f32 = 2.0;
+
+/// The base difficutly of a throw check per kilogram the thrown object weighs
+const DIFFICULTY_PER_KG: f32 = 1.0;
+
+/// The minimum base difficulty of throw checks
+const MIN_BASE_DIFFICULTY: f32 = 5.0;
+
+/// The minimum amount to multiply throw check difficulty by due to the size of the target
+const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.33;
+
+/// The maximum amount to multiply throw check difficulty by due to the size of the target
+const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
 
 const THROW_VERB_NAME: &str = "throw";
 const THROW_FORMAT: &str = "throw <> at <>";
@@ -207,20 +232,174 @@ impl Action for ThrowAction {
         let target = self.target;
         let item_name = get_reference_name(item, Some(performing_entity), world);
         let target_name = get_reference_name(target, Some(performing_entity), world);
+        let current_location_id = world
+            .get::<Location>(performing_entity)
+            .expect("Throwing entity should have a location")
+            .id;
 
         // determine how hard it'll be to throw the item at the target
 
-        // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the size of the target
+        // if the target is alive, it will try to not get hit
+
+        //TODO
+
+        // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant things are the weight of the item being thrown and the size of the target
 
         let target_volume = get_volume(target, world);
+        let item_weight = get_weight(item, world);
+        let base_difficulty = MIN_BASE_DIFFICULTY.max(item_weight.0 * DIFFICULTY_PER_KG);
+        let target_volume_multiplier = if target_volume.0 > 0.0 {
+            (1.0 / target_volume.0) * VOLUME_DIFFICULTY_MULT_MULT
+        } else {
+            MAX_VOLUME_DIFFICULTY_MULT
+        }
+        .clamp(MIN_VOLUME_DIFFICULTY_MULT, MAX_VOLUME_DIFFICULTY_MULT);
+        let check_target = base_difficulty * target_volume_multiplier;
 
-        //TODO do a check to see if the item hits its target
+        let mut result_builder = ActionResult::builder();
 
-        //TODO if it hits, deal damage to the target
+        match Stats::check_attribute(
+            performing_entity,
+            Attribute::Strength,
+            CheckDifficulty::new(check_target.round() as u32),
+            world,
+        ) {
+            CheckResult::ExtremeFailure => {
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!(
+                        "You hurl {item_name} wildly, and it comes nowhere close to {target_name}."
+                    ),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::SourceEntity,
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(" hurls ")
+                        .add_entity_name(item)
+                        .add_string(" wildly, and it comes nowhere close to ")
+                        .add_entity_name(target)
+                        .add_string("."),
+                        world,
+                    )
+            }
+            CheckResult::Failure => {
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!("You throw {item_name}, and it just misses {target_name}."),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::SourceEntity,
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(" throws ")
+                        .add_entity_name(item)
+                        .add_string(", and it just misses ")
+                        .add_entity_name(target)
+                        .add_string("."),
+                        world,
+                    )
+            }
+            CheckResult::Success => {
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!("You throw {item_name}, and it hits {target_name}."),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::SourceEntity,
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(" throws ")
+                        .add_entity_name(item)
+                        .add_string(", and it hits ")
+                        .add_entity_name(target)
+                        .add_string("."),
+                        world,
+                    );
+                if is_living_entity(target, world) {
+                    let damage = item_weight.0 * HIT_DAMAGE_PER_KG;
+                    let item_reference_name = get_article_reference_name(item, world);
+                    result_builder = result_builder.with_post_effect(Box::new(move |w| {
+                        ValueChange {
+                            entity: target,
+                            value_type: ValueType::Health,
+                            operation: ValueChangeOperation::Subtract,
+                            amount: damage,
+                            message: Some(format!("Ow, you got hit with {item_reference_name}!")),
+                        }
+                        .apply(w)
+                    }))
+                }
+            }
+            CheckResult::ExtremeSuccess => {
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!(
+                            "You deftly throw {item_name}, and it impacts {target_name} perfectly."
+                        ),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
+                        MessageDelay::Short,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::SourceEntity,
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(" deftly throws ")
+                        .add_entity_name(item)
+                        .add_string(", and it impacts ")
+                        .add_entity_name(target)
+                        .add_string(" perfectly."),
+                        world,
+                    );
+                if is_living_entity(target, world) {
+                    let damage = item_weight.0 * HIT_DAMAGE_PER_KG * DIRECT_HIT_DAMAGE_MULT;
+                    let item_reference_name = get_article_reference_name(item, world);
+                    result_builder = result_builder.with_post_effect(Box::new(move |w| {
+                        ValueChange {
+                            entity: target,
+                            value_type: ValueType::Health,
+                            operation: ValueChangeOperation::Subtract,
+                            amount: damage,
+                            message: Some(format!("Ow, you got hit with {item_reference_name}!")),
+                        }
+                        .apply(w)
+                    }))
+                }
+            }
+        }
 
-        //TODO move the item to the room
+        // move the item to the room
+        result_builder = result_builder.with_post_effect(Box::new(move |w| {
+            move_entity(item, current_location_id, w);
+        }));
 
-        todo!() //TODO
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {

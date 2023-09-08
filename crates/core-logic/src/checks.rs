@@ -4,7 +4,7 @@ use rand_distr::StandardNormal;
 
 use crate::component::{Attribute, Attributes, Skill, Skills, Stats};
 
-const STANDARD_DEVIATION: f64 = 4.0;
+const STANDARD_DEVIATION: f64 = 5.0;
 
 /// The difficulty of a check.
 #[derive(Clone, Copy, Debug)]
@@ -18,6 +18,21 @@ pub struct CheckDifficulty {
 }
 
 impl CheckDifficulty {
+    /// Creates a difficulty with the provided target.
+    pub fn new(target: u32) -> CheckDifficulty {
+        let extreme_failure_threshold = if STANDARD_DEVIATION as u32 > target {
+            0
+        } else {
+            target - STANDARD_DEVIATION as u32
+        };
+
+        CheckDifficulty {
+            target,
+            extreme_failure_threshold,
+            extreme_success_threshold: target + STANDARD_DEVIATION as u32,
+        }
+    }
+
     /// For trivially easy checks.
     pub fn trivial() -> CheckDifficulty {
         CheckDifficulty {
@@ -41,7 +56,7 @@ impl CheckDifficulty {
         CheckDifficulty {
             target: 7,
             extreme_failure_threshold: 3,
-            extreme_success_threshold: 14,
+            extreme_success_threshold: 11,
         }
     }
 
@@ -49,7 +64,7 @@ impl CheckDifficulty {
     pub fn hard() -> CheckDifficulty {
         CheckDifficulty {
             target: 10,
-            extreme_failure_threshold: 5,
+            extreme_failure_threshold: 6,
             extreme_success_threshold: 20,
         }
     }
@@ -140,6 +155,8 @@ fn check_normal(stat_value: u32, difficulty: CheckDifficulty) -> CheckResult {
     let float_total = (raw_total * STANDARD_DEVIATION) + stat_value as f64;
 
     let total = float_total.round().clamp(0.0, u32::MAX.into()) as u32;
+
+    dbg!(stat_value, difficulty.target, total); //TODO remove
 
     if total < difficulty.extreme_failure_threshold {
         CheckResult::ExtremeFailure
