@@ -19,7 +19,7 @@ Non-goals:
 Planned features (in no particular order):
 - [ ] base building
 - [x] "survival needs" (hunger, thirst, etc.)
-- [ ] stats/skills
+- [x] stats/skills
 - [ ] combat
 - [ ] crafting
 - [x] mini-map
@@ -29,3 +29,4 @@ Planned features (in no particular order):
   - [x] allowing multiple players to connect to the same world
   - [ ] maintaining player state when you reconnect
 - [ ] procedurally generated world
+- [ ] saving and loading worlds
