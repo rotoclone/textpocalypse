@@ -5,8 +5,8 @@ use crate::{
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, EquippedItems,
         Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
-        Wearable, Weight, WornItems,
+        ParseCustomInput, Pronouns, Respawner, Room, SleepState, Stats, Vitals, Volume,
+        WanderBehavior, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -196,6 +196,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 hydration: ConstrainedValue::new_max(0.0, 100.0),
                 energy: ConstrainedValue::new_max(0.0, 100.0),
             },
+            Stats::new(8, 8),
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
             EquippedItems::new(2),

@@ -803,6 +803,19 @@ fn get_article_reference_name(entity: Entity, world: &World) -> String {
     }
 }
 
+/// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
+///
+/// If the entity has no description and is alive, this will return "them", otherwise it will return "it".
+fn get_personal_object_pronoun(entity: Entity, world: &World) -> String {
+    if let Some(desc) = world.get::<Description>(entity) {
+        desc.pronouns.personal_object.clone()
+    } else if is_living_entity(entity, world) {
+        "them".to_string()
+    } else {
+        "it".to_string()
+    }
+}
+
 /// Determines the total weight of an entity.
 fn get_weight(entity: Entity, world: &World) -> Weight {
     get_weight_recursive(entity, world, &mut vec![entity])
