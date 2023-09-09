@@ -7,7 +7,7 @@ use crate::{
     checks::{CheckDifficulty, CheckResult},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
-        HeldItems, Item, Location, Stats, Weight,
+        EquippedItems, Item, Location, Stats, Weight,
     },
     get_article_reference_name, get_reference_name, get_volume, get_weight,
     input_parser::{
@@ -21,7 +21,7 @@ use crate::{
     SurroundingsMessageCategory, ValueType, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, HoldAction};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, EquipAction};
 
 /// The number of kilograms an entity can throw per point of strength they have.
 const KG_CAN_THROW_PER_STRENGTH: f32 = 2.0;
@@ -396,8 +396,8 @@ impl Action for ThrowAction {
 
         // unequip the item and move it to the room
         result_builder = result_builder.with_post_effect(Box::new(move |w| {
-            HeldItems::unhold(performing_entity, item, w)
-                .expect("Should be able to stop holding thrown item");
+            EquippedItems::unequip(performing_entity, item, w)
+                .expect("Should be able to unequip thrown item");
             move_entity(item, current_location_id, w);
         }));
 
@@ -460,14 +460,14 @@ pub fn auto_equip_item_to_throw(
 
     // only try to equip the item if the thrower already has it, since otherwise the equip action will just fail anyway
     if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id) {
-        if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
-            if !held_items.is_holding(item) {
+        if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+            if !equipped_items.is_equipped(item) {
                 queue_action_first(
                     world,
                     notification.notification_type.performing_entity,
-                    Box::new(HoldAction {
+                    Box::new(EquipAction {
                         target: item,
-                        should_be_held: true,
+                        should_be_equipped: true,
                         notification_sender: ActionNotificationSender::new(),
                     }),
                 );
@@ -476,16 +476,16 @@ pub fn auto_equip_item_to_throw(
     }
 }
 
-/// Verifies that the entity trying to throw an item is holding it.
-pub fn verify_holding_item_to_throw(
+/// Verifies that the entity trying to throw an item has it equipped.
+pub fn verify_wielding_item_to_throw(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
     world: &World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
 
-    if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
-        if held_items.is_holding(item) {
+    if let Some(eqipped_items) = world.get::<EquippedItems>(performing_entity) {
+        if eqipped_items.is_equipped(item) {
             return VerifyResult::valid();
         }
     }
@@ -494,7 +494,7 @@ pub fn verify_holding_item_to_throw(
 
     VerifyResult::invalid(
         performing_entity,
-        GameMessage::Error(format!("You're not holding {item_name}.")),
+        GameMessage::Error(format!("You don't have {item_name} equipped.")),
     )
 }
 

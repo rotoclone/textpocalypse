@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     color::Color,
     component::{
-        Calories, Connection, Container, DescribeAttributes, Description, Edible, Fluid,
-        FluidContainer, FluidType, GreetBehavior, HeldItems, Item, KeyId, KeyedLock, OpenState,
+        Calories, Connection, Container, DescribeAttributes, Description, Edible, EquippedItems,
+        Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
         ParseCustomInput, Pronouns, Respawner, Room, SleepState, Vitals, Volume, WanderBehavior,
         Wearable, Weight, WornItems,
     },
@@ -179,7 +179,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 attribute_describers: vec![
                     SleepState::get_attribute_describer(),
                     WornItems::get_attribute_describer(),
-                    HeldItems::get_attribute_describer(),
+                    EquippedItems::get_attribute_describer(),
                 ],
             },
             Volume(70.0),
@@ -198,7 +198,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             },
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
-            HeldItems::new(2),
+            EquippedItems::new(2),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);

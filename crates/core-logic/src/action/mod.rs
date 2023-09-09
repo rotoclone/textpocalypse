@@ -57,9 +57,9 @@ mod remove;
 pub use remove::RemoveAction;
 pub use remove::RemoveParser;
 
-mod hold;
-pub use hold::HoldAction;
-pub use hold::HoldParser;
+mod equip;
+pub use equip::EquipAction;
+pub use equip::EquipParser;
 
 mod vitals;
 pub use vitals::VitalsParser;
@@ -102,7 +102,7 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
 
     NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
-    VerifyNotificationHandlers::add_handler(throw::verify_holding_item_to_throw, world);
+    VerifyNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
 
     NotificationHandlers::add_handler(r#move::look_after_move, world);
@@ -115,9 +115,9 @@ pub fn register_action_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(remove::prevent_remove_from_other_living_entity, world);
 
-    VerifyNotificationHandlers::add_handler(hold::verify_has_item_to_hold, world);
-    VerifyNotificationHandlers::add_handler(hold::verify_not_wearing_item_to_hold, world);
-    NotificationHandlers::add_handler(hold::auto_unhold_on_hold, world);
+    VerifyNotificationHandlers::add_handler(equip::verify_has_item_to_equip, world);
+    VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
+    NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
 }
 
 /// A message caused by some other entity's action.

@@ -4,10 +4,10 @@ use regex::Regex;
 
 use crate::{
     component::{
-        get_hands_to_hold, queue_action_first, ActionEndNotification,
-        AfterActionPerformNotification, HeldItems, HoldError, Item, Location, UnholdError,
+        get_hands_to_equip, queue_action_first, ActionEndNotification,
+        AfterActionPerformNotification, EquipError, EquippedItems, Item, Location, UnequipError,
     },
-    find_holding_entity, find_wearing_entity, get_reference_name,
+    find_wearing_entity, find_wielding_entity, get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -22,34 +22,33 @@ use super::{
     ThirdPersonMessageLocation,
 };
 
-//TODO it might be less confusing for all this holding stuff to be called "equip" so an item that's "held" can mean it's in your inventory
-const HOLD_VERB_NAME: &str = "hold";
-const UNHOLD_VERB_NAME: &str = "put away";
-const HOLD_FORMAT: &str = "hold <>";
-const UNHOLD_FORMAT: &str = "put away <>";
+const EQUIP_VERB_NAME: &str = "equip";
+const UNEQUIP_VERB_NAME: &str = "unequip";
+const EQUIP_FORMAT: &str = "equip <>";
+const UNEQUIP_FORMAT: &str = "unequip <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
-    static ref HOLD_PATTERN: Regex =
+    static ref EQUIP_PATTERN: Regex =
         Regex::new("^(hold|equip|wield|unholster|take out) (the )?(?P<name>.*)").unwrap();
-    static ref UNHOLD_PATTERN: Regex =
+    static ref UNEQUIP_PATTERN: Regex =
         Regex::new("^(unhold|unequip|unwield|holster|stow|put away) (the )?(?P<name>.*)").unwrap();
 }
 
-pub struct HoldParser;
+pub struct EquipParser;
 
-impl InputParser for HoldParser {
+impl InputParser for EquipParser {
     fn parse(
         &self,
         input: &str,
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let (captures, verb_name, should_be_held) =
-            if let Some(captures) = HOLD_PATTERN.captures(input) {
-                (captures, HOLD_VERB_NAME, true)
-            } else if let Some(captures) = UNHOLD_PATTERN.captures(input) {
-                (captures, UNHOLD_VERB_NAME, false)
+        let (captures, verb_name, should_be_equipped) =
+            if let Some(captures) = EQUIP_PATTERN.captures(input) {
+                (captures, EQUIP_VERB_NAME, true)
+            } else if let Some(captures) = UNEQUIP_PATTERN.captures(input) {
+                (captures, UNEQUIP_VERB_NAME, false)
             } else {
                 return Err(InputParseError::UnknownCommand);
             };
@@ -58,17 +57,17 @@ impl InputParser for HoldParser {
             let target = CommandTarget::parse(target_match.as_str());
             if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                 if world.get::<Item>(target_entity).is_some() {
-                    // target exists and is holdable
-                    return Ok(Box::new(HoldAction {
+                    // target exists and is equippable
+                    return Ok(Box::new(EquipAction {
                         target: target_entity,
-                        should_be_held,
+                        should_be_equipped,
                         notification_sender: ActionNotificationSender::new(),
                     }));
                 } else {
-                    // target isn't holdable
+                    // target isn't equippable
                     let target_name = get_reference_name(target_entity, Some(source_entity), world);
                     return Err(InputParseError::CommandParseError {
-                        verb: HOLD_VERB_NAME.to_string(),
+                        verb: EQUIP_VERB_NAME.to_string(),
                         error: CommandParseError::Other(format!(
                             "You can't {verb_name} {target_name}."
                         )),
@@ -87,71 +86,71 @@ impl InputParser for HoldParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![HOLD_FORMAT.to_string(), UNHOLD_FORMAT.to_string()]
+        vec![EQUIP_FORMAT.to_string(), UNEQUIP_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Item>(entity, world, &[HOLD_FORMAT, UNHOLD_FORMAT])
+        input_formats_if_has_component::<Item>(entity, world, &[EQUIP_FORMAT, UNEQUIP_FORMAT])
     }
 }
 
 #[derive(Debug)]
-pub struct HoldAction {
+pub struct EquipAction {
     pub target: Entity,
-    pub should_be_held: bool,
+    pub should_be_equipped: bool,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for HoldAction {
+impl Action for EquipAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
         let target_name = get_reference_name(target, Some(performing_entity), world);
 
-        if self.should_be_held {
-            match HeldItems::hold(performing_entity, target, world) {
+        if self.should_be_equipped {
+            match EquippedItems::equip(performing_entity, target, world) {
                 Ok(()) => (),
-                Err(HoldError::CannotHold) => {
+                Err(EquipError::CannotEquip) => {
                     return ActionResult::builder()
-                        .with_error(performing_entity, "You can't hold things.".to_string())
+                        .with_error(performing_entity, "You can't equip things.".to_string())
                         .build_complete_no_tick(false)
                 }
-                Err(HoldError::CannotBeHeld) => {
+                Err(EquipError::CannotBeEquipped) => {
                     return ActionResult::builder()
-                        .with_error(performing_entity, format!("You can't hold {target_name}."))
+                        .with_error(performing_entity, format!("You can't equip {target_name}."))
                         .build_complete_no_tick(false)
                 }
-                Err(HoldError::AlreadyHeld) => {
+                Err(EquipError::AlreadyEquipped) => {
                     return ActionResult::builder()
                         .with_error(
                             performing_entity,
-                            format!("You're already holding {target_name}."),
+                            format!("You already have {target_name} equipped."),
                         )
                         .build_complete_no_tick(false)
                 }
-                Err(HoldError::NotEnoughHands) => {
+                Err(EquipError::NotEnoughHands) => {
                     return ActionResult::builder()
                         .with_error(
                             performing_entity,
-                            format!("You don't have enough free hands to hold {target_name}."),
+                            format!("You don't have enough free hands to equip {target_name}."),
                         )
                         .build_complete_no_tick(false);
                 }
             }
         } else {
-            match HeldItems::unhold(performing_entity, target, world) {
+            match EquippedItems::unequip(performing_entity, target, world) {
                 Ok(()) => (),
-                Err(UnholdError::NotHolding) => {
+                Err(UnequipError::NotEquipped) => {
                     return ActionResult::builder()
                         .with_error(
                             performing_entity,
-                            format!("You're not holding {target_name}."),
+                            format!("You don't have {target_name} equipped."),
                         )
                         .build_complete_no_tick(false)
                 }
             }
         }
 
-        let (take_out_or_put_away, takes_out_or_puts_away) = if self.should_be_held {
+        let (take_out_or_put_away, takes_out_or_puts_away) = if self.should_be_equipped {
             ("take out", "takes out")
         } else {
             ("put away", "puts away")
@@ -181,17 +180,17 @@ impl Action for HoldAction {
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
-        if self.should_be_held {
+        if self.should_be_equipped {
             ActionInterruptResult::message(
                 performing_entity,
-                "You stop holding things.".to_string(),
+                "You stop equipping things.".to_string(),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::None,
             )
         } else {
             ActionInterruptResult::message(
                 performing_entity,
-                "You stop putting things away.".to_string(),
+                "You stop unequipping things.".to_string(),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::None,
             )
@@ -235,9 +234,9 @@ impl Action for HoldAction {
     }
 }
 
-/// Verifies that the entity trying to hold an item contains it.
-pub fn verify_has_item_to_hold(
-    notification: &Notification<VerifyActionNotification, HoldAction>,
+/// Verifies that the entity trying to equip an item contains it.
+pub fn verify_has_item_to_equip(
+    notification: &Notification<VerifyActionNotification, EquipAction>,
     world: &World,
 ) -> VerifyResult {
     let item = notification.contents.target;
@@ -257,9 +256,9 @@ pub fn verify_has_item_to_hold(
     )
 }
 
-/// Verifies that the entity trying to hold an item is not wearing it.
-pub fn verify_not_wearing_item_to_hold(
-    notification: &Notification<VerifyActionNotification, HoldAction>,
+/// Verifies that the entity trying to equip an item is not wearing it.
+pub fn verify_not_wearing_item_to_equip(
+    notification: &Notification<VerifyActionNotification, EquipAction>,
     world: &World,
 ) -> VerifyResult {
     let item = notification.contents.target;
@@ -271,7 +270,7 @@ pub fn verify_not_wearing_item_to_hold(
             return VerifyResult::invalid(
                 performing_entity,
                 GameMessage::Error(format!(
-                    "You'll have to take off {item_name} before you can hold it."
+                    "You'll have to take off {item_name} before you can equip it."
                 )),
             );
         }
@@ -280,53 +279,53 @@ pub fn verify_not_wearing_item_to_hold(
     VerifyResult::valid()
 }
 
-/// Attempts to unhold items to make room before holding another item.
-pub fn auto_unhold_on_hold(
-    notification: &Notification<BeforeActionNotification, HoldAction>,
+/// Attempts to unequip items to make room before equipping another item.
+pub fn auto_unequip_on_equip(
+    notification: &Notification<BeforeActionNotification, EquipAction>,
     world: &mut World,
 ) {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
 
-    // need to check holding entity to make sure the item isn't already being held, to avoid unholding the entity just to hold it again
-    if notification.contents.should_be_held && find_holding_entity(item, world).is_none() {
-        // about to hold something
+    // need to check wielding entity to make sure the item isn't already equipped, to avoid unequipping the entity just to equip it again
+    if notification.contents.should_be_equipped && find_wielding_entity(item, world).is_none() {
+        // about to equip something
         // NOTE: this verification only works because checking free hands is done as part of the action being performed rather than in a verify handler
         if notification
             .contents
             .send_verify_notification(VerifyActionNotification { performing_entity }, world)
             .is_valid
         {
-            if let Some(num_hands_needed) = get_hands_to_hold(item, world) {
-                if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
-                    let num_hands_used = held_items.get_num_hands_used(world);
-                    let num_hands_available = held_items.hands - num_hands_used;
+            if let Some(num_hands_needed) = get_hands_to_equip(item, world) {
+                if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+                    let num_hands_used = equipped_items.get_num_hands_used(world);
+                    let num_hands_available = equipped_items.hands - num_hands_used;
                     if num_hands_needed.get() > num_hands_available {
-                        // not enough free hands to hold item, figure out which items to unhold
+                        // not enough free hands to equip item, figure out which items to unequip
                         let num_hands_to_free = num_hands_needed.get() - num_hands_available;
                         let mut num_hands_freed = 0;
-                        let mut items_to_unhold = Vec::new();
+                        let mut items_to_unequip = Vec::new();
                         while num_hands_to_free > num_hands_freed {
                             if let Some(oldest_item) =
-                                held_items.get_oldest_item(items_to_unhold.len())
+                                equipped_items.get_oldest_item(items_to_unequip.len())
                             {
-                                num_hands_freed += get_hands_to_hold(oldest_item, world)
+                                num_hands_freed += get_hands_to_equip(oldest_item, world)
                                     .map(|h| h.get())
                                     .unwrap_or(0);
-                                items_to_unhold.push(oldest_item);
+                                items_to_unequip.push(oldest_item);
                             } else {
                                 break;
                             }
                         }
 
-                        // queue up unhold actions
-                        for item_to_unhold in items_to_unhold {
+                        // queue up unequip actions
+                        for item_to_unequip in items_to_unequip {
                             queue_action_first(
                                 world,
                                 performing_entity,
-                                Box::new(HoldAction {
-                                    target: item_to_unhold,
-                                    should_be_held: false,
+                                Box::new(EquipAction {
+                                    target: item_to_unequip,
+                                    should_be_equipped: false,
                                     notification_sender: ActionNotificationSender::new(),
                                 }),
                             );
