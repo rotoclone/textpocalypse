@@ -6,8 +6,8 @@ use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckDifficulty, CheckResult},
     component::{
-        ActionEndNotification, AfterActionPerformNotification, Attribute, Item, Location, Stats,
-        Weight,
+        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
+        HeldItems, Item, Location, Stats, Weight,
     },
     get_article_reference_name, get_reference_name, get_volume, get_weight,
     input_parser::{
@@ -15,13 +15,13 @@ use crate::{
         InputParser,
     },
     is_living_entity, move_entity,
-    notification::VerifyResult,
+    notification::{Notification, VerifyResult},
     value_change::{ValueChange, ValueChangeOperation},
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, ValueType, VerifyActionNotification,
 };
 
-use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, HoldAction};
 
 /// The number of kilograms an entity can throw per point of strength they have.
 const KG_CAN_THROW_PER_STRENGTH: f32 = 2.0;
@@ -33,7 +33,7 @@ const HIT_DAMAGE_PER_KG: f32 = 3.0;
 const DIRECT_HIT_DAMAGE_MULT: f32 = 2.0;
 
 /// The amount to multiply the difficulty multiplier of a throw check by for hitting an inanimate object with a volume of 1 liter
-const VOLUME_DIFFICULTY_MULT_MULT: f32 = 2.0;
+const VOLUME_DIFFICULTY_MULT_MULT: f32 = 3.0;
 
 /// The base difficutly of a throw check per kilogram the thrown object weighs
 const DIFFICULTY_PER_KG: f32 = 1.0;
@@ -42,7 +42,7 @@ const DIFFICULTY_PER_KG: f32 = 1.0;
 const MIN_BASE_DIFFICULTY: f32 = 5.0;
 
 /// The minimum amount to multiply throw check difficulty by due to the size of the target
-const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.33;
+const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 
 /// The maximum amount to multiply throw check difficulty by due to the size of the target
 const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
@@ -394,8 +394,10 @@ impl Action for ThrowAction {
             }
         }
 
-        // move the item to the room
+        // unequip the item and move it to the room
         result_builder = result_builder.with_post_effect(Box::new(move |w| {
+            HeldItems::unhold(performing_entity, item, w)
+                .expect("Should be able to stop holding thrown item");
             move_entity(item, current_location_id, w);
         }));
 
@@ -448,6 +450,72 @@ impl Action for ThrowAction {
     }
 }
 
-//TODO auto-equip the item to throw if it isn't equipped
+/// Attempts to equip the item to throw automatically before an attempt is made to throw it.
+pub fn auto_equip_item_to_throw(
+    notification: &Notification<BeforeActionNotification, ThrowAction>,
+    world: &mut World,
+) {
+    let item = notification.contents.item;
+    let performing_entity = notification.notification_type.performing_entity;
 
-//TODO validate that the item to throw is equipped
+    // only try to equip the item if the thrower already has it, since otherwise the equip action will just fail anyway
+    if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id) {
+        if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
+            if !held_items.is_holding(item) {
+                queue_action_first(
+                    world,
+                    notification.notification_type.performing_entity,
+                    Box::new(HoldAction {
+                        target: item,
+                        should_be_held: true,
+                        notification_sender: ActionNotificationSender::new(),
+                    }),
+                );
+            }
+        }
+    }
+}
+
+/// Verifies that the entity trying to throw an item is holding it.
+pub fn verify_holding_item_to_throw(
+    notification: &Notification<VerifyActionNotification, ThrowAction>,
+    world: &World,
+) -> VerifyResult {
+    let item = notification.contents.item;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if let Some(held_items) = world.get::<HeldItems>(performing_entity) {
+        if held_items.is_holding(item) {
+            return VerifyResult::valid();
+        }
+    }
+
+    let item_name = get_reference_name(item, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You're not holding {item_name}.")),
+    )
+}
+
+/// Verifies that the target is in the same room as the thrower.
+pub fn verify_target_in_same_room(
+    notification: &Notification<VerifyActionNotification, ThrowAction>,
+    world: &World,
+) -> VerifyResult {
+    let target = notification.contents.target;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if let Some(thrower_location) = world.get::<Location>(performing_entity) {
+        if Some(thrower_location) == world.get::<Location>(target) {
+            return VerifyResult::valid();
+        }
+    }
+
+    let target_name = get_reference_name(target, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("{target_name} isn't here.")),
+    )
+}

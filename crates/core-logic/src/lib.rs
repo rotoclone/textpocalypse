@@ -684,6 +684,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
     let mut entity_ref = world.entity_mut(entity);
     entity_ref.remove::<Vitals>();
+    entity_ref.insert(Item::new_two_handed());
     if let Some(desc) = entity_ref.remove::<Description>() {
         let mut aliases = desc.aliases;
         aliases.push("dead body".to_string());

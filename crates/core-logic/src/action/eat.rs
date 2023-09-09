@@ -159,3 +159,7 @@ impl Action for EatAction {
             .send_end_notification(notification_type, self, world);
     }
 }
+
+//TODO auto-equip item to eat
+
+//TODO verify that the item to eat is being held by the eater
