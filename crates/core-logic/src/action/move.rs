@@ -3,10 +3,9 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    checks::{CheckDifficulty, CheckResult},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Container,
-        Location, Skill, Stats,
+        Location,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,

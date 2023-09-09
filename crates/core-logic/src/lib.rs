@@ -117,7 +117,7 @@ impl StandardInputParsers {
                 Box::new(PourParser),
                 Box::new(WearParser),
                 Box::new(RemoveParser),
-                Box::new(HoldParser),
+                Box::new(EquipParser),
                 Box::new(SayParser),
                 Box::new(VitalsParser),
                 Box::new(StatsParser),
@@ -386,13 +386,13 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         attribute_describers: vec![
             SleepState::get_attribute_describer(),
             WornItems::get_attribute_describer(),
-            HeldItems::get_attribute_describer(),
+            EquippedItems::get_attribute_describer(),
         ],
     };
     let vitals = Vitals::new();
     let stats = build_starting_stats();
     let worn_items = WornItems::new(5);
-    let held_items = HeldItems::new(2);
+    let equipped_items = EquippedItems::new(2);
     let action_queue = ActionQueue::new();
     let player_entity = world
         .spawn((
@@ -404,7 +404,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             vitals,
             stats,
             worn_items,
-            held_items,
+            equipped_items,
             action_queue,
         ))
         .id();
@@ -889,11 +889,11 @@ fn find_wearing_entity(entity: Entity, world: &World) -> Option<Entity> {
     None
 }
 
-/// Finds the entity that is currently holding the provided entity.
-fn find_holding_entity(entity: Entity, world: &World) -> Option<Entity> {
+/// Finds the entity that currently has the provided entity equipped.
+fn find_wielding_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
-        if let Some(held_items) = world.get::<HeldItems>(location.id) {
-            if held_items.is_holding(entity) {
+        if let Some(equipped_items) = world.get::<EquippedItems>(location.id) {
+            if equipped_items.is_equipped(entity) {
                 return Some(location.id);
             }
         }

@@ -162,4 +162,4 @@ impl Action for EatAction {
 
 //TODO auto-equip item to eat
 
-//TODO verify that the item to eat is being held by the eater
+//TODO verify that the item to eat is equipped by the eater
