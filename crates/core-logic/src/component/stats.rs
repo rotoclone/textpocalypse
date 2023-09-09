@@ -62,6 +62,15 @@ impl Attributes {
         }
     }
 
+    /// Gets the value of the provided attribute.
+    pub fn get(&self, attribute: Attribute) -> u32 {
+        *match attribute {
+            Attribute::Custom(s) => self.custom.get(&s),
+            a => self.standard.get(&a),
+        }
+        .unwrap_or(&0)
+    }
+
     /// Gets all the attributes and their values.
     pub fn get_all(&self) -> Vec<(Attribute, u32)> {
         let standards = self
@@ -100,6 +109,15 @@ impl Skills {
             standard,
             custom: HashMap::new(),
         }
+    }
+
+    /// Gets the value of the provided skill.
+    pub fn get(&self, skill: Skill) -> u32 {
+        *match skill {
+            Skill::Custom(s) => self.custom.get(&s),
+            a => self.standard.get(&a),
+        }
+        .unwrap_or(&0)
     }
 
     /// Gets all the skills and their values.

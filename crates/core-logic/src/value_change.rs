@@ -91,6 +91,7 @@ impl ValueChange {
                 );
             }
 
+            //TODO add ability to specify other entities to send notifications to
             Notification {
                 notification_type: ValueChangedNotification {
                     entity: self.entity,

@@ -22,6 +22,7 @@ use super::{
     ThirdPersonMessageLocation,
 };
 
+//TODO it might be less confusing for all this holding stuff to be called "equip" so an item that's "held" can mean it's in your inventory
 const HOLD_VERB_NAME: &str = "hold";
 const UNHOLD_VERB_NAME: &str = "put away";
 const HOLD_FORMAT: &str = "hold <>";

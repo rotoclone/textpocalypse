@@ -182,6 +182,8 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                     HeldItems::get_attribute_describer(),
                 ],
             },
+            Volume(70.0),
+            Weight(65.0),
             WanderBehavior {
                 move_chance_per_tick: 0.25,
             },

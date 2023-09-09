@@ -40,6 +40,10 @@ mod put;
 pub use put::PutAction;
 pub use put::PutParser;
 
+mod throw;
+pub use throw::ThrowAction;
+pub use throw::ThrowParser;
+
 mod pour;
 pub use pour::PourAction;
 pub use pour::PourAmount;
@@ -96,6 +100,10 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
+
+    NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
+    VerifyNotificationHandlers::add_handler(throw::verify_holding_item_to_throw, world);
+    VerifyNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
 
     NotificationHandlers::add_handler(r#move::look_after_move, world);
 

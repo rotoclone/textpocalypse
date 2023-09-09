@@ -165,8 +165,7 @@ impl EntityDescription {
 
 fn build_aliases(desc: &Description) -> Vec<String> {
     once(desc.room_name.clone())
-        .into_iter()
-        .chain(desc.aliases.clone().into_iter())
+        .chain(desc.aliases.clone())
         .filter(|name| name != &desc.name)
         .collect()
 }
