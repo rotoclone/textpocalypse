@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use log::debug;
 use rand::Rng;
 use rand_distr::StandardNormal;
 
@@ -156,7 +157,10 @@ fn check_normal(stat_value: u32, difficulty: CheckDifficulty) -> CheckResult {
 
     let total = float_total.round().clamp(0.0, u32::MAX.into()) as u32;
 
-    dbg!(stat_value, difficulty.target, total); //TODO remove
+    debug!(
+        "Check performed with stat value {} against difficulty {}. Total: {}",
+        stat_value, difficulty.target, total
+    );
 
     if total < difficulty.extreme_failure_threshold {
         CheckResult::ExtremeFailure
