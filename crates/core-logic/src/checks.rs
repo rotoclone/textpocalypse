@@ -138,10 +138,10 @@ fn check_normal(stat_name: &str, stat_value: u32, difficulty: CheckDifficulty) -
 
     let total = float_total.round().clamp(0.0, u32::MAX.into()) as u32;
 
-    info!(
+    debug!(
         "{} check: stat value {}, difficulty {}, total {}",
         stat_name, stat_value, difficulty.target, total
-    ); //TODO change back to debug
+    );
 
     if total < difficulty.extreme_failure_threshold {
         CheckResult::ExtremeFailure

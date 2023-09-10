@@ -1,7 +1,7 @@
 use anyhow::Result;
 use core_logic::Game;
 use futures::{SinkExt, StreamExt};
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use tokio::net::TcpListener;
 use tokio_util::codec::{Decoder, LinesCodec};
 
@@ -42,7 +42,7 @@ pub async fn start_server(mut game: Game) -> Result<()> {
                         break;
                     }
                 };
-                debug!("Got message: {message:?}");
+                trace!("Got message: {message:?}");
                 let delay = delay_for_message(&message);
                 let rendered_message = message_to_string(message, Some(game_time));
                 sink.send(format!("{rendered_message}\n"))
