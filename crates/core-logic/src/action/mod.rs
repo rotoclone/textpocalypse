@@ -313,13 +313,7 @@ impl MessageToken {
     /// Resolves the token to a string.
     fn to_string(&self, pov_entity: Entity, world: &World) -> String {
         match self {
-            MessageToken::EntityName(e) => {
-                if *e == pov_entity {
-                    "you".to_string()
-                } else {
-                    get_reference_name(*e, Some(pov_entity), world)
-                }
-            }
+            MessageToken::EntityName(e) => get_reference_name(*e, Some(pov_entity), world),
             MessageToken::EntityPersonalObjectPronoun(e) => {
                 if *e == pov_entity {
                     "you".to_string()

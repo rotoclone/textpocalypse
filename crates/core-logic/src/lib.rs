@@ -748,7 +748,13 @@ fn get_name(entity: Entity, world: &World) -> Option<String> {
 /// Builds a string to use to refer to the provided entity from the point of view of another entity.
 ///
 /// For example, if the entity is named "book", this will return "the book".
+///
+/// If `pov_entity` is the same as `entity`, this will return "you".
 fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+    if Some(entity) == pov_entity {
+        return "you".to_string();
+    }
+
     let article = get_definite_article(entity, pov_entity, world)
         .map_or_else(|| "".to_string(), |a| format!("{a} "));
     get_name(entity, world).map_or("it".to_string(), |name| format!("{article}{name}"))

@@ -514,12 +514,6 @@ fn result_builder_with_throw_extreme_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_message(
-            context.target,
-            format!("You hurl {item_name} wildly, and it comes nowhere close to {target_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
         .with_third_person_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
