@@ -748,7 +748,13 @@ fn get_name(entity: Entity, world: &World) -> Option<String> {
 /// Builds a string to use to refer to the provided entity from the point of view of another entity.
 ///
 /// For example, if the entity is named "book", this will return "the book".
+///
+/// If `pov_entity` is the same as `entity`, this will return "you".
 fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+    if Some(entity) == pov_entity {
+        return "you".to_string();
+    }
+
     let article = get_definite_article(entity, pov_entity, world)
         .map_or_else(|| "".to_string(), |a| format!("{a} "));
     get_name(entity, world).map_or("it".to_string(), |name| format!("{article}{name}"))
@@ -800,6 +806,19 @@ fn get_article_reference_name(entity: Entity, world: &World) -> String {
         "someone".to_string()
     } else {
         "something".to_string()
+    }
+}
+
+/// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
+///
+/// If the entity has no description and is alive, this will return "them", otherwise it will return "it".
+fn get_personal_object_pronoun(entity: Entity, world: &World) -> String {
+    if let Some(desc) = world.get::<Description>(entity) {
+        desc.pronouns.personal_object.clone()
+    } else if is_living_entity(entity, world) {
+        "them".to_string()
+    } else {
+        "it".to_string()
     }
 }
 

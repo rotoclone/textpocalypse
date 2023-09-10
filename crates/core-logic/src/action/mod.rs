@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
@@ -10,8 +10,8 @@ use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, get_reference_name, send_message, BeforeActionNotification,
-    MessageCategory, MessageDelay, VerifyActionNotification,
+    can_receive_messages, get_personal_object_pronoun, get_reference_name, send_message,
+    BeforeActionNotification, MessageCategory, MessageDelay, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -128,6 +128,10 @@ pub struct ThirdPersonMessage {
     pub category: MessageCategory,
     /// The delay of the message.
     pub delay: MessageDelay,
+    /// A list of entities to send the message to, if it should be sent to a limited set of them.
+    pub receivers_override: Option<HashSet<Entity>>,
+    /// A list of entities to not send the message to.
+    pub receivers_to_exclude: HashSet<Entity>,
 }
 
 impl ThirdPersonMessage {
@@ -137,6 +141,8 @@ impl ThirdPersonMessage {
             parts: Vec::new(),
             category,
             delay,
+            receivers_override: None,
+            receivers_to_exclude: HashSet::new(),
         }
     }
 
@@ -151,6 +157,61 @@ impl ThirdPersonMessage {
     pub fn add_entity_name(mut self, entity: Entity) -> ThirdPersonMessage {
         self.parts
             .push(MessagePart::Token(MessageToken::EntityName(entity)));
+
+        self
+    }
+
+    /// Adds an entity personal object pronoun (e.g. him, her, they) token to the message.
+    pub fn add_entity_personal_object_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts.push(MessagePart::Token(
+            MessageToken::EntityPersonalObjectPronoun(entity),
+        ));
+
+        self
+    }
+
+    /// Sets this message to be only sent to the provided entity.
+    /// The provided entity will only receive the message if they already would have without this method being called.
+    ///
+    /// If an entity is passed to both `only_send_to` and `do_not_send_to`, the entity will not receive the message.
+    ///
+    /// Calling this multiple times will override any previous calls.
+    pub fn only_send_to(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.receivers_override = Some(HashSet::from([entity]));
+
+        self
+    }
+
+    /// Sets this message to be only sent to the provided entities.
+    /// The provided entities will only receive the message if they already would have without this method being called.
+    ///
+    /// If an entity is passed to both `only_send_to_entities` and `do_not_send_to_entities`, the entity will not receive the message.
+    ///
+    /// Calling this multiple times will override any previous calls.
+    pub fn only_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage {
+        self.receivers_override = Some(entities.iter().cloned().collect());
+
+        self
+    }
+
+    /// Prevents this message from being sent to the provided entity.
+    ///
+    /// If an entity is passed to both `only_send_to` and `do_not_send_to`, the entity will not receive the message.
+    ///
+    /// Calling this multiple times will add more entities to not send messages to.
+    pub fn do_not_send_to(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.receivers_to_exclude.insert(entity);
+
+        self
+    }
+
+    /// Prevents this message from being sent to the provided entities.
+    ///
+    /// If an entity is passed to both `only_send_to_entities` and `do_not_send_to_entities`, the entity will not receive the message.
+    ///
+    /// Calling this multiple times will add more entities to not send messages to.
+    pub fn do_not_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage {
+        self.receivers_to_exclude.extend(entities);
 
         self
     }
@@ -186,7 +247,16 @@ impl ThirdPersonMessage {
         if let Some(location) = location {
             if let Some(container) = world.get::<Container>(location) {
                 for entity in &container.entities {
-                    if Some(*entity) != source_entity && can_receive_messages(world, *entity) {
+                    if Some(*entity) != source_entity
+                        && !self.receivers_to_exclude.contains(entity)
+                        && can_receive_messages(world, *entity)
+                    {
+                        if let Some(receivers_override) = &self.receivers_override {
+                            if !receivers_override.contains(entity) {
+                                // the receiving entities were overridden and this one isn't on the list, so skip it
+                                continue;
+                            }
+                        }
                         message_map.insert(*entity, self.to_game_message_for(*entity, world));
                     }
                 }
@@ -227,6 +297,8 @@ pub enum MessagePart {
 pub enum MessageToken {
     /// The name of an entity.
     EntityName(Entity),
+    /// The personal object pronoun of an entity (e.g. him, her, them).
+    EntityPersonalObjectPronoun(Entity),
 }
 
 /// The location to send a third-person message in.
@@ -242,6 +314,13 @@ impl MessageToken {
     fn to_string(&self, pov_entity: Entity, world: &World) -> String {
         match self {
             MessageToken::EntityName(e) => get_reference_name(*e, Some(pov_entity), world),
+            MessageToken::EntityPersonalObjectPronoun(e) => {
+                if *e == pov_entity {
+                    "you".to_string()
+                } else {
+                    get_personal_object_pronoun(*e, world)
+                }
+            }
         }
     }
 }

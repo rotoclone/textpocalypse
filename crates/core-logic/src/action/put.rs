@@ -401,6 +401,8 @@ impl Action for PutAction {
     }
 }
 
+//TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item
+
 /// Verifies that the source and destination entities are containers.
 pub fn verify_source_and_destination_are_containers(
     notification: &Notification<VerifyActionNotification, PutAction>,
