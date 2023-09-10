@@ -196,3 +196,7 @@ impl Action for DrinkAction {
             .send_end_notification(notification_type, self, world);
     }
 }
+
+//TODO auto-equip item to drink from
+
+//TODO verify that the item to drink from is equipped by the drinker

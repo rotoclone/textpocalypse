@@ -318,46 +318,41 @@ impl Action for ThrowAction {
                     world,
                 );
             }
-            CheckResult::Success => {
-                if let Some(dodge_result) = dodge_result {
-                    match dodge_result {
-                        CheckResult::ExtremeFailure => {
-                            hit = true;
-                            result_builder =
-                                result_builder_with_throw_success_dodge_extreme_fail_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                        CheckResult::Failure => {
-                            hit = true;
-                            result_builder = result_builder_with_throw_success_dodge_fail_messages(
-                                result_builder,
-                                &message_context,
-                                world,
-                            );
-                        }
-                        CheckResult::Success => {
-                            hit = false;
-                            result_builder =
-                                result_builder_with_throw_success_dodge_success_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                        CheckResult::ExtremeSuccess => {
-                            hit = false;
-                            result_builder =
-                                result_builder_with_throw_success_dodge_extreme_success_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                    }
-                } else {
+            CheckResult::Success => match dodge_result {
+                Some(CheckResult::ExtremeFailure) => {
+                    hit = true;
+                    result_builder = result_builder_with_throw_success_dodge_extreme_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
+                Some(CheckResult::Failure) => {
+                    hit = true;
+                    result_builder = result_builder_with_throw_success_dodge_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
+                Some(CheckResult::Success) => {
+                    hit = false;
+                    result_builder = result_builder_with_throw_success_dodge_success_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
+                Some(CheckResult::ExtremeSuccess) => {
+                    hit = false;
+                    result_builder =
+                        result_builder_with_throw_success_dodge_extreme_success_messages(
+                            result_builder,
+                            &message_context,
+                            world,
+                        );
+                }
+                None => {
                     hit = true;
                     result_builder = result_builder_with_throw_success_no_dodge_messages(
                         result_builder,
@@ -365,48 +360,44 @@ impl Action for ThrowAction {
                         world,
                     );
                 }
-            }
-            CheckResult::ExtremeSuccess => {
-                if let Some(dodge_result) = dodge_result {
-                    match dodge_result {
-                        CheckResult::ExtremeFailure => {
-                            hit = true;
-                            result_builder =
-                                result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                        CheckResult::Failure => {
-                            hit = true;
-                            result_builder =
-                                result_builder_with_throw_extreme_success_dodge_fail_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                        CheckResult::Success => {
-                            hit = false;
-                            result_builder =
-                                result_builder_with_throw_extreme_success_dodge_success_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                        CheckResult::ExtremeSuccess => {
-                            hit = false;
-                            result_builder =
-                                result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
-                                    result_builder,
-                                    &message_context,
-                                    world,
-                                );
-                        }
-                    }
-                } else {
+            },
+            CheckResult::ExtremeSuccess => match dodge_result {
+                Some(CheckResult::ExtremeFailure) => {
+                    hit = true;
+                    result_builder =
+                        result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
+                            result_builder,
+                            &message_context,
+                            world,
+                        );
+                }
+                Some(CheckResult::Failure) => {
+                    hit = true;
+                    result_builder = result_builder_with_throw_extreme_success_dodge_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
+                Some(CheckResult::Success) => {
+                    hit = false;
+                    result_builder =
+                        result_builder_with_throw_extreme_success_dodge_success_messages(
+                            result_builder,
+                            &message_context,
+                            world,
+                        );
+                }
+                Some(CheckResult::ExtremeSuccess) => {
+                    hit = false;
+                    result_builder =
+                        result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
+                            result_builder,
+                            &message_context,
+                            world,
+                        );
+                }
+                None => {
                     hit = true;
                     result_builder = result_builder_with_throw_extreme_success_no_dodge_messages(
                         result_builder,
@@ -414,7 +405,7 @@ impl Action for ThrowAction {
                         world,
                     );
                 }
-            }
+            },
         }
 
         if hit && is_living_entity(target, world) {
@@ -523,6 +514,12 @@ fn result_builder_with_throw_extreme_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
+        .with_message(
+            context.target,
+            format!("You hurl {item_name} wildly, and it comes nowhere close to {target_name}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
+            MessageDelay::Short,
+        )
         .with_third_person_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
@@ -584,18 +581,30 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} in the chest.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" throws ")
+    .add_entity_name(context.item)
+    .add_string(", and it seems like you don't even try to move out of the way before it hits you in the chest.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" throws ")
     .add_entity_name(context.item)
     .add_string(", and it seems like ")
     .add_entity_name(context.target)
-    .add_string(format!(
-        " doesn't even try to move out of the way before it hits {target_pronoun} in the chest."
-    ));
+    .add_string(" doesn't even try to move out of the way before it hits ")
+    .add_entity_personal_object_pronoun(context.target)
+    .add_string(" in the chest.");
 
     result_builder
         .with_message(
@@ -603,6 +612,12 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -623,18 +638,30 @@ fn result_builder_with_throw_success_dodge_fail_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} in the chest.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" throws ")
+    .add_entity_name(context.item)
+    .add_string(", and you aren't able to get out of the way before it hits you in the chest.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" throws ")
     .add_entity_name(context.item)
     .add_string(", and ")
     .add_entity_name(context.target)
-    .add_string(format!(
-        " isn't able to get out of the way before it hits {target_pronoun} in the chest."
-    ));
+    .add_string(" isn't able to get out of the way before it hits ")
+    .add_entity_personal_object_pronoun(context.target)
+    .add_string(" in the chest.");
 
     result_builder
         .with_message(
@@ -642,6 +669,12 @@ fn result_builder_with_throw_success_dodge_fail_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -662,18 +695,30 @@ fn result_builder_with_throw_success_dodge_success_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" throws ")
+    .add_entity_name(context.item)
+    .add_string(", but you move out of the way just before it hits you.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" throws ")
     .add_entity_name(context.item)
     .add_string(", but ")
     .add_entity_name(context.target)
-    .add_string(format!(
-        " moves out of the way just before it hits {target_pronoun}."
-    ));
+    .add_string(" moves out of the way just before it hits ")
+    .add_entity_personal_object_pronoun(context.target)
+    .add_string(".");
 
     result_builder
         .with_message(
@@ -681,6 +726,12 @@ fn result_builder_with_throw_success_dodge_success_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -702,10 +753,22 @@ fn result_builder_with_throw_success_dodge_extreme_success_messages(
     let message = format!(
         "You throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
     );
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" throws ")
+    .add_entity_name(context.item)
+    .add_string(", but you calmly shift just enough to avoid being hit.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" throws ")
     .add_entity_name(context.item)
@@ -719,6 +782,12 @@ fn result_builder_with_throw_success_dodge_extreme_success_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -775,18 +844,30 @@ fn result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You deftly throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" deftly throws ")
+    .add_entity_name(context.item)
+    .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" deftly throws ")
     .add_entity_name(context.item)
     .add_string(", and it seems like ")
     .add_entity_name(context.target)
-    .add_string(format!(
-        " doesn't even try to move out of the way before it hits {target_pronoun} directly in the face."
-    ));
+    .add_string(" doesn't even try to move out of the way before it hits ")
+    .add_entity_personal_object_pronoun(context.target)
+    .add_string(" directly in the face.");
 
     result_builder
         .with_message(
@@ -794,6 +875,12 @@ fn result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -814,18 +901,32 @@ fn result_builder_with_throw_extreme_success_dodge_fail_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You deftly throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} directly in the face.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" deftly throws ")
+    .add_entity_name(context.item)
+    .add_string(
+        ", and you aren't able to get out of the way before it hits you directly in the face.",
+    );
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" deftly throws ")
     .add_entity_name(context.item)
     .add_string(", and ")
     .add_entity_name(context.target)
-    .add_string(format!(
-        " isn't able to get out of the way before it hits {target_pronoun} directly in the face."
-    ));
+    .add_string(" isn't able to get out of the way before it hits ")
+    .add_entity_personal_object_pronoun(context.target)
+    .add_string(" directly in the face.");
 
     result_builder
         .with_message(
@@ -833,6 +934,12 @@ fn result_builder_with_throw_extreme_success_dodge_fail_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -853,10 +960,22 @@ fn result_builder_with_throw_extreme_success_dodge_success_messages(
     let target_pronoun = &context.target_pronoun;
 
     let message = format!("You deftly throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" deftly throws ")
+    .add_entity_name(context.item)
+    .add_string(", but you move out of the way just before it hits you.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" deftly throws ")
     .add_entity_name(context.item)
@@ -872,6 +991,12 @@ fn result_builder_with_throw_extreme_success_dodge_success_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
@@ -893,10 +1018,22 @@ fn result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
     let message = format!(
         "You deftly throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
     );
+
+    let target_message = ThirdPersonMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+    )
+    .only_send_to(context.target)
+    .add_entity_name(context.performing_entity)
+    .add_string(" deftly throws ")
+    .add_entity_name(context.item)
+    .add_string(", but you calmly shift just enough to avoid being hit.");
+
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
+    .do_not_send_to(context.target)
     .add_entity_name(context.performing_entity)
     .add_string(" deftly throws ")
     .add_entity_name(context.item)
@@ -910,6 +1047,12 @@ fn result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
             message,
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(context.performing_entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            target_message,
+            world,
         )
         .with_third_person_message(
             Some(context.performing_entity),
