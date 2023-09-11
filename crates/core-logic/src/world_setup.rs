@@ -19,8 +19,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
     let street_room_name = "Street";
     let horizontal_street_desc =
         "An old street running east-west. The pavement is cracked and the lines are faded.";
-    let horizontal_street_icon =
-        MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['=', '=', '=']);
+    let horizontal_street_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['=', '=']);
     let street_1_id = spawn_room(
         Room {
             name: street_room_name.to_string(),
@@ -71,7 +70,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
     let intersection_room_name = "Street Intersection";
     let intersection_desc =
         "A T-intersection. The street stretches away in all four cardinal directions.";
-    let intersection_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['#', ' ', '#']);
+    let intersection_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['#', '#']);
     let intersection_id = spawn_room(
         Room {
             name: intersection_room_name.to_string(),
@@ -90,8 +89,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
 
     let vertical_street_desc =
         "An old street running north-south. The pavement is cracked and the lines are faded.";
-    let vertical_street_icon =
-        MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['|', ' ', '|']);
+    let vertical_street_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['|', '|']);
 
     let street_4_id = spawn_room(
         Room {
@@ -141,7 +139,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
     );
     connect_open(street_6_id, Direction::South, street_5_id, world);
 
-    let start_building_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ':', ']']);
+    let start_building_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ']']);
     let start_building_coords = Coordinates {
         x: 1,
         y: 1,
@@ -246,7 +244,7 @@ pub fn spawn_start_building(
     //
 
     let middle_room_desc = "A nondescript room. You feel uneasy here.";
-    let middle_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
+    let middle_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ']']);
     let middle_room_coords = Coordinates {
         x: 0,
         y: 0,
@@ -265,7 +263,7 @@ pub fn spawn_start_building(
 
     let north_room_desc =
         "The trim along the floor and ceiling looks to be made of real gold. Fancy.";
-    let north_room_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['[', ' ', ']']);
+    let north_room_icon = MapIcon::new_uniform(Color::Black, Color::DarkYellow, ['[', ']']);
     let north_room_id = spawn_room(
         Room {
             name: "The north room".to_string(),
@@ -283,7 +281,7 @@ pub fn spawn_start_building(
 
     let east_room_desc =
         "This room is very small; you have to hunch over so your head doesn't hit the ceiling.";
-    let east_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ' ', ']']);
+    let east_room_icon = MapIcon::new_uniform(Color::Black, Color::White, ['[', ']']);
     let east_room_id = spawn_room(
         Room {
             name: "The east room".to_string(),
@@ -300,7 +298,7 @@ pub fn spawn_start_building(
     );
 
     let afterlife_room_desc = "There is nothing.";
-    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ', ' ']);
+    let afterlife_room_icon = MapIcon::new_uniform(Color::Black, Color::White, [' ', ' ']);
     let afterlife_room_id = spawn_room(
         Room {
             name: "Nowhere".to_string(),

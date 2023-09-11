@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use crate::color::Color;
 
 /// The number of characters in the icon for a map tile.
-pub const CHARS_PER_TILE: usize = 3;
+pub const CHARS_PER_TILE: usize = 2;
 
 /// Associates location entities to their coordinates.
 #[derive(Resource)]
@@ -49,7 +49,7 @@ pub struct MapIcon {
 
 impl MapIcon {
     /// Creates an icon where all the characters have the same background and foreground colors.
-    pub fn new_uniform(bg_color: Color, fg_color: Color, chars: [char; 3]) -> MapIcon {
+    pub fn new_uniform(bg_color: Color, fg_color: Color, chars: [char; CHARS_PER_TILE]) -> MapIcon {
         let chars = array::from_fn(|i| MapChar {
             bg_color,
             fg_color,
@@ -57,11 +57,6 @@ impl MapIcon {
         });
 
         MapIcon { chars }
-    }
-
-    /// Replaces the center character of this icon with the provided one.
-    pub fn replace_center_char(&mut self, replacement: MapChar) {
-        self.chars[CHARS_PER_TILE / 2] = replacement;
     }
 }
 

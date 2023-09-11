@@ -12,7 +12,7 @@ use crate::{
         Description, Location, Player, Pronouns, Room, Skills, Stats, Vitals, Volume, Weight,
     },
     find_wearing_entity, find_wielding_entity,
-    game_map::{Coordinates, GameMap, MapChar, MapIcon},
+    game_map::{Coordinates, GameMap, MapIcon},
     get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
     is_living_entity,
@@ -21,15 +21,11 @@ use crate::{
     ConstrainedValue, Direction, GameOptions,
 };
 
-const PLAYER_MAP_CHAR: MapChar = MapChar {
-    bg_color: Color::Black,
-    fg_color: Color::Green,
-    value: '@',
-};
-
 lazy_static! {
     static ref BLANK_ICON: MapIcon =
-        MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.', '.']);
+        MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.']);
+    static ref PLAYER_MAP_ICON: MapIcon =
+        MapIcon::new_uniform(Color::Black, Color::Cyan, ['(', ')']);
 }
 
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
@@ -605,13 +601,11 @@ impl<const S: usize> MapDescription<S> {
 
                 let current_coords = Coordinates { x, y, z, parent };
 
-                let mut icon = icon_for_coords(&current_coords, world);
-
                 if current_coords == *pov_coords {
-                    icon.replace_center_char(PLAYER_MAP_CHAR);
+                    PLAYER_MAP_ICON.clone()
+                } else {
+                    icon_for_coords(&current_coords, world)
                 }
-
-                icon
             })
         });
 
