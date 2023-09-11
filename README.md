@@ -30,3 +30,12 @@ Planned features (in no particular order):
   - [ ] maintaining player state when you reconnect
 - [ ] procedurally generated world
 - [ ] saving and loading worlds
+
+## How to play
+1. Clone this repo
+2. `cargo run`
+3. Point your favorite MUD client or SSH client to `localhost` port 8080 (I recommend [MUSHclient](https://www.gammon.com.au/downloads/dlmushclient.htm) with either Lucida Console or [Liberation Mono](https://www.fontsquirrel.com/fonts/liberation-mono))
+
+### Recommended MUSHclient settings
+* Appearance -> Output -> Font: Lucida Console, Regular, 10 pt
+* Appearance -> Output -> Spacing -> Line spacing (pixels): 14
