@@ -34,8 +34,9 @@ Planned features (in no particular order):
 ## How to play
 1. Clone this repo
 2. `cargo run`
-3. Point your favorite MUD client or SSH client to `localhost` port 8080 (I recommend [MUSHclient](https://www.gammon.com.au/downloads/dlmushclient.htm) with either Lucida Console or [Liberation Mono](https://www.fontsquirrel.com/fonts/liberation-mono))
+3. Point your favorite MUD client or SSH client to `localhost` port 8080 (I recommend [MUSHclient](https://www.gammon.com.au/downloads/dlmushclient.htm))
 
 ### Recommended MUSHclient settings
 * Appearance -> Output -> Font: Lucida Console, Regular, 10 pt
 * Appearance -> Output -> Spacing -> Line spacing (pixels): 14
+* If you don't have/like Lucida Console, [Liberation Mono](https://www.fontsquirrel.com/fonts/liberation-mono) is also pretty good
