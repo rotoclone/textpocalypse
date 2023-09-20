@@ -45,6 +45,9 @@ const DIFFICULTY_PER_KG: f32 = 1.0;
 /// The minimum base difficulty of throw checks
 const MIN_BASE_DIFFICULTY: f32 = 5.0;
 
+/// The maximum base difficulty of throw checks
+const MAX_BASE_DIFFICULTY: f32 = 100.0;
+
 /// The minimum amount to multiply throw check difficulty by due to the size of the target
 const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 
@@ -207,7 +210,7 @@ fn get_cannot_throw_reason(
     let item_weight = get_weight(item, world);
 
     let max_weight_can_throw = if let Some(stats) = world.get::<Stats>(thrower) {
-        let strength = stats.attributes.get(Attribute::Strength);
+        let strength = stats.attributes.get(&Attribute::Strength);
         Weight(strength as f32 * KG_CAN_THROW_PER_STRENGTH)
     } else {
         // the thrower has no strength, so can only throw things with no weight of course
@@ -241,7 +244,9 @@ impl Action for ThrowAction {
 
         // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the weight of the item being thrown
         let item_weight = get_weight(item, world);
-        let base_difficulty = MIN_BASE_DIFFICULTY.max(item_weight.0 * DIFFICULTY_PER_KG);
+        let base_difficulty = MIN_BASE_DIFFICULTY
+            .max(item_weight.0 * DIFFICULTY_PER_KG)
+            .min(MAX_BASE_DIFFICULTY);
 
         let throw_result;
         let dodge_result;
@@ -249,8 +254,8 @@ impl Action for ThrowAction {
             // the target is alive, so it'll try not to get hit
             throw_result = Stats::check_attribute(
                 performing_entity,
-                Attribute::Strength,
-                CheckDifficulty::new(base_difficulty.round() as u32),
+                &Attribute::Strength,
+                CheckDifficulty::new(base_difficulty.round() as u16),
                 world,
             );
             let dodge_difficulty = match throw_result {
@@ -262,7 +267,7 @@ impl Action for ThrowAction {
             if let Some(dodge_difficulty) = dodge_difficulty {
                 dodge_result = Some(Stats::check_skill(
                     target,
-                    Skill::Dodging,
+                    &Skill::Dodging,
                     dodge_difficulty,
                     world,
                 ));
@@ -282,8 +287,8 @@ impl Action for ThrowAction {
             let check_target = base_difficulty * target_volume_multiplier;
             throw_result = Stats::check_attribute(
                 performing_entity,
-                Attribute::Strength,
-                CheckDifficulty::new(check_target.round() as u32),
+                &Attribute::Strength,
+                CheckDifficulty::new(check_target.round() as u16),
                 world,
             );
             dodge_result = None;

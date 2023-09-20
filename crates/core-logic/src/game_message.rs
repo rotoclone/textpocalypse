@@ -9,7 +9,7 @@ use crate::{
     color::Color,
     component::{
         ActionQueue, AttributeDescription, AttributeDetailLevel, Attributes, Connection, Container,
-        Description, Location, Player, Pronouns, Room, Skills, Stats, Vitals, Volume, Weight,
+        Description, Location, Player, Pronouns, Room, Stats, Vitals, Volume, Weight,
     },
     find_wearing_entity, find_wielding_entity,
     game_map::{Coordinates, GameMap, MapIcon},
@@ -351,7 +351,7 @@ impl StatsDescription {
     pub fn from_stats(stats: &Stats, world: &World) -> StatsDescription {
         StatsDescription {
             attributes: StatAttributeDescription::from_attributes(&stats.attributes, world),
-            skills: SkillDescription::from_skills(&stats.skills, world),
+            skills: SkillDescription::from_stats(&stats, world),
         }
     }
 }
@@ -359,7 +359,7 @@ impl StatsDescription {
 #[derive(Debug, Clone)]
 pub struct StatAttributeDescription {
     pub name: String,
-    pub value: u32,
+    pub value: u16,
 }
 
 impl StatAttributeDescription {
@@ -380,20 +380,26 @@ impl StatAttributeDescription {
 pub struct SkillDescription {
     pub name: String,
     pub base_attribute_name: String,
-    pub value: u32,
+    pub attribute_bonus: f32,
+    pub base_value: u16,
+    pub total: f32,
 }
 
 impl SkillDescription {
-    fn from_skills(skills: &Skills, world: &World) -> Vec<SkillDescription> {
-        skills
-            .get_all()
+    fn from_stats(stats: &Stats, world: &World) -> Vec<SkillDescription> {
+        stats
+            .skills
+            .get_all_base()
             .into_iter()
-            .map(|(skill, value)| {
+            .map(|(skill, base_value)| {
                 let base_attribute = get_base_attribute(&skill, world);
+                let attribute_bonus = stats.get_attribute_bonus(&skill, world);
                 SkillDescription {
                     name: get_skill_name(&skill, world),
                     base_attribute_name: get_attribute_name(&base_attribute, world).short,
-                    value,
+                    attribute_bonus,
+                    base_value,
+                    total: stats.get_skill_total(&skill, world),
                 }
             })
             .sorted_by(|a, b| {

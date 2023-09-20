@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
 
+use crate::resource::get_base_attribute;
+
 /// The stats of an entity.
 #[derive(Component)]
 pub struct Stats {
@@ -14,7 +16,7 @@ pub struct Stats {
 
 impl Stats {
     /// Creates a new set of stats with attributes and skills set to the provided default values.
-    pub fn new(default_attribute_value: u32, default_skill_value: u32) -> Stats {
+    pub fn new(default_attribute_value: u16, default_skill_value: u16) -> Stats {
         Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
@@ -22,7 +24,7 @@ impl Stats {
     }
 
     /// Sets an attribute to a specific value.
-    pub fn set_attribute(&mut self, attribute: &Attribute, value: u32) {
+    pub fn set_attribute(&mut self, attribute: &Attribute, value: u16) {
         match attribute {
             Attribute::Custom(s) => self.attributes.custom.insert(s.clone(), value),
             a => self.attributes.standard.insert(a.clone(), value),
@@ -30,22 +32,38 @@ impl Stats {
     }
 
     /// Sets a skill to a specific value.
-    pub fn set_skill(&mut self, skill: &Skill, value: u32) {
+    pub fn set_skill(&mut self, skill: &Skill, value: u16) {
         match skill {
             Skill::Custom(s) => self.skills.custom.insert(s.clone(), value),
             a => self.skills.standard.insert(a.clone(), value),
         };
     }
+
+    /// Gets the total value of a skill, taking its base attribute into account.
+    pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
+        let base_skill_value = self.skills.get_base(&skill);
+        let attribute_bonus = self.get_attribute_bonus(&skill, world);
+
+        f32::from(base_skill_value) + attribute_bonus
+    }
+
+    /// Determines the bonus to apply to the provided skill based on the value of its base attribute.
+    pub fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
+        let attribute = get_base_attribute(skill, world);
+        let attribute_value = self.attributes.get(&attribute);
+
+        f32::from(attribute_value) / 2.0
+    }
 }
 
 /// The innate attributes of an entity, like strength.
 pub struct Attributes {
-    standard: HashMap<Attribute, u32>,
-    custom: HashMap<String, u32>,
+    standard: HashMap<Attribute, u16>,
+    custom: HashMap<String, u16>,
 }
 
 impl Attributes {
-    fn new(default_value: u32) -> Attributes {
+    fn new(default_value: u16) -> Attributes {
         let mut standard = HashMap::new();
         for attribute in Attribute::iter() {
             match attribute {
@@ -63,16 +81,16 @@ impl Attributes {
     }
 
     /// Gets the value of the provided attribute.
-    pub fn get(&self, attribute: Attribute) -> u32 {
+    pub fn get(&self, attribute: &Attribute) -> u16 {
         *match attribute {
-            Attribute::Custom(s) => self.custom.get(&s),
-            a => self.standard.get(&a),
+            Attribute::Custom(s) => self.custom.get(s),
+            a => self.standard.get(a),
         }
         .unwrap_or(&0)
     }
 
     /// Gets all the attributes and their values.
-    pub fn get_all(&self) -> Vec<(Attribute, u32)> {
+    pub fn get_all(&self) -> Vec<(Attribute, u16)> {
         let standards = self
             .standard
             .iter()
@@ -89,12 +107,12 @@ impl Attributes {
 
 /// The learned skills of an entity, like cooking.
 pub struct Skills {
-    standard: HashMap<Skill, u32>,
-    custom: HashMap<String, u32>,
+    standard: HashMap<Skill, u16>,
+    custom: HashMap<String, u16>,
 }
 
 impl Skills {
-    fn new(default_value: u32) -> Skills {
+    fn new(default_value: u16) -> Skills {
         let mut standard = HashMap::new();
         for skill in Skill::iter() {
             match skill {
@@ -111,17 +129,17 @@ impl Skills {
         }
     }
 
-    /// Gets the value of the provided skill.
-    pub fn get(&self, skill: Skill) -> u32 {
+    /// Gets the base value of the provided skill.
+    fn get_base(&self, skill: &Skill) -> u16 {
         *match skill {
-            Skill::Custom(s) => self.custom.get(&s),
-            a => self.standard.get(&a),
+            Skill::Custom(s) => self.custom.get(s),
+            a => self.standard.get(a),
         }
         .unwrap_or(&0)
     }
 
-    /// Gets all the skills and their values.
-    pub fn get_all(&self) -> Vec<(Skill, u32)> {
+    /// Gets all the skills and their base values.
+    pub fn get_all_base(&self) -> Vec<(Skill, u16)> {
         let standards = self
             .standard
             .iter()
