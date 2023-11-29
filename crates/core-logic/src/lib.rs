@@ -680,7 +680,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
     let name = world
         .get::<Description>(entity)
         .map(|d| d.name.clone())
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
 
     let mut entity_ref = world.entity_mut(entity);
     entity_ref.remove::<Vitals>();

@@ -41,8 +41,8 @@ impl Stats {
 
     /// Gets the total value of a skill, taking its base attribute into account.
     pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
-        let base_skill_value = self.skills.get_base(&skill);
-        let attribute_bonus = self.get_attribute_bonus(&skill, world);
+        let base_skill_value = self.skills.get_base(skill);
+        let attribute_bonus = self.get_attribute_bonus(skill, world);
 
         f32::from(base_skill_value) + attribute_bonus
     }

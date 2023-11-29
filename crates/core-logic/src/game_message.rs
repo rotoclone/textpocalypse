@@ -351,7 +351,7 @@ impl StatsDescription {
     pub fn from_stats(stats: &Stats, world: &World) -> StatsDescription {
         StatsDescription {
             attributes: StatAttributeDescription::from_attributes(&stats.attributes, world),
-            skills: SkillDescription::from_stats(&stats, world),
+            skills: SkillDescription::from_stats(stats, world),
         }
     }
 }
