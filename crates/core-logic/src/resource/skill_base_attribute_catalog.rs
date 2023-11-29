@@ -55,12 +55,15 @@ fn build_standard_base_attributes() -> HashMap<Skill, Attribute> {
 /// Gets the default base attribute of a skill.
 fn get_default_base_attribute(skill: &Skill) -> Attribute {
     match skill {
+        Skill::Firearms => Attribute::Perception,
+        Skill::Bows => Attribute::Endurance,
+        Skill::Blades => Attribute::Endurance,
+        Skill::Bludgeons => Attribute::Strength,
+        Skill::Fists => Attribute::Strength,
         Skill::Construction => Attribute::Strength,
         Skill::Crafting => Attribute::Intelligence,
         Skill::Scavenging => Attribute::Perception,
         Skill::Stealth => Attribute::Perception,
-        Skill::Firearms => Attribute::Perception,
-        Skill::Melee => Attribute::Strength,
         Skill::Medicine => Attribute::Intelligence,
         Skill::Cooking => Attribute::Intelligence,
         Skill::Dodging => Attribute::Perception,

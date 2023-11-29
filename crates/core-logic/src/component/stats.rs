@@ -165,12 +165,15 @@ pub enum Attribute {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum Skill {
+    Firearms,
+    Bows,
+    Blades,
+    Bludgeons,
+    Fists,
     Construction,
     Crafting,
     Scavenging,
     Stealth,
-    Firearms,
-    Melee,
     Medicine,
     Cooking,
     Dodging,
