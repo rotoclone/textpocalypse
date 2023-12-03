@@ -4,7 +4,7 @@ use regex::Regex;
 
 use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
-    checks::{CheckDifficulty, CheckResult},
+    checks::{CheckDifficulty, CheckModifiers, CheckResult},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
         EquippedItems, Item, Location, Skill, Stats, Weight,
@@ -255,6 +255,7 @@ impl Action for ThrowAction {
             throw_result = Stats::check_attribute(
                 performing_entity,
                 &Attribute::Strength,
+                CheckModifiers::none(),
                 CheckDifficulty::new(base_difficulty.round() as u16),
                 world,
             );
@@ -267,7 +268,8 @@ impl Action for ThrowAction {
             if let Some(dodge_difficulty) = dodge_difficulty {
                 dodge_result = Some(Stats::check_skill(
                     target,
-                    &Skill::Dodging,
+                    &Skill::Dodge,
+                    CheckModifiers::none(),
                     dodge_difficulty,
                     world,
                 ));
@@ -288,6 +290,7 @@ impl Action for ThrowAction {
             throw_result = Stats::check_attribute(
                 performing_entity,
                 &Attribute::Strength,
+                CheckModifiers::none(),
                 CheckDifficulty::new(check_target.round() as u16),
                 world,
             );

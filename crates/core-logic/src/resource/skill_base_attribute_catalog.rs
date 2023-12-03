@@ -56,17 +56,20 @@ fn build_standard_base_attributes() -> HashMap<Skill, Attribute> {
 fn get_default_base_attribute(skill: &Skill) -> Attribute {
     match skill {
         Skill::Firearms => Attribute::Perception,
-        Skill::Bows => Attribute::Endurance,
-        Skill::Blades => Attribute::Endurance,
+        Skill::Bows => Attribute::Agility,
+        Skill::Blades => Attribute::Agility,
         Skill::Bludgeons => Attribute::Strength,
         Skill::Fists => Attribute::Strength,
         Skill::Construction => Attribute::Strength,
-        Skill::Crafting => Attribute::Intelligence,
-        Skill::Scavenging => Attribute::Perception,
+        Skill::Craft => Attribute::Intelligence,
+        Skill::Scavenge => Attribute::Perception,
         Skill::Stealth => Attribute::Perception,
         Skill::Medicine => Attribute::Intelligence,
-        Skill::Cooking => Attribute::Intelligence,
-        Skill::Dodging => Attribute::Perception,
+        Skill::Cook => Attribute::Intelligence,
+        Skill::Dodge => Attribute::Agility,
+        Skill::Climb => Attribute::Strength,
+        Skill::Lockpick => Attribute::Perception,
+        Skill::Butchery => Attribute::Perception,
         Skill::Custom(_) => Attribute::Strength,
     }
 }

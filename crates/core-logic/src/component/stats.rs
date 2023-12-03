@@ -157,6 +157,7 @@ impl Skills {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum Attribute {
     Strength,
+    Agility,
     Intelligence,
     Perception,
     Endurance,
@@ -171,11 +172,14 @@ pub enum Skill {
     Bludgeons,
     Fists,
     Construction,
-    Crafting,
-    Scavenging,
+    Craft,
+    Scavenge,
     Stealth,
     Medicine,
-    Cooking,
-    Dodging,
+    Cook,
+    Dodge,
+    Climb,
+    Lockpick,
+    Butchery,
     Custom(String),
 }

@@ -437,7 +437,7 @@ fn build_starting_stats() -> Stats {
     stats.set_attribute(&Attribute::Intelligence, 9);
 
     stats.set_skill(&Skill::Construction, 7);
-    stats.set_skill(&Skill::Cooking, 8);
+    stats.set_skill(&Skill::Cook, 8);
 
     stats
 }
