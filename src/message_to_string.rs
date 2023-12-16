@@ -1,4 +1,4 @@
-use comfy_table::{Cell, ContentArrangement, Table};
+use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
 use std::{cmp::Ordering, hash::Hash};
@@ -584,16 +584,21 @@ fn stats_to_string(stats: StatsDescription) -> String {
 
     let mut skills_table = new_table();
     skills_table.set_header(vec![
-        Cell::new("Name"),
-        Cell::new("Base"),
-        Cell::new("Value"),
+        Cell::new("Name").set_alignment(CellAlignment::Center),
+        Cell::new("Base").set_alignment(CellAlignment::Center),
+        Cell::new("Attribute").set_alignment(CellAlignment::Center),
+        Cell::new("Total").set_alignment(CellAlignment::Center),
     ]);
 
     for skill in stats.skills {
         skills_table.add_row(vec![
             Cell::new(skill.name),
-            Cell::new(skill.base_attribute_name),
-            Cell::new(skill.value),
+            Cell::new(skill.base_value),
+            Cell::new(format!(
+                "{} (+{:.1})",
+                skill.base_attribute_name, skill.attribute_bonus
+            )),
+            Cell::new(format!("{:.1}", skill.total)).set_alignment(CellAlignment::Right),
         ]);
     }
 

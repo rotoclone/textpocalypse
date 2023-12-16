@@ -475,7 +475,7 @@ impl ActionResultBuilder {
         self.result
             .messages
             .entry(entity_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(message);
 
         self
@@ -598,7 +598,7 @@ impl ActionInterruptResultBuilder {
         self.result
             .messages
             .entry(entity_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(message);
 
         self

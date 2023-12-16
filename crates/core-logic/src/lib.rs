@@ -431,13 +431,13 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
 }
 
 fn build_starting_stats() -> Stats {
-    let mut stats = Stats::new(10, 10);
+    let mut stats = Stats::new(10, 5);
 
     stats.set_attribute(&Attribute::Strength, 12);
-    stats.set_attribute(&Attribute::Intelligence, 8);
+    stats.set_attribute(&Attribute::Intelligence, 9);
 
-    stats.set_skill(&Skill::Construction, 12);
-    stats.set_skill(&Skill::Cooking, 8);
+    stats.set_skill(&Skill::Construction, 7);
+    stats.set_skill(&Skill::Cook, 8);
 
     stats
 }
@@ -680,7 +680,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
     let name = world
         .get::<Description>(entity)
         .map(|d| d.name.clone())
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
 
     let mut entity_ref = world.entity_mut(entity);
     entity_ref.remove::<Vitals>();

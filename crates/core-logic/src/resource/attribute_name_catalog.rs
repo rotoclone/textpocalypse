@@ -70,6 +70,7 @@ fn build_standard_names() -> HashMap<Attribute, AttributeName> {
 fn get_default_name(attribute: &Attribute) -> AttributeName {
     match attribute {
         Attribute::Strength => AttributeName::new("Strength", "Str"),
+        Attribute::Agility => AttributeName::new("Agility", "Agi"),
         Attribute::Intelligence => AttributeName::new("Intelligence", "Int"),
         Attribute::Perception => AttributeName::new("Perception", "Per"),
         Attribute::Endurance => AttributeName::new("Endurance", "End"),

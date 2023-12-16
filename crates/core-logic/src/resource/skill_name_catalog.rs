@@ -50,15 +50,21 @@ fn build_standard_names() -> HashMap<Skill, String> {
 /// Gets the default display name of a skill.
 fn get_default_name(skill: &Skill) -> String {
     match skill {
-        Skill::Construction => "Construction",
-        Skill::Crafting => "Crafting",
-        Skill::Scavenging => "Scavenging",
-        Skill::Stealth => "Stealth",
         Skill::Firearms => "Firearms",
-        Skill::Melee => "Melee",
+        Skill::Bows => "Bows",
+        Skill::Blades => "Blades",
+        Skill::Bludgeons => "Bludgeons",
+        Skill::Fists => "Fists",
+        Skill::Construction => "Construction",
+        Skill::Craft => "Craft",
+        Skill::Scavenge => "Scavenge",
+        Skill::Stealth => "Stealth",
         Skill::Medicine => "Medicine",
-        Skill::Cooking => "Cooking",
-        Skill::Dodging => "Dodging",
+        Skill::Cook => "Cook",
+        Skill::Dodge => "Dodge",
+        Skill::Climb => "Climb",
+        Skill::Lockpick => "Lockpick",
+        Skill::Butchery => "Butchery",
         Skill::Custom(_) => "_CUSTOM_",
     }
     .to_string()
