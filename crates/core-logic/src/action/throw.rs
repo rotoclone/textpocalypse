@@ -4,7 +4,10 @@ use regex::Regex;
 
 use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
-    checks::{CheckDifficulty, CheckModifiers, CheckResult},
+    checks::{
+        CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant,
+        VsParticipantType,
+    },
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
         EquippedItems, Item, Location, Skill, Stats, Weight,
@@ -39,14 +42,11 @@ const DIRECT_HIT_DAMAGE_MULT: f32 = 2.0;
 /// The amount to multiply the difficulty multiplier of a throw check by for hitting an inanimate object with a volume of 1 liter
 const VOLUME_DIFFICULTY_MULT_MULT: f32 = 3.0;
 
-/// The base difficutly of a throw check per kilogram the thrown object weighs
-const DIFFICULTY_PER_KG: f32 = 1.0;
+/// The penalty applied to throw checks per kilogram the thrown object weighs
+const WEIGHT_PENALTY_PER_KG: f32 = 0.5;
 
-/// The minimum base difficulty of throw checks
-const MIN_BASE_DIFFICULTY: f32 = 5.0;
-
-/// The maximum base difficulty of throw checks
-const MAX_BASE_DIFFICULTY: f32 = 100.0;
+/// The base difficulty of throw checks against inanimate objects
+const BASE_DIFFICULTY: f32 = 5.0;
 
 /// The minimum amount to multiply throw check difficulty by due to the size of the target
 const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
@@ -242,59 +242,39 @@ impl Action for ThrowAction {
             .expect("Throwing entity should have a location")
             .id;
 
-        // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the weight of the item being thrown
-        let item_weight = get_weight(item, world);
-        let base_difficulty = MIN_BASE_DIFFICULTY
-            .max(item_weight.0 * DIFFICULTY_PER_KG)
-            .min(MAX_BASE_DIFFICULTY);
+        let throw_penalty = get_throw_penalty(item, world);
 
         let throw_result;
-        let dodge_result;
-        if is_living_entity(target, world) {
-            // the target is alive, so it'll try not to get hit
-            throw_result = Stats::check_attribute(
-                performing_entity,
-                &Attribute::Strength,
-                CheckModifiers::none(),
-                CheckDifficulty::new(base_difficulty.round() as u16),
+        let target_is_living = is_living_entity(target, world);
+        if target_is_living {
+            // the target is alive, so it will try to dodge
+            (throw_result, _) = Stats::check_vs(
+                VsParticipant {
+                    entity: performing_entity,
+                    stat: Attribute::Strength,
+                    modifiers: CheckModifiers::modify_value(-throw_penalty),
+                },
+                VsParticipant {
+                    entity: performing_entity,
+                    stat: Skill::Dodge,
+                    modifiers: CheckModifiers::none(),
+                },
+                VsCheckParams {
+                    winner_on_tie: VsParticipantType::Second,
+                    extreme_result_difference: 5, // TODO this should probably be a fraction of the stat values instead
+                },
                 world,
             );
-            let dodge_difficulty = match throw_result {
-                CheckResult::ExtremeFailure | CheckResult::Failure => None,
-                CheckResult::Success => Some(CheckDifficulty::moderate()),
-                CheckResult::ExtremeSuccess => Some(CheckDifficulty::very_hard()),
-            };
-
-            if let Some(dodge_difficulty) = dodge_difficulty {
-                dodge_result = Some(Stats::check_skill(
-                    target,
-                    &Skill::Dodge,
-                    CheckModifiers::none(),
-                    dodge_difficulty,
-                    world,
-                ));
-            } else {
-                // the throw failed, so no dodge necessary, it just misses
-                dodge_result = None;
-            }
         } else {
-            // the taget is not alive, so the difficulty of the throw is just modified by the size of the target
-            let target_volume = get_volume(target, world);
-            let target_volume_multiplier = if target_volume.0 > 0.0 {
-                (1.0 / target_volume.0) * VOLUME_DIFFICULTY_MULT_MULT
-            } else {
-                MAX_VOLUME_DIFFICULTY_MULT
-            }
-            .clamp(MIN_VOLUME_DIFFICULTY_MULT, MAX_VOLUME_DIFFICULTY_MULT);
-            let check_target = base_difficulty * target_volume_multiplier;
-            throw_result = Stats::check_attribute(
+            // the taget is not alive, so the difficulty of the throw is modified by the size of the target
+            let difficulty = get_inanimate_target_difficulty(target, world);
+            throw_result = Stats::check(
                 performing_entity,
-                &Attribute::Strength,
-                CheckModifiers::none(),
-                CheckDifficulty::new(check_target.round() as u16),
+                Attribute::Strength,
+                CheckModifiers::modify_value(-throw_penalty),
+                difficulty,
                 world,
             );
-            dodge_result = None;
         }
 
         let message_context = ThrowMessageContext {
@@ -312,112 +292,72 @@ impl Action for ThrowAction {
         match throw_result {
             CheckResult::ExtremeFailure => {
                 hit = false;
-                result_builder = result_builder_with_throw_extreme_fail_messages(
-                    result_builder,
-                    &message_context,
-                    world,
-                );
+                if target_is_living {
+                    result_builder = result_builder_with_dodge_extreme_success_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                } else {
+                    result_builder = result_builder_with_throw_extreme_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
             }
             CheckResult::Failure => {
                 hit = false;
-                result_builder = result_builder_with_throw_fail_messages(
-                    result_builder,
-                    &message_context,
-                    world,
-                );
+                if target_is_living {
+                    result_builder = result_builder_with_dodge_success_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                } else {
+                    result_builder = result_builder_with_throw_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                }
             }
-            CheckResult::Success => match dodge_result {
-                Some(CheckResult::ExtremeFailure) => {
-                    hit = true;
-                    result_builder = result_builder_with_throw_success_dodge_extreme_fail_messages(
+            CheckResult::Success => {
+                hit = true;
+                if target_is_living {
+                    result_builder = result_builder_with_dodge_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                } else {
+                    result_builder = result_builder_with_throw_success_messages(
                         result_builder,
                         &message_context,
                         world,
                     );
                 }
-                Some(CheckResult::Failure) => {
-                    hit = true;
-                    result_builder = result_builder_with_throw_success_dodge_fail_messages(
+            }
+            CheckResult::ExtremeSuccess => {
+                hit = true;
+                if target_is_living {
+                    result_builder = result_builder_with_dodge_extreme_fail_messages(
+                        result_builder,
+                        &message_context,
+                        world,
+                    );
+                } else {
+                    result_builder = result_builder_with_throw_extreme_success_messages(
                         result_builder,
                         &message_context,
                         world,
                     );
                 }
-                Some(CheckResult::Success) => {
-                    hit = false;
-                    result_builder = result_builder_with_throw_success_dodge_success_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
-                }
-                Some(CheckResult::ExtremeSuccess) => {
-                    hit = false;
-                    result_builder =
-                        result_builder_with_throw_success_dodge_extreme_success_messages(
-                            result_builder,
-                            &message_context,
-                            world,
-                        );
-                }
-                None => {
-                    hit = true;
-                    result_builder = result_builder_with_throw_success_no_dodge_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
-                }
-            },
-            CheckResult::ExtremeSuccess => match dodge_result {
-                Some(CheckResult::ExtremeFailure) => {
-                    hit = true;
-                    result_builder =
-                        result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
-                            result_builder,
-                            &message_context,
-                            world,
-                        );
-                }
-                Some(CheckResult::Failure) => {
-                    hit = true;
-                    result_builder = result_builder_with_throw_extreme_success_dodge_fail_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
-                }
-                Some(CheckResult::Success) => {
-                    hit = false;
-                    result_builder =
-                        result_builder_with_throw_extreme_success_dodge_success_messages(
-                            result_builder,
-                            &message_context,
-                            world,
-                        );
-                }
-                Some(CheckResult::ExtremeSuccess) => {
-                    hit = false;
-                    result_builder =
-                        result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
-                            result_builder,
-                            &message_context,
-                            world,
-                        );
-                }
-                None => {
-                    hit = true;
-                    result_builder = result_builder_with_throw_extreme_success_no_dodge_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
-                }
-            },
+            }
         }
 
-        if hit && is_living_entity(target, world) {
-            let mut damage = item_weight.0 * HIT_DAMAGE_PER_KG;
+        if hit && target_is_living {
+            let mut damage = get_hit_damage(item, world);
             if CheckResult::ExtremeSuccess == throw_result {
                 damage *= DIRECT_HIT_DAMAGE_MULT;
             }
@@ -488,6 +428,31 @@ impl Action for ThrowAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
+}
+
+/// Determines the throw check penalty for throwing the provided item
+fn get_throw_penalty(item: Entity, world: &World) -> f32 {
+    // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the weight of the item being thrown
+    get_weight(item, world).0 * WEIGHT_PENALTY_PER_KG
+}
+
+/// Determines how much damage the provided entity does when it hits something
+fn get_hit_damage(item: Entity, world: &World) -> f32 {
+    get_weight(item, world).0 * HIT_DAMAGE_PER_KG
+}
+
+/// Determines the difficulty of a throw check targeting the provided inanimate object.
+fn get_inanimate_target_difficulty(target: Entity, world: &World) -> CheckDifficulty {
+    let target_volume = get_volume(target, world);
+    let target_volume_multiplier = if target_volume.0 > 0.0 {
+        (1.0 / target_volume.0) * VOLUME_DIFFICULTY_MULT_MULT
+    } else {
+        MAX_VOLUME_DIFFICULTY_MULT
+    }
+    .clamp(MIN_VOLUME_DIFFICULTY_MULT, MAX_VOLUME_DIFFICULTY_MULT);
+    let check_target = BASE_DIFFICULTY * target_volume_multiplier;
+
+    CheckDifficulty::new(check_target.round() as u16)
 }
 
 /// Context for building messages about throws.
@@ -572,8 +537,8 @@ fn result_builder_with_throw_fail_messages(
         )
 }
 
-/// Adds messages to the provided result builder for when the throw was a success and the dodge was an extreme failure.
-fn result_builder_with_throw_success_dodge_extreme_fail_messages(
+/// Adds messages to the provided result builder for when the dodge was an extreme failure.
+fn result_builder_with_dodge_extreme_fail_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,
@@ -582,7 +547,7 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
     let target_name = &context.target_name;
     let target_pronoun = &context.target_pronoun;
 
-    let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} in the chest.");
+    let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
 
     let target_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
@@ -592,7 +557,7 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
     .add_entity_name(context.performing_entity)
     .add_string(" throws ")
     .add_entity_name(context.item)
-    .add_string(", and it seems like you don't even try to move out of the way before it hits you in the chest.");
+    .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
 
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
@@ -606,7 +571,7 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
     .add_entity_name(context.target)
     .add_string(" doesn't even try to move out of the way before it hits ")
     .add_entity_personal_object_pronoun(context.target)
-    .add_string(" in the chest.");
+    .add_string(" directly in the face.");
 
     result_builder
         .with_message(
@@ -629,8 +594,8 @@ fn result_builder_with_throw_success_dodge_extreme_fail_messages(
         )
 }
 
-/// Adds messages to the provided result builder for when the throw was a success and the dodge was a failure.
-fn result_builder_with_throw_success_dodge_fail_messages(
+/// Adds messages to the provided result builder for when the dodge was a failure.
+fn result_builder_with_dodge_fail_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,
@@ -686,8 +651,8 @@ fn result_builder_with_throw_success_dodge_fail_messages(
         )
 }
 
-/// Adds messages to the provided result builder for when the throw was a success and the dodge was a success.
-fn result_builder_with_throw_success_dodge_success_messages(
+/// Adds messages to the provided result builder for when the dodge was a success.
+fn result_builder_with_dodge_success_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,
@@ -743,8 +708,8 @@ fn result_builder_with_throw_success_dodge_success_messages(
         )
 }
 
-/// Adds messages to the provided result builder for when the throw was a success and the dodge was an extreme success.
-fn result_builder_with_throw_success_dodge_extreme_success_messages(
+/// Adds messages to the provided result builder for when the dodge was an extreme success.
+fn result_builder_with_dodge_extreme_success_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,
@@ -800,7 +765,7 @@ fn result_builder_with_throw_success_dodge_extreme_success_messages(
 }
 
 /// Adds messages to the provided result builder for when the throw was a success and the target didn't attempt to dodge.
-fn result_builder_with_throw_success_no_dodge_messages(
+fn result_builder_with_throw_success_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,
@@ -835,237 +800,8 @@ fn result_builder_with_throw_success_no_dodge_messages(
         )
 }
 
-/// Adds messages to the provided result builder for when the throw was an extreme success and the dodge was an extreme failure.
-fn result_builder_with_throw_extreme_success_dodge_extreme_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You deftly throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
-
-    let target_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", and it seems like ")
-    .add_entity_name(context.target)
-    .add_string(" doesn't even try to move out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
-    .add_string(" directly in the face.");
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
-}
-
-/// Adds messages to the provided result builder for when the throw was an extreme success and the dodge was a failure.
-fn result_builder_with_throw_extreme_success_dodge_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You deftly throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} directly in the face.");
-
-    let target_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(
-        ", and you aren't able to get out of the way before it hits you directly in the face.",
-    );
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", and ")
-    .add_entity_name(context.target)
-    .add_string(" isn't able to get out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
-    .add_string(" directly in the face.");
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
-}
-
-/// Adds messages to the provided result builder for when the throw was an extreme success and the dodge was a success.
-fn result_builder_with_throw_extreme_success_dodge_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You deftly throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
-
-    let target_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", but you move out of the way just before it hits you.");
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", but ")
-    .add_entity_name(context.target)
-    .add_string(format!(
-        " moves out of the way just before it hits {target_pronoun}."
-    ));
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
-}
-
-/// Adds messages to the provided result builder for when the throw was an extreme success and the dodge was an extreme success.
-fn result_builder_with_throw_extreme_success_dodge_extreme_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    let message = format!(
-        "You deftly throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
-    );
-
-    let target_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", but you calmly shift just enough to avoid being hit.");
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-    )
-    .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
-    .add_string(" deftly throws ")
-    .add_entity_name(context.item)
-    .add_string(", but ")
-    .add_entity_name(context.target)
-    .add_string(" calmly shifts just enough to avoid being hit.");
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
-}
-
 /// Adds messages to the provided result builder for when the throw was an extreme success and the target didn't attempt to dodge.
-fn result_builder_with_throw_extreme_success_no_dodge_messages(
+fn result_builder_with_throw_extreme_success_messages(
     result_builder: ActionResultBuilder,
     context: &ThrowMessageContext,
     world: &World,

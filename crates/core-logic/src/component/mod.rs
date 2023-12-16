@@ -95,6 +95,7 @@ pub use stats::Attribute;
 pub use stats::Attributes;
 pub use stats::Skill;
 pub use stats::Skills;
+pub use stats::Stat;
 pub use stats::Stats;
 
 mod wearable;
