@@ -4,10 +4,7 @@ use regex::Regex;
 
 use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
-    checks::{
-        CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant,
-        VsParticipantType,
-    },
+    checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
         EquippedItems, Item, Location, Skill, Stats, Weight,
@@ -259,10 +256,7 @@ impl Action for ThrowAction {
                     stat: Skill::Dodge,
                     modifiers: CheckModifiers::none(),
                 },
-                VsCheckParams {
-                    winner_on_tie: VsParticipantType::Second,
-                    extreme_result_difference: 5, // TODO this should probably be a fraction of the stat values instead
-                },
+                VsCheckParams::second_wins_ties(),
                 world,
             );
         } else {

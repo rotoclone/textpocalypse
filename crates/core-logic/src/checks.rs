@@ -6,6 +6,7 @@ use rand_distr::StandardNormal;
 use crate::component::{Stat, Stats};
 
 const STANDARD_DEVIATION: f32 = 5.0;
+const EXTREME_THRESHOLD_FRACTION: f32 = 0.5;
 
 /// Modifications to be applied to a check.
 #[derive(Clone, Copy, Debug)]
@@ -87,72 +88,56 @@ pub struct CheckDifficulty {
 impl CheckDifficulty {
     /// Creates a difficulty with the provided target.
     pub fn new(target: u16) -> CheckDifficulty {
-        let extreme_failure_threshold = if STANDARD_DEVIATION as u16 > target {
-            0
-        } else {
-            target - STANDARD_DEVIATION as u16
-        };
+        let (extreme_failure_threshold, extreme_success_threshold) =
+            get_extreme_thresholds(target, EXTREME_THRESHOLD_FRACTION);
 
         CheckDifficulty {
             target,
             extreme_failure_threshold,
-            extreme_success_threshold: target + STANDARD_DEVIATION as u16,
+            extreme_success_threshold,
         }
     }
 
     /// For trivially easy checks.
     pub fn trivial() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 1,
-            extreme_failure_threshold: 0,
-            extreme_success_threshold: 2,
-        }
+        Self::new(1)
     }
 
     /// For easy checks.
     pub fn easy() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 4,
-            extreme_failure_threshold: 2,
-            extreme_success_threshold: 8,
-        }
+        Self::new(4)
     }
 
     /// For moderately difficult checks.
     pub fn moderate() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 7,
-            extreme_failure_threshold: 3,
-            extreme_success_threshold: 11,
-        }
+        Self::new(7)
     }
 
     /// For difficult checks.
     pub fn hard() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 10,
-            extreme_failure_threshold: 6,
-            extreme_success_threshold: 20,
-        }
+        Self::new(10)
     }
 
     /// For very difficult checks.
     pub fn very_hard() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 13,
-            extreme_failure_threshold: 6,
-            extreme_success_threshold: 26,
-        }
+        Self::new(13)
     }
 
     /// For extremely difficult checks.
     pub fn extreme() -> CheckDifficulty {
-        CheckDifficulty {
-            target: 16,
-            extreme_failure_threshold: 8,
-            extreme_success_threshold: 32,
-        }
+        Self::new(16)
     }
+}
+
+/// Gets the extreme failure and extreme success thresholds for the provided target value.
+fn get_extreme_thresholds(target: u16, extreme_threshold_fraction: f32) -> (u16, u16) {
+    let extreme_threshold_amount =
+        ((f32::from(target) * extreme_threshold_fraction).round() as u16).max(1);
+
+    (
+        target.saturating_sub(extreme_threshold_amount),
+        target.saturating_add(extreme_threshold_amount),
+    )
 }
 
 /// Performs a check with the provided difficulty.
@@ -195,10 +180,28 @@ pub enum VsParticipantType {
 
 /// Describes parameters for a versus check.
 pub struct VsCheckParams {
-    /// Which participant wins if both entities have the same total
+    /// Which participant wins if both of them have the same result
     pub winner_on_tie: VsParticipantType,
-    /// If the results' difference is greater than this, it will be considered an extreme failure for one entity and an extreme success for the other.
-    pub extreme_result_difference: u16,
+    /// If the results differ by more than this fraction of the second participant's result, it will be considered an extreme failure for one participant and an extreme success for the other.
+    pub extreme_threshold_fraction: f32,
+}
+
+impl VsCheckParams {
+    /// Creates params with the first participant winning ties
+    pub fn first_wins_ties() -> VsCheckParams {
+        VsCheckParams {
+            winner_on_tie: VsParticipantType::First,
+            extreme_threshold_fraction: EXTREME_THRESHOLD_FRACTION,
+        }
+    }
+
+    /// Creates params with the second participant winning ties
+    pub fn second_wins_ties() -> VsCheckParams {
+        VsCheckParams {
+            winner_on_tie: VsParticipantType::Second,
+            extreme_threshold_fraction: EXTREME_THRESHOLD_FRACTION,
+        }
+    }
 }
 
 /// Performs a check of two stats against each other.
@@ -213,22 +216,22 @@ fn check_vs<A: Stat, B: Stat>(
 ) -> (CheckResult, CheckResult) {
     let total_1 = roll_normal(stat_1, stat_1_value, modifiers_1);
     let total_2 = roll_normal(stat_2, stat_2_value, modifiers_2);
+    let (extreme_failure_threshold, extreme_success_threshold) =
+        get_extreme_thresholds(total_2, params.extreme_threshold_fraction);
 
-    if total_1.abs_diff(total_2) > params.extreme_result_difference {
-        if total_1 > total_2 {
-            (CheckResult::ExtremeSuccess, CheckResult::ExtremeFailure)
-        } else {
-            (CheckResult::ExtremeFailure, CheckResult::ExtremeSuccess)
-        }
-    } else if total_1 > total_2 {
-        (CheckResult::Success, CheckResult::Failure)
-    } else if total_2 > total_1 {
-        (CheckResult::Failure, CheckResult::Success)
-    } else {
+    if total_1 == total_2 {
         match params.winner_on_tie {
             VsParticipantType::First => (CheckResult::Success, CheckResult::Failure),
             VsParticipantType::Second => (CheckResult::Failure, CheckResult::Success),
         }
+    } else if total_1 < extreme_failure_threshold {
+        (CheckResult::ExtremeFailure, CheckResult::ExtremeSuccess)
+    } else if total_1 < total_2 {
+        (CheckResult::Failure, CheckResult::Success)
+    } else if total_1 > extreme_success_threshold {
+        (CheckResult::ExtremeSuccess, CheckResult::ExtremeFailure)
+    } else {
+        (CheckResult::Success, CheckResult::Failure)
     }
 }
 
@@ -273,6 +276,9 @@ impl Stats {
     }
 
     /// Performs checks for two entities' stats against each other.
+    ///
+    /// Extreme success/failure thresholds will be determined based on the second participant's result.
+    /// For example, if the second participant gets a result of 10, and the extreme threshold fraction is 0.5, then extreme results will occur for first participant results of less than 5 and greater than 15.
     pub fn check_vs<A: Stat, B: Stat>(
         participant_1: VsParticipant<A>,
         participant_2: VsParticipant<B>,
