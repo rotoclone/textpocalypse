@@ -30,6 +30,7 @@ Planned features (in no particular order):
   - [ ] maintaining player state when you reconnect
 - [ ] procedurally generated world
 - [ ] saving and loading worlds
+- [ ] player preferences
 
 ## How to play
 1. Clone this repo
@@ -40,3 +41,6 @@ Planned features (in no particular order):
 * Appearance -> Output -> Font: Lucida Console, Regular, 10 pt
 * Appearance -> Output -> Spacing -> Line spacing (pixels): 14
 * If you don't have/like Lucida Console, [Liberation Mono](https://www.fontsquirrel.com/fonts/liberation-mono) is also pretty good
+
+## Contributing
+I'm currently not looking for external contributions to this project. If you want to suggest a minor bugfix, I might consider it though.
