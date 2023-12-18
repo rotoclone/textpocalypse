@@ -183,7 +183,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Volume(70.0),
             Weight(65.0),
             WanderBehavior {
-                move_chance_per_tick: 0.25,
+                move_chance_per_tick: 0.1,
             },
             GreetBehavior {
                 greeting: "Hey there!".to_string(),

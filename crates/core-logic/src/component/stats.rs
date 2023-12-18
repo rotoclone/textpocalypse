@@ -5,6 +5,12 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::resource::get_base_attribute;
 
+/// Marker trait for types of stats (i.e. attributes and skills)
+pub trait Stat: std::fmt::Debug {
+    /// Gets the value of the stat
+    fn get_value(&self, stats: &Stats, world: &World) -> f32;
+}
+
 /// The stats of an entity.
 #[derive(Component)]
 pub struct Stats {
@@ -164,6 +170,12 @@ pub enum Attribute {
     Custom(String),
 }
 
+impl Stat for Attribute {
+    fn get_value(&self, stats: &Stats, _: &World) -> f32 {
+        f32::from(stats.attributes.get(self))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum Skill {
     Firearms,
@@ -182,4 +194,10 @@ pub enum Skill {
     Lockpick,
     Butchery,
     Custom(String),
+}
+
+impl Stat for Skill {
+    fn get_value(&self, stats: &Stats, world: &World) -> f32 {
+        stats.get_skill_total(self, world)
+    }
 }
