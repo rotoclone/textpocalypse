@@ -85,9 +85,6 @@ pub struct AfterlifeRoom(Coordinates);
 #[derive(Resource)]
 pub struct PlayerIdMapping(HashMap<PlayerId, Entity>);
 
-#[derive(StageLabel)]
-pub struct TickStage;
-
 /// Entities that should have in-progress actions interrupted.
 #[derive(Resource)]
 pub struct InterruptedEntities(pub HashSet<Entity>);
@@ -642,7 +639,7 @@ impl NotificationType for DeathNotification {}
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
-    if world.entity_mut(entity).remove::<Vitals>().is_none() {
+    if world.entity_mut(entity).take::<Vitals>().is_none() {
         // the entity wasn't alive
         return;
     }
@@ -685,7 +682,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
     let mut entity_ref = world.entity_mut(entity);
     entity_ref.remove::<Vitals>();
     entity_ref.insert(Item::new_two_handed());
-    if let Some(desc) = entity_ref.remove::<Description>() {
+    if let Some(desc) = entity_ref.take::<Description>() {
         let mut aliases = desc.aliases;
         aliases.push("dead body".to_string());
         aliases.push("body".to_string());
@@ -709,7 +706,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         entity_ref.insert(new_desc);
     }
 
-    if let Some(player) = world.entity_mut(entity).remove::<Player>() {
+    if let Some(player) = world.entity_mut(entity).take::<Player>() {
         let new_entity = spawn_player(name, player, find_afterlife_room(world), world);
 
         // players shouldn't have vitals until they actually respawn

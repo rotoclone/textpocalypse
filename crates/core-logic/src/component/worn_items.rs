@@ -70,7 +70,7 @@ impl WornItems {
         to_wear: Entity,
         world: &mut World,
     ) -> Result<(), WearError> {
-        let mut worn_items = match world.entity_mut(wearing_entity).remove::<WornItems>() {
+        let mut worn_items = match world.entity_mut(wearing_entity).take::<WornItems>() {
             Some(w) => w,
             None => return Err(WearError::CannotWear),
         };
