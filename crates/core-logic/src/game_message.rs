@@ -1,4 +1,8 @@
-use std::{array, iter::once};
+use std::{
+    array,
+    collections::{HashMap, HashSet},
+    iter::once,
+};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
@@ -9,16 +13,17 @@ use crate::{
     color::Color,
     component::{
         ActionQueue, AttributeDescription, AttributeDetailLevel, Attributes, Connection, Container,
-        Description, Location, Player, Pronouns, Room, Stats, Vitals, Volume, Weight,
+        Description, Location, Player, Pronouns, Room, Stats, Vitals, Volume, Wearable, Weight,
+        WornItems,
     },
     find_wearing_entity, find_wielding_entity,
     game_map::{Coordinates, GameMap, MapIcon},
-    get_volume, get_weight,
+    get_name, get_volume, get_weight,
     input_parser::find_parsers_relevant_for,
     is_living_entity,
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
     value_change::ValueType,
-    ConstrainedValue, Direction, GameOptions,
+    BodyPart, ConstrainedValue, Direction, GameOptions,
 };
 
 lazy_static! {
@@ -35,6 +40,7 @@ pub enum GameMessage {
     Entity(EntityDescription),
     DetailedEntity(DetailedEntityDescription),
     Container(ContainerDescription),
+    WornItems(WornItemsDescription),
     Vitals(VitalsDescription),
     Stats(StatsDescription),
     ValueChange(ValueChangeDescription, MessageDelay),
@@ -95,6 +101,8 @@ pub enum MessageDelay {
     /// A long amount of time should be waited.
     Long,
 }
+
+// TODO split out the below description structs into their own files
 
 /// The description of an entity.
 #[derive(Debug, Clone)]
@@ -310,6 +318,57 @@ impl ContainerEntityDescription {
             is_being_worn,
             is_equipped,
         })
+    }
+}
+
+/// The description of the items an entity is wearing.
+#[derive(Debug, Clone)]
+pub struct WornItemsDescription {
+    /// The items being worn.
+    pub items: Vec<WornItemDescription>,
+    pub max_thickness: u32,
+}
+
+impl WornItemsDescription {
+    /// Creates a worn items description for the provided worn items.
+    pub fn from_worn_items(worn_items: &WornItems, world: &World) -> WornItemsDescription {
+        let items = worn_items
+            .get_all_items()
+            .iter()
+            .map(|entity| {
+                WornItemDescription::from_entity(*entity, world)
+                    .unwrap_or_else(|| panic!("entity {entity:?} should be wearable"))
+            })
+            .collect();
+        WornItemsDescription {
+            items,
+            max_thickness: worn_items.max_thickness,
+        }
+    }
+}
+
+/// The description of an item being worn.
+#[derive(Debug, Clone)]
+pub struct WornItemDescription {
+    /// The name of the item.
+    pub name: String,
+    /// The thickness of the item.
+    pub thickness: u32,
+    /// The body parts the item is covering.
+    pub body_parts: HashSet<BodyPart>,
+}
+
+impl WornItemDescription {
+    /// Creates a worn item description for the provided item.
+    /// Returns `None` if the entity isn't wearable.
+    pub fn from_entity(entity: Entity, world: &World) -> Option<WornItemDescription> {
+        world
+            .get::<Wearable>(entity)
+            .map(|wearable| WornItemDescription {
+                name: get_name(entity, world).unwrap_or("???".to_string()),
+                thickness: wearable.thickness,
+                body_parts: wearable.body_parts.clone(),
+            })
     }
 }
 

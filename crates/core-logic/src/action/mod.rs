@@ -91,6 +91,10 @@ mod players;
 pub use players::PlayersAction;
 pub use players::PlayersParser;
 
+mod worn;
+pub use worn::WornAction;
+pub use worn::WornParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(

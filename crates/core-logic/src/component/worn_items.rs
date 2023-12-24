@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use strum::IntoEnumIterator;
 
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
@@ -20,7 +21,7 @@ use super::{
 #[derive(Component)]
 pub struct WornItems {
     /// The maximum total thickness of items on a single body part.
-    max_thickness: u32,
+    pub max_thickness: u32,
     /// The items being worn.
     items: HashMap<BodyPart, Vec<Entity>>,
 }
@@ -47,10 +48,18 @@ pub enum RemoveError {
 impl WornItems {
     /// Creates an empty set of worn items.
     pub fn new(max_thickness: u32) -> WornItems {
+        let items = BodyPart::iter()
+            .map(|body_part| (body_part, Vec::new()))
+            .collect();
         WornItems {
             max_thickness,
-            items: HashMap::new(),
+            items,
         }
+    }
+
+    /// Gets all the entities being worn.
+    pub fn get_all_items(&self) -> HashSet<Entity> {
+        self.items.values().flatten().cloned().collect()
     }
 
     /// Determines whether the provided entity is being worn.

@@ -109,6 +109,7 @@ impl StandardInputParsers {
                 Box::new(LookParser),
                 Box::new(OpenParser),
                 Box::new(InventoryParser),
+                Box::new(WornParser),
                 Box::new(PutParser),
                 Box::new(ThrowParser),
                 Box::new(PourParser),
