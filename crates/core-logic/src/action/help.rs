@@ -39,6 +39,7 @@ impl InputParser for HelpParser {
     }
 }
 
+/// Shows an entity the help screen.
 #[derive(Debug)]
 struct HelpAction {
     notification_sender: ActionNotificationSender<Self>,

@@ -221,6 +221,7 @@ fn get_cannot_throw_reason(
     None
 }
 
+/// Makes an entity throw an item.
 #[derive(Debug)]
 pub struct ThrowAction {
     /// The item to throw

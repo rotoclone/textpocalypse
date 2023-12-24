@@ -42,6 +42,7 @@ impl InputParser for StopParser {
     }
 }
 
+/// Makes an entity stop its current action.
 #[derive(Debug)]
 pub struct StopAction {
     pub notification_sender: ActionNotificationSender<Self>,

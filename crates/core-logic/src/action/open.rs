@@ -79,6 +79,7 @@ impl InputParser for OpenParser {
     }
 }
 
+/// Makes an entity open or close something.
 #[derive(Debug)]
 pub struct OpenAction {
     pub target: Entity,

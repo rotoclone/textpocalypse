@@ -53,6 +53,7 @@ impl InputParser for SayParser {
     }
 }
 
+/// Makes an entity say something.
 #[derive(Debug)]
 pub struct SayAction {
     pub text: String,

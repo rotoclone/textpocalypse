@@ -94,6 +94,7 @@ impl InputParser for EquipParser {
     }
 }
 
+/// Makes an entity equip an item.
 #[derive(Debug)]
 pub struct EquipAction {
     pub target: Entity,

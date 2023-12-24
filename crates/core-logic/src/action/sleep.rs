@@ -82,6 +82,7 @@ impl InputParser for SleepParser {
     }
 }
 
+/// Makes an entity go to sleep.
 #[derive(Debug)]
 pub struct SleepAction {
     pub ticks_slept: u32,

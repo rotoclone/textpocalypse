@@ -131,6 +131,7 @@ fn parse_time_to_ticks(time_str: &str) -> Result<u64, InputParseError> {
     Ok(ticks)
 }
 
+/// Makes an entity wait for some amount of time.
 #[derive(Debug)]
 pub struct WaitAction {
     total_ticks_to_wait: u64,

@@ -39,6 +39,7 @@ impl InputParser for StatsParser {
     }
 }
 
+/// Shows an entity its stats.
 #[derive(Debug)]
 struct StatsAction {
     notification_sender: ActionNotificationSender<Self>,

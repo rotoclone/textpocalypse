@@ -39,6 +39,7 @@ impl InputParser for WornParser {
     }
 }
 
+/// Shows an entity the items it's wearing.
 #[derive(Debug)]
 pub struct WornAction {
     pub notification_sender: ActionNotificationSender<Self>,
