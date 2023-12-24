@@ -94,6 +94,7 @@ impl InputParser for LookParser {
     }
 }
 
+/// Shows an entity the description of something.
 #[derive(Debug)]
 pub struct LookAction {
     pub target: Entity,

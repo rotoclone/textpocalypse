@@ -39,6 +39,7 @@ impl InputParser for PlayersParser {
     }
 }
 
+/// Shows an entity all the players on the server.
 #[derive(Debug)]
 pub struct PlayersAction {
     notification_sender: ActionNotificationSender<Self>,

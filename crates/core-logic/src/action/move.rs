@@ -54,6 +54,7 @@ impl InputParser for MoveParser {
     }
 }
 
+/// Makes an entity move somewhere.
 #[derive(Debug)]
 pub struct MoveAction {
     pub direction: Direction,

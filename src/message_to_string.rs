@@ -1,7 +1,8 @@
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
-use std::{cmp::Ordering, hash::Hash};
+use std::{cmp::Ordering, collections::HashMap, hash::Hash};
+use strum::IntoEnumIterator;
 use voca_rs::Voca;
 
 use core_logic::*;
@@ -29,6 +30,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Entity(entity) => entity_to_string(entity),
         GameMessage::DetailedEntity(entity) => detailed_entity_to_string(entity),
         GameMessage::Container(container) => container_to_string(container),
+        GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::ValueChange(change, _) => value_change_to_string(change),
@@ -541,6 +543,73 @@ fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
         equipped_tag,
         style(volume_and_weight).dark_grey(),
     )
+}
+
+/// Transforms the provided worn items description into a string for display.
+fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
+    let mut items_by_body_part: HashMap<BodyPart, Vec<&WornItemDescription>> = HashMap::new();
+
+    let by_item_string = if worn_items.items.is_empty() {
+        "".to_string()
+    } else {
+        let mut by_item_table = new_table();
+        by_item_table.set_header(vec![
+            Cell::new("Item"),
+            Cell::new("Thickness"),
+            Cell::new("Worn on"),
+        ]);
+
+        for item in &worn_items.items {
+            let item_name_cell = Cell::new(item.name._capitalize(false));
+            let thickness_cell = Cell::new(item.thickness);
+            let body_part_names = item
+                .body_parts
+                .iter()
+                .map(|body_part| body_part.to_string())
+                .join(", ");
+            let worn_on_cell = Cell::new(body_part_names);
+            by_item_table.add_row(vec![item_name_cell, thickness_cell, worn_on_cell]);
+
+            for body_part in &item.body_parts {
+                items_by_body_part.entry(*body_part).or_default().push(item);
+            }
+        }
+
+        format!("By item:\n{by_item_table}\n\n")
+    };
+
+    let mut by_body_part_table = new_table();
+    by_body_part_table.set_header(vec![
+        Cell::new("Body part"),
+        Cell::new("Thickness"),
+        Cell::new("Items"),
+    ]);
+
+    let max_thickness = worn_items.max_thickness;
+
+    for body_part in BodyPart::iter() {
+        let body_part_name_cell = Cell::new(body_part.to_string()._capitalize(false));
+        let mut total_thickness = 0;
+        let mut item_names = Vec::new();
+
+        if let Some(items) = items_by_body_part.get(&body_part) {
+            for item in items {
+                total_thickness += item.thickness;
+                item_names.push(item.name.clone());
+            }
+        }
+
+        let total_thickness_cell = Cell::new(format!("{total_thickness}/{max_thickness}"));
+        let items_cell = if item_names.is_empty() {
+            Cell::new("(nothing)").fg(comfy_table::Color::DarkGrey)
+        } else {
+            Cell::new(item_names.join(", "))
+        };
+
+        by_body_part_table.add_row(vec![body_part_name_cell, total_thickness_cell, items_cell]);
+    }
+
+    format!("{by_item_string}By body part:\n{by_body_part_table}")
 }
 
 /// Transforms the provided vitals description into a string for display.

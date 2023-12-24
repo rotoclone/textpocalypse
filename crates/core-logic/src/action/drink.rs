@@ -98,6 +98,7 @@ impl InputParser for DrinkParser {
     }
 }
 
+/// Makes an entity drink from a fluid container.
 #[derive(Debug)]
 pub struct DrinkAction {
     pub target: Entity,

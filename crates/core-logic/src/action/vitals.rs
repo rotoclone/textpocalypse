@@ -39,6 +39,7 @@ impl InputParser for VitalsParser {
     }
 }
 
+/// Shows an entity its vitals.
 #[derive(Debug)]
 struct VitalsAction {
     notification_sender: ActionNotificationSender<Self>,

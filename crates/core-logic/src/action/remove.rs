@@ -84,6 +84,7 @@ impl InputParser for RemoveParser {
     }
 }
 
+/// Makes an entity remove an item it's wearing.
 #[derive(Debug)]
 pub struct RemoveAction {
     pub wearing_entity: Entity,

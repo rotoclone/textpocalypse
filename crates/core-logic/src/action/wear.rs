@@ -82,6 +82,7 @@ impl InputParser for WearParser {
     }
 }
 
+/// Makes an entity put on a wearable item.
 #[derive(Debug)]
 pub struct WearAction {
     //TODO allow putting things on entities other than yourself

@@ -3,26 +3,26 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{ActionEndNotification, AfterActionPerformNotification},
+    component::{ActionEndNotification, AfterActionPerformNotification, WornItems},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, GameMessage, HelpMessage, VerifyActionNotification, World,
+    BeforeActionNotification, GameMessage, VerifyActionNotification, World, WornItemsDescription,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const HELP_FORMAT: &str = "help";
+const WORN_FORMAT: &str = "worn";
 
 lazy_static! {
-    static ref HELP_PATTERN: Regex = Regex::new("^help$").unwrap();
+    static ref WORN_PATTERN: Regex = Regex::new("^(worn|wearing|clothes|clothing)$").unwrap();
 }
 
-pub struct HelpParser;
+pub struct WornParser;
 
-impl InputParser for HelpParser {
+impl InputParser for WornParser {
     fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if HELP_PATTERN.is_match(input) {
-            return Ok(Box::new(HelpAction {
+        if WORN_PATTERN.is_match(input) {
+            return Ok(Box::new(WornAction {
                 notification_sender: ActionNotificationSender::new(),
             }));
         }
@@ -31,7 +31,7 @@ impl InputParser for HelpParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![HELP_FORMAT.to_string()]
+        vec![WORN_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
@@ -39,19 +39,24 @@ impl InputParser for HelpParser {
     }
 }
 
-/// Shows an entity the help screen.
+/// Shows an entity the items it's wearing.
 #[derive(Debug)]
-struct HelpAction {
-    notification_sender: ActionNotificationSender<Self>,
+pub struct WornAction {
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for HelpAction {
+impl Action for WornAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let message = GameMessage::Help(HelpMessage::for_entity(performing_entity, world));
+        if let Some(worn_items) = world.get::<WornItems>(performing_entity) {
+            let message =
+                GameMessage::WornItems(WornItemsDescription::from_worn_items(worn_items, world));
 
-        ActionResult::builder()
-            .with_game_message(performing_entity, message)
-            .build_complete_no_tick(true)
+            ActionResult::builder()
+                .with_game_message(performing_entity, message)
+                .build_complete_no_tick(true)
+        } else {
+            ActionResult::error(performing_entity, "You have no worn items.".to_string())
+        }
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {

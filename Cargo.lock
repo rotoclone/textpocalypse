@@ -1138,6 +1138,7 @@ dependencies = [
  "futures",
  "itertools",
  "log",
+ "strum",
  "tokio",
  "tokio-util",
  "voca_rs",

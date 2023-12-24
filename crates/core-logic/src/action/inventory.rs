@@ -39,6 +39,7 @@ impl InputParser for InventoryParser {
     }
 }
 
+/// Shows an entity its inventory.
 #[derive(Debug)]
 struct InventoryAction {
     notification_sender: ActionNotificationSender<Self>,

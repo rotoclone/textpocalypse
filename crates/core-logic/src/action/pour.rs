@@ -220,6 +220,7 @@ fn parse_pour_amount(input: &str) -> Result<PourAmount, InputParseError> {
     })
 }
 
+/// Makes an entity pour some liquid from one fluid container to another.
 #[derive(Debug)]
 pub struct PourAction {
     pub source: Entity,

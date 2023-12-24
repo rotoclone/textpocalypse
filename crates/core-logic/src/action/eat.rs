@@ -79,6 +79,7 @@ impl InputParser for EatParser {
     }
 }
 
+/// Makes an entity eat something.
 #[derive(Debug)]
 pub struct EatAction {
     pub target: Entity,

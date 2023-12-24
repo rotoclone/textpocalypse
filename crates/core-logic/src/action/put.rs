@@ -256,6 +256,7 @@ fn parse_targets(
     Err(InputParseError::UnknownCommand)
 }
 
+/// Makes an entity move an item between containers.
 #[derive(Debug)]
 pub struct PutAction {
     /// The item to move.
