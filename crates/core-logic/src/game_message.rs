@@ -326,6 +326,7 @@ impl ContainerEntityDescription {
 pub struct WornItemsDescription {
     /// The items being worn.
     pub items: Vec<WornItemDescription>,
+    /// The maximum total thickness of items allowed on a single body part.
     pub max_thickness: u32,
 }
 

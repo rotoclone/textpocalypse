@@ -20,7 +20,8 @@ use super::{
 /// The things an entity is wearing.
 #[derive(Component)]
 pub struct WornItems {
-    /// The maximum total thickness of items on a single body part.
+    /// The maximum total thickness of items allowed on a single body part.
+    /// (This is only relevant when trying to wear something on top of something else; a single wearable item can always be worn regardless of its thickness.)
     pub max_thickness: u32,
     /// The items being worn.
     items: HashMap<BodyPart, Vec<Entity>>,
