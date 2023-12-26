@@ -111,6 +111,9 @@ pub use equipped_items::EquipError;
 pub use equipped_items::EquippedItems;
 pub use equipped_items::UnequipError;
 
+mod weapon;
+pub use weapon::Weapon;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
