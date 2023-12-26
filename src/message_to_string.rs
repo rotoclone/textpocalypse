@@ -477,8 +477,8 @@ fn detailed_entity_to_string(entity: DetailedEntityDescription) -> String {
     [basic_desc, actions].join("\n\n")
 }
 
-/// Transforms the provided help message into a string for display.
-fn help_to_string(help: HelpMessage) -> String {
+/// Transforms the provided help description into a string for display.
+fn help_to_string(help: HelpDescription) -> String {
     action_descriptions_to_string("Available actions:", &help.actions).unwrap_or_default()
 }
 
@@ -747,7 +747,7 @@ fn constrained_float_to_string(
 }
 
 /// Transforms the provided players description into a string for display.
-fn players_to_string(players: PlayersMessage) -> String {
+fn players_to_string(players: PlayersDescription) -> String {
     let mut table = new_table();
     table.set_header(vec![
         Cell::new("Name"),
