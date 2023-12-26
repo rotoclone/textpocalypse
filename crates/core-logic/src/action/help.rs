@@ -6,7 +6,7 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, GameMessage, HelpMessage, VerifyActionNotification, World,
+    BeforeActionNotification, GameMessage, HelpDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -47,7 +47,7 @@ struct HelpAction {
 
 impl Action for HelpAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let message = GameMessage::Help(HelpMessage::for_entity(performing_entity, world));
+        let message = GameMessage::Help(HelpDescription::for_entity(performing_entity, world));
 
         ActionResult::builder()
             .with_game_message(performing_entity, message)
