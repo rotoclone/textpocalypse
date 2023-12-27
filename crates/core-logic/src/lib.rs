@@ -66,6 +66,9 @@ pub use formatting::*;
 mod checks;
 use checks::*;
 
+mod verb_forms;
+use verb_forms::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
@@ -123,6 +126,7 @@ impl StandardInputParsers {
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
                 Box::new(WaitParser),
+                Box::new(AttackParser),
                 Box::new(StopParser),
                 Box::new(PlayersParser),
                 Box::new(HelpParser),
@@ -392,6 +396,23 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     let worn_items = WornItems::new(5);
     let equipped_items = EquippedItems::new(2);
     let action_queue = ActionQueue::new();
+    let innate_weapon = InnateWeapon {
+        name: "fist".to_string(),
+        weapon: Weapon {
+            weapon_type: WeaponType::Fists,
+            hit_verb: VerbForms {
+                second_person: "punch".to_string(),
+                third_person_plural: "punch".to_string(),
+                third_person_singular: "punches".to_string(),
+            },
+            base_damage_range: 1..=2,
+            critical_damage_behavior: CriticalDamageBehavior::Multiply(2.0),
+            usable_ranges: CombatRange::Shortest..=CombatRange::Short,
+            optimal_ranges: CombatRange::Shortest..=CombatRange::Shortest,
+            range_to_hit_penalty: 1,
+            range_damage_penalty: 0,
+        },
+    };
     let player_entity = world
         .spawn((
             player,
@@ -404,6 +425,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             worn_items,
             equipped_items,
             action_queue,
+            innate_weapon,
         ))
         .id();
     move_entity(player_entity, spawn_room, world);
@@ -809,14 +831,46 @@ fn get_article_reference_name(entity: Entity, world: &World) -> String {
 
 /// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
 ///
-/// If the entity has no description and is alive, this will return "them", otherwise it will return "it".
+/// If the entity has no description and is alive, this will return "them".
+/// If the entity has no description and is not alive, this will return "it".
 fn get_personal_object_pronoun(entity: Entity, world: &World) -> String {
+    //TODO move this function to the `Pronouns` type
     if let Some(desc) = world.get::<Description>(entity) {
         desc.pronouns.personal_object.clone()
     } else if is_living_entity(entity, world) {
         "them".to_string()
     } else {
         "it".to_string()
+    }
+}
+
+/// Gets the possessive adjective pronoun to use when referring to the provided entity (e.g. his, her, their).
+///
+/// If the entity has no description and is alive, this will return "their".
+/// If the entity has no description and is not alive, this will return "its".
+fn get_possessive_adjective_pronoun(entity: Entity, world: &World) -> String {
+    //TODO move this function to the `Pronouns` type
+    if let Some(desc) = world.get::<Description>(entity) {
+        desc.pronouns.possessive_adjective.clone()
+    } else if is_living_entity(entity, world) {
+        "their".to_string()
+    } else {
+        "its".to_string()
+    }
+}
+
+/// Gets the reflexive pronoun to use when referring to the provided entity (e.g. himself, herself, themself).
+///
+/// If the entity has no description and is alive, this will return "themself".
+/// If the entity has no description and is not alive, this will return "itself".
+fn get_reflexive_pronoun(entity: Entity, world: &World) -> String {
+    //TODO move this function to the `Pronouns` type
+    if let Some(desc) = world.get::<Description>(entity) {
+        desc.pronouns.reflexive.clone()
+    } else if is_living_entity(entity, world) {
+        "themself".to_string()
+    } else {
+        "itself".to_string()
     }
 }
 

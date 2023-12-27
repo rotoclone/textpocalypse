@@ -10,8 +10,9 @@ use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, get_personal_object_pronoun, get_reference_name, send_message,
-    BeforeActionNotification, MessageCategory, MessageDelay, VerifyActionNotification,
+    can_receive_messages, get_personal_object_pronoun, get_possessive_adjective_pronoun,
+    get_reference_name, get_reflexive_pronoun, send_message, BeforeActionNotification,
+    MessageCategory, MessageDelay, Pronouns, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -95,6 +96,10 @@ mod worn;
 pub use worn::WornAction;
 pub use worn::WornParser;
 
+mod attack;
+pub use attack::AttackAction;
+pub use attack::AttackParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(
@@ -170,6 +175,25 @@ impl ThirdPersonMessage {
         self.parts.push(MessagePart::Token(
             MessageToken::EntityPersonalObjectPronoun(entity),
         ));
+
+        self
+    }
+
+    /// Adds an entity possessive adjective pronoun (e.g. his, her, their) token to the message.
+    pub fn add_entity_possessive_adjective_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts.push(MessagePart::Token(
+            MessageToken::EntityPossessiveAdjectivePronoun(entity),
+        ));
+
+        self
+    }
+
+    /// Adds an entity reflexive pronoun (e.g. himself, herself, themself) token to the message.
+    pub fn add_entity_reflexive_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::EntityReflexivePronoun(
+                entity,
+            )));
 
         self
     }
@@ -303,6 +327,10 @@ pub enum MessageToken {
     EntityName(Entity),
     /// The personal object pronoun of an entity (e.g. him, her, them).
     EntityPersonalObjectPronoun(Entity),
+    /// The possessive adjective pronoun of an entity (e.g. his, her, their).
+    EntityPossessiveAdjectivePronoun(Entity),
+    /// The reflexive pronoun of an entity (e.g. himself, herself, themself).
+    EntityReflexivePronoun(Entity),
 }
 
 /// The location to send a third-person message in.
@@ -320,9 +348,23 @@ impl MessageToken {
             MessageToken::EntityName(e) => get_reference_name(*e, Some(pov_entity), world),
             MessageToken::EntityPersonalObjectPronoun(e) => {
                 if *e == pov_entity {
-                    "you".to_string()
+                    Pronouns::you().personal_object
                 } else {
                     get_personal_object_pronoun(*e, world)
+                }
+            }
+            MessageToken::EntityPossessiveAdjectivePronoun(e) => {
+                if *e == pov_entity {
+                    Pronouns::you().possessive_adjective
+                } else {
+                    get_possessive_adjective_pronoun(*e, world)
+                }
+            }
+            MessageToken::EntityReflexivePronoun(e) => {
+                if *e == pov_entity {
+                    Pronouns::you().reflexive
+                } else {
+                    get_reflexive_pronoun(*e, world)
                 }
             }
         }

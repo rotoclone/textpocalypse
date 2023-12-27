@@ -112,7 +112,13 @@ pub use equipped_items::EquippedItems;
 pub use equipped_items::UnequipError;
 
 mod weapon;
+pub use weapon::CombatRange;
+pub use weapon::CriticalDamageBehavior;
 pub use weapon::Weapon;
+pub use weapon::WeaponType;
+
+mod innate_weapon;
+pub use innate_weapon::InnateWeapon;
 
 mod combat_state;
 pub use combat_state::CombatState;

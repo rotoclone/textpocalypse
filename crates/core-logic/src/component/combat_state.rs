@@ -8,6 +8,7 @@ use crate::get_or_insert_mut;
 #[derive(Component, Default)]
 pub struct CombatState {
     /// The entities this entity is currently in combat with.
+    //TODO this should also include `CombatRange`s
     pub entities_in_combat_with: HashSet<Entity>,
 }
 
@@ -54,3 +55,5 @@ impl CombatState {
         }
     }
 }
+
+//TODO remove entities from combat when they die

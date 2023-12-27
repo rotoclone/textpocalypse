@@ -3,11 +3,17 @@ use std::ops::RangeInclusive;
 use bevy_ecs::prelude::*;
 use rand::{thread_rng, Rng};
 
+use crate::verb_forms::VerbForms;
+
+use super::InnateWeapon;
+
 /// An entity that can deal damage.
 #[derive(Component)]
 pub struct Weapon {
     /// The type of weapon this is.
     pub weapon_type: WeaponType,
+    /// The verb to use when describing hits from this weapon. E.g. shoot, stab, etc.
+    pub hit_verb: VerbForms,
     /// The amount of damage the entity could do.
     pub base_damage_range: RangeInclusive<u32>,
     /// How to modify the damage on a critical hit.
@@ -61,6 +67,25 @@ pub enum CombatRange {
 }
 
 impl Weapon {
+    /// Gets the primary weapon the provided entity has equipped, along with its name.
+    /// If the entity has no weapons equipped, its innate weapon will be returned.
+    /// If the entity has no weapons equipped and no innate weapon, `None` will be returned.
+    pub fn get_primary(entity: Entity, world: &World) -> Option<(&Weapon, &String)> {
+        //TODO actually determine which equipped weapon is the primary one
+        if let Some((weapon, weapon_name)) = Self::get_equipped(entity, world).first() {
+            return Some((weapon, weapon_name));
+        }
+
+        world
+            .get::<InnateWeapon>(entity)
+            .map(|innate_weapon| (&innate_weapon.weapon, &innate_weapon.name))
+    }
+
+    /// Gets all the weapons the provided entity has equipped, along with their names.
+    pub fn get_equipped(entity: Entity, world: &World) -> Vec<(&Weapon, &String)> {
+        vec![] //TODO actually find equipped weapons
+    }
+
     /// Calculates the penalty to hit with this weapon based on its range.
     pub fn calculate_to_hit_penalty(&self, range: CombatRange) -> u16 {
         self.range_to_hit_penalty * self.get_absolute_optimal_range_diff(range)
