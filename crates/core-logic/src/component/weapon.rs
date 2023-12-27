@@ -2,10 +2,17 @@ use std::ops::RangeInclusive;
 
 use bevy_ecs::prelude::*;
 use rand::{thread_rng, Rng};
+use strum::EnumIter;
 
-use crate::verb_forms::VerbForms;
+use crate::{resource::WeaponTypeBonusStatCatalog, verb_forms::VerbForms};
 
-use super::InnateWeapon;
+use super::{InnateWeapon, Stat};
+
+/// The amount of extra damage done per point in a weapon's damage bonus stat.
+const DAMAGE_BONUS_PER_STAT_POINT: f32 = 0.5;
+
+/// The to-hit bonus per point in a weapon's to-hit bonus stat.
+const TO_HIT_BONUS_PER_STAT_POINT: f32 = 0.5;
 
 /// An entity that can deal damage.
 #[derive(Component)]
@@ -14,22 +21,18 @@ pub struct Weapon {
     pub weapon_type: WeaponType,
     /// The verb to use when describing hits from this weapon. E.g. shoot, stab, etc.
     pub hit_verb: VerbForms,
-    /// The amount of damage the entity could do.
+    /// The amount of damage the weapon can do.
     pub base_damage_range: RangeInclusive<u32>,
     /// How to modify the damage on a critical hit.
-    pub critical_damage_behavior: CriticalDamageBehavior,
-    /// The ranges at which the weapon can be used at all.
-    pub usable_ranges: RangeInclusive<CombatRange>,
-    /// The ranges at which the weapon performs best.
-    pub optimal_ranges: RangeInclusive<CombatRange>,
-    /// The penalty to hit applied for each range level away from the optimal range.
-    pub range_to_hit_penalty: u16,
-    /// The penalty to damage applied for each range level away from the optimal range.
-    pub range_damage_penalty: u32,
+    pub critical_damage_behavior: WeaponDamageAdjustment,
+    /// Relevant ranges for the weapon.
+    pub ranges: WeaponRanges,
+    /// Stat requirements for using the weapon.
+    pub stat_requirements: WeaponStatRequirements,
 }
 
 /// Represents a type of weapon.
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, EnumIter)]
 pub enum WeaponType {
     /// A shooty weapon
     Firearm,
@@ -41,18 +44,20 @@ pub enum WeaponType {
     Bludgeon,
     /// Just regular old fists
     Fists,
+    /// A mod-defined weapon type
+    Custom(String),
 }
 
-/// Describes how to modify damage done on a critical hit.
-pub enum CriticalDamageBehavior {
-    /// Roll for damage from a different range.
-    NewRange(RangeInclusive<u32>),
-    /// Multiply the damage done by some amount.
-    Multiply(f32),
-    /// Instead of rolling for damage, do a specific amount of damage.
-    Amount(u32),
-    /// Instead of rolling for damage, choose the highest damage in the range.
-    Max,
+/// Describes the ranges at which a weapon can be used.
+pub struct WeaponRanges {
+    /// The ranges at which the weapon can be used at all.
+    pub usable_ranges: RangeInclusive<CombatRange>,
+    /// The ranges at which the weapon performs best.
+    pub optimal_ranges: RangeInclusive<CombatRange>,
+    /// The penalty to hit applied for each range level away from the optimal range.
+    pub range_to_hit_penalty: u16,
+    /// The penalty to damage applied for each range level away from the optimal range.
+    pub range_damage_penalty: u32,
 }
 
 /// Represents how far away two combatants are from each other.
@@ -64,6 +69,67 @@ pub enum CombatRange {
     Medium,
     Long,
     Longest,
+}
+
+pub struct WeaponStatRequirements {
+    /// Any stat requirements for using the weapon.
+    pub requirements: Vec<WeaponStatRequirement>,
+    /// The value at which the damage bonus stat starts providing a damage bonus.
+    pub damage_bonus_stat_start: f32,
+    /// The amount of extra damage done per point in the weapon's damage bonus stat above `damage_bonus_stat_start`.
+    pub damage_bonus_per_stat_point: f32,
+    /// The value at which the to-hit bonus stat starts providing a to-hit bonus.
+    pub to_hit_bonus_stat_start: f32,
+    /// The to-hit bonus per point in the weapon's to-hit bonus stat above `to_hit_bonus_stat_start`.
+    pub to_hit_bonus_per_stat_point: f32,
+}
+
+pub struct WeaponStatRequirement {
+    pub stat: Stat,
+    pub min: f32,
+    pub below_min_behavior: WeaponStatRequirementNotMetBehavior,
+}
+
+/// What to do if a weapon stat requirement is not met.
+pub enum WeaponStatRequirementNotMetBehavior {
+    /// The weapon cannot be used at all.
+    WeaponUnusable,
+    /// Adjustments are applied regardless of how much the stat requirement is not met by.
+    FlatAdjustments(Vec<WeaponPerformanceAdjustment>),
+    /// Adjustments are applied for each point the using entity is below the stat requirement.
+    AdjustmentsPerPointBelowMin(Vec<WeaponPerformanceAdjustment>),
+}
+
+/// Describes how to adjust the performance of a weapon when attacking with it.
+pub enum WeaponPerformanceAdjustment {
+    /// Change the damage done by the weapon.
+    Damage(WeaponDamageAdjustment),
+    /// Change the likelihood of hitting with the weapon.
+    ToHit(WeaponToHitAdjustment),
+}
+
+/// Describes how to adjust the damage of a weapon.
+pub enum WeaponDamageAdjustment {
+    /// Instead of rolling for damage, do a specific amount of damage.
+    Set(u32),
+    /// Add some amount to the damage done.
+    Add(i32),
+    /// Multiply the damage done by some amount.
+    Multiply(f32),
+    /// Instead of rolling for damage, choose the lowest damage in the range.
+    Min,
+    /// Instead of rolling for damage, choose the highest damage in the range.
+    Max,
+    /// Roll for damage from a different range.
+    NewRange(RangeInclusive<u32>),
+}
+
+/// Describes how to adjust the likelihood of hitting with a weapon.
+pub enum WeaponToHitAdjustment {
+    /// Add some amount to the stat value for the to-hit roll.
+    Add(i32),
+    /// Multiply the stat value for the to-hit roll by some amount.
+    Multiply(f32),
 }
 
 impl Weapon {
@@ -86,18 +152,52 @@ impl Weapon {
         vec![] //TODO actually find equipped weapons
     }
 
-    /// Calculates the penalty to hit with this weapon based on its range.
-    pub fn calculate_to_hit_penalty(&self, range: CombatRange) -> u16 {
-        self.range_to_hit_penalty * self.get_absolute_optimal_range_diff(range)
+    /// Determines the damage range the provided entity has with this weapon based on their stats.
+    pub fn get_effective_damage_range(&self, entity: Entity, world: &World) -> RangeInclusive<u32> {
+        let modification = get_damage_modification(&self, entity, world).round() as i32;
+        let new_min = self
+            .base_damage_range
+            .start()
+            .saturating_add_signed(modification);
+        let new_max = self
+            .base_damage_range
+            .end()
+            .saturating_add_signed(modification);
+
+        new_min..=new_max
     }
 
-    /// Calculates the amount of damage for a single hit from this weapon.
-    pub fn calculate_damage(&self, range: CombatRange, critical: bool) -> u32 {
+    /// Determines the to-hit bonus or penalty the provided entity has with this weapon based on their stats.
+    pub fn get_effective_to_hit_modification(&self, entity: Entity, world: &World) -> i16 {
+        get_to_hit_modification(&self, entity, world).round() as i16
+    }
+
+    /// Calculates the total bonus or penalty for the provided entity to hit with this weapon at the provided range.
+    pub fn calculate_to_hit_modification(
+        &self,
+        entity: Entity,
+        range: CombatRange,
+        world: &World,
+    ) -> i16 {
+        let stat_modification = self.get_effective_to_hit_modification(entity, world);
+        let range_penalty = self.range_to_hit_penalty * self.get_absolute_optimal_range_diff(range);
+
+        stat_modification.saturating_sub_unsigned(range_penalty)
+    }
+
+    /// Calculates the amount of damage for a single hit from this weapon by the provided entity.
+    pub fn calculate_damage(
+        &self,
+        attacking_entity: Entity,
+        range: CombatRange,
+        critical: bool,
+        world: &World,
+    ) -> u32 {
         if !self.usable_ranges.contains(&range) {
             return 0;
         }
 
-        let mut base_damage_range = &self.base_damage_range;
+        let mut base_damage_range = &self.get_effective_damage_range(attacking_entity, world);
         if critical {
             if let CriticalDamageBehavior::NewRange(new_damage_range) =
                 &self.critical_damage_behavior
@@ -153,5 +253,29 @@ impl Weapon {
     /// Determines how many range levels the provided range is outside of the optimal ranges.
     fn get_absolute_optimal_range_diff(&self, range: CombatRange) -> u16 {
         self.get_optimal_range_diff(range).unsigned_abs()
+    }
+}
+
+/// Gets the bonus or penalty to damage the provided entity does with the provided weapon based on their stats.
+fn get_damage_modification(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
+    if let Some(stat) =
+        WeaponTypeBonusStatCatalog::get_bonus_stats(&weapon.weapon_type, world).damage
+    {
+        let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        stat_value * DAMAGE_BONUS_PER_STAT_POINT
+    } else {
+        0.0
+    }
+}
+
+/// Gets the to-hit bonus or penalty the provided entity has with the provided weapon based on their stats.
+fn get_to_hit_modification(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
+    if let Some(stat) =
+        WeaponTypeBonusStatCatalog::get_bonus_stats(&weapon.weapon_type, world).to_hit
+    {
+        let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        stat_value * TO_HIT_BONUS_PER_STAT_POINT
+    } else {
+        0.0
     }
 }

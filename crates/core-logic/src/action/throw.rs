@@ -249,12 +249,12 @@ impl Action for ThrowAction {
             (throw_result, _) = Stats::check_vs(
                 VsParticipant {
                     entity: performing_entity,
-                    stat: Attribute::Strength,
+                    stat: Attribute::Strength.into(),
                     modifiers: CheckModifiers::modify_value(-throw_penalty),
                 },
                 VsParticipant {
                     entity: performing_entity,
-                    stat: Skill::Dodge,
+                    stat: Skill::Dodge.into(),
                     modifiers: CheckModifiers::none(),
                 },
                 VsCheckParams::second_wins_ties(),

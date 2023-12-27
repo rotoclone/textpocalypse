@@ -5,11 +5,13 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::resource::get_base_attribute;
 
+/* TODO remove
 /// Marker trait for types of stats (i.e. attributes and skills)
-pub trait Stat: std::fmt::Debug {
+pub trait Stat: std::fmt::Debug + Send + Sync {
     /// Gets the value of the stat
     fn get_value(&self, stats: &Stats, world: &World) -> f32;
 }
+*/
 
 /// The stats of an entity.
 #[derive(Component)]
@@ -160,6 +162,42 @@ impl Skills {
     }
 }
 
+/// A stat (i.e. either an attribute or a skill)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Stat {
+    Attribute(Attribute),
+    Skill(Skill),
+}
+
+impl From<Skill> for Stat {
+    fn from(value: Skill) -> Self {
+        Stat::Skill(value)
+    }
+}
+
+impl From<Attribute> for Stat {
+    fn from(value: Attribute) -> Self {
+        Stat::Attribute(value)
+    }
+}
+
+impl Stat {
+    /// Gets the value of this stat.
+    pub fn get_value(&self, stats: &Stats, world: &World) -> f32 {
+        match self {
+            Stat::Attribute(attribute) => f32::from(stats.attributes.get(attribute)),
+            Stat::Skill(skill) => stats.get_skill_total(skill, world),
+        }
+    }
+
+    /// Gets the provided entity's value for this stat, if they have stats.
+    pub fn get_entity_value(&self, entity: Entity, world: &World) -> Option<f32> {
+        world
+            .get::<Stats>(entity)
+            .map(|stats| self.get_value(stats, world))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum Attribute {
     Strength,
@@ -168,12 +206,6 @@ pub enum Attribute {
     Perception,
     Endurance,
     Custom(String),
-}
-
-impl Stat for Attribute {
-    fn get_value(&self, stats: &Stats, _: &World) -> f32 {
-        f32::from(stats.attributes.get(self))
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
@@ -194,10 +226,4 @@ pub enum Skill {
     Lockpick,
     Butchery,
     Custom(String),
-}
-
-impl Stat for Skill {
-    fn get_value(&self, stats: &Stats, world: &World) -> f32 {
-        stats.get_skill_total(self, world)
-    }
 }

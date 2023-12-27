@@ -218,12 +218,12 @@ fn try_escape_combat(entity: Entity, world: &mut World) -> bool {
         let (check_result, _) = Stats::check_vs(
             VsParticipant {
                 entity,
-                stat: Attribute::Agility,
+                stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },
             VsParticipant {
                 entity: entity_to_escape_from,
-                stat: Attribute::Agility,
+                stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },
             VsCheckParams::second_wins_ties(),
