@@ -61,14 +61,16 @@ pub enum CombatRange {
 }
 
 impl Weapon {
+    /// Calculates the penalty to hit with this weapon based on its range.
+    pub fn calculate_to_hit_penalty(&self, range: CombatRange) -> u16 {
+        self.range_to_hit_penalty * self.get_absolute_optimal_range_diff(range)
+    }
+
     /// Calculates the amount of damage for a single hit from this weapon.
     pub fn calculate_damage(&self, range: CombatRange, critical: bool) -> u32 {
         if !self.usable_ranges.contains(&range) {
             return 0;
         }
-
-        let range_diff = u32::try_from(self.get_optimal_range_diff(range).abs())
-            .expect("absolute value of range difference should fit in u32");
 
         let mut base_damage_range = &self.base_damage_range;
         if critical {
@@ -79,7 +81,8 @@ impl Weapon {
             }
         }
 
-        let damage_penalty = range_diff * self.range_damage_penalty;
+        let range_diff = self.get_absolute_optimal_range_diff(range);
+        let damage_penalty = u32::from(range_diff) * self.range_damage_penalty;
         let mut min_damage = base_damage_range.start().saturating_sub(damage_penalty);
         let mut max_damage = base_damage_range.end().saturating_sub(damage_penalty);
 
@@ -101,7 +104,7 @@ impl Weapon {
         rng.gen_range(min_damage..=max_damage)
     }
 
-    /// Determines how many range levels the provided range is outside of the optimal ranges.
+    /// Determines how many range levels the provided range is outside of the optimal ranges, and in which direction.
     ///
     /// If the provided range is shorter than the minimum optimal range, a negative number will be returned.
     /// If the provided range is longer than the maximum optimal range, a positive number will be returned.
@@ -120,5 +123,10 @@ impl Weapon {
         }
 
         0
+    }
+
+    /// Determines how many range levels the provided range is outside of the optimal ranges.
+    fn get_absolute_optimal_range_diff(&self, range: CombatRange) -> u16 {
+        self.get_optimal_range_diff(range).unsigned_abs()
     }
 }

@@ -114,6 +114,9 @@ pub use equipped_items::UnequipError;
 mod weapon;
 pub use weapon::Weapon;
 
+mod combat_state;
+pub use combat_state::CombatState;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;

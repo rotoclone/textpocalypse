@@ -918,3 +918,16 @@ fn find_wielding_entity(entity: Entity, world: &World) -> Option<Entity> {
 
     None
 }
+
+/// Finds a component on the provided entity, or inserts a default version of the component if the entity doesn't have one,
+/// and returns a mutable reference to the existing or just-inserted component.
+fn get_or_insert_mut<C: Component + Default>(entity: Entity, world: &mut World) -> Mut<C> {
+    let mut entity_ref = world.entity_mut(entity);
+    if !entity_ref.contains::<C>() {
+        entity_ref.insert(C::default());
+    }
+
+    world
+        .get_mut::<C>(entity)
+        .expect("component should exist on entity")
+}
