@@ -106,9 +106,9 @@ impl Weapon {
 
     /// Determines how many range levels the provided range is outside of the optimal ranges, and in which direction.
     ///
-    /// If the provided range is shorter than the minimum optimal range, a negative number will be returned.
-    /// If the provided range is longer than the maximum optimal range, a positive number will be returned.
-    /// If the provided range is an optimal range, 0 will be returned.
+    /// * If the provided range is shorter than the minimum optimal range, a negative number will be returned.
+    /// * If the provided range is longer than the maximum optimal range, a positive number will be returned.
+    /// * If the provided range is an optimal range, 0 will be returned.
     fn get_optimal_range_diff(&self, range: CombatRange) -> i16 {
         let range_number = range as u8;
 

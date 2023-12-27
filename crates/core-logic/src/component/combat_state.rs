@@ -12,12 +12,8 @@ pub struct CombatState {
 }
 
 impl CombatState {
-    /// Determines whether the provided entity is in combat.
-    pub fn is_in_combat(entity: Entity, world: &World) -> bool {
-        !Self::get_entities_in_combat_with(entity, world).is_empty()
-    }
-
     /// Finds all the entities the provided entity is currently in combat with.
+    /// If the entity is not in combat, an empty set will be returned.
     pub fn get_entities_in_combat_with(entity: Entity, world: &World) -> HashSet<Entity> {
         world
             .get::<CombatState>(entity)
@@ -49,5 +45,12 @@ impl CombatState {
         entity_2_combat_state
             .entities_in_combat_with
             .remove(&entity_1);
+    }
+
+    /// Marks the provided entity as not in combat with anyone.
+    pub fn leave_all_combat(entity: Entity, world: &mut World) {
+        for other_entity in CombatState::get_entities_in_combat_with(entity, world) {
+            Self::leave_combat(entity, other_entity, world);
+        }
     }
 }

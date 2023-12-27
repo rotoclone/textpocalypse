@@ -3,9 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    checks::{CheckModifiers, VsCheckParams, VsParticipant},
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Container,
-        Location,
+        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
+        CombatState, Container, Location, Stats,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
@@ -79,39 +80,69 @@ impl Action for MoveAction {
             current_location.get_connection_in_direction(&self.direction, world)
         {
             let new_room_id = connection.destination;
-            move_entity(performing_entity, new_room_id, world);
             should_tick = true;
-            was_successful = true;
 
-            result_builder = result_builder
-                .with_message(
-                    performing_entity,
-                    format!("You walk {}.", self.direction),
-                    MessageCategory::Internal(InternalMessageCategory::Action),
-                    MessageDelay::Long,
-                )
-                .with_third_person_message(
-                    Some(performing_entity),
-                    ThirdPersonMessageLocation::Location(current_location_id),
-                    ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+            if try_escape_combat(performing_entity, world) {
+                // the moving entity is either not in combat, or has successfully escaped from combat
+                move_entity(performing_entity, new_room_id, world);
+                was_successful = true;
+
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!("You walk {}.", self.direction),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
+                        MessageDelay::Long,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::Location(current_location_id),
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(format!(" walks {}.", self.direction)),
+                        world,
+                    )
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::Location(new_room_id),
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(format!(" walks in from the {}.", self.direction.opposite())),
+                        world,
+                    );
+            } else {
+                // the moving entity is in combat and failed to escape
+                result_builder = result_builder
+                    .with_message(
+                        performing_entity,
+                        format!(
+                            "You try to escape to the {}, but can't get away!",
+                            self.direction
+                        ),
+                        MessageCategory::Internal(InternalMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
-                    .add_string(format!(" walks {}.", self.direction)),
-                    world,
-                )
-                .with_third_person_message(
-                    Some(performing_entity),
-                    ThirdPersonMessageLocation::Location(new_room_id),
-                    ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
-                        MessageDelay::Short,
+                    .with_third_person_message(
+                        Some(performing_entity),
+                        ThirdPersonMessageLocation::Location(current_location_id),
+                        ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
+                            MessageDelay::Short,
+                        )
+                        .add_entity_name(performing_entity)
+                        .add_string(format!(
+                            " tries to escape to the {}, but can't get away.",
+                            self.direction
+                        )),
+                        world,
                     )
-                    .add_entity_name(performing_entity)
-                    .add_string(format!(" walks in from the {}.", self.direction.opposite())),
-                    world,
-                );
+            }
         } else {
             result_builder = result_builder.with_error(
                 performing_entity,
@@ -170,6 +201,42 @@ impl Action for MoveAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
+}
+
+/// Makes the provided entity try to escape combat by doing one or more stat checks.
+/// * If the entity isn't in combat, this will return true without performing a stat check.
+/// * If the entity passed all the checks, it will leave combat with everyone and this will return true.
+/// * If the entity failed any of the checks, this will return false.
+fn try_escape_combat(entity: Entity, world: &mut World) -> bool {
+    let entities_to_escape_from = CombatState::get_entities_in_combat_with(entity, world);
+
+    if entities_to_escape_from.is_empty() {
+        return true;
+    }
+
+    for entity_to_escape_from in entities_to_escape_from {
+        let (check_result, _) = Stats::check_vs(
+            VsParticipant {
+                entity,
+                stat: Attribute::Agility,
+                modifiers: CheckModifiers::none(),
+            },
+            VsParticipant {
+                entity: entity_to_escape_from,
+                stat: Attribute::Agility,
+                modifiers: CheckModifiers::none(),
+            },
+            VsCheckParams::second_wins_ties(),
+            world,
+        );
+
+        if !check_result.succeeded() {
+            return false;
+        }
+    }
+
+    CombatState::leave_all_combat(entity, world);
+    true
 }
 
 /// Notification handler that queues up a look action after an entity moves, so they can see where they ended up.
