@@ -406,11 +406,20 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
                 third_person_singular: "punches".to_string(),
             },
             base_damage_range: 1..=2,
-            critical_damage_behavior: CriticalDamageBehavior::Multiply(2.0),
-            usable_ranges: CombatRange::Shortest..=CombatRange::Short,
-            optimal_ranges: CombatRange::Shortest..=CombatRange::Shortest,
-            range_to_hit_penalty: 1,
-            range_damage_penalty: 0,
+            critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+            ranges: WeaponRanges {
+                usable: CombatRange::Shortest..=CombatRange::Short,
+                optimal: CombatRange::Shortest..=CombatRange::Shortest,
+                to_hit_penalty: 1,
+                damage_penalty: 0,
+            },
+            stat_requirements: Vec::new(),
+            stat_bonuses: WeaponStatBonuses {
+                damage_bonus_stat_range: 5.0..=15.0,
+                damage_bonus_per_stat_point: 1.0,
+                to_hit_bonus_stat_range: 5.0..=15.0,
+                to_hit_bonus_per_stat_point: 0.2,
+            },
         },
     };
     let player_entity = world

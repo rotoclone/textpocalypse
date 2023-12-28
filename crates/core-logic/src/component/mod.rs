@@ -113,9 +113,16 @@ pub use equipped_items::UnequipError;
 
 mod weapon;
 pub use weapon::CombatRange;
-pub use weapon::CriticalDamageBehavior;
 pub use weapon::Weapon;
+pub use weapon::WeaponDamageAdjustment;
+pub use weapon::WeaponPerformanceAdjustment;
+pub use weapon::WeaponRanges;
+pub use weapon::WeaponStatBonuses;
+pub use weapon::WeaponStatRequirement;
+pub use weapon::WeaponStatRequirementNotMetBehavior;
+pub use weapon::WeaponToHitAdjustment;
 pub use weapon::WeaponType;
+pub use weapon::WeaponUnusableError;
 
 mod innate_weapon;
 pub use innate_weapon::InnateWeapon;

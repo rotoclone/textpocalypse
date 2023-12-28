@@ -5,6 +5,7 @@ use regex::Regex;
 use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, CombatState, Vitals, Weapon,
+        WeaponUnusableError,
     },
     get_reference_name,
     input_parser::{
@@ -21,6 +22,9 @@ use super::{
     Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
     ThirdPersonMessageLocation,
 };
+
+/// Multiplier applied to damage done to oneself.
+const SELF_DAMAGE_MULT: f32 = 3.0;
 
 const ATTACK_VERB_NAME: &str = "attack";
 const ATTACK_FORMAT: &str = "attack <>";
@@ -98,38 +102,67 @@ impl Action for AttackAction {
         let weapon_name = weapon_name.clone();
 
         if target == performing_entity {
-            let damage = weapon.calculate_damage(*weapon.optimal_ranges.start(), true);
-            let third_person_hit_verb = weapon.hit_verb.third_person_singular.clone();
+            match weapon.calculate_damage(
+                performing_entity,
+                *weapon.ranges.optimal.start(),
+                true,
+                world,
+            ) {
+                Ok(damage) => {
+                    let third_person_hit_verb = weapon.hit_verb.third_person_singular.clone();
 
-            ValueChange {
-                entity: performing_entity,
-                value_type: ValueType::Health,
-                operation: ValueChangeOperation::Subtract,
-                amount: damage as f32,
-                message: Some(format!(
-                    "You {} yourself with your {}!",
-                    weapon.hit_verb.second_person, weapon_name
-                )),
+                    ValueChange {
+                        entity: performing_entity,
+                        value_type: ValueType::Health,
+                        operation: ValueChangeOperation::Subtract,
+                        amount: damage as f32 * SELF_DAMAGE_MULT,
+                        message: Some(format!(
+                            "You {} yourself with your {}!",
+                            weapon.hit_verb.second_person, weapon_name
+                        )),
+                    }
+                    .apply(world);
+
+                    return ActionResult::builder()
+                        .with_third_person_message(
+                            Some(performing_entity),
+                            ThirdPersonMessageLocation::SourceEntity,
+                            ThirdPersonMessage::new(
+                                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                                MessageDelay::Short,
+                            )
+                            .add_entity_name(performing_entity)
+                            .add_string(format!(" {third_person_hit_verb} "))
+                            .add_entity_reflexive_pronoun(performing_entity)
+                            .add_string(" with ")
+                            .add_entity_possessive_adjective_pronoun(performing_entity)
+                            .add_string(format!(" {weapon_name}.")),
+                            world,
+                        )
+                        .build_complete_should_tick(true);
+                }
+                Err(WeaponUnusableError::OutsideUsableRange(_)) => {
+                    return ActionResult::builder()
+                        .with_error(
+                            performing_entity,
+                            format!("Your {weapon_name} is outside its usable range."),
+                        )
+                        .build_complete_no_tick(false);
+                }
+                Err(WeaponUnusableError::StatRequirementNotMet(requirement)) => {
+                    return ActionResult::builder()
+                        .with_error(
+                            performing_entity,
+                            format!(
+                                "You can't use your {} since your {} is less than {:.1}.",
+                                weapon_name,
+                                requirement.stat.get_name(world),
+                                requirement.min
+                            ),
+                        )
+                        .build_complete_no_tick(false);
+                }
             }
-            .apply(world);
-
-            return ActionResult::builder()
-                .with_third_person_message(
-                    Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                        MessageDelay::Short,
-                    )
-                    .add_entity_name(performing_entity)
-                    .add_string(format!(" {third_person_hit_verb} "))
-                    .add_entity_reflexive_pronoun(performing_entity)
-                    .add_string(" with ")
-                    .add_entity_possessive_adjective_pronoun(performing_entity)
-                    .add_string(format!(" {weapon_name}.")),
-                    world,
-                )
-                .build_complete_should_tick(true);
         }
 
         CombatState::enter_combat(performing_entity, target, world);

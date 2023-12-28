@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::resource::get_base_attribute;
+use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
 
 /* TODO remove
 /// Marker trait for types of stats (i.e. attributes and skills)
@@ -195,6 +195,14 @@ impl Stat {
         world
             .get::<Stats>(entity)
             .map(|stats| self.get_value(stats, world))
+    }
+
+    /// Gets the display name of this stat.
+    pub fn get_name(&self, world: &World) -> String {
+        match self {
+            Stat::Attribute(attribute) => get_attribute_name(attribute, world).full,
+            Stat::Skill(skill) => get_skill_name(skill, world),
+        }
     }
 }
 
