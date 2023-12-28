@@ -4,15 +4,11 @@ use bevy_ecs::prelude::*;
 use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
-use crate::{resource::WeaponTypeBonusStatCatalog, verb_forms::VerbForms};
+use crate::{
+    range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog, verb_forms::VerbForms,
+};
 
 use super::{InnateWeapon, Stat};
-
-/// The amount of extra damage done per point in a weapon's damage bonus stat.
-const DAMAGE_BONUS_PER_STAT_POINT: f32 = 0.5;
-
-/// The to-hit bonus per point in a weapon's to-hit bonus stat.
-const TO_HIT_BONUS_PER_STAT_POINT: f32 = 0.5;
 
 /// An entity that can deal damage.
 #[derive(Component)]
@@ -172,23 +168,31 @@ impl Weapon {
         entity: Entity,
         world: &World,
     ) -> Result<RangeInclusive<u32>, WeaponUnusableError> {
-        let min = *self.base_damage_range.start() as f32;
-        let max = *self.base_damage_range.end() as f32;
         let stat_bonus = get_stat_bonus_damage(self, entity, world);
-        let new_min = apply_stat_requirements_to_damage(min + stat_bonus, self, entity, world)?;
-        let new_max = apply_stat_requirements_to_damage(max + stat_bonus, self, entity, world)?;
 
-        Ok(new_min.round() as u32..=new_max.round() as u32)
+        let mut damage_range =
+            RangeInclusive::<f32>::from_u32_range(self.base_damage_range.clone());
+        damage_range = damage_range.add(stat_bonus);
+        damage_range = apply_stat_requirements_to_damage_range(damage_range, self, entity, world)?;
+
+        Ok(damage_range.as_u32_saturating())
     }
 
-    /// Determines the to-hit bonus or penalty the provided entity has with this weapon based on their stats.
+    /// Determines the to-hit bonus or penalty the provided entity has with this weapon in general based on their stats.
     pub fn get_effective_to_hit_modification(
         &self,
         entity: Entity,
         world: &World,
     ) -> Result<i16, WeaponUnusableError> {
-        //TODO take into account stat requirements
-        Ok(get_stat_to_hit_bonus(self, entity, world).round() as i16)
+        let stat = WeaponTypeStatCatalog::get_stats(&self.weapon_type, world).primary;
+        let base_to_hit = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        let stat_bonus = get_stat_to_hit_bonus(self, entity, world);
+        let mut modified_to_hit = base_to_hit + stat_bonus;
+        modified_to_hit = apply_stat_requirements_to_to_hit(modified_to_hit, self, entity, world)?;
+
+        Ok((modified_to_hit - base_to_hit)
+            .round()
+            .clamp(i16::MIN as f32, i16::MAX as f32) as i16)
     }
 
     /// Calculates the total bonus or penalty for the provided entity to hit with this weapon at the provided range.
@@ -236,31 +240,28 @@ impl Weapon {
 
         let range_diff = self.get_absolute_optimal_range_diff(range);
         let damage_penalty = u32::from(range_diff) * self.ranges.damage_penalty;
-        let mut min_damage = base_damage_range.start().saturating_sub(damage_penalty);
-        let mut max_damage = base_damage_range.end().saturating_sub(damage_penalty);
+        let mut damage_range = RangeInclusive::<f32>::from_u32_range(base_damage_range.clone());
+        damage_range = damage_range.sub(damage_penalty as f32);
 
         if critical {
-            //TODO call `apply_damage_adjustment` instead
             match &self.critical_damage_behavior {
                 WeaponDamageAdjustment::NewRange(_) => (), // already handled above
-                WeaponDamageAdjustment::Set(damage) => return Ok(*damage),
-                WeaponDamageAdjustment::Add(amount) => {
-                    min_damage = min_damage.saturating_add_signed(*amount);
-                    max_damage = max_damage.saturating_add_signed(*amount);
+                WeaponDamageAdjustment::Set(x) => return Ok(*x),
+                WeaponDamageAdjustment::Add(x) => {
+                    damage_range = damage_range.add(*x as f32);
                 }
-                WeaponDamageAdjustment::Multiply(mult) => {
-                    let new_min_damage = min_damage as f32 * mult;
-                    let new_max_damage = max_damage as f32 * mult;
-                    min_damage = new_min_damage.round() as u32;
-                    max_damage = new_max_damage.round() as u32;
+                WeaponDamageAdjustment::Multiply(x) => {
+                    damage_range = damage_range.mult(*x);
                 }
-                WeaponDamageAdjustment::Min => return Ok(min_damage),
-                WeaponDamageAdjustment::Max => return Ok(max_damage),
+                WeaponDamageAdjustment::Min => {
+                    return Ok(*damage_range.as_u32_saturating().start())
+                }
+                WeaponDamageAdjustment::Max => return Ok(*damage_range.as_u32_saturating().end()),
             }
         }
 
         let mut rng = thread_rng();
-        Ok(rng.gen_range(min_damage..=max_damage))
+        Ok(rng.gen_range(damage_range.as_u32_saturating()))
     }
 
     /// Determines how many range levels the provided range is outside of the optimal ranges, and in which direction.
@@ -292,15 +293,13 @@ impl Weapon {
 
 /// Gets the bonus to damage the provided entity does with the provided weapon based on their stats.
 fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
-    if let Some(stat) =
-        WeaponTypeBonusStatCatalog::get_bonus_stats(&weapon.weapon_type, world).damage
-    {
+    if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).damage_bonus {
         let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.damage_bonus_stat_range.end());
         let amount_above_bonus_start =
             (effective_stat_value - weapon.stat_bonuses.damage_bonus_stat_range.start()).max(0.0);
-        amount_above_bonus_start * DAMAGE_BONUS_PER_STAT_POINT
+        amount_above_bonus_start * weapon.stat_bonuses.damage_bonus_per_stat_point
     } else {
         0.0
     }
@@ -308,15 +307,13 @@ fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 
 
 /// Gets the to-hit bonus the provided entity has with the provided weapon based on their stats.
 fn get_stat_to_hit_bonus(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
-    if let Some(stat) =
-        WeaponTypeBonusStatCatalog::get_bonus_stats(&weapon.weapon_type, world).to_hit
-    {
+    if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).to_hit_bonus {
         let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.to_hit_bonus_stat_range.end());
         let amount_above_bonus_start =
             (effective_stat_value - weapon.stat_bonuses.to_hit_bonus_stat_range.start()).max(0.0);
-        amount_above_bonus_start * TO_HIT_BONUS_PER_STAT_POINT
+        amount_above_bonus_start * weapon.stat_bonuses.to_hit_bonus_per_stat_point
     } else {
         0.0
     }
@@ -331,13 +328,13 @@ pub enum WeaponUnusableError {
 }
 
 /// Applies modifications to the provided damage based on the weapon's stat requirements and the entity's stats.
-fn apply_stat_requirements_to_damage(
-    damage: f32,
+fn apply_stat_requirements_to_damage_range(
+    range: RangeInclusive<f32>,
     weapon: &Weapon,
     entity: Entity,
     world: &World,
-) -> Result<f32, WeaponUnusableError> {
-    let mut new_damage = damage;
+) -> Result<RangeInclusive<f32>, WeaponUnusableError> {
+    let mut new_range = range;
     for requirement in &weapon.stat_requirements {
         let stat_value = requirement
             .stat
@@ -352,42 +349,47 @@ fn apply_stat_requirements_to_damage(
                     ));
                 }
                 WeaponStatRequirementNotMetBehavior::FlatAdjustments(adjustments) => {
-                    new_damage = apply_damage_adjustments(new_damage, adjustments, 1);
+                    new_range = apply_damage_adjustments(new_range, adjustments, 1);
                 }
                 WeaponStatRequirementNotMetBehavior::AdjustmentsPerPointBelowMin(adjustments) => {
-                    new_damage =
-                        apply_damage_adjustments(new_damage, adjustments, points_below_min);
+                    new_range = apply_damage_adjustments(new_range, adjustments, points_below_min);
                 }
             }
         }
     }
 
-    Ok(new_damage)
+    Ok(new_range)
 }
 
 fn apply_damage_adjustments(
-    damage: f32,
+    range: RangeInclusive<f32>,
     adjustments: &[WeaponPerformanceAdjustment],
     times: u32,
-) -> f32 {
-    let mut new_damage = damage;
+) -> RangeInclusive<f32> {
+    let mut new_range = range;
     for adjustment in adjustments {
         if let WeaponPerformanceAdjustment::Damage(damage_adjustment) = adjustment {
-            new_damage = apply_damage_adjustment(damage, damage_adjustment, times);
+            new_range = apply_damage_adjustment(new_range, damage_adjustment, times);
         }
     }
 
-    new_damage
+    new_range
 }
 
-fn apply_damage_adjustment(damage: f32, adjustment: &WeaponDamageAdjustment, times: u32) -> f32 {
+fn apply_damage_adjustment(
+    range: RangeInclusive<f32>,
+    adjustment: &WeaponDamageAdjustment,
+    times: u32,
+) -> RangeInclusive<f32> {
     match adjustment {
-        WeaponDamageAdjustment::NewRange(_) => todo!(), //TODO this has to be done earlier
-        WeaponDamageAdjustment::Set(x) => *x as f32,
-        WeaponDamageAdjustment::Add(x) => damage + (*x as f32 * times as f32),
-        WeaponDamageAdjustment::Multiply(x) => damage * x * times as f32,
-        WeaponDamageAdjustment::Min => todo!(), //TODO this needs the range
-        WeaponDamageAdjustment::Max => todo!(), //TODO this needs the range
+        WeaponDamageAdjustment::NewRange(new_range) => {
+            *new_range.start() as f32..=*new_range.end() as f32
+        }
+        WeaponDamageAdjustment::Set(x) => *x as f32..=*x as f32,
+        WeaponDamageAdjustment::Add(x) => range.add(*x as f32 * times as f32),
+        WeaponDamageAdjustment::Multiply(x) => range.mult(x * times as f32),
+        WeaponDamageAdjustment::Min => *range.start()..=*range.start(),
+        WeaponDamageAdjustment::Max => *range.end()..=*range.end(),
     }
 }
 

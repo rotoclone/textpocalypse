@@ -28,8 +28,9 @@ mod skill_base_attribute_catalog;
 pub use skill_base_attribute_catalog::get_base_attribute;
 pub use skill_base_attribute_catalog::SkillBaseAttributeCatalog;
 
-mod weapon_type_bonus_stat_catalog;
-pub use weapon_type_bonus_stat_catalog::WeaponTypeBonusStatCatalog;
+mod weapon_type_stat_catalog;
+pub use weapon_type_stat_catalog::WeaponTypeStatCatalog;
+pub use weapon_type_stat_catalog::WeaponTypeStats;
 
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
@@ -39,7 +40,7 @@ pub fn insert_resources(world: &mut World) {
     world.insert_resource(AttributeNameCatalog::new());
     world.insert_resource(SkillNameCatalog::new());
     world.insert_resource(SkillBaseAttributeCatalog::new());
-    world.insert_resource(WeaponTypeBonusStatCatalog::new());
+    world.insert_resource(WeaponTypeStatCatalog::new());
 }
 
 /// Registers notification handlers related to resources.

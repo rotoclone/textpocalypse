@@ -69,6 +69,9 @@ use checks::*;
 mod verb_forms;
 use verb_forms::*;
 
+mod range_extensions;
+use range_extensions::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
