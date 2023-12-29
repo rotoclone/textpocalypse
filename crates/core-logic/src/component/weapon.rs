@@ -5,7 +5,8 @@ use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
 use crate::{
-    range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog, verb_forms::VerbForms,
+    component::EquippedItems, get_name, range_extensions::RangeExtensions,
+    resource::WeaponTypeStatCatalog, verb_forms::VerbForms,
 };
 
 use super::{InnateWeapon, Stat};
@@ -144,22 +145,35 @@ pub struct WeaponStatBonuses {
 
 impl Weapon {
     /// Gets the primary weapon the provided entity has equipped, along with its name.
-    /// If the entity has no weapons equipped, its innate weapon will be returned.
-    /// If the entity has no weapons equipped and no innate weapon, `None` will be returned.
-    pub fn get_primary(entity: Entity, world: &World) -> Option<(&Weapon, &String)> {
-        //TODO actually determine which equipped weapon is the primary one
-        if let Some((weapon, weapon_name)) = Self::get_equipped(entity, world).first() {
+    /// * If the entity has no weapons equipped, its innate weapon will be returned.
+    /// * If the entity has no weapons equipped and no innate weapon, `None` will be returned.
+    pub fn get_primary(entity: Entity, world: &World) -> Option<(&Weapon, String)> {
+        // assume the first-equipped weapon is the primary one
+        if let Some((weapon, weapon_name)) = Self::get_equipped(entity, world).into_iter().next() {
             return Some((weapon, weapon_name));
         }
 
         world
             .get::<InnateWeapon>(entity)
-            .map(|innate_weapon| (&innate_weapon.weapon, &innate_weapon.name))
+            .map(|innate_weapon| (&innate_weapon.weapon, innate_weapon.name.clone()))
     }
 
     /// Gets all the weapons the provided entity has equipped, along with their names.
-    pub fn get_equipped(entity: Entity, world: &World) -> Vec<(&Weapon, &String)> {
-        vec![] //TODO actually find equipped weapons
+    /// Weapons will be returned in the order they were equipped, oldest first.
+    pub fn get_equipped(entity: Entity, world: &World) -> Vec<(&Weapon, String)> {
+        if let Some(equipped_items) = world.get::<EquippedItems>(entity) {
+            equipped_items
+                .get_items()
+                .iter()
+                .filter_map(|item| {
+                    world
+                        .get::<Weapon>(*item)
+                        .map(|weapon| (weapon, get_name(*item, world).unwrap_or("???".to_string())))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 
     /// Determines the damage range the provided entity has with this weapon based on their stats.

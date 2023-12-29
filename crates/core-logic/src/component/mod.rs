@@ -83,6 +83,9 @@ pub use sleep_state::SleepState;
 mod wander_behavior;
 pub use wander_behavior::WanderBehavior;
 
+mod self_defense_behavior;
+pub use self_defense_behavior::SelfDefenseBehavior;
+
 mod greet_behavior;
 pub use greet_behavior::GreetBehavior;
 
@@ -163,6 +166,9 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(wander_behavior::wander_on_tick, world);
     NotificationHandlers::add_handler(remove_on_death::<WanderBehavior>, world);
+
+    NotificationHandlers::add_handler(self_defense_behavior::attack_on_tick, world);
+    NotificationHandlers::add_handler(remove_on_death::<SelfDefenseBehavior>, world);
 
     NotificationHandlers::add_handler(greet_behavior::greet_new_entities, world);
     NotificationHandlers::add_handler(remove_on_death::<GreetBehavior>, world);

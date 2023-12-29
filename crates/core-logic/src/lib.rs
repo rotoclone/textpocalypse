@@ -399,32 +399,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     let worn_items = WornItems::new(5);
     let equipped_items = EquippedItems::new(2);
     let action_queue = ActionQueue::new();
-    let innate_weapon = InnateWeapon {
-        name: "fist".to_string(),
-        weapon: Weapon {
-            weapon_type: WeaponType::Fists,
-            hit_verb: VerbForms {
-                second_person: "punch".to_string(),
-                third_person_plural: "punch".to_string(),
-                third_person_singular: "punches".to_string(),
-            },
-            base_damage_range: 1..=2,
-            critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
-            ranges: WeaponRanges {
-                usable: CombatRange::Shortest..=CombatRange::Short,
-                optimal: CombatRange::Shortest..=CombatRange::Shortest,
-                to_hit_penalty: 1,
-                damage_penalty: 0,
-            },
-            stat_requirements: Vec::new(),
-            stat_bonuses: WeaponStatBonuses {
-                damage_bonus_stat_range: 5.0..=15.0,
-                damage_bonus_per_stat_point: 1.0,
-                to_hit_bonus_stat_range: 5.0..=15.0,
-                to_hit_bonus_per_stat_point: 0.2,
-            },
-        },
-    };
+    let innate_weapon = build_human_innate_weapon();
     let player_entity = world
         .spawn((
             player,
@@ -472,6 +447,36 @@ fn build_starting_stats() -> Stats {
     stats.set_skill(&Skill::Cook, 8);
 
     stats
+}
+
+/// Builds an innate weapon for a human (a fist).
+fn build_human_innate_weapon() -> InnateWeapon {
+    InnateWeapon {
+        name: "fist".to_string(),
+        weapon: Weapon {
+            weapon_type: WeaponType::Fists,
+            hit_verb: VerbForms {
+                second_person: "punch".to_string(),
+                third_person_plural: "punch".to_string(),
+                third_person_singular: "punches".to_string(),
+            },
+            base_damage_range: 1..=2,
+            critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+            ranges: WeaponRanges {
+                usable: CombatRange::Shortest..=CombatRange::Short,
+                optimal: CombatRange::Shortest..=CombatRange::Shortest,
+                to_hit_penalty: 1,
+                damage_penalty: 0,
+            },
+            stat_requirements: Vec::new(),
+            stat_bonuses: WeaponStatBonuses {
+                damage_bonus_stat_range: 10.0..=20.0,
+                damage_bonus_per_stat_point: 1.0,
+                to_hit_bonus_stat_range: 10.0..=20.0,
+                to_hit_bonus_per_stat_point: 0.2,
+            },
+        },
+    }
 }
 
 /// Despawns the player with the provided ID.

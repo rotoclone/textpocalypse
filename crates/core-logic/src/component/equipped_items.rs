@@ -65,7 +65,12 @@ impl EquippedItems {
             .sum()
     }
 
-    /// Returns the item that has been equipped the longest, skipping the provided number of items, if there is one.
+    /// Returns all the equipped items, ordered from least-recently to most-recently equipped.
+    pub fn get_items(&self) -> &Vec<Entity> {
+        &self.items
+    }
+
+    /// Returns the item that has been equipped the longest, if there is one, skipping the provided number of items.
     pub fn get_oldest_item(&self, to_skip: usize) -> Option<Entity> {
         self.items.get(to_skip).copied()
     }

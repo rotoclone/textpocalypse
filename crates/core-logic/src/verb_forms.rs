@@ -1,4 +1,5 @@
 /// Contains different forms of a verb.
+#[derive(Clone)]
 pub struct VerbForms {
     /// The second-person form, to follow "You"
     pub second_person: String,

@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
+    build_human_innate_weapon,
     color::Color,
     component::{
         Calories, Connection, Container, DescribeAttributes, Description, Edible, EquippedItems,
         Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Pronouns, Respawner, Room, SleepState, Stats, Vitals, Volume,
-        WanderBehavior, Wearable, Weight, WornItems,
+        ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior, SleepState, Stats,
+        Vitals, Volume, WanderBehavior, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
@@ -185,6 +186,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             WanderBehavior {
                 move_chance_per_tick: 0.1,
             },
+            SelfDefenseBehavior,
             GreetBehavior {
                 greeting: "Hey there!".to_string(),
             },
@@ -198,6 +200,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
             EquippedItems::new(2),
+            build_human_innate_weapon(),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);

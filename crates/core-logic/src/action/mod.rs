@@ -127,6 +127,9 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(equip::verify_has_item_to_equip, world);
     VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
     NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
+
+    VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
+    VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
 }
 
 /// A message caused by some other entity's action.
