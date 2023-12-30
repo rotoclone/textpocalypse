@@ -77,7 +77,12 @@ impl InputParser for WearParser {
         vec![WEAR_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Wearable>(entity, world, &[WEAR_FORMAT])
     }
 }

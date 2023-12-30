@@ -181,7 +181,12 @@ impl InputParser for ThrowParser {
         vec![THROW_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Item>(entity, world, &[THROW_FORMAT])
     }
 }
@@ -282,6 +287,10 @@ impl Action for ThrowAction {
         };
 
         let mut result_builder = ActionResult::builder();
+
+        if target_is_living {
+            //TODO initiate combat
+        }
 
         let hit;
         match throw_result {

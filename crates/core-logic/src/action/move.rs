@@ -50,7 +50,7 @@ impl InputParser for MoveParser {
         vec![MOVE_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }
@@ -214,7 +214,7 @@ fn try_escape_combat(entity: Entity, world: &mut World) -> bool {
         return true;
     }
 
-    for entity_to_escape_from in entities_to_escape_from {
+    for entity_to_escape_from in entities_to_escape_from.keys() {
         let (check_result, _) = Stats::check_vs(
             VsParticipant {
                 entity,
@@ -222,7 +222,7 @@ fn try_escape_combat(entity: Entity, world: &mut World) -> bool {
                 modifiers: CheckModifiers::none(),
             },
             VsParticipant {
-                entity: entity_to_escape_from,
+                entity: *entity_to_escape_from,
                 stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },

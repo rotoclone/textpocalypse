@@ -238,12 +238,17 @@ pub trait InputParser: Send + Sync {
     /// Targets in the provided formats are denoted with "<>".
     fn get_input_formats(&self) -> Vec<String>;
 
-    /// Returns all the input formats that would cause valid actions to be produced by this parser if the provided entity was included as a target.
+    /// Returns all the input formats that would cause valid actions to be produced by this parser if the provided entity was included as a target by the POV entity.
     /// Targets in the provided formats are denoted with "<>".
     ///
     /// For example, if this parser returns actions that act on entities with a `Location` component, then passing in an entity with that
     /// component might produce an output of `Some(["move <> to <>"])`, whereas passing in an entity without that component would produce `None`.
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>>;
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Option<Vec<String>>;
 }
 
 pub fn input_formats_if_has_component<C: Component>(

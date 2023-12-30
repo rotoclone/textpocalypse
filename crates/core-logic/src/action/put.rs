@@ -169,7 +169,12 @@ impl InputParser for PutParser {
         ]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         let mut formats =
             input_formats_if_has_component::<Item>(entity, world, &[GET_FORMAT, DROP_FORMAT])
                 .unwrap_or_default();

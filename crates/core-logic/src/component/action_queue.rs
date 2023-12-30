@@ -107,6 +107,8 @@ impl ActionQueue {
     }
 }
 
+// TODO move below functions onto ActionQueue
+
 /// Clears all queued actions for the provided entity, interrupting any actions that are in progress.
 pub fn clear_action_queue(world: &mut World, entity: Entity) {
     let mut actions_to_interrupt = Vec::new();
@@ -138,6 +140,14 @@ pub fn queue_action(world: &mut World, performing_entity: Entity, action: Box<dy
             to_add_back: vec![(action, ActionState::NotStarted)],
         });
     }
+}
+
+/// Determines if the provided entity has any actions queued.
+pub fn has_any_queued_actions(world: &World, entity: Entity) -> bool {
+    world
+        .get::<ActionQueue>(entity)
+        .map(|queue| !queue.is_empty())
+        .unwrap_or(false)
 }
 
 /// Queues an action for the provided entity to perform before its other queued actions.

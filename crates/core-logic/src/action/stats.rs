@@ -34,7 +34,7 @@ impl InputParser for StatsParser {
         vec![STATS_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }

@@ -100,6 +100,10 @@ mod attack;
 pub use attack::AttackAction;
 pub use attack::AttackParser;
 
+mod change_range;
+pub use change_range::ChangeRangeAction;
+pub use change_range::ChangeRangeParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(

@@ -89,7 +89,12 @@ impl InputParser for EquipParser {
         vec![EQUIP_FORMAT.to_string(), UNEQUIP_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Item>(entity, world, &[EQUIP_FORMAT, UNEQUIP_FORMAT])
     }
 }

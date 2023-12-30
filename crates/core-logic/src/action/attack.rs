@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
     checks::{CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
-        ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Skill, Stats,
-        Vitals, Weapon, WeaponUnusableError,
+        ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Location,
+        Skill, Stats, Vitals, Weapon, WeaponUnusableError,
     },
     get_reference_name,
     input_parser::{
@@ -26,6 +27,9 @@ use super::{
     Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
     ThirdPersonMessage, ThirdPersonMessageLocation,
 };
+
+/// The range all combat starts at.
+const STARTING_COMBAT_RANGE: CombatRange = CombatRange::Long;
 
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
@@ -90,7 +94,12 @@ impl InputParser for AttackParser {
         vec![ATTACK_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Vitals>(entity, world, &[ATTACK_FORMAT])
     }
 }
@@ -175,12 +184,14 @@ impl Action for AttackAction {
 
         let mut result_builder = ActionResult::builder();
 
-        //TODO let range = CombatState::get_range(performing_entity, target, world);
-        let range = weapon.ranges.optimal.start();
+        let range = CombatState::get_entities_in_combat_with(performing_entity, world)
+            .get(&target)
+            .copied()
+            .unwrap_or(STARTING_COMBAT_RANGE);
 
         // try to perform an initial attack
         let to_hit_modification =
-            match weapon.calculate_to_hit_modification(performing_entity, *range, world) {
+            match weapon.calculate_to_hit_modification(performing_entity, range, world) {
                 Ok(x) => x,
                 Err(e) => {
                     return handle_weapon_unusable_error(
@@ -211,7 +222,7 @@ impl Action for AttackAction {
         let damage_and_body_part = if to_hit_result.succeeded() {
             let body_part = BodyPart::Head; //TODO randomly determine body part
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
-            match weapon.calculate_damage(performing_entity, *range, critical, world) {
+            match weapon.calculate_damage(performing_entity, range, critical, world) {
                 Ok(x) => Some((x, body_part)),
                 Err(e) => {
                     return handle_weapon_unusable_error(
@@ -227,7 +238,8 @@ impl Action for AttackAction {
             None
         };
 
-        result_builder = handle_enter_combat(performing_entity, target, result_builder, world);
+        result_builder =
+            handle_enter_combat(performing_entity, target, range, result_builder, world);
 
         if let Some((damage, body_part)) = damage_and_body_part {
             result_builder = handle_damage(
@@ -323,11 +335,15 @@ fn handle_weapon_unusable_error(
 fn handle_enter_combat(
     performing_entity: Entity,
     target: Entity,
+    range: CombatRange,
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    if !CombatState::get_entities_in_combat_with(performing_entity, world).contains(&target) {
-        CombatState::enter_combat(performing_entity, target, world);
+    if !CombatState::get_entities_in_combat_with(performing_entity, world)
+        .keys()
+        .contains(&target)
+    {
+        CombatState::set_in_combat(performing_entity, target, range, world);
 
         let target_name = get_reference_name(target, Some(performing_entity), world);
         result_builder = result_builder
