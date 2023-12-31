@@ -427,7 +427,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
     )
-    .add_entity_name(player_entity)
+    .add_name(player_entity)
     .add_string(" appears.")
     .send(
         Some(player_entity),
@@ -487,7 +487,7 @@ fn despawn_player(player_id: PlayerId, world: &mut World) {
             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
         )
-        .add_entity_name(entity)
+        .add_name(entity)
         .add_string(" disappears.")
         .send(
             Some(entity),
@@ -699,7 +699,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
-    .add_entity_name(entity)
+    .add_name(entity)
     .add_string(" falls to the ground, dead.")
     .send(
         Some(entity),
@@ -757,9 +757,19 @@ fn kill_entity(entity: Entity, world: &mut World) {
     }
 }
 
+/// A notification that an entity has despawned.
+#[derive(Debug)]
+pub struct DespawnNotification {
+    /// The entity that despawned.
+    entity: Entity,
+}
+
+impl NotificationType for DespawnNotification {}
+
 /// Despawns an entity.
 fn despawn_entity(entity: Entity, world: &mut World) {
     // remove entity from its container
+    // TODO do this in response to the despawn notification instead
     if let Some(location) = world.get::<Location>(entity) {
         let location_id = location.id;
         if let Some(mut container) = world.get_mut::<Container>(location_id) {
@@ -768,11 +778,19 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     }
 
     // despawn contained entities
+    // TODO do this in response to the despawn notification instead
     if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
         for contained_entity in contained_entities {
             despawn_entity(contained_entity, world);
         }
     }
+
+    // send despawn notification
+    Notification {
+        notification_type: DespawnNotification { entity },
+        contents: &(),
+    }
+    .send(world);
 
     // finally, despawn the entity itself
     world.despawn(entity);
@@ -847,6 +865,21 @@ fn get_article_reference_name(entity: Entity, world: &World) -> String {
     }
 }
 
+/// Gets the personal subject pronoun to use when referring to the provided entity (e.g. he, she, they).
+///
+/// If the entity has no description and is alive, this will return "they".
+/// If the entity has no description and is not alive, this will return "it".
+fn get_personal_subject_pronoun(entity: Entity, world: &World) -> String {
+    //TODO move this function to the `Pronouns` type
+    if let Some(desc) = world.get::<Description>(entity) {
+        desc.pronouns.personal_subject.clone()
+    } else if is_living_entity(entity, world) {
+        "they".to_string()
+    } else {
+        "it".to_string()
+    }
+}
+
 /// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
 ///
 /// If the entity has no description and is alive, this will return "them".
@@ -889,6 +922,24 @@ fn get_reflexive_pronoun(entity: Entity, world: &World) -> String {
         "themself".to_string()
     } else {
         "itself".to_string()
+    }
+}
+
+/// Gets the form of "to be" to use when referring to the provided entity (i.e. is/are).
+///
+/// If the entity has no description and is alive, this will return "are" (to be paired with "they").
+/// If the entity has no description and is not alive, this will return "is" (to be paired with "it").
+fn get_to_be_form(entity: Entity, world: &World) -> String {
+    if let Some(desc) = world.get::<Description>(entity) {
+        if desc.pronouns.plural {
+            "are".to_string()
+        } else {
+            "is".to_string()
+        }
+    } else if is_living_entity(entity, world) {
+        "are".to_string()
+    } else {
+        "is".to_string()
     }
 }
 

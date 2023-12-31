@@ -146,9 +146,9 @@ impl Action for WearAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" puts on ".to_string())
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string(".".to_string()),
                 world,
             )

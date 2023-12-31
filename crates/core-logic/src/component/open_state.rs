@@ -190,7 +190,7 @@ impl OpenState {
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                             MessageDelay::Short,
                         )
-                        .add_entity_name(other_side_id)
+                        .add_name(other_side_id)
                         .add_string(format!(" swings {open_or_closed}."))
                         .send(
                             None,

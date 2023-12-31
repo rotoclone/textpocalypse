@@ -314,11 +314,11 @@ impl Action for PourAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" pours some {fluid_name} from "))
-                .add_entity_name(self.source)
+                .add_name(self.source)
                 .add_string(" into ".to_string())
-                .add_entity_name(self.target)
+                .add_name(self.target)
                 .add_string(".".to_string()),
                 world,
             )

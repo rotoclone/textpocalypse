@@ -148,9 +148,9 @@ impl Action for DrinkAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" takes a drink from ".to_string())
-                .add_entity_name(self.target)
+                .add_name(self.target)
                 .add_string(".".to_string()),
                 world,
             )

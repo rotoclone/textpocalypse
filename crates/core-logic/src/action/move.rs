@@ -110,7 +110,7 @@ impl Action for MoveAction {
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
                         )
-                        .add_entity_name(performing_entity)
+                        .add_name(performing_entity)
                         .add_string(format!(" walks {}.", self.direction)),
                         world,
                     )
@@ -121,7 +121,7 @@ impl Action for MoveAction {
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
                         )
-                        .add_entity_name(performing_entity)
+                        .add_name(performing_entity)
                         .add_string(format!(" walks in from the {}.", self.direction.opposite())),
                         world,
                     );
@@ -234,7 +234,7 @@ fn try_escape_combat(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(entity)
+                    .add_name(entity)
                     .add_string(format!(
                         " tries to escape to the {direction}, but can't get away.",
                     )),

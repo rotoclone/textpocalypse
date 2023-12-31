@@ -176,9 +176,9 @@ impl Action for EquipAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" {takes_out_or_puts_away} "))
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string(".".to_string()),
                 world,
             )

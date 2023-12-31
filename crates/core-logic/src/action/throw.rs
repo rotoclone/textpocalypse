@@ -498,11 +498,11 @@ fn result_builder_with_throw_extreme_fail_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" hurls ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(" wildly, and it comes nowhere close to ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string("."),
             world,
         )
@@ -531,11 +531,11 @@ fn result_builder_with_throw_fail_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" throws ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(", and it whizzes just past ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string("."),
             world,
         )
@@ -558,9 +558,9 @@ fn result_builder_with_dodge_extreme_fail_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -568,13 +568,13 @@ fn result_builder_with_dodge_extreme_fail_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it seems like ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" doesn't even try to move out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(" directly in the face.");
 
     result_builder
@@ -615,9 +615,9 @@ fn result_builder_with_dodge_fail_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and you aren't able to get out of the way before it hits you in the chest.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -625,13 +625,13 @@ fn result_builder_with_dodge_fail_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" isn't able to get out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(" in the chest.");
 
     result_builder
@@ -672,9 +672,9 @@ fn result_builder_with_dodge_success_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but you move out of the way just before it hits you.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -682,13 +682,13 @@ fn result_builder_with_dodge_success_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" moves out of the way just before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(".");
 
     result_builder
@@ -730,9 +730,9 @@ fn result_builder_with_dodge_extreme_success_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but you calmly shift just enough to avoid being hit.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -740,11 +740,11 @@ fn result_builder_with_dodge_extreme_success_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" calmly shifts just enough to avoid being hit.");
 
     result_builder
@@ -782,11 +782,11 @@ fn result_builder_with_throw_success_messages(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it hits ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(".");
 
     result_builder
@@ -827,11 +827,11 @@ fn result_builder_with_throw_extreme_success_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" deftly throws ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(", and it impacts ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string(" perfectly."),
             world,
         )

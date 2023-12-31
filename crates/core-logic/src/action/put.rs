@@ -290,9 +290,9 @@ impl Action for PutAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" picks up ")
-                    .add_entity_name(self.item)
+                    .add_name(self.item)
                     .add_string("."),
                 )
             } else {
@@ -303,11 +303,11 @@ impl Action for PutAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" gets ")
-                    .add_entity_name(self.item)
+                    .add_name(self.item)
                     .add_string(" from ")
-                    .add_entity_name(self.source)
+                    .add_name(self.source)
                     .add_string("."),
                 )
             }
@@ -318,9 +318,9 @@ impl Action for PutAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" drops ")
-                .add_entity_name(self.item)
+                .add_name(self.item)
                 .add_string("."),
             )
         } else {
@@ -332,11 +332,11 @@ impl Action for PutAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" puts ")
-                .add_entity_name(self.item)
+                .add_name(self.item)
                 .add_string(" into ")
-                .add_entity_name(self.destination)
+                .add_name(self.destination)
                 .add_string("."),
             )
         };

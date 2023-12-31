@@ -110,9 +110,9 @@ impl Action for EatAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" eats ".to_string())
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string(".".to_string()),
                 world,
             )

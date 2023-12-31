@@ -75,7 +75,7 @@ impl Action for RespawnAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" appears."),
                 world,
             )

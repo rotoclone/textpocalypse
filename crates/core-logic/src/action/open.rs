@@ -154,9 +154,9 @@ impl Action for OpenAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" {opens_or_closes} "))
-                .add_entity_name(self.target)
+                .add_name(self.target)
                 .add_string(".".to_string()),
                 world,
             )

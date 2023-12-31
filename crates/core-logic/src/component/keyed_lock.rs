@@ -173,20 +173,18 @@ impl Action for LockAction {
             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
             MessageDelay::Short,
         )
-        .add_entity_name(performing_entity);
+        .add_name(performing_entity);
 
         if let Some(key) = key {
             third_person_message = third_person_message
                 .add_string(" uses ")
-                .add_entity_name(key)
+                .add_name(key)
                 .add_string(format!(" to {lock_or_unlock} "));
         } else {
             third_person_message = third_person_message.add_string(format!(" {locks_or_unlocks} "));
         }
 
-        third_person_message = third_person_message
-            .add_entity_name(self.target)
-            .add_string(".");
+        third_person_message = third_person_message.add_name(self.target).add_string(".");
 
         ActionResult::builder()
             .with_message(
@@ -290,7 +288,7 @@ impl KeyedLock {
                         MessageDelay::Short,
                     )
                     .add_string("The lock on ")
-                    .add_entity_name(other_side_id)
+                    .add_name(other_side_id)
                     .add_string(format!(" clicks {open_or_closed}."))
                     .send(
                         None,

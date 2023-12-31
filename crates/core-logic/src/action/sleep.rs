@@ -109,7 +109,7 @@ impl Action for SleepAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" falls asleep."),
                     world,
                 );
@@ -141,7 +141,7 @@ impl Action for SleepAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" wakes up."),
                     world,
                 )
@@ -168,7 +168,7 @@ impl Action for SleepAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" jolts awake."),
                 world,
             )

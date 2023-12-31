@@ -78,7 +78,7 @@ impl Action for SayAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" says, \"{text}\"")),
                 world,
             )

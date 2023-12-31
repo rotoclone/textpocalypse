@@ -143,9 +143,9 @@ impl Action for RemoveAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" takes off ".to_string())
-                    .add_entity_name(target)
+                    .add_name(target)
                     .add_string(".".to_string()),
                     world,
                 );
@@ -164,11 +164,11 @@ impl Action for RemoveAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" takes ".to_string())
-                    .add_entity_name(target)
+                    .add_name(target)
                     .add_string(" off of ")
-                    .add_entity_name(wearing_entity)
+                    .add_name(wearing_entity)
                     .add_string(".".to_string()),
                     world,
                 );

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use bevy_ecs::prelude::*;
 
@@ -79,6 +79,18 @@ impl CombatState {
     }
 }
 
+impl Display for CombatRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CombatRange::Shortest => "shortest".fmt(f),
+            CombatRange::Short => "short".fmt(f),
+            CombatRange::Medium => "medium".fmt(f),
+            CombatRange::Long => "long".fmt(f),
+            CombatRange::Longest => "longest".fmt(f),
+        }
+    }
+}
+
 impl CombatRange {
     /// Returns the range one level farther than this one, or `None` if this is the farthest range.
     pub fn increased(&self) -> Option<CombatRange> {
@@ -104,3 +116,5 @@ impl CombatRange {
 }
 
 //TODO remove entities from combat when they die
+
+//TODO remove entities from combat when they despawn

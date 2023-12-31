@@ -150,11 +150,11 @@ impl Action for AttackAction {
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
                             )
-                            .add_entity_name(performing_entity)
+                            .add_name(performing_entity)
                             .add_string(format!(" {third_person_hit_verb} "))
-                            .add_entity_reflexive_pronoun(performing_entity)
+                            .add_reflexive_pronoun(performing_entity)
                             .add_string(" with ")
-                            .add_entity_possessive_adjective_pronoun(performing_entity)
+                            .add_possessive_adjective_pronoun(performing_entity)
                             .add_string(format!(" {weapon_name}.")),
                             world,
                         )
@@ -323,7 +323,7 @@ fn handle_weapon_unusable_error(
     target: Entity,
     weapon_name: String,
     error: WeaponUnusableError,
-    mut result_builder: ActionResultBuilder,
+    result_builder: ActionResultBuilder,
     world: &World,
 ) -> ActionResult {
     let reason = match error {
@@ -356,9 +356,9 @@ fn handle_weapon_unusable_error(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(entity)
+            .add_name(entity)
             .add_string(" flails about uselessly with ")
-            .add_entity_possessive_adjective_pronoun(entity)
+            .add_possessive_adjective_pronoun(entity)
             .add_string(format!(" {weapon_name}.")),
             world,
         )
@@ -393,9 +393,9 @@ fn handle_enter_combat(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" attacks ")
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string("!"),
                 world,
             );
@@ -462,14 +462,14 @@ fn handle_damage(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(performing_entity)
+            .add_name(performing_entity)
             .add_string(format!(" {hit_severity_third_person} "))
-            .add_entity_name(target)
+            .add_name(target)
             .add_string(format!(
                 " in the {} with a {} from ",
                 body_part, weapon_hit_verb.second_person
             ))
-            .add_entity_possessive_adjective_pronoun(performing_entity)
+            .add_possessive_adjective_pronoun(performing_entity)
             .add_string(format!(" {weapon_name}!")),
             world,
         )
@@ -497,11 +497,11 @@ fn handle_miss(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(performing_entity)
+            .add_name(performing_entity)
             .add_string(" fails to hit ")
-            .add_entity_name(target)
+            .add_name(target)
             .add_string(" with ")
-            .add_entity_possessive_adjective_pronoun(performing_entity)
+            .add_possessive_adjective_pronoun(performing_entity)
             .add_string(format!(" {weapon_name}.")),
             world,
         )

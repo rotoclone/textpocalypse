@@ -191,9 +191,9 @@ impl Action for ChangeRangeAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(format!(" tries to {movement_phrase} "))
-                    .add_entity_name(target)
+                    .add_name(target)
                     .add_string(", but can't manage to."),
                     world,
                 )
@@ -228,7 +228,7 @@ impl Action for ChangeRangeAction {
         ActionResult::builder()
             .with_message(
                 performing_entity,
-                format!("You {movement_phrase_second_person} {target_name}."),
+                format!("You {movement_phrase_second_person} {target_name}. You're now at {new_range} range."),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
@@ -239,9 +239,28 @@ impl Action for ChangeRangeAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .only_send_to(target)
+                .add_name(performing_entity)
                 .add_string(format!(" {movement_phrase_third_person} "))
-                .add_entity_name(target)
+                .add_name(target)
+                .add_string(". ")
+                .add_personal_subject_pronoun(performing_entity)
+                .add_string(" ")
+                .add_to_be_form(performing_entity)
+                .add_string(format!(" now at {new_range} range.")),
+                world,
+            )
+            .with_third_person_message(
+                Some(performing_entity),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .do_not_send_to(target)
+                .add_name(performing_entity)
+                .add_string(format!(" {movement_phrase_third_person} "))
+                .add_name(target)
                 .add_string("."),
                 world,
             )
