@@ -4,13 +4,22 @@ use bevy_ecs::prelude::*;
 
 use crate::get_or_insert_mut;
 
-use super::CombatRange;
-
 /// Describes who an entity is in combat with.
 #[derive(Component, Default)]
 pub struct CombatState {
     /// The entities this entity is currently in combat with, and the ranges to them.
     entities_in_combat_with: HashMap<Entity, CombatRange>,
+}
+
+/// Represents how far away two combatants are from each other.
+#[repr(u8)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub enum CombatRange {
+    Shortest,
+    Short,
+    Medium,
+    Long,
+    Longest,
 }
 
 impl CombatState {
@@ -67,6 +76,30 @@ impl CombatState {
     /// Gets all the entities and ranges in this combat state.
     pub fn get_entities(&self) -> &HashMap<Entity, CombatRange> {
         &self.entities_in_combat_with
+    }
+}
+
+impl CombatRange {
+    /// Returns the range one level farther than this one, or `None` if this is the farthest range.
+    pub fn increased(&self) -> Option<CombatRange> {
+        match self {
+            CombatRange::Shortest => Some(CombatRange::Short),
+            CombatRange::Short => Some(CombatRange::Medium),
+            CombatRange::Medium => Some(CombatRange::Long),
+            CombatRange::Long => Some(CombatRange::Longest),
+            CombatRange::Longest => None,
+        }
+    }
+
+    /// Returns the range one level closer than this one, or `None` if this is the closest range.
+    pub fn decreased(&self) -> Option<CombatRange> {
+        match self {
+            CombatRange::Shortest => None,
+            CombatRange::Short => Some(CombatRange::Shortest),
+            CombatRange::Medium => Some(CombatRange::Short),
+            CombatRange::Long => Some(CombatRange::Medium),
+            CombatRange::Longest => Some(CombatRange::Long),
+        }
     }
 }
 

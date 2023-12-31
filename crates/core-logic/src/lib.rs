@@ -130,6 +130,7 @@ impl StandardInputParsers {
                 Box::new(SleepParser),
                 Box::new(WaitParser),
                 Box::new(AttackParser),
+                Box::new(ChangeRangeParser),
                 Box::new(StopParser),
                 Box::new(PlayersParser),
                 Box::new(HelpParser),

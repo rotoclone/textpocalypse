@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+};
 
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
@@ -178,6 +181,15 @@ impl From<Skill> for Stat {
 impl From<Attribute> for Stat {
     fn from(value: Attribute) -> Self {
         Stat::Attribute(value)
+    }
+}
+
+impl Display for Stat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stat::Attribute(attribute) => attribute.fmt(f),
+            Stat::Skill(skill) => skill.fmt(f),
+        }
     }
 }
 

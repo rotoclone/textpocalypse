@@ -115,7 +115,6 @@ pub use equipped_items::EquippedItems;
 pub use equipped_items::UnequipError;
 
 mod weapon;
-pub use weapon::CombatRange;
 pub use weapon::Weapon;
 pub use weapon::WeaponDamageAdjustment;
 pub use weapon::WeaponPerformanceAdjustment;
@@ -131,6 +130,7 @@ mod innate_weapon;
 pub use innate_weapon::InnateWeapon;
 
 mod combat_state;
+pub use combat_state::CombatRange;
 pub use combat_state::CombatState;
 
 use crate::notification::Notification;

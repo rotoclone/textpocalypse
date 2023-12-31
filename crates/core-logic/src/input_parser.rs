@@ -24,6 +24,7 @@ pub fn parse_input(
 ) -> Result<Box<dyn Action>, InputParseError> {
     let parsers = find_parsers_relevant_for(source_entity, world);
 
+    //TODO run validators for this action?
     parse_input_with(input, source_entity, world, parsers)
 }
 

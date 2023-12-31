@@ -9,7 +9,7 @@ use crate::{
     resource::WeaponTypeStatCatalog, verb_forms::VerbForms,
 };
 
-use super::{InnateWeapon, Stat};
+use super::{combat_state::CombatRange, InnateWeapon, Stat};
 
 /// An entity that can deal damage.
 #[derive(Component)]
@@ -57,17 +57,6 @@ pub struct WeaponRanges {
     pub to_hit_penalty: u16,
     /// The penalty to damage applied for each range level away from the optimal range.
     pub damage_penalty: u32,
-}
-
-/// Represents how far away two combatants are from each other.
-#[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum CombatRange {
-    Shortest,
-    Short,
-    Medium,
-    Long,
-    Longest,
 }
 
 /// A stat requirement to use a weapon.
@@ -217,9 +206,10 @@ impl Weapon {
         world: &World,
     ) -> Result<i16, WeaponUnusableError> {
         if !self.ranges.usable.contains(&range) {
-            return Err(WeaponUnusableError::OutsideUsableRange(
-                self.ranges.usable.clone(),
-            ));
+            return Err(WeaponUnusableError::OutsideUsableRange {
+                usable: self.ranges.usable.clone(),
+                actual: range,
+            });
         }
 
         let stat_modification = self.get_effective_to_hit_modification(entity, world)?;
@@ -238,9 +228,10 @@ impl Weapon {
         world: &World,
     ) -> Result<u32, WeaponUnusableError> {
         if !self.ranges.usable.contains(&range) {
-            return Err(WeaponUnusableError::OutsideUsableRange(
-                self.ranges.usable.clone(),
-            ));
+            return Err(WeaponUnusableError::OutsideUsableRange {
+                usable: self.ranges.usable.clone(),
+                actual: range,
+            });
         }
 
         let mut base_damage_range = &self.get_effective_damage_range(attacking_entity, world)?;
@@ -338,7 +329,10 @@ pub enum WeaponUnusableError {
     /// A stat requirement is not met.
     StatRequirementNotMet(WeaponStatRequirement),
     /// The weapon is outside its usable range.
-    OutsideUsableRange(RangeInclusive<CombatRange>),
+    OutsideUsableRange {
+        usable: RangeInclusive<CombatRange>,
+        actual: CombatRange,
+    },
 }
 
 /// Applies modifications to the provided damage based on the weapon's stat requirements and the entity's stats.

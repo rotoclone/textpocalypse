@@ -114,11 +114,13 @@ pub struct AttackAction {
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let (weapon, weapon_name) = Weapon::get_primary(performing_entity, world)
-            .expect("attacking entity should have a weapon");
-        let weapon_hit_verb = weapon.hit_verb.clone();
+        let mut result_builder = ActionResult::builder();
 
         if target == performing_entity {
+            let (weapon, weapon_name) = Weapon::get_primary(performing_entity, world)
+                .expect("attacking entity should have a weapon");
+            let weapon_hit_verb = weapon.hit_verb.clone();
+
             match weapon.calculate_damage(
                 performing_entity,
                 *weapon.ranges.optimal.start(),
@@ -158,36 +160,31 @@ impl Action for AttackAction {
                         )
                         .build_complete_should_tick(true);
                 }
-                Err(WeaponUnusableError::OutsideUsableRange(_)) => {
-                    return ActionResult::builder()
-                        .with_error(
-                            performing_entity,
-                            format!("Your {weapon_name} is outside its usable range."),
-                        )
-                        .build_complete_no_tick(false);
-                }
-                Err(WeaponUnusableError::StatRequirementNotMet(requirement)) => {
-                    return ActionResult::builder()
-                        .with_error(
-                            performing_entity,
-                            format!(
-                                "You can't use your {} since your {} is less than {:.1}.",
-                                weapon_name,
-                                requirement.stat.get_name(world),
-                                requirement.min
-                            ),
-                        )
-                        .build_complete_no_tick(false);
+                Err(e) => {
+                    return handle_weapon_unusable_error(
+                        performing_entity,
+                        target,
+                        weapon_name,
+                        e,
+                        result_builder,
+                        world,
+                    )
                 }
             }
         }
 
-        let mut result_builder = ActionResult::builder();
-
         let range = CombatState::get_entities_in_combat_with(performing_entity, world)
             .get(&target)
             .copied()
+            //TODO set range to the maximum usable range between the two entities' weapons instead?
             .unwrap_or(STARTING_COMBAT_RANGE);
+
+        result_builder =
+            handle_enter_combat(performing_entity, target, range, result_builder, world);
+
+        let (weapon, weapon_name) = Weapon::get_primary(performing_entity, world)
+            .expect("attacking entity should have a weapon");
+        let weapon_hit_verb = weapon.hit_verb.clone();
 
         // try to perform an initial attack
         let to_hit_modification =
@@ -196,6 +193,7 @@ impl Action for AttackAction {
                 Err(e) => {
                     return handle_weapon_unusable_error(
                         performing_entity,
+                        target,
                         weapon_name,
                         e,
                         result_builder,
@@ -227,6 +225,7 @@ impl Action for AttackAction {
                 Err(e) => {
                     return handle_weapon_unusable_error(
                         performing_entity,
+                        target,
                         weapon_name,
                         e,
                         result_builder,
@@ -237,9 +236,6 @@ impl Action for AttackAction {
         } else {
             None
         };
-
-        result_builder =
-            handle_enter_combat(performing_entity, target, range, result_builder, world);
 
         if let Some((damage, body_part)) = damage_and_body_part {
             result_builder = handle_damage(
@@ -324,12 +320,49 @@ impl Action for AttackAction {
 
 fn handle_weapon_unusable_error(
     entity: Entity,
+    target: Entity,
     weapon_name: String,
     error: WeaponUnusableError,
     mut result_builder: ActionResultBuilder,
     world: &World,
 ) -> ActionResult {
-    todo!() //TODO
+    let reason = match error {
+        WeaponUnusableError::StatRequirementNotMet(requirement) => format!(
+            "your {} is less than {:.1}",
+            requirement.stat, requirement.min
+        ),
+        WeaponUnusableError::OutsideUsableRange { usable, actual } => {
+            let distance_phrase = if actual < *usable.start() {
+                "close to"
+            } else {
+                "far away from"
+            };
+            let target_name = get_reference_name(target, Some(entity), world);
+            format!("you are too {distance_phrase} {target_name}")
+        }
+    };
+
+    result_builder
+        .with_message(
+            entity,
+            format!("You can't use your {weapon_name} because {reason}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
+            MessageDelay::Short,
+        )
+        .with_third_person_message(
+            Some(entity),
+            ThirdPersonMessageLocation::SourceEntity,
+            ThirdPersonMessage::new(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                MessageDelay::Short,
+            )
+            .add_entity_name(entity)
+            .add_string(" flails about uselessly with ")
+            .add_entity_possessive_adjective_pronoun(entity)
+            .add_string(format!(" {weapon_name}.")),
+            world,
+        )
+        .build_complete_should_tick(false)
 }
 
 fn handle_enter_combat(
@@ -360,19 +393,6 @@ fn handle_enter_combat(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .only_send_to(target)
-                .add_entity_name(performing_entity)
-                .add_string(" attacks you!"),
-                world,
-            )
-            .with_third_person_message(
-                Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                )
-                .do_not_send_to(target)
                 .add_entity_name(performing_entity)
                 .add_string(" attacks ")
                 .add_entity_name(target)
@@ -442,24 +462,6 @@ fn handle_damage(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .only_send_to(target)
-            .add_entity_name(performing_entity)
-            .add_string(format!(
-                " {} you in the {} with a {} from ",
-                hit_severity_third_person, body_part, weapon_hit_verb.second_person
-            ))
-            .add_entity_possessive_adjective_pronoun(performing_entity)
-            .add_string(format!(" {weapon_name}!")),
-            world,
-        )
-        .with_third_person_message(
-            Some(performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .do_not_send_to(target)
             .add_entity_name(performing_entity)
             .add_string(format!(" {hit_severity_third_person} "))
             .add_entity_name(target)
@@ -495,21 +497,6 @@ fn handle_miss(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .only_send_to(target)
-            .add_entity_name(performing_entity)
-            .add_string(" fails to hit you with ")
-            .add_entity_possessive_adjective_pronoun(performing_entity)
-            .add_string(format!(" {weapon_name}.")),
-            world,
-        )
-        .with_third_person_message(
-            Some(performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .do_not_send_to(target)
             .add_entity_name(performing_entity)
             .add_string(" fails to hit ")
             .add_entity_name(target)
