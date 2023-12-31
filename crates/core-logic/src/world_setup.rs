@@ -689,6 +689,29 @@ pub fn spawn_start_building(
         .id();
     move_entity(footie_pajamas_id, middle_room_id, world);
 
+    let thing_in_bag_id = world
+        .spawn((
+            Description {
+                name: "thing in bag".to_string(),
+                room_name: "thing in bag".to_string(),
+                plural_name: "thing in bags".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: Vec::new(),
+                description: "A thing with a very confusing name.".to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            Volume(0.5),
+            Weight(1.0),
+        ))
+        .id();
+    move_entity(thing_in_bag_id, middle_room_id, world);
+
     middle_room_coords
 }
 
