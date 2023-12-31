@@ -419,7 +419,7 @@ fn handle_damage(
         .get::<Vitals>(target)
         .map(|vitals| &vitals.health)
         .expect("target should have vitals");
-    let damage_fraction = damage as f32 / target_health.get();
+    let damage_fraction = damage as f32 / target_health.get_max();
     let (hit_severity_first_person, hit_severity_third_person) =
         if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
             ("mutilate", "mutilates")

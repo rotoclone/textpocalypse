@@ -4,13 +4,16 @@ use crate::{
     build_human_innate_weapon,
     color::Color,
     component::{
-        Calories, Connection, Container, DescribeAttributes, Description, Edible, EquippedItems,
-        Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState,
-        ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior, SleepState, Stats,
-        Vitals, Volume, WanderBehavior, Wearable, Weight, WornItems,
+        Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
+        EquippedItems, Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock,
+        OpenState, ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior, SleepState,
+        Stats, Vitals, Volume, WanderBehavior, Weapon, WeaponDamageAdjustment, WeaponRanges,
+        WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
+    move_entity,
+    verb_forms::VerbForms,
+    BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -711,6 +714,54 @@ pub fn spawn_start_building(
         ))
         .id();
     move_entity(thing_in_bag_id, middle_room_id, world);
+
+    let bat_id = world
+        .spawn((
+            Description {
+                name: "baseball bat".to_string(),
+                room_name: "baseball bat".to_string(),
+                plural_name: "baseball bats".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["bat".to_string()],
+                description:
+                    "A long round piece of wood. You feel like you could hit a small ball with it."
+                        .to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            Weapon {
+                weapon_type: WeaponType::Bludgeon,
+                hit_verb: VerbForms {
+                    second_person: "bonk".to_string(),
+                    third_person_plural: "bonk".to_string(),
+                    third_person_singular: "bonks".to_string(),
+                },
+                base_damage_range: 10..=15,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Shortest..=CombatRange::Short,
+                    optimal: CombatRange::Short..=CombatRange::Short,
+                    to_hit_penalty: 1,
+                    damage_penalty: 4,
+                },
+                stat_requirements: Vec::new(),
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 10.0..=20.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 10.0..=20.0,
+                    to_hit_bonus_per_stat_point: 1.0,
+                },
+            },
+            Volume(0.5),
+            Weight(1.0),
+        ))
+        .id();
+    move_entity(bat_id, middle_room_id, world);
 
     middle_room_coords
 }

@@ -3,13 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, CombatState, Weapon, WornItems,
-    },
+    component::{ActionEndNotification, AfterActionPerformNotification, CombatState, Weapon},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, GameMessage, RangesDescription, VerifyActionNotification, World,
-    WornItemsDescription,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
