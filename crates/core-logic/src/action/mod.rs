@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
+use voca_rs::Voca;
 
 use crate::component::{
     ActionEndNotification, AfterActionPerformNotification, Container, Description, Location,
@@ -105,6 +106,10 @@ mod change_range;
 pub use change_range::ChangeRangeAction;
 pub use change_range::ChangeRangeParser;
 
+mod ranges;
+pub use ranges::RangesAction;
+pub use ranges::RangesParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(
@@ -179,11 +184,16 @@ impl ThirdPersonMessage {
     }
 
     /// Adds an entity's personal subject pronoun (e.g. he, she, they) to the message.
-    pub fn add_personal_subject_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+    pub fn add_personal_subject_pronoun(
+        mut self,
+        entity: Entity,
+        capitalized: bool,
+    ) -> ThirdPersonMessage {
         self.parts
-            .push(MessagePart::Token(MessageToken::PersonalSubjectPronoun(
+            .push(MessagePart::Token(MessageToken::PersonalSubjectPronoun {
                 entity,
-            )));
+                capitalized,
+            }));
 
         self
     }
@@ -351,7 +361,7 @@ pub enum MessageToken {
     /// The name of an entity.
     Name(Entity),
     /// The personal subject pronoun of an entity (e.g. he, she, they).
-    PersonalSubjectPronoun(Entity),
+    PersonalSubjectPronoun { entity: Entity, capitalized: bool },
     /// The personal object pronoun of an entity (e.g. him, her, them).
     PersonalObjectPronoun(Entity),
     /// The possessive adjective pronoun of an entity (e.g. his, her, their).
@@ -375,11 +385,20 @@ impl MessageToken {
     fn to_string(&self, pov_entity: Entity, world: &World) -> String {
         match self {
             MessageToken::Name(e) => get_reference_name(*e, Some(pov_entity), world),
-            MessageToken::PersonalSubjectPronoun(e) => {
-                if *e == pov_entity {
+            MessageToken::PersonalSubjectPronoun {
+                entity,
+                capitalized,
+            } => {
+                let pronoun = if *entity == pov_entity {
                     Pronouns::you().personal_subject
                 } else {
-                    get_personal_subject_pronoun(*e, world)
+                    get_personal_subject_pronoun(*entity, world)
+                };
+
+                if *capitalized {
+                    pronoun._capitalize(false)
+                } else {
+                    pronoun
                 }
             }
             MessageToken::PersonalObjectPronoun(e) => {

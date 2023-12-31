@@ -8,6 +8,12 @@ mod players_description;
 pub use players_description::PlayerDescription;
 pub use players_description::PlayersDescription;
 
+mod ranges_description;
+pub use ranges_description::RangeDescription;
+pub use ranges_description::RangesDescription;
+pub use ranges_description::WeaponRangeJudgement;
+pub use ranges_description::WeaponRangeJudgementReason;
+
 mod container_description;
 pub use container_description::ContainerDescription;
 pub use container_description::ContainerEntityDescription;
@@ -57,6 +63,7 @@ pub enum GameMessage {
     ValueChange(ValueChangeDescription, MessageDelay),
     Help(HelpDescription),
     Players(PlayersDescription),
+    Ranges(RangesDescription),
     Message {
         content: String,
         category: MessageCategory,

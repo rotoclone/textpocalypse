@@ -17,19 +17,19 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const DECREASE_RANGE_VERB_NAME: &str = "advance";
-const INCREASE_RANGE_VERB_NAME: &str = "retreat";
-const DECREASE_RANGE_FORMAT: &str = "advance toward <>";
-const INCREASE_RANGE_FORMAT: &str = "retreat from <>";
+const DECREASE_RANGE_VERB_NAME: &str = "approach";
+const INCREASE_RANGE_VERB_NAME: &str = "move away";
+const DECREASE_RANGE_FORMAT: &str = "approach <>";
+const INCREASE_RANGE_FORMAT: &str = "move away from <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
     static ref DECREASE_RANGE_PATTERN: Regex = Regex::new(
-        "^(advance|advance toward|charge|charge toward|decrease range to|dr|move toward|approach)( (?P<name>.*))?"
+        "^(advance|advance toward|decrease range to|dr|move toward|approach)( (?P<name>.*))?"
     )
     .unwrap();
     static ref INCREASE_RANGE_PATTERN: Regex = Regex::new(
-        "^(retreat|retreat from|fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?"
+        "^(fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?"
     )
     .unwrap();
 }
@@ -244,7 +244,7 @@ impl Action for ChangeRangeAction {
                 .add_string(format!(" {movement_phrase_third_person} "))
                 .add_name(target)
                 .add_string(". ")
-                .add_personal_subject_pronoun(performing_entity)
+                .add_personal_subject_pronoun(performing_entity, true)
                 .add_string(" ")
                 .add_to_be_form(performing_entity)
                 .add_string(format!(" now at {new_range} range.")),

@@ -13,7 +13,7 @@ pub struct CombatState {
 
 /// Represents how far away two combatants are from each other.
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug)]
 pub enum CombatRange {
     Shortest,
     Short,

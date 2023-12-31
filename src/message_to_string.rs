@@ -35,6 +35,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::ValueChange(change, _) => value_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
+        GameMessage::Ranges(ranges) => ranges_to_string(ranges),
     }
 }
 
@@ -780,6 +781,43 @@ fn players_to_string(players: PlayersDescription) -> String {
         };
 
         table.add_row(vec![name, has_queued_action, is_afk]);
+    }
+
+    table.to_string()
+}
+
+/// Transforms the provided ranges description into a string for display.
+fn ranges_to_string(ranges: RangesDescription) -> String {
+    let mut table = new_table();
+    table.set_header(vec![Cell::new("Name"), Cell::new("Range")]);
+
+    for range in ranges.ranges {
+        let name_cell = Cell::new(range.name);
+
+        let (range_cell_color, range_cell_text_suffix) = match range.weapon_judgement {
+            WeaponRangeJudgement::NotUsable(reason) => {
+                let suffix = match reason {
+                    WeaponRangeJudgementReason::TooLong => " (too far)",
+                    WeaponRangeJudgementReason::TooShort => " (too close)",
+                    WeaponRangeJudgementReason::NoWeapon => " (no weapon)",
+                };
+                (comfy_table::Color::Red, suffix)
+            }
+            WeaponRangeJudgement::Usable(reason) => {
+                let suffix = match reason {
+                    WeaponRangeJudgementReason::TooLong => " (farther than optimal)",
+                    WeaponRangeJudgementReason::TooShort => " (closer than optimal)",
+                    WeaponRangeJudgementReason::NoWeapon => " (no weapon)",
+                };
+                (comfy_table::Color::Grey, suffix)
+            }
+            WeaponRangeJudgement::Optimal => (comfy_table::Color::Green, ""),
+        };
+
+        let range_cell =
+            Cell::new(format!("{}{}", range.range, range_cell_text_suffix)).fg(range_cell_color);
+
+        table.add_row(vec![name_cell, range_cell]);
     }
 
     table.to_string()

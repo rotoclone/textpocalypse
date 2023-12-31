@@ -131,6 +131,7 @@ impl StandardInputParsers {
                 Box::new(WaitParser),
                 Box::new(AttackParser),
                 Box::new(ChangeRangeParser),
+                Box::new(RangesParser),
                 Box::new(StopParser),
                 Box::new(PlayersParser),
                 Box::new(HelpParser),

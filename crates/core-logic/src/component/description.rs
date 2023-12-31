@@ -30,6 +30,8 @@ pub struct Pronouns {
     pub personal_subject: String,
     /// The personal object form (e.g. him, her, them)
     pub personal_object: String,
+    /// The possessive form (e.g. his, hers, theirs)
+    pub possessive: String,
     /// The possessive adjective form (e.g. his, her, their).
     pub possessive_adjective: String,
     /// The reflexive form (e.g. himself, herself, themself)
@@ -43,6 +45,7 @@ impl Pronouns {
     pub fn new<T: Into<String>>(
         personal_subject: T,
         personal_object: T,
+        possessive: T,
         possessive_adjective: T,
         reflexive: T,
         plural: bool,
@@ -50,6 +53,7 @@ impl Pronouns {
         Pronouns {
             personal_subject: personal_subject.into(),
             personal_object: personal_object.into(),
+            possessive: possessive.into(),
             possessive_adjective: possessive_adjective.into(),
             reflexive: reflexive.into(),
             plural,
@@ -58,27 +62,27 @@ impl Pronouns {
 
     /// Creates a set of pronouns with forms of "he".
     pub fn he() -> Pronouns {
-        Pronouns::new("he", "him", "his", "himself", false)
+        Pronouns::new("he", "him", "his", "his", "himself", false)
     }
 
     /// Creates a set of pronouns with forms of "she".
     pub fn she() -> Pronouns {
-        Pronouns::new("she", "her", "her", "herself", false)
+        Pronouns::new("she", "her", "hers", "her", "herself", false)
     }
 
     /// Creates a set of pronouns with forms of "they".
     pub fn they() -> Pronouns {
-        Pronouns::new("they", "them", "their", "themself", true)
+        Pronouns::new("they", "them", "theirs", "their", "themself", true)
     }
 
     /// Creates a set of pronouns with forms of "you".
     pub fn you() -> Pronouns {
-        Pronouns::new("you", "you", "your", "yourself", true)
+        Pronouns::new("you", "you", "yours", "your", "yourself", true)
     }
 
     /// Creates a set of pronouns with forms of "it".
     pub fn it() -> Pronouns {
-        Pronouns::new("it", "it", "its", "itself", false)
+        Pronouns::new("it", "it", "its", "its", "itself", false)
     }
 }
 
