@@ -10,8 +10,8 @@ use crate::{
     },
     get_reference_name,
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
-    notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    notification::{Notification, VerifyResult},
+    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -144,7 +144,7 @@ pub struct ChangeRangeAction {
 }
 
 /// The direction to change range in.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RangeChangeDirection {
     /// Make the range shorter.
     Decrease,
@@ -313,6 +313,36 @@ impl Action for ChangeRangeAction {
     }
 }
 
-//TODO validate that performing entity is in combat with target
+/// Verifies that the range can actually be changed in the requested direction.
+pub fn verify_range_can_be_changed(
+    notification: &Notification<VerifyActionNotification, ChangeRangeAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.contents.target;
+    let direction = notification.contents.direction;
+    let target_name = get_reference_name(target, Some(performing_entity), world);
 
-//TODO validate that the range can actually be changed in the requested direction
+    if let Some(range) =
+        CombatState::get_entities_in_combat_with(performing_entity, world).get(&target)
+    {
+        let valid = match direction {
+            RangeChangeDirection::Decrease => range.decreased().is_some(),
+            RangeChangeDirection::Increase => range.increased().is_some(),
+        };
+
+        if !valid {
+            return VerifyResult::invalid(
+                performing_entity,
+                GameMessage::Error(format!("You're already at {range} range to {target_name}.")),
+            );
+        }
+    } else {
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("You're not in combat with {target_name}.")),
+        );
+    }
+
+    VerifyResult::valid()
+}
