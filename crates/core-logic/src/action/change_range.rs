@@ -332,9 +332,15 @@ pub fn verify_range_can_be_changed(
         };
 
         if !valid {
+            let range_description = match direction {
+                RangeChangeDirection::Decrease => "as close to",
+                RangeChangeDirection::Increase => "as far away from",
+            };
             return VerifyResult::invalid(
                 performing_entity,
-                GameMessage::Error(format!("You're already at {range} range to {target_name}.")),
+                GameMessage::Error(format!(
+                    "You're already {range_description} {target_name} as you can get."
+                )),
             );
         }
     } else {

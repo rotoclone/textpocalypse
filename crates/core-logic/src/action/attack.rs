@@ -28,14 +28,11 @@ use super::{
     ThirdPersonMessage, ThirdPersonMessageLocation,
 };
 
-/// The range all combat starts at.
-const STARTING_COMBAT_RANGE: CombatRange = CombatRange::Long;
-
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
 /// The fraction of a target's health that counts as a high amount of damage.
-const HIGH_DAMAGE_THRESHOLD: f32 = 0.5;
+const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
 /// The fraction of a target's health that counts as a low amount of damage.
 const LOW_DAMAGE_THRESHOLD: f32 = 0.1;
 
@@ -176,8 +173,7 @@ impl Action for AttackAction {
         let range = CombatState::get_entities_in_combat_with(performing_entity, world)
             .get(&target)
             .copied()
-            //TODO set range to the maximum usable range between the two entities' weapons instead?
-            .unwrap_or(STARTING_COMBAT_RANGE);
+            .unwrap_or_else(|| determine_starting_range(performing_entity, target, world));
 
         result_builder =
             handle_enter_combat(performing_entity, target, range, result_builder, world);
@@ -258,17 +254,6 @@ impl Action for AttackAction {
             );
         }
 
-        /* TODO
-        result_builder = perform_basic_attack(
-            weapon,
-            weapon_name,
-            performing_entity,
-            target,
-            result_builder,
-            world,
-        );
-        */
-
         result_builder.build_complete_should_tick(true)
     }
 
@@ -316,6 +301,19 @@ impl Action for AttackAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
+}
+
+/// Determines the range the provided entities should begin combat at based on their weapons.
+fn determine_starting_range(entity_1: Entity, entity_2: Entity, world: &World) -> CombatRange {
+    let range_1 = Weapon::get_primary(entity_1, world)
+        .map(|(weapon, _)| *weapon.ranges.usable.end())
+        .unwrap_or(CombatRange::Longest);
+
+    let range_2 = Weapon::get_primary(entity_2, world)
+        .map(|(weapon, _)| *weapon.ranges.usable.end())
+        .unwrap_or(CombatRange::Longest);
+
+    range_1.max(range_2)
 }
 
 fn handle_weapon_unusable_error(
@@ -551,6 +549,18 @@ pub fn verify_target_alive(
     )
 }
 
-// TODO verify the attacker has some kind of weapon
-
-// TODO before attacking, have the attacker equip their primary weapon if they don't have a weapon equipped
+// Verifies that the attacker has some kind of weapon
+pub fn verify_attacker_has_weapon(
+    notification: &Notification<VerifyActionNotification, AttackAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    if Weapon::get_primary(performing_entity, world).is_none() {
+        VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error("You don't have a weapon to attack with.".to_string()),
+        )
+    } else {
+        VerifyResult::valid()
+    }
+}
