@@ -213,11 +213,12 @@ impl Action for AttackAction {
             world,
         );
 
-        let damage_and_body_part = if to_hit_result.succeeded() {
-            let body_part = BodyPart::Head; //TODO randomly determine body part
+        let body_part = BodyPart::random_weighted(world);
+        let damage = if to_hit_result.succeeded() {
+            //TODO modify damage based on body part
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
             match weapon.calculate_damage(performing_entity, range, critical, world) {
-                Ok(x) => Some((x, body_part)),
+                Ok(x) => Some(x),
                 Err(e) => {
                     return handle_weapon_unusable_error(
                         performing_entity,
@@ -233,7 +234,7 @@ impl Action for AttackAction {
             None
         };
 
-        if let Some((damage, body_part)) = damage_and_body_part {
+        if let Some(damage) = damage {
             result_builder = handle_damage(
                 performing_entity,
                 target,

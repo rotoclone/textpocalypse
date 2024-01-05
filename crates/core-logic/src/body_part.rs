@@ -1,6 +1,10 @@
+use bevy_ecs::prelude::*;
+use rand_distr::Distribution;
 use std::fmt::Display;
 
 use strum::EnumIter;
+
+use crate::resource::DefaultBodyPartWeights;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum BodyPart {
@@ -32,5 +36,17 @@ impl Display for BodyPart {
         };
 
         string.fmt(f)
+    }
+}
+
+impl BodyPart {
+    /// Gets a random body part, weighted by the weights defined in the provided world.
+    pub fn random_weighted(world: &World) -> BodyPart {
+        if let Some(default_weights) = world.get_resource::<DefaultBodyPartWeights>() {
+            let mut rng = rand::thread_rng();
+            default_weights.body_parts[default_weights.dist.sample(&mut rng)]
+        } else {
+            BodyPart::Torso
+        }
     }
 }
