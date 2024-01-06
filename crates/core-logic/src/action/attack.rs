@@ -31,6 +31,15 @@ use super::{
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
+/// Multiplier applied to damage done to the head.
+const HEAD_DAMAGE_MULT: f32 = 1.2;
+
+/// Multiplier applied to damage done to the torso.
+const TORSO_DAMAGE_MULT: f32 = 1.0;
+
+/// Multiplier applied to damage done to non-head and non-torso body parts.
+const APPENDAGE_DAMAGE_MULT: f32 = 0.8;
+
 /// The fraction of a target's health that counts as a high amount of damage.
 const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
 /// The fraction of a target's health that counts as a low amount of damage.
@@ -215,10 +224,9 @@ impl Action for AttackAction {
 
         let body_part = BodyPart::random_weighted(world);
         let damage = if to_hit_result.succeeded() {
-            //TODO modify damage based on body part
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
             match weapon.calculate_damage(performing_entity, range, critical, world) {
-                Ok(x) => Some(x),
+                Ok(x) => Some(apply_body_part_damage_multiplier(x, body_part)),
                 Err(e) => {
                     return handle_weapon_unusable_error(
                         performing_entity,
@@ -315,6 +323,19 @@ fn determine_starting_range(entity_1: Entity, entity_2: Entity, world: &World) -
         .unwrap_or(CombatRange::Longest);
 
     range_1.max(range_2)
+}
+
+/// Applies a multiplier to the provided damage based on the provided body part.
+fn apply_body_part_damage_multiplier(base_damage: u32, body_part: BodyPart) -> u32 {
+    let mult = match body_part {
+        BodyPart::Head => HEAD_DAMAGE_MULT,
+        BodyPart::Torso => TORSO_DAMAGE_MULT,
+        _ => APPENDAGE_DAMAGE_MULT,
+    };
+
+    (base_damage as f32 * mult)
+        .round()
+        .clamp(u32::MIN as f32, u32::MAX as f32) as u32
 }
 
 fn handle_weapon_unusable_error(

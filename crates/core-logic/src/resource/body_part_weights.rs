@@ -5,14 +5,14 @@ use strum::IntoEnumIterator;
 use crate::BodyPart;
 
 #[derive(Resource)]
-pub struct DefaultBodyPartWeights {
+pub struct BodyPartWeights {
     pub body_parts: Vec<BodyPart>,
     pub dist: WeightedIndex<f32>,
 }
 
-impl DefaultBodyPartWeights {
+impl BodyPartWeights {
     /// Creates the default body part weights.
-    pub fn new() -> DefaultBodyPartWeights {
+    pub fn new() -> BodyPartWeights {
         let mut body_parts = Vec::new();
         let mut weights = Vec::new();
         for body_part in BodyPart::iter() {
@@ -32,7 +32,7 @@ impl DefaultBodyPartWeights {
             body_parts.push(body_part);
         }
 
-        DefaultBodyPartWeights {
+        BodyPartWeights {
             body_parts,
             dist: WeightedIndex::new(weights).expect("body part weights should be valid"),
         }
