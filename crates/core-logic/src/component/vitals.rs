@@ -5,8 +5,8 @@ use crate::{
     interrupt_entity, kill_entity,
     notification::Notification,
     send_message,
-    value_change::{ValueChange, ValueChangeOperation, ValueChangedNotification, ValueType},
-    ConstrainedValue, GameMessage, MessageDelay, TickNotification, ValueChangeDescription,
+    vital_change::{ValueChangeOperation, VitalChange, VitalChangedNotification, VitalType},
+    ConstrainedValue, GameMessage, MessageDelay, TickNotification, VitalChangeDescription,
 };
 
 use super::{is_asleep, queue_action_first};
@@ -116,13 +116,13 @@ impl Vitals {
 
 /// Changes vitals over time.
 pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut World) {
-    let mut value_changes = Vec::new();
+    let mut changes = Vec::new();
     let mut query = world.query::<(Entity, &Vitals)>();
     for (entity, vitals) in query.iter(world) {
         if vitals.satiety.get() <= 0.0 {
-            value_changes.push(ValueChange {
+            changes.push(VitalChange {
                 entity,
-                value_type: ValueType::Health,
+                vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: STARVATION_DAMAGE_PER_TICK,
                 message: Some("You're starving to death!".to_string()),
@@ -130,9 +130,9 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
         }
 
         if vitals.hydration.get() <= 0.0 {
-            value_changes.push(ValueChange {
+            changes.push(VitalChange {
                 entity,
-                value_type: ValueType::Health,
+                vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: THIRST_DAMAGE_PER_TICK,
                 message: Some("You're dying of thirst!".to_string()),
@@ -140,34 +140,34 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
         }
 
         //TODO reduce satiety and hydration losses if asleep
-        value_changes.push(ValueChange {
+        changes.push(VitalChange {
             entity,
-            value_type: ValueType::Satiety,
+            vital_type: VitalType::Satiety,
             operation: ValueChangeOperation::Subtract,
             amount: SATIETY_LOSS_PER_TICK,
             message: None,
         });
 
-        value_changes.push(ValueChange {
+        changes.push(VitalChange {
             entity,
-            value_type: ValueType::Hydration,
+            vital_type: VitalType::Hydration,
             operation: ValueChangeOperation::Subtract,
             amount: HYDRATION_LOSS_PER_TICK,
             message: None,
         });
 
         if is_asleep(entity, world) {
-            value_changes.push(ValueChange {
+            changes.push(VitalChange {
                 entity,
-                value_type: ValueType::Energy,
+                vital_type: VitalType::Energy,
                 operation: ValueChangeOperation::Add,
                 amount: ENERGY_GAIN_PER_TICK,
                 message: None,
             });
         } else {
-            value_changes.push(ValueChange {
+            changes.push(VitalChange {
                 entity,
-                value_type: ValueType::Energy,
+                vital_type: VitalType::Energy,
                 operation: ValueChangeOperation::Subtract,
                 amount: ENERGY_LOSS_PER_TICK,
                 message: None,
@@ -175,27 +175,25 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
         }
     }
 
-    value_changes
-        .into_iter()
-        .for_each(|change| change.apply(world));
+    changes.into_iter().for_each(|change| change.apply(world));
 }
 
 /// Sends update messages when vitals reach certain thresholds.
 pub fn send_vitals_update_messages(
-    notification: &Notification<ValueChangedNotification, ()>,
+    notification: &Notification<VitalChangedNotification, ()>,
     world: &mut World,
 ) {
     let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
+    let vital_type = notification.notification_type.vital_type;
     let old_value = &notification.notification_type.old_value;
     let new_value = &notification.notification_type.new_value;
 
     let increased = new_value.get() > old_value.get();
-    let messages: &[ValueChangeMessage] = match value_type {
-        ValueType::Health => &[],
-        ValueType::Satiety => &HUNGER_MESSAGES,
-        ValueType::Hydration => &THIRST_MESSAGES,
-        ValueType::Energy => {
+    let messages: &[ValueChangeMessage] = match vital_type {
+        VitalType::Health => &[],
+        VitalType::Satiety => &HUNGER_MESSAGES,
+        VitalType::Hydration => &THIRST_MESSAGES,
+        VitalType::Energy => {
             if increased {
                 &REST_MESSAGES
             } else {
@@ -223,10 +221,10 @@ pub fn send_vitals_update_messages(
             send_message(
                 world,
                 entity,
-                GameMessage::ValueChange(
-                    ValueChangeDescription {
+                GameMessage::VitalChange(
+                    VitalChangeDescription {
                         message: message.message.to_string(),
-                        value_type,
+                        vital_type,
                         old_value: old_value.clone(),
                         new_value: new_value.clone(),
                     },
@@ -240,15 +238,15 @@ pub fn send_vitals_update_messages(
 
 /// Sets entities' actions to be interrupted when they take damage.
 pub fn interrupt_on_damage(
-    notification: &Notification<ValueChangedNotification, ()>,
+    notification: &Notification<VitalChangedNotification, ()>,
     world: &mut World,
 ) {
     let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
+    let vital_type = notification.notification_type.vital_type;
     let old_value = &notification.notification_type.old_value;
     let new_value = &notification.notification_type.new_value;
 
-    if let ValueType::Health = value_type {
+    if let VitalType::Health = vital_type {
         if new_value.get() < old_value.get() {
             interrupt_entity(entity, world);
         }
@@ -257,14 +255,14 @@ pub fn interrupt_on_damage(
 
 /// Kills entities when they reach 0 health.
 pub fn kill_on_zero_health(
-    notification: &Notification<ValueChangedNotification, ()>,
+    notification: &Notification<VitalChangedNotification, ()>,
     world: &mut World,
 ) {
     let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
+    let vital_type = notification.notification_type.vital_type;
     let new_value = &notification.notification_type.new_value;
 
-    if let ValueType::Health = value_type {
+    if let VitalType::Health = vital_type {
         if new_value.get() <= 0.0 {
             kill_entity(entity, world);
         }
@@ -273,14 +271,14 @@ pub fn kill_on_zero_health(
 
 /// Makes entities pass out when they reach 0 energy.
 pub fn sleep_on_zero_energy(
-    notification: &Notification<ValueChangedNotification, ()>,
+    notification: &Notification<VitalChangedNotification, ()>,
     world: &mut World,
 ) {
     let entity = notification.notification_type.entity;
-    let value_type = notification.notification_type.value_type;
+    let vital_type = notification.notification_type.vital_type;
     let new_value = &notification.notification_type.new_value;
 
-    if let ValueType::Energy = value_type {
+    if let VitalType::Energy = vital_type {
         if new_value.get() <= 0.0 {
             interrupt_entity(entity, world);
             queue_action_first(

@@ -17,10 +17,10 @@ use crate::{
     is_living_entity,
     notification::{Notification, VerifyResult},
     resource::WeaponTypeStatCatalog,
-    value_change::{ValueChange, ValueChangeOperation},
     verb_forms::VerbForms,
+    vital_change::{ValueChangeOperation, VitalChange, VitalType},
     BeforeActionNotification, BodyPart, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, ValueType, VerifyActionNotification,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -136,9 +136,9 @@ impl Action for AttackAction {
                 Ok(damage) => {
                     let third_person_hit_verb = weapon_hit_verb.third_person_singular;
 
-                    ValueChange {
+                    VitalChange {
                         entity: performing_entity,
-                        value_type: ValueType::Health,
+                        vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
                         message: Some(format!(
@@ -450,9 +450,9 @@ fn handle_damage(
         };
 
     result_builder = result_builder.with_post_effect(Box::new(move |w| {
-        ValueChange {
+        VitalChange {
             entity: target,
-            value_type: ValueType::Health,
+            vital_type: VitalType::Health,
             operation: ValueChangeOperation::Subtract,
             amount: damage as f32,
             message: Some(format!("Ow, your {body_part}!")),

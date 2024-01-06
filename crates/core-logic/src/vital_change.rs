@@ -3,15 +3,15 @@ use bevy_ecs::prelude::*;
 use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
-    send_message, ConstrainedValue, GameMessage, MessageDelay, ValueChangeDescription,
+    send_message, ConstrainedValue, GameMessage, MessageDelay, VitalChangeDescription,
 };
 
-/// A change to a value.
-pub struct ValueChange {
+/// A change to a vital value.
+pub struct VitalChange {
     /// The entity to change the value on.
     pub entity: Entity,
-    /// The type of value to change.
-    pub value_type: ValueType,
+    /// The type of vital to change.
+    pub vital_type: VitalType,
     /// The manner by which the value should be changed.
     pub operation: ValueChangeOperation,
     /// The amount by which the value should be changed.
@@ -33,38 +33,38 @@ pub enum ValueChangeOperation {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ValueType {
+pub enum VitalType {
     Health,
     Satiety,
     Hydration,
     Energy,
 }
 
-/// A notification for after a value has been changed.
+/// A notification for after a vital value has been changed.
 #[derive(Debug)]
-pub struct ValueChangedNotification {
+pub struct VitalChangedNotification {
     /// The entity the value was changed on.
     pub entity: Entity,
-    /// The type of the changed value.
-    pub value_type: ValueType,
+    /// The type of the changed vital.
+    pub vital_type: VitalType,
     /// The value before the change.
     pub old_value: ConstrainedValue<f32>,
     /// The value after the change.
     pub new_value: ConstrainedValue<f32>,
 }
 
-impl NotificationType for ValueChangedNotification {}
+impl NotificationType for VitalChangedNotification {}
 
-impl ValueChange {
+impl VitalChange {
     /// Applies the value change.
     pub fn apply(self, world: &mut World) {
         let vitals = world.get_mut::<Vitals>(self.entity);
         if let Some(mut vitals) = vitals {
-            let value = match self.value_type {
-                ValueType::Health => &mut vitals.health,
-                ValueType::Satiety => &mut vitals.satiety,
-                ValueType::Hydration => &mut vitals.hydration,
-                ValueType::Energy => &mut vitals.energy,
+            let value = match self.vital_type {
+                VitalType::Health => &mut vitals.health,
+                VitalType::Satiety => &mut vitals.satiety,
+                VitalType::Hydration => &mut vitals.hydration,
+                VitalType::Energy => &mut vitals.energy,
             };
             let old_value = value.clone();
 
@@ -78,24 +78,24 @@ impl ValueChange {
             let new_value = value.clone();
 
             if let Some(message) = self.message {
-                let message = ValueChangeDescription {
+                let message = VitalChangeDescription {
                     message,
-                    value_type: self.value_type,
+                    vital_type: self.vital_type,
                     old_value: old_value.clone(),
                     new_value: new_value.clone(),
                 };
                 send_message(
                     world,
                     self.entity,
-                    GameMessage::ValueChange(message, MessageDelay::Short),
+                    GameMessage::VitalChange(message, MessageDelay::Short),
                 );
             }
 
             //TODO add ability to specify other entities to send notifications to
             Notification {
-                notification_type: ValueChangedNotification {
+                notification_type: VitalChangedNotification {
                     entity: self.entity,
-                    value_type: self.value_type,
+                    vital_type: self.vital_type,
                     old_value,
                     new_value,
                 },

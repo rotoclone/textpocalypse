@@ -30,8 +30,8 @@ pub use stats_description::SkillDescription;
 pub use stats_description::StatAttributeDescription;
 pub use stats_description::StatsDescription;
 
-mod value_change_description;
-pub use value_change_description::ValueChangeDescription;
+mod vital_change_description;
+pub use vital_change_description::VitalChangeDescription;
 
 mod action_description;
 pub use action_description::ActionDescription;
@@ -60,7 +60,7 @@ pub enum GameMessage {
     WornItems(WornItemsDescription),
     Vitals(VitalsDescription),
     Stats(StatsDescription),
-    ValueChange(ValueChangeDescription, MessageDelay),
+    VitalChange(VitalChangeDescription, MessageDelay),
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),

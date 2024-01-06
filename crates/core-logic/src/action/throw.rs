@@ -17,9 +17,9 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    value_change::{ValueChange, ValueChangeOperation},
+    vital_change::{ValueChangeOperation, VitalChange, VitalType},
     BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, ValueType, VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -367,9 +367,9 @@ impl Action for ThrowAction {
             }
             let item_reference_name = get_article_reference_name(item, world);
             result_builder = result_builder.with_post_effect(Box::new(move |w| {
-                ValueChange {
+                VitalChange {
                     entity: target,
-                    value_type: ValueType::Health,
+                    vital_type: VitalType::Health,
                     operation: ValueChangeOperation::Subtract,
                     amount: damage,
                     message: Some(format!("Ow, you got hit with {item_reference_name}!")),

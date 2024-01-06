@@ -33,7 +33,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::Stats(stats) => stats_to_string(stats),
-        GameMessage::ValueChange(change, _) => value_change_to_string(change),
+        GameMessage::VitalChange(change, _) => vital_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
     }
@@ -617,14 +617,14 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 fn vitals_to_string(vitals: VitalsDescription) -> String {
     let health = format!(
         "Health:    {}",
-        constrained_float_to_string(None, vitals.health, value_type_to_color(&ValueType::Health))
+        constrained_float_to_string(None, vitals.health, vital_type_to_color(&VitalType::Health))
     );
     let satiety = format!(
         "Satiety:   {}",
         constrained_float_to_string(
             None,
             vitals.satiety,
-            value_type_to_color(&ValueType::Satiety)
+            vital_type_to_color(&VitalType::Satiety)
         )
     );
     let hydration = format!(
@@ -632,12 +632,12 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.hydration,
-            value_type_to_color(&ValueType::Hydration)
+            vital_type_to_color(&VitalType::Hydration)
         )
     );
     let energy = format!(
         "Energy:    {}",
-        constrained_float_to_string(None, vitals.energy, value_type_to_color(&ValueType::Energy))
+        constrained_float_to_string(None, vitals.energy, vital_type_to_color(&VitalType::Energy))
     );
 
     [health, satiety, hydration, energy].join("\n")
@@ -675,10 +675,10 @@ fn stats_to_string(stats: StatsDescription) -> String {
     format!("Attributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
 }
 
-/// Transforms the provided value change description into a string for display.
-fn value_change_to_string(change: ValueChangeDescription) -> String {
-    let bar_title = format!("{}: ", value_type_to_bar_title(&change.value_type));
-    let color = value_type_to_color(&change.value_type);
+/// Transforms the provided vital change description into a string for display.
+fn vital_change_to_string(change: VitalChangeDescription) -> String {
+    let bar_title = format!("{}: ", vital_type_to_bar_title(&change.vital_type));
+    let color = vital_type_to_color(&change.vital_type);
     format!(
         "{}\n{}{}",
         change.message,
@@ -687,24 +687,24 @@ fn value_change_to_string(change: ValueChangeDescription) -> String {
     )
 }
 
-/// Determines the bar title to use for a value of the provided type.
-fn value_type_to_bar_title(value_type: &ValueType) -> String {
-    match value_type {
-        ValueType::Health => "Health",
-        ValueType::Satiety => "Satiety",
-        ValueType::Hydration => "Hydration",
-        ValueType::Energy => "Energy",
+/// Determines the bar title to use for a vital of the provided type.
+fn vital_type_to_bar_title(vital_type: &VitalType) -> String {
+    match vital_type {
+        VitalType::Health => "Health",
+        VitalType::Satiety => "Satiety",
+        VitalType::Hydration => "Hydration",
+        VitalType::Energy => "Energy",
     }
     .to_string()
 }
 
-/// Determines the bar color to use for a value of the provided type.
-fn value_type_to_color(value_type: &ValueType) -> crossterm::style::Color {
-    match value_type {
-        ValueType::Health => crossterm::style::Color::Red,
-        ValueType::Satiety => crossterm::style::Color::Yellow,
-        ValueType::Hydration => crossterm::style::Color::Blue,
-        ValueType::Energy => crossterm::style::Color::Green,
+/// Determines the bar color to use for a vital of the provided type.
+fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
+    match vital_type {
+        VitalType::Health => crossterm::style::Color::Red,
+        VitalType::Satiety => crossterm::style::Color::Yellow,
+        VitalType::Hydration => crossterm::style::Color::Blue,
+        VitalType::Energy => crossterm::style::Color::Green,
     }
 }
 

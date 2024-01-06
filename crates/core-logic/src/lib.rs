@@ -52,8 +52,9 @@ pub use color::Color;
 mod constrained_value;
 pub use constrained_value::ConstrainedValue;
 
-mod value_change;
-pub use value_change::ValueType;
+mod vital_change;
+pub use vital_change::VitalChange;
+pub use vital_change::VitalType;
 
 mod swap_tuple;
 
