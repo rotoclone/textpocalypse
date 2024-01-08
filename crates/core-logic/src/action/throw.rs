@@ -7,7 +7,7 @@ use crate::{
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
         queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
-        EquippedItems, Item, Location, Skill, Stats, Weight,
+        CombatRange, EquippedItems, Item, Location, Skill, Stats, Weight,
     },
     get_article_reference_name, get_personal_object_pronoun, get_reference_name, get_volume,
     get_weight,
@@ -23,8 +23,8 @@ use crate::{
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    EquipAction,
+    handle_enter_combat, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionResultBuilder, EquipAction,
 };
 
 /// The number of kilograms an entity can throw per point of strength they have.
@@ -244,11 +244,23 @@ impl Action for ThrowAction {
             .get::<Location>(performing_entity)
             .expect("Throwing entity should have a location")
             .id;
+        let target_is_living = is_living_entity(target, world);
+
+        let mut result_builder = ActionResult::builder();
+
+        if target_is_living {
+            result_builder = handle_enter_combat(
+                performing_entity,
+                target,
+                CombatRange::Long,
+                result_builder,
+                world,
+            );
+        }
 
         let throw_penalty = get_throw_penalty(item, world);
 
         let throw_result;
-        let target_is_living = is_living_entity(target, world);
         if target_is_living {
             // the target is alive, so it will try to dodge
             (throw_result, _) = Stats::check_vs(
@@ -285,12 +297,6 @@ impl Action for ThrowAction {
             target_name: get_reference_name(target, Some(performing_entity), world),
             target_pronoun: get_personal_object_pronoun(target, world),
         };
-
-        let mut result_builder = ActionResult::builder();
-
-        if target_is_living {
-            //TODO initiate combat
-        }
 
         let hit;
         match throw_result {

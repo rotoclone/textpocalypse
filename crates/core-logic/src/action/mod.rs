@@ -1,11 +1,13 @@
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 use voca_rs::Voca;
 
 use crate::component::{
-    ActionEndNotification, AfterActionPerformNotification, Container, Description, Location,
+    ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Container,
+    Description, Location,
 };
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
@@ -13,8 +15,8 @@ use crate::notification::{
 use crate::{
     can_receive_messages, get_personal_object_pronoun, get_personal_subject_pronoun,
     get_possessive_adjective_pronoun, get_reference_name, get_reflexive_pronoun, get_to_be_form,
-    send_message, BeforeActionNotification, MessageCategory, MessageDelay, Pronouns,
-    VerifyActionNotification,
+    send_message, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    Pronouns, SurroundingsMessageCategory, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -820,4 +822,44 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         }
         .send(world);
     }
+}
+
+/// Makes the provided entities enter combat with each other at the provided range, if they're not already in combat.
+fn handle_enter_combat(
+    attacker: Entity,
+    target: Entity,
+    range: CombatRange,
+    mut result_builder: ActionResultBuilder,
+    world: &mut World,
+) -> ActionResultBuilder {
+    if !CombatState::get_entities_in_combat_with(attacker, world)
+        .keys()
+        .contains(&target)
+    {
+        CombatState::set_in_combat(attacker, target, range, world);
+
+        let target_name = get_reference_name(target, Some(attacker), world);
+        result_builder = result_builder
+            .with_message(
+                attacker,
+                format!("You attack {target_name}!"),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(attacker),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_name(attacker)
+                .add_string(" attacks ")
+                .add_name(target)
+                .add_string("!"),
+                world,
+            );
+    }
+
+    result_builder
 }

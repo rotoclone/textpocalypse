@@ -24,8 +24,8 @@ use crate::{
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    ThirdPersonMessage, ThirdPersonMessageLocation,
+    handle_enter_combat, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionResultBuilder, ThirdPersonMessage, ThirdPersonMessageLocation,
 };
 
 /// Multiplier applied to damage done to oneself.
@@ -383,45 +383,6 @@ fn handle_weapon_unusable_error(
             world,
         )
         .build_complete_should_tick(false)
-}
-
-fn handle_enter_combat(
-    performing_entity: Entity,
-    target: Entity,
-    range: CombatRange,
-    mut result_builder: ActionResultBuilder,
-    world: &mut World,
-) -> ActionResultBuilder {
-    if !CombatState::get_entities_in_combat_with(performing_entity, world)
-        .keys()
-        .contains(&target)
-    {
-        CombatState::set_in_combat(performing_entity, target, range, world);
-
-        let target_name = get_reference_name(target, Some(performing_entity), world);
-        result_builder = result_builder
-            .with_message(
-                performing_entity,
-                format!("You attack {target_name}!"),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
-                Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" attacks ")
-                .add_name(target)
-                .add_string("!"),
-                world,
-            );
-    }
-
-    result_builder
 }
 
 fn handle_damage(
