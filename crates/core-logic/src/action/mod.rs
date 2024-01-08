@@ -7,7 +7,7 @@ use voca_rs::Voca;
 
 use crate::component::{
     ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Container,
-    Description, Location,
+    Location,
 };
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,

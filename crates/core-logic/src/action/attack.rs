@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
 
