@@ -2,7 +2,9 @@ use std::{collections::HashMap, fmt::Display};
 
 use bevy_ecs::prelude::*;
 
-use crate::get_or_insert_mut;
+use crate::{
+    get_or_insert_mut, notification::Notification, DeathNotification, DespawnNotification,
+};
 
 /// Describes who an entity is in combat with.
 #[derive(Component, Default)]
@@ -115,6 +117,18 @@ impl CombatRange {
     }
 }
 
-//TODO remove entities from combat when they die
+// Removes entities from combat when they die.
+pub fn remove_from_combat_on_death(
+    notification: &Notification<DeathNotification, ()>,
+    world: &mut World,
+) {
+    CombatState::leave_all_combat(notification.notification_type.entity, world);
+}
 
-//TODO remove entities from combat when they despawn
+// Removes entities from combat when they despawn.
+pub fn remove_from_combat_on_despawn(
+    notification: &Notification<DespawnNotification, ()>,
+    world: &mut World,
+) {
+    CombatState::leave_all_combat(notification.notification_type.entity, world);
+}

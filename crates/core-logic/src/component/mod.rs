@@ -181,6 +181,9 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(equipped_items::unequip_on_put, world);
     NotificationHandlers::add_handler(equipped_items::unequip_on_wear, world);
+
+    NotificationHandlers::add_handler(combat_state::remove_from_combat_on_death, world);
+    NotificationHandlers::add_handler(combat_state::remove_from_combat_on_despawn, world);
 }
 
 /// Removes a component from an entity when it dies.
