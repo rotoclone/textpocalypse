@@ -8,14 +8,6 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
 
-/* TODO remove
-/// Marker trait for types of stats (i.e. attributes and skills)
-pub trait Stat: std::fmt::Debug + Send + Sync {
-    /// Gets the value of the stat
-    fn get_value(&self, stats: &Stats, world: &World) -> f32;
-}
-*/
-
 /// The stats of an entity.
 #[derive(Component)]
 pub struct Stats {
