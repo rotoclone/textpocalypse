@@ -2,7 +2,9 @@ use bevy_ecs::prelude::*;
 use rand::seq::SliceRandom;
 
 use crate::{
-    action::{ActionNotificationSender, AttackAction},
+    action::{
+        Action, ActionNotificationSender, AttackAction, ChangeRangeAction, RangeChangeDirection,
+    },
     notification::Notification,
     TickNotification,
 };
@@ -34,14 +36,31 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
 
             if let Some((target, _)) = targets_in_range.choose(&mut rng) {
                 // found someone in range
-                let action: Box<AttackAction> = Box::new(AttackAction {
+                let action: Box<dyn Action> = Box::new(AttackAction {
                     target: **target,
                     notification_sender: ActionNotificationSender::new(),
                 });
                 actions.push((entity, action));
             } else {
-                // no one is in range, so try to move into range
-                //TODO
+                // no one is in range, so try to move into range of the combatant closest to being in range
+                if let Some((combatant, range_diff)) = combat_state
+                    .get_entities()
+                    .iter()
+                    .map(|(combatant, range)| (combatant, weapon.get_usable_range_diff(*range)))
+                    .min_by(|(_, diff_1), (_, diff_2)| diff_1.abs().cmp(&diff_2.abs()))
+                {
+                    let direction = if range_diff < 0 {
+                        RangeChangeDirection::Increase
+                    } else {
+                        RangeChangeDirection::Decrease
+                    };
+                    let action: Box<dyn Action> = Box::new(ChangeRangeAction {
+                        target: *combatant,
+                        direction,
+                        notification_sender: ActionNotificationSender::new(),
+                    });
+                    actions.push((entity, action));
+                }
             }
         }
     }

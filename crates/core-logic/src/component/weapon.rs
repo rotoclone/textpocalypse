@@ -274,15 +274,33 @@ impl Weapon {
     /// * If the provided range is shorter than the minimum optimal range, a negative number will be returned.
     /// * If the provided range is longer than the maximum optimal range, a positive number will be returned.
     /// * If the provided range is an optimal range, 0 will be returned.
-    fn get_optimal_range_diff(&self, range: CombatRange) -> i16 {
-        let range_number = range as u8;
+    pub fn get_optimal_range_diff(&self, range: CombatRange) -> i16 {
+        Self::get_range_diff(range, &self.ranges.optimal)
+    }
 
-        let min_range_number = *self.ranges.optimal.start() as u8;
+    /// Determines how many range levels the provided range is outside of the usable ranges, and in which direction.
+    ///
+    /// * If the provided range is shorter than the minimum usable range, a negative number will be returned.
+    /// * If the provided range is longer than the maximum usable range, a positive number will be returned.
+    /// * If the provided range is a usable range, 0 will be returned.
+    pub fn get_usable_range_diff(&self, range: CombatRange) -> i16 {
+        Self::get_range_diff(range, &self.ranges.usable)
+    }
+
+    /// Determines how many range levels the provided range is outside of the provided window, and in which direction.
+    ///
+    /// * If the provided range is shorter than the start of the window, a negative number will be returned.
+    /// * If the provided range is longer than the end of the window, a positive number will be returned.
+    /// * If the provided range is within the window, 0 will be returned.
+    fn get_range_diff(range_to_check: CombatRange, window: &RangeInclusive<CombatRange>) -> i16 {
+        let range_number = range_to_check as u8;
+
+        let min_range_number = *window.start() as u8;
         if range_number < min_range_number {
             return -i16::from(min_range_number - range_number);
         }
 
-        let max_range_number = *self.ranges.optimal.end() as u8;
+        let max_range_number = *window.end() as u8;
         if range_number > max_range_number {
             return i16::from(range_number - max_range_number);
         }

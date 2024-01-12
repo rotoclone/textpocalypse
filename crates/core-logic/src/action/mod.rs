@@ -107,6 +107,7 @@ pub use attack::AttackParser;
 mod change_range;
 pub use change_range::ChangeRangeAction;
 pub use change_range::ChangeRangeParser;
+pub use change_range::RangeChangeDirection;
 
 mod ranges;
 pub use ranges::RangesAction;
