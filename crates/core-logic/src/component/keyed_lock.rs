@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, ActionEndNotification, AfterActionPerformNotification, AttributeDescriber,
+    ActionEndNotification, ActionQueue, AfterActionPerformNotification, AttributeDescriber,
     AttributeDetailLevel, BeforeActionNotification, Connection, Container, DescribeAttributes,
     Description, Location, ParseCustomInput, VerifyActionNotification,
 };
@@ -347,7 +347,7 @@ pub fn auto_unlock_keyed_locks(
     if notification.contents.should_be_open {
         if let Some(keyed_lock) = world.get::<KeyedLock>(notification.contents.target) {
             if keyed_lock.is_locked {
-                queue_action_first(
+                ActionQueue::queue_first(
                     world,
                     notification.notification_type.performing_entity,
                     Box::new(LockAction {

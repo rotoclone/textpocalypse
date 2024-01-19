@@ -5,7 +5,7 @@ use crate::{
     notification::Notification,
 };
 
-use super::{queue_action, AfterActionPerformNotification, Container, Location};
+use super::{ActionQueue, AfterActionPerformNotification, Container, Location};
 
 /// Makes an entity greet entities that enter its location.
 #[derive(Component)]
@@ -53,6 +53,6 @@ pub fn greet_new_entities(
     }
 
     for (entity, action) in actions {
-        queue_action(world, entity, action);
+        ActionQueue::queue(world, entity, action);
     }
 }

@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
+    ActionQueue, AttributeDescriber, AttributeDetailLevel, BeforeActionNotification,
     DescribeAttributes, Location, VerifyActionNotification, Wearable,
 };
 
@@ -212,7 +212,7 @@ pub fn auto_remove_on_put(
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(RemoveAction {

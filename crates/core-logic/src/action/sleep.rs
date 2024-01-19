@@ -5,8 +5,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Player,
-        SleepState, Vitals,
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, SleepState,
+        Vitals,
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
@@ -241,7 +241,7 @@ pub fn look_on_end_sleep(
 ) {
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(LookAction {

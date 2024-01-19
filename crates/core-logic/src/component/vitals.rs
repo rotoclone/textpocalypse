@@ -9,7 +9,7 @@ use crate::{
     ConstrainedValue, GameMessage, MessageDelay, TickNotification, VitalChangeDescription,
 };
 
-use super::{is_asleep, queue_action_first};
+use super::{is_asleep, ActionQueue};
 
 const SATIETY_LOSS_PER_TICK: f32 = 0.005; // loss of 100 satiety in ~3 days
 const HYDRATION_LOSS_PER_TICK: f32 = 0.008; // loss of 100 hydration in ~2 days
@@ -281,7 +281,7 @@ pub fn sleep_on_zero_energy(
     if let VitalType::Energy = vital_type {
         if new_value.get() <= 0.0 {
             interrupt_entity(entity, world);
-            queue_action_first(
+            ActionQueue::queue_first(
                 world,
                 entity,
                 Box::new(SleepAction {

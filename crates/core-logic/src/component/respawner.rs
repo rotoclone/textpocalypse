@@ -16,8 +16,7 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, ActionEndNotification, AfterActionPerformNotification, ParseCustomInput,
-    Vitals,
+    ActionEndNotification, ActionQueue, AfterActionPerformNotification, ParseCustomInput, Vitals,
 };
 
 const RESPAWN_FORMAT: &str = "respawn";
@@ -151,7 +150,7 @@ pub fn look_after_respawn(
 
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(LookAction {

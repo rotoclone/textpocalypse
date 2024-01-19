@@ -4,8 +4,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        get_hands_to_equip, queue_action_first, ActionEndNotification,
-        AfterActionPerformNotification, EquipError, EquippedItems, Item, Location, UnequipError,
+        get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
+        EquipError, EquippedItems, Item, Location, UnequipError,
     },
     find_wearing_entity, find_wielding_entity, get_reference_name,
     input_parser::{
@@ -326,7 +326,7 @@ pub fn auto_unequip_on_equip(
 
                         // queue up unequip actions
                         for item_to_unequip in items_to_unequip {
-                            queue_action_first(
+                            ActionQueue::queue_first(
                                 world,
                                 performing_entity,
                                 Box::new(EquipAction {

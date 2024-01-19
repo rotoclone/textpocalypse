@@ -7,7 +7,7 @@ use crate::{
     TickNotification,
 };
 
-use super::{action_queue::has_any_queued_actions, queue_action, Container, Location};
+use super::{ActionQueue, Container, Location};
 
 /// Makes an entity wander around.
 #[derive(Component)]
@@ -20,7 +20,7 @@ pub struct WanderBehavior {
 pub fn wander_on_tick(_: &Notification<TickNotification, ()>, world: &mut World) {
     let mut actions = Vec::new();
     for (entity, wander_behavior) in world.query::<(Entity, &WanderBehavior)>().iter(world) {
-        if has_any_queued_actions(world, entity)
+        if ActionQueue::has_any_queued_actions(world, entity)
             || rand::thread_rng().gen::<f32>() > wander_behavior.move_chance_per_tick
         {
             continue;
@@ -43,6 +43,6 @@ pub fn wander_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
     }
 
     for (entity, action) in actions {
-        queue_action(world, entity, action);
+        ActionQueue::queue(world, entity, action);
     }
 }

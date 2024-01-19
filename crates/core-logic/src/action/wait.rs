@@ -3,9 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Player,
-    },
+    component::{ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player},
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
@@ -262,7 +260,7 @@ pub fn look_on_end_wait(
 
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(LookAction {

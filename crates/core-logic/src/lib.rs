@@ -563,9 +563,9 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             drop(read_world);
             let mut write_world = world.write().unwrap();
             if action.may_require_tick() {
-                queue_action(&mut write_world, entity, action);
+                ActionQueue::queue(&mut write_world, entity, action);
             } else {
-                queue_action_first(&mut write_world, entity, action);
+                ActionQueue::queue_first(&mut write_world, entity, action);
             }
             let any_action_performed = try_perform_queued_actions(&mut write_world);
             drop(write_world);
@@ -709,7 +709,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         world,
     );
 
-    clear_action_queue(world, entity);
+    ActionQueue::clear(world, entity);
 
     Notification {
         notification_type: DeathNotification { entity },

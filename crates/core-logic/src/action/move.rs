@@ -5,8 +5,8 @@ use regex::Regex;
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
-        CombatState, Container, Location, Stats,
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
+        Container, Location, Stats,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
@@ -267,7 +267,7 @@ pub fn look_after_move(
 
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(LookAction {

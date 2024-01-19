@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, queue_action_first, ActionEndNotification,
+    description::DescribeAttributes, ActionEndNotification, ActionQueue,
     AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
     Connection, Container, Description, Location, ParseCustomInput,
 };
@@ -252,7 +252,7 @@ pub fn auto_open_connections(
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
-                        queue_action_first(
+                        ActionQueue::queue_first(
                             world,
                             notification.notification_type.performing_entity,
                             Box::new(OpenAction {

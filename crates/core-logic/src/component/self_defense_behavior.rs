@@ -9,7 +9,7 @@ use crate::{
     TickNotification,
 };
 
-use super::{action_queue::has_any_queued_actions, queue_action, CombatRange, CombatState, Weapon};
+use super::{ActionQueue, CombatRange, CombatState, Weapon};
 
 /// Makes an entity attack entities they are in combat with.
 #[derive(Component)]
@@ -23,7 +23,7 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
         .query::<(Entity, &SelfDefenseBehavior, &CombatState)>()
         .iter(world)
     {
-        if has_any_queued_actions(world, entity) {
+        if ActionQueue::has_any_queued_actions(world, entity) {
             continue;
         }
 
@@ -66,6 +66,6 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
     }
 
     for (entity, action) in actions {
-        queue_action(world, entity, action);
+        ActionQueue::queue(world, entity, action);
     }
 }

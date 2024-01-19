@@ -6,8 +6,8 @@ use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
-        CombatRange, EquippedItems, Item, Location, Skill, Stats, Weight,
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
+        EquippedItems, Item, Location, Skill, Stats, Weight,
     },
     get_article_reference_name, get_personal_object_pronoun, get_reference_name, get_volume,
     get_weight,
@@ -855,7 +855,7 @@ pub fn auto_equip_item_to_throw(
     if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id) {
         if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
             if !equipped_items.is_equipped(item) {
-                queue_action_first(
+                ActionQueue::queue_first(
                     world,
                     notification.notification_type.performing_entity,
                     Box::new(EquipAction {
