@@ -798,61 +798,6 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     world.despawn(entity);
 }
 
-/// Determines the total weight of an entity.
-fn get_weight(entity: Entity, world: &World) -> Weight {
-    get_weight_recursive(entity, world, &mut vec![entity])
-}
-
-fn get_weight_recursive(
-    entity: Entity,
-    world: &World,
-    contained_entities: &mut Vec<Entity>,
-) -> Weight {
-    let mut weight = if let Some(weight) = world.get::<Weight>(entity) {
-        *weight
-    } else if let Some(density) = world.get::<Density>(entity) {
-        if let Some(volume) = world.get::<Volume>(entity) {
-            // entity has density and volume, but no weight, so calculate it
-            density.weight_of_volume(*volume)
-        } else {
-            // entity has no weight, and density but no volume
-            Weight(0.0)
-        }
-    } else {
-        // entity has no weight, and no density
-        Weight(0.0)
-    };
-
-    if let Some(container) = world.get::<Container>(entity) {
-        let contained_weight = container
-            .entities
-            .iter()
-            .map(|e| {
-                if contained_entities.contains(e) {
-                    panic!("{entity:?} contains itself")
-                }
-                contained_entities.push(*e);
-                get_weight_recursive(*e, world, contained_entities)
-            })
-            .sum::<Weight>();
-
-        weight += contained_weight;
-    }
-
-    if let Some(container) = world.get::<FluidContainer>(entity) {
-        let contained_weight = container.contents.get_total_weight(world);
-
-        weight += contained_weight;
-    }
-
-    weight
-}
-
-/// Determines the volume of an entity.
-fn get_volume(entity: Entity, world: &World) -> Volume {
-    world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
-}
-
 /// Determines if an entity is living or not.
 fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()

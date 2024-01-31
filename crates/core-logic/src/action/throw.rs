@@ -9,7 +9,6 @@ use crate::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    get_volume, get_weight,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,7 +17,7 @@ use crate::{
     notification::{Notification, VerifyResult},
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
     BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, Pronouns, SurroundingsMessageCategory, VerifyActionNotification,
+    MessageDelay, Pronouns, SurroundingsMessageCategory, VerifyActionNotification, Volume,
 };
 
 use super::{
@@ -217,7 +216,7 @@ fn get_cannot_throw_reason(
         return Some(CannotThrowReason::NotThrowable);
     }
 
-    let item_weight = get_weight(item, world);
+    let item_weight = Weight::get(item, world);
 
     let max_weight_can_throw = if let Some(stats) = world.get::<Stats>(thrower) {
         let strength = stats.attributes.get(&Attribute::Strength);
@@ -451,17 +450,17 @@ impl Action for ThrowAction {
 /// Determines the throw check penalty for throwing the provided item
 fn get_throw_penalty(item: Entity, world: &World) -> f32 {
     // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the weight of the item being thrown
-    get_weight(item, world).0 * WEIGHT_PENALTY_PER_KG
+    Weight::get(item, world).0 * WEIGHT_PENALTY_PER_KG
 }
 
 /// Determines how much damage the provided entity does when it hits something
 fn get_hit_damage(item: Entity, world: &World) -> f32 {
-    get_weight(item, world).0 * HIT_DAMAGE_PER_KG
+    Weight::get(item, world).0 * HIT_DAMAGE_PER_KG
 }
 
 /// Determines the difficulty of a throw check targeting the provided inanimate object.
 fn get_inanimate_target_difficulty(target: Entity, world: &World) -> CheckDifficulty {
-    let target_volume = get_volume(target, world);
+    let target_volume = Volume::get(target, world);
     let target_volume_multiplier = if target_volume.0 > 0.0 {
         (1.0 / target_volume.0) * VOLUME_DIFFICULTY_MULT_MULT
     } else {
