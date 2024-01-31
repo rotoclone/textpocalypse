@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{PutAction, WearAction},
-    find_wielding_entity, get_article_reference_name,
+    find_wielding_entity,
     notification::Notification,
-    AttributeDescription,
+    AttributeDescription, Description,
 };
 
 use super::{
@@ -143,7 +143,7 @@ impl AttributeDescriber for EquippedItemsAttributeDescriber {
             let equipped_entity_names = equipped_items
                 .items
                 .iter()
-                .map(|e| get_article_reference_name(*e, world))
+                .map(|e| Description::get_article_reference_name(*e, world))
                 .collect::<Vec<String>>();
 
             for name in equipped_entity_names {

@@ -8,7 +8,6 @@ use crate::{
         ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Location,
         Skill, Stats, Vitals, Weapon, WeaponUnusableError,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,8 +17,8 @@ use crate::{
     resource::WeaponTypeStatCatalog,
     verb_forms::VerbForms,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, BodyPart, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, BodyPart, Description, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -73,8 +72,11 @@ impl InputParser for AttackParser {
                         }));
                     } else {
                         // target isn't attackable
-                        let target_name =
-                            get_reference_name(target_entity, Some(source_entity), world);
+                        let target_name = Description::get_reference_name(
+                            target_entity,
+                            Some(source_entity),
+                            world,
+                        );
                         return Err(InputParseError::CommandParseError {
                             verb: ATTACK_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -356,7 +358,7 @@ fn handle_weapon_unusable_error(
             } else {
                 "far away from"
             };
-            let target_name = get_reference_name(target, Some(entity), world);
+            let target_name = Description::get_reference_name(target, Some(entity), world);
             format!("you are too {distance_phrase} {target_name}")
         }
     };
@@ -420,7 +422,7 @@ fn handle_damage(
         .apply(w);
     }));
 
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
     result_builder
         .with_message(
             performing_entity,
@@ -462,7 +464,7 @@ fn handle_miss(
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
     result_builder
         .with_message(
             performing_entity,
@@ -494,7 +496,7 @@ pub fn verify_target_in_same_room(
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.target;
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
     let attacker_location = world.get::<Location>(performing_entity);
     let target_location = world.get::<Location>(target);
@@ -519,7 +521,7 @@ pub fn verify_target_alive(
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.target;
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
     if is_living_entity(target, world) {
         return VerifyResult::valid();

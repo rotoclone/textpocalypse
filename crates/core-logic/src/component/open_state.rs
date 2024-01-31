@@ -7,7 +7,6 @@ use crate::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
         OpenAction, ThirdPersonMessage, ThirdPersonMessageLocation,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -106,7 +105,7 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        let name = get_reference_name(self.target, Some(performing_entity), world);
+        let name = Description::get_reference_name(self.target, Some(performing_entity), world);
         ActionResult::message(
             performing_entity,
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),

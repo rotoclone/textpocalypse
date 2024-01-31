@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{Wearable, WornItems},
-    get_name, BodyPart,
+    BodyPart, Description,
 };
 
 /// The description of the items an entity is wearing.
@@ -52,7 +52,7 @@ impl WornItemDescription {
         world
             .get::<Wearable>(entity)
             .map(|wearable| WornItemDescription {
-                name: get_name(entity, world).unwrap_or("???".to_string()),
+                name: Description::get_name(entity, world).unwrap_or("???".to_string()),
                 thickness: wearable.thickness,
                 body_parts: wearable.body_parts.clone(),
             })

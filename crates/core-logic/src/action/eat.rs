@@ -4,13 +4,13 @@ use regex::Regex;
 
 use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification, Edible},
-    despawn_entity, get_reference_name,
+    despawn_entity,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -48,8 +48,11 @@ impl InputParser for EatParser {
                         }));
                     } else {
                         // target isn't edible
-                        let target_name =
-                            get_reference_name(target_entity, Some(source_entity), world);
+                        let target_name = Description::get_reference_name(
+                            target_entity,
+                            Some(source_entity),
+                            world,
+                        );
                         return Err(InputParseError::CommandParseError {
                             verb: EAT_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -94,7 +97,7 @@ pub struct EatAction {
 impl Action for EatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         ActionResult::builder()
             .with_message(

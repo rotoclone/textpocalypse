@@ -5,10 +5,9 @@ use itertools::Itertools;
 
 use crate::{
     action::{PourAction, PourAmount},
-    get_reference_name,
     notification::{Notification, VerifyResult},
     resource::FluidNameCatalog,
-    AttributeDescription, GameMessage,
+    AttributeDescription, Description, GameMessage,
 };
 
 use super::{
@@ -157,7 +156,7 @@ pub fn verify_source_container(
         .expect("source entity should be a fluid container");
 
     let used_volume = container.contents.get_total_volume();
-    let source_name = get_reference_name(source, Some(performing_entity), world);
+    let source_name = Description::get_reference_name(source, Some(performing_entity), world);
 
     if used_volume <= Volume(0.0) {
         return VerifyResult::invalid(
@@ -196,7 +195,7 @@ pub fn limit_fluid_container_contents(
     if let Some(max_volume) = &container.volume {
         let used_volume = container.contents.get_total_volume();
         let available_volume = *max_volume - used_volume;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         if available_volume <= Volume(0.0) {
             return VerifyResult::invalid(
                 performing_entity,

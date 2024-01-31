@@ -7,7 +7,6 @@ use crate::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction,
         ThirdPersonMessage, ThirdPersonMessageLocation,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -134,7 +133,7 @@ impl Action for LockAction {
             }
         }
 
-        let name = get_reference_name(self.target, Some(performing_entity), world);
+        let name = Description::get_reference_name(self.target, Some(performing_entity), world);
 
         // make sure the performing entity has the key to this lock, if needed
         let mut key = None;
@@ -163,7 +162,7 @@ impl Action for LockAction {
         };
 
         let first_person_key_message = if let Some(key) = key {
-            let key_name = get_reference_name(key, Some(performing_entity), world);
+            let key_name = Description::get_reference_name(key, Some(performing_entity), world);
             format!("use {key_name} to ")
         } else {
             "".to_string()

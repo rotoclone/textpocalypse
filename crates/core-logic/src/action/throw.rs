@@ -9,8 +9,7 @@ use crate::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    get_article_reference_name, get_personal_object_pronoun, get_reference_name, get_volume,
-    get_weight,
+    get_volume, get_weight,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,8 +17,8 @@ use crate::{
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, Pronouns, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -83,8 +82,11 @@ impl InputParser for ThrowParser {
                         {
                             // target exists
                             if target_entity == item_entity {
-                                let item_name =
-                                    get_reference_name(item_entity, Some(source_entity), world);
+                                let item_name = Description::get_reference_name(
+                                    item_entity,
+                                    Some(source_entity),
+                                    world,
+                                );
                                 return Err(InputParseError::CommandParseError {
                                     verb: THROW_VERB_NAME.to_string(),
                                     error: CommandParseError::Other(format!(
@@ -104,8 +106,11 @@ impl InputParser for ThrowParser {
 
                             match get_cannot_throw_reason(source_entity, item_entity, world) {
                                 Some(CannotThrowReason::NotThrowable) => {
-                                    let item_name =
-                                        get_reference_name(item_entity, Some(source_entity), world);
+                                    let item_name = Description::get_reference_name(
+                                        item_entity,
+                                        Some(source_entity),
+                                        world,
+                                    );
                                     return Err(InputParseError::CommandParseError {
                                         verb: THROW_VERB_NAME.to_string(),
                                         error: CommandParseError::Other(format!(
@@ -114,8 +119,11 @@ impl InputParser for ThrowParser {
                                     });
                                 }
                                 Some(CannotThrowReason::TooWeak) => {
-                                    let item_name =
-                                        get_reference_name(item_entity, Some(source_entity), world);
+                                    let item_name = Description::get_reference_name(
+                                        item_entity,
+                                        Some(source_entity),
+                                        world,
+                                    );
                                     return Err(InputParseError::CommandParseError {
                                         verb: THROW_VERB_NAME.to_string(),
                                         error: CommandParseError::Other(format!(
@@ -136,7 +144,7 @@ impl InputParser for ThrowParser {
                                         }));
                                     } else {
                                         // target is not valid
-                                        let target_name = get_reference_name(
+                                        let target_name = Description::get_reference_name(
                                             target_entity,
                                             Some(source_entity),
                                             world,
@@ -292,10 +300,10 @@ impl Action for ThrowAction {
         let message_context = ThrowMessageContext {
             performing_entity,
             item,
-            item_name: get_reference_name(item, Some(performing_entity), world),
+            item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
-            target_name: get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: get_personal_object_pronoun(target, world),
+            target_name: Description::get_reference_name(target, Some(performing_entity), world),
+            target_pronoun: Pronouns::get_personal_object(target, world),
         };
 
         let hit;
@@ -371,7 +379,7 @@ impl Action for ThrowAction {
             if CheckResult::ExtremeSuccess == throw_result {
                 damage *= DIRECT_HIT_DAMAGE_MULT;
             }
-            let item_reference_name = get_article_reference_name(item, world);
+            let item_reference_name = Description::get_article_reference_name(item, world);
             result_builder = result_builder.with_post_effect(Box::new(move |w| {
                 VitalChange {
                     entity: target,
@@ -883,7 +891,7 @@ pub fn verify_wielding_item_to_throw(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,
@@ -905,7 +913,7 @@ pub fn verify_target_in_same_room(
         }
     }
 
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,

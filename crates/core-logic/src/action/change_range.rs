@@ -8,11 +8,10 @@ use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
     },
-    get_reference_name,
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -81,7 +80,8 @@ impl InputParser for ChangeRangeParser {
                     }))
                 } else {
                     // not in combat with target
-                    let target_name = get_reference_name(target, Some(source_entity), world);
+                    let target_name =
+                        Description::get_reference_name(target, Some(source_entity), world);
                     Err(InputParseError::CommandParseError {
                         verb: verb_name.to_string(),
                         error: CommandParseError::Other(format!(
@@ -155,7 +155,7 @@ pub enum RangeChangeDirection {
 impl Action for ChangeRangeAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         let (check_result, _) = Stats::check_vs(
             VsParticipant {
@@ -321,7 +321,7 @@ pub fn verify_range_can_be_changed(
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.target;
     let direction = notification.contents.direction;
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
     if let Some(range) =
         CombatState::get_entities_in_combat_with(performing_entity, world).get(&target)

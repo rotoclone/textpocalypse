@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{CombatRange, WeaponRanges},
-    get_name,
+    Description,
 };
 
 /// A description of the ranges to combatants.
@@ -69,7 +69,7 @@ fn build_range_descriptions(
     let mut descriptions = Vec::new();
     for (entity, range) in combatants {
         descriptions.push(RangeDescription {
-            name: get_name(entity, world).unwrap_or_else(|| "???".to_string()),
+            name: Description::get_name(entity, world).unwrap_or_else(|| "???".to_string()),
             range,
             weapon_judgement: build_range_judgement(range, weapon_ranges),
         });

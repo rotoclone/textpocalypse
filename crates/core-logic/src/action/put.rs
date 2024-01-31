@@ -4,15 +4,15 @@ use regex::Regex;
 
 use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
-    find_owning_entity, get_reference_name,
+    find_owning_entity,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -69,7 +69,8 @@ impl InputParser for PutParser {
         if source_owned_by_other_living_entity
             || (source_container != entity && is_living_entity(source_container, world))
         {
-            let source_name = get_reference_name(source_container, Some(entity), world);
+            let source_name =
+                Description::get_reference_name(source_container, Some(entity), world);
             let message = format!("You can't get anything from {source_name}.");
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
@@ -99,7 +100,7 @@ impl InputParser for PutParser {
             }
         };
 
-        let item_name = get_reference_name(item, Some(entity), world);
+        let item_name = Description::get_reference_name(item, Some(entity), world);
 
         if destination_target == CommandTarget::Myself {
             let inventory = world
@@ -144,7 +145,8 @@ impl InputParser for PutParser {
         if destination_owned_by_other_living_entity
             || (destination_container != entity && is_living_entity(destination_container, world))
         {
-            let destination_name = get_reference_name(destination_container, Some(entity), world);
+            let destination_name =
+                Description::get_reference_name(destination_container, Some(entity), world);
             let message = format!("You can't put anything in {destination_name}.");
             return Err(InputParseError::CommandParseError {
                 verb: verb_name,
@@ -275,7 +277,7 @@ pub struct PutAction {
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let item_name = get_reference_name(self.item, Some(performing_entity), world);
+        let item_name = Description::get_reference_name(self.item, Some(performing_entity), world);
         let performing_entity_location = world
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
@@ -296,7 +298,8 @@ impl Action for PutAction {
                     .add_string("."),
                 )
             } else {
-                let source_name = get_reference_name(self.source, Some(performing_entity), world);
+                let source_name =
+                    Description::get_reference_name(self.source, Some(performing_entity), world);
                 (
                     format!("You get {item_name} from {source_name}."),
                     ThirdPersonMessage::new(
@@ -325,7 +328,7 @@ impl Action for PutAction {
             )
         } else {
             let destination_name =
-                get_reference_name(self.destination, Some(performing_entity), world);
+                Description::get_reference_name(self.destination, Some(performing_entity), world);
             (
                 format!("You put {item_name} into {destination_name}."),
                 ThirdPersonMessage::new(
@@ -419,7 +422,7 @@ pub fn verify_source_and_destination_are_containers(
     let destination = notification.contents.destination;
 
     if world.get::<Container>(source).is_none() {
-        let source_name = get_reference_name(source, Some(performing_entity), world);
+        let source_name = Description::get_reference_name(source, Some(performing_entity), world);
         return VerifyResult::invalid(
             performing_entity,
             GameMessage::Error(format!("{source_name} is not a container.")),
@@ -427,7 +430,8 @@ pub fn verify_source_and_destination_are_containers(
     }
 
     if world.get::<Container>(destination).is_none() {
-        let destination_name = get_reference_name(destination, Some(performing_entity), world);
+        let destination_name =
+            Description::get_reference_name(destination, Some(performing_entity), world);
         return VerifyResult::invalid(
             performing_entity,
             GameMessage::Error(format!("{destination_name} is not a container.")),
@@ -452,8 +456,8 @@ pub fn verify_item_in_source(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
-    let source_name = get_reference_name(source, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
+    let source_name = Description::get_reference_name(source, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,
@@ -472,7 +476,7 @@ pub fn prevent_put_item_inside_itself(
 
     if let Some(container) = world.get::<Container>(item) {
         if item == destination || container.contains_recursive(destination, world) {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             return VerifyResult::invalid(
                 performing_entity,
                 GameMessage::Error(format!("You can't put {item_name} inside itself.")),
@@ -496,7 +500,7 @@ pub fn prevent_put_non_item(
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
             .id;
-        let item_name = get_reference_name(item, Some(performing_entity), world);
+        let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
         let message = if notification.contents.source == performing_entity_location {
             format!("You can't get {item_name}.")

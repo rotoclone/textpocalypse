@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    find_wearing_entity, get_reference_name, get_volume, get_weight,
+    find_wearing_entity, get_volume, get_weight,
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage,
 };
@@ -186,12 +186,12 @@ pub fn limit_container_contents(
     if let Some(max_weight) = &container.max_weight {
         let used_weight = container.used_weight(world);
         if used_weight + item_weight > *max_weight {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too heavy for you to hold.")
             } else {
                 let destination_name =
-                    get_reference_name(destination, Some(performing_entity), world);
+                    Description::get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} is too heavy for {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
@@ -202,12 +202,12 @@ pub fn limit_container_contents(
     if let Some(max_volume) = &container.volume {
         let used_volume = container.used_volume(world);
         if used_volume + item_volume > *max_volume {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too big for you to hold.")
             } else {
                 let destination_name =
-                    get_reference_name(destination, Some(performing_entity), world);
+                    Description::get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} won't fit in {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));

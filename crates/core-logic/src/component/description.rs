@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use log::debug;
 
-use crate::GameMessage;
+use crate::{find_owning_entity, is_living_entity, GameMessage};
 
 /// The description of an entity.
 #[derive(Component, Debug)]
@@ -84,6 +84,80 @@ impl Pronouns {
     pub fn it() -> Pronouns {
         Pronouns::new("it", "it", "its", "its", "itself", false)
     }
+
+    /// Gets the personal subject pronoun to use when referring to the provided entity (e.g. he, she, they).
+    ///
+    /// If the entity has no description and is alive, this will return "they".
+    /// If the entity has no description and is not alive, this will return "it".
+    pub fn get_personal_subject(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.personal_subject.clone()
+        } else if is_living_entity(entity, world) {
+            "they".to_string()
+        } else {
+            "it".to_string()
+        }
+    }
+
+    /// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
+    ///
+    /// If the entity has no description and is alive, this will return "them".
+    /// If the entity has no description and is not alive, this will return "it".
+    pub fn get_personal_object(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.personal_object.clone()
+        } else if is_living_entity(entity, world) {
+            "them".to_string()
+        } else {
+            "it".to_string()
+        }
+    }
+
+    /// Gets the possessive adjective pronoun to use when referring to the provided entity (e.g. his, her, their).
+    ///
+    /// If the entity has no description and is alive, this will return "their".
+    /// If the entity has no description and is not alive, this will return "its".
+    pub fn get_possessive_adjective(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.possessive_adjective.clone()
+        } else if is_living_entity(entity, world) {
+            "their".to_string()
+        } else {
+            "its".to_string()
+        }
+    }
+
+    /// Gets the reflexive pronoun to use when referring to the provided entity (e.g. himself, herself, themself).
+    ///
+    /// If the entity has no description and is alive, this will return "themself".
+    /// If the entity has no description and is not alive, this will return "itself".
+    pub fn get_reflexive(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.reflexive.clone()
+        } else if is_living_entity(entity, world) {
+            "themself".to_string()
+        } else {
+            "itself".to_string()
+        }
+    }
+
+    /// Gets the form of "to be" to use when referring to the provided entity (i.e. is/are).
+    ///
+    /// If the entity has no description and is alive, this will return "are" (to be paired with "they").
+    /// If the entity has no description and is not alive, this will return "is" (to be paired with "it").
+    pub fn get_to_be_form(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            if desc.pronouns.plural {
+                "are".to_string()
+            } else {
+                "is".to_string()
+            }
+        } else if is_living_entity(entity, world) {
+            "are".to_string()
+        } else {
+            "is".to_string()
+        }
+    }
 }
 
 impl Description {
@@ -96,6 +170,76 @@ impl Description {
                 .aliases
                 .iter()
                 .any(|alias| alias.eq_ignore_ascii_case(input))
+    }
+
+    /// Gets the name of the provided entity, if it has one.
+    pub fn get_name(entity: Entity, world: &World) -> Option<String> {
+        world.get::<Description>(entity).map(|d| d.name.clone())
+    }
+
+    /// Builds a string to use to refer to the provided entity from the point of view of another entity.
+    ///
+    /// For example, if the entity is named "book", this will return "the book".
+    ///
+    /// If `pov_entity` is the same as `entity`, this will return "you".
+    pub fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+        if Some(entity) == pov_entity {
+            return "you".to_string();
+        }
+
+        let article = Description::get_definite_article(entity, pov_entity, world)
+            .map_or_else(|| "".to_string(), |a| format!("{a} "));
+        Description::get_name(entity, world)
+            .map_or("it".to_string(), |name| format!("{article}{name}"))
+    }
+
+    /// Gets the definite article to use when referring to the provided entity.
+    ///
+    /// If `pov_entity` owns it, this will return `Some("your")`.
+    ///
+    /// If some other entity owns it, this will return `Some("their")`.
+    ///
+    /// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
+    pub fn get_definite_article(
+        entity: Entity,
+        pov_entity: Option<Entity>,
+        world: &World,
+    ) -> Option<String> {
+        let owning_entity = find_owning_entity(entity, world);
+
+        let desc = world.get::<Description>(entity);
+        if let Some(owning_entity) = owning_entity {
+            if let Some(pov_entity) = pov_entity {
+                if owning_entity == pov_entity {
+                    return Some("your".to_string());
+                }
+            }
+
+            return Some("their".to_string());
+        }
+
+        if let Some(desc) = desc {
+            // return `None` if the entity has no article
+            desc.article.as_ref()?;
+        }
+        Some("the".to_string())
+    }
+
+    /// Builds a string to use to refer to the provided entity generically.
+    ///
+    /// For example, if the entity is named "book" and has its article set to "a", this will return "a book".
+    pub fn get_article_reference_name(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            if let Some(article) = &desc.article {
+                format!("{} {}", article, desc.name)
+            } else {
+                desc.name.clone()
+            }
+        } else if is_living_entity(entity, world) {
+            "someone".to_string()
+        } else {
+            "something".to_string()
+        }
     }
 }
 

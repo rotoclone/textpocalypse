@@ -7,7 +7,7 @@ use strum::IntoEnumIterator;
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
     component::Description,
-    find_wearing_entity, get_article_reference_name, get_reference_name,
+    find_wearing_entity,
     notification::{Notification, VerifyResult},
     AttributeDescription, BodyPart, GameMessage,
 };
@@ -186,7 +186,7 @@ impl AttributeDescriber for WornItemsAttributeDescriber {
                 .values()
                 .flat_map(|items| items.last())
                 .unique()
-                .map(|e| get_article_reference_name(*e, world))
+                .map(|e| Description::get_article_reference_name(*e, world))
                 .collect::<Vec<String>>();
 
             for name in worn_entity_names {
@@ -234,11 +234,12 @@ pub fn verify_not_wearing_item_to_put(
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
-        let item_name = get_reference_name(item, Some(performing_entity), world);
+        let item_name = Description::get_reference_name(item, Some(performing_entity), world);
         let wearer_string = if wearing_entity == performing_entity {
             "you're".to_string()
         } else {
-            let wearer_name = get_reference_name(wearing_entity, Some(performing_entity), world);
+            let wearer_name =
+                Description::get_reference_name(wearing_entity, Some(performing_entity), world);
             let is_or_are = if let Some(desc) = world.get::<Description>(wearing_entity) {
                 if desc.pronouns.plural {
                     "are"

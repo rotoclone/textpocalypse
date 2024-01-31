@@ -7,14 +7,14 @@ use crate::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
         EquipError, EquippedItems, Item, Location, UnequipError,
     },
-    find_wearing_entity, find_wielding_entity, get_reference_name,
+    find_wearing_entity, find_wielding_entity,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -65,7 +65,8 @@ impl InputParser for EquipParser {
                     }));
                 } else {
                     // target isn't equippable
-                    let target_name = get_reference_name(target_entity, Some(source_entity), world);
+                    let target_name =
+                        Description::get_reference_name(target_entity, Some(source_entity), world);
                     return Err(InputParseError::CommandParseError {
                         verb: EQUIP_VERB_NAME.to_string(),
                         error: CommandParseError::Other(format!(
@@ -110,7 +111,7 @@ pub struct EquipAction {
 impl Action for EquipAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         if self.should_be_equipped {
             match EquippedItems::equip(performing_entity, target, world) {
@@ -254,7 +255,7 @@ pub fn verify_has_item_to_equip(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,
@@ -272,7 +273,7 @@ pub fn verify_not_wearing_item_to_equip(
 
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
         if wearing_entity == performing_entity {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             return VerifyResult::invalid(
                 performing_entity,
                 GameMessage::Error(format!(

@@ -13,10 +13,9 @@ use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, get_personal_object_pronoun, get_personal_subject_pronoun,
-    get_possessive_adjective_pronoun, get_reference_name, get_reflexive_pronoun, get_to_be_form,
-    send_message, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    Pronouns, SurroundingsMessageCategory, VerifyActionNotification,
+    can_receive_messages, send_message, BeforeActionNotification, Description,
+    InternalMessageCategory, MessageCategory, MessageDelay, Pronouns, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -390,7 +389,7 @@ impl MessageToken {
     /// Resolves the token to a string.
     fn to_string(&self, pov_entity: Entity, world: &World) -> String {
         match self {
-            MessageToken::Name(e) => get_reference_name(*e, Some(pov_entity), world),
+            MessageToken::Name(e) => Description::get_reference_name(*e, Some(pov_entity), world),
             MessageToken::PersonalSubjectPronoun {
                 entity,
                 capitalized,
@@ -398,7 +397,7 @@ impl MessageToken {
                 let pronoun = if *entity == pov_entity {
                     Pronouns::you().personal_subject
                 } else {
-                    get_personal_subject_pronoun(*entity, world)
+                    Pronouns::get_personal_subject(*entity, world)
                 };
 
                 if *capitalized {
@@ -411,24 +410,24 @@ impl MessageToken {
                 if *e == pov_entity {
                     Pronouns::you().personal_object
                 } else {
-                    get_personal_object_pronoun(*e, world)
+                    Pronouns::get_personal_object(*e, world)
                 }
             }
             MessageToken::PossessiveAdjectivePronoun(e) => {
                 if *e == pov_entity {
                     Pronouns::you().possessive_adjective
                 } else {
-                    get_possessive_adjective_pronoun(*e, world)
+                    Pronouns::get_possessive_adjective(*e, world)
                 }
             }
             MessageToken::ReflexivePronoun(e) => {
                 if *e == pov_entity {
                     Pronouns::you().reflexive
                 } else {
-                    get_reflexive_pronoun(*e, world)
+                    Pronouns::get_reflexive(*e, world)
                 }
             }
-            MessageToken::ToBeForm(e) => get_to_be_form(*e, world),
+            MessageToken::ToBeForm(e) => Pronouns::get_to_be_form(*e, world),
         }
     }
 }
@@ -839,7 +838,7 @@ fn handle_enter_combat(
     {
         CombatState::set_in_combat(attacker, target, range, world);
 
-        let target_name = get_reference_name(target, Some(attacker), world);
+        let target_name = Description::get_reference_name(target, Some(attacker), world);
         result_builder = result_builder
             .with_message(
                 attacker,

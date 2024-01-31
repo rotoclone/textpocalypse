@@ -5,8 +5,8 @@ use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
 use crate::{
-    component::EquippedItems, get_name, range_extensions::RangeExtensions,
-    resource::WeaponTypeStatCatalog, verb_forms::VerbForms,
+    component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
+    verb_forms::VerbForms, Description,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -155,9 +155,12 @@ impl Weapon {
                 .get_items()
                 .iter()
                 .filter_map(|item| {
-                    world
-                        .get::<Weapon>(*item)
-                        .map(|weapon| (weapon, get_name(*item, world).unwrap_or("???".to_string())))
+                    world.get::<Weapon>(*item).map(|weapon| {
+                        (
+                            weapon,
+                            Description::get_name(*item, world).unwrap_or("???".to_string()),
+                        )
+                    })
                 })
                 .collect()
         } else {

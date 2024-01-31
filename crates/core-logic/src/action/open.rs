@@ -4,13 +4,12 @@ use regex::Regex;
 
 use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -133,7 +132,8 @@ impl Action for OpenAction {
 
         OpenState::set_open(self.target, self.should_be_open, world);
 
-        let target_name = get_reference_name(self.target, Some(performing_entity), world);
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let (open_or_close, opens_or_closes) = if self.should_be_open {
             ("open", "opens")
         } else {
