@@ -7,7 +7,7 @@ use std::{
 use bevy_ecs::prelude::*;
 use float_cmp::approx_eq;
 
-use crate::{get_weight, AttributeDescription};
+use crate::{AttributeDescription, Container, Density, FluidContainer, Volume};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
@@ -71,6 +71,58 @@ impl Display for Weight {
     }
 }
 
+impl Weight {
+    /// Determines the total weight of an entity.
+    pub fn get(entity: Entity, world: &World) -> Weight {
+        Weight::get_weight_recursive(entity, world, &mut vec![entity])
+    }
+
+    fn get_weight_recursive(
+        entity: Entity,
+        world: &World,
+        contained_entities: &mut Vec<Entity>,
+    ) -> Weight {
+        let mut weight = if let Some(weight) = world.get::<Weight>(entity) {
+            *weight
+        } else if let Some(density) = world.get::<Density>(entity) {
+            if let Some(volume) = world.get::<Volume>(entity) {
+                // entity has density and volume, but no weight, so calculate it
+                density.weight_of_volume(*volume)
+            } else {
+                // entity has no weight, and density but no volume
+                Weight(0.0)
+            }
+        } else {
+            // entity has no weight, and no density
+            Weight(0.0)
+        };
+
+        if let Some(container) = world.get::<Container>(entity) {
+            let contained_weight = container
+                .entities
+                .iter()
+                .map(|e| {
+                    if contained_entities.contains(e) {
+                        panic!("{entity:?} contains itself")
+                    }
+                    contained_entities.push(*e);
+                    Weight::get_weight_recursive(*e, world, contained_entities)
+                })
+                .sum::<Weight>();
+
+            weight += contained_weight;
+        }
+
+        if let Some(container) = world.get::<FluidContainer>(entity) {
+            let contained_weight = container.contents.get_total_weight(world);
+
+            weight += contained_weight;
+        }
+
+        weight
+    }
+}
+
 /// Describes the weight of an entity.
 #[derive(Debug)]
 struct WeightAttributeDescriber;
@@ -84,7 +136,7 @@ impl AttributeDescriber for WeightAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if detail_level >= AttributeDetailLevel::Advanced {
-            let weight = get_weight(entity, world);
+            let weight = Weight::get(entity, world);
 
             vec![AttributeDescription::does(format!("weighs {weight:.2} kg"))]
         } else {

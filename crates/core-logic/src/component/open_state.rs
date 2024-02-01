@@ -7,7 +7,6 @@ use crate::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
         OpenAction, ThirdPersonMessage, ThirdPersonMessageLocation,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, queue_action_first, ActionEndNotification,
+    description::DescribeAttributes, ActionEndNotification, ActionQueue,
     AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
     Connection, Container, Description, Location, ParseCustomInput,
 };
@@ -69,7 +68,12 @@ impl InputParser for SlamParser {
         vec![SLAM_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<OpenState>(entity, world, &[SLAM_FORMAT])
     }
 }
@@ -101,7 +105,7 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        let name = get_reference_name(self.target, Some(performing_entity), world);
+        let name = Description::get_reference_name(self.target, Some(performing_entity), world);
         ActionResult::message(
             performing_entity,
             format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
@@ -185,7 +189,7 @@ impl OpenState {
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                             MessageDelay::Short,
                         )
-                        .add_entity_name(other_side_id)
+                        .add_name(other_side_id)
                         .add_string(format!(" swings {open_or_closed}."))
                         .send(
                             None,
@@ -247,7 +251,7 @@ pub fn auto_open_connections(
             {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
-                        queue_action_first(
+                        ActionQueue::queue_first(
                             world,
                             notification.notification_type.performing_entity,
                             Box::new(OpenAction {

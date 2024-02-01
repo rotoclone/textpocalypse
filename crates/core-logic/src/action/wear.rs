@@ -7,14 +7,13 @@ use crate::{
         ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
         WornItems,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -51,8 +50,11 @@ impl InputParser for WearParser {
                         }));
                     } else {
                         // target isn't wearable
-                        let target_name =
-                            get_reference_name(target_entity, Some(source_entity), world);
+                        let target_name = Description::get_reference_name(
+                            target_entity,
+                            Some(source_entity),
+                            world,
+                        );
                         return Err(InputParseError::CommandParseError {
                             verb: WEAR_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -77,7 +79,12 @@ impl InputParser for WearParser {
         vec![WEAR_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Wearable>(entity, world, &[WEAR_FORMAT])
     }
 }
@@ -93,7 +100,7 @@ pub struct WearAction {
 impl Action for WearAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         match WornItems::wear(performing_entity, target, world) {
             Ok(()) => (),
@@ -117,7 +124,7 @@ impl Action for WearAction {
             }
             Err(WearError::TooThick(_, other_item)) => {
                 let other_item_name =
-                    get_reference_name(other_item, Some(performing_entity), world);
+                    Description::get_reference_name(other_item, Some(performing_entity), world);
                 return ActionResult::builder()
                     .with_error(
                         performing_entity,
@@ -141,9 +148,9 @@ impl Action for WearAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" puts on ".to_string())
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string(".".to_string()),
                 world,
             )
@@ -210,7 +217,7 @@ pub fn verify_has_item_to_wear(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,

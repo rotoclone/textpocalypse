@@ -4,13 +4,12 @@ use regex::Regex;
 
 use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -74,7 +73,12 @@ impl InputParser for OpenParser {
         vec![OPEN_FORMAT.to_string(), CLOSE_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<OpenState>(entity, world, &[OPEN_FORMAT, CLOSE_FORMAT])
     }
 }
@@ -128,7 +132,8 @@ impl Action for OpenAction {
 
         OpenState::set_open(self.target, self.should_be_open, world);
 
-        let target_name = get_reference_name(self.target, Some(performing_entity), world);
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let (open_or_close, opens_or_closes) = if self.should_be_open {
             ("open", "opens")
         } else {
@@ -149,9 +154,9 @@ impl Action for OpenAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" {opens_or_closes} "))
-                .add_entity_name(self.target)
+                .add_name(self.target)
                 .add_string(".".to_string()),
                 world,
             )

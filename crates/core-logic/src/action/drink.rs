@@ -8,13 +8,12 @@ use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification,
 };
 
@@ -58,8 +57,11 @@ impl InputParser for DrinkParser {
                             }));
                         } else {
                             // target is empty
-                            let target_name =
-                                get_reference_name(target_entity, Some(source_entity), world);
+                            let target_name = Description::get_reference_name(
+                                target_entity,
+                                Some(source_entity),
+                                world,
+                            );
                             return Err(InputParseError::CommandParseError {
                                 verb: DRINK_VERB_NAME.to_string(),
                                 error: CommandParseError::Other(format!("{target_name} is empty.")),
@@ -67,8 +69,11 @@ impl InputParser for DrinkParser {
                         }
                     } else {
                         // target isn't a fluid container
-                        let target_name =
-                            get_reference_name(target_entity, Some(source_entity), world);
+                        let target_name = Description::get_reference_name(
+                            target_entity,
+                            Some(source_entity),
+                            world,
+                        );
                         return Err(InputParseError::CommandParseError {
                             verb: DRINK_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -93,7 +98,12 @@ impl InputParser for DrinkParser {
         vec![DRINK_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<FluidContainer>(entity, world, &[DRINK_FORMAT])
     }
 }
@@ -109,7 +119,8 @@ pub struct DrinkAction {
 
 impl Action for DrinkAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let target_name = get_reference_name(self.target, Some(performing_entity), world);
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let mut container = match world.get_mut::<FluidContainer>(self.target) {
             Some(s) => s,
             None => {
@@ -143,9 +154,9 @@ impl Action for DrinkAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" takes a drink from ".to_string())
-                .add_entity_name(self.target)
+                .add_name(self.target)
                 .add_string(".".to_string()),
                 world,
             )

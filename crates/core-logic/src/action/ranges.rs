@@ -3,26 +3,26 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{ActionEndNotification, AfterActionPerformNotification, Vitals},
+    component::{ActionEndNotification, AfterActionPerformNotification, CombatState, Weapon},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, GameMessage, VerifyActionNotification, VitalsDescription, World,
+    BeforeActionNotification, GameMessage, RangesDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const VITALS_FORMAT: &str = "vitals";
+const RANGES_FORMAT: &str = "ranges";
 
 lazy_static! {
-    static ref VITALS_PATTERN: Regex = Regex::new("^(v|vi|vitals)$").unwrap();
+    static ref RANGES_PATTERN: Regex = Regex::new("^(range|ranges|combat|com)$").unwrap();
 }
 
-pub struct VitalsParser;
+pub struct RangesParser;
 
-impl InputParser for VitalsParser {
+impl InputParser for RangesParser {
     fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if VITALS_PATTERN.is_match(input) {
-            return Ok(Box::new(VitalsAction {
+        if RANGES_PATTERN.is_match(input) {
+            return Ok(Box::new(RangesAction {
                 notification_sender: ActionNotificationSender::new(),
             }));
         }
@@ -31,7 +31,7 @@ impl InputParser for VitalsParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![VITALS_FORMAT.to_string()]
+        vec![RANGES_FORMAT.to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
@@ -39,22 +39,32 @@ impl InputParser for VitalsParser {
     }
 }
 
-/// Shows an entity its vitals.
+/// Shows an entity the ranges to entities it's in combat with.
 #[derive(Debug)]
-struct VitalsAction {
-    notification_sender: ActionNotificationSender<Self>,
+pub struct RangesAction {
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
-impl Action for VitalsAction {
+impl Action for RangesAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        if let Some(vitals) = world.get::<Vitals>(performing_entity) {
-            let message = GameMessage::Vitals(VitalsDescription::from_vitals(vitals));
+        let combatants = CombatState::get_entities_in_combat_with(performing_entity, world);
+        if combatants.is_empty() {
+            ActionResult::error(
+                performing_entity,
+                "You're not in combat with anyone.".to_string(),
+            )
+        } else {
+            let weapon_ranges =
+                Weapon::get_primary(performing_entity, world).map(|(weapon, _)| &weapon.ranges);
+            let message = GameMessage::Ranges(RangesDescription::from_combatants(
+                combatants,
+                weapon_ranges,
+                world,
+            ));
 
             ActionResult::builder()
                 .with_game_message(performing_entity, message)
                 .build_complete_no_tick(true)
-        } else {
-            ActionResult::error(performing_entity, "You have no vitals.".to_string())
         }
     }
 

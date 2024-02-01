@@ -6,25 +6,23 @@ use crate::{
     action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Attribute,
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    get_article_reference_name, get_personal_object_pronoun, get_reference_name, get_volume,
-    get_weight,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    value_change::{ValueChange, ValueChangeOperation},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, ValueType, VerifyActionNotification,
+    vital_change::{ValueChangeOperation, VitalChange, VitalType},
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, Pronouns, SurroundingsMessageCategory, VerifyActionNotification, Volume,
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    EquipAction,
+    handle_enter_combat, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionResultBuilder, EquipAction,
 };
 
 /// The number of kilograms an entity can throw per point of strength they have.
@@ -83,8 +81,11 @@ impl InputParser for ThrowParser {
                         {
                             // target exists
                             if target_entity == item_entity {
-                                let item_name =
-                                    get_reference_name(item_entity, Some(source_entity), world);
+                                let item_name = Description::get_reference_name(
+                                    item_entity,
+                                    Some(source_entity),
+                                    world,
+                                );
                                 return Err(InputParseError::CommandParseError {
                                     verb: THROW_VERB_NAME.to_string(),
                                     error: CommandParseError::Other(format!(
@@ -104,8 +105,11 @@ impl InputParser for ThrowParser {
 
                             match get_cannot_throw_reason(source_entity, item_entity, world) {
                                 Some(CannotThrowReason::NotThrowable) => {
-                                    let item_name =
-                                        get_reference_name(item_entity, Some(source_entity), world);
+                                    let item_name = Description::get_reference_name(
+                                        item_entity,
+                                        Some(source_entity),
+                                        world,
+                                    );
                                     return Err(InputParseError::CommandParseError {
                                         verb: THROW_VERB_NAME.to_string(),
                                         error: CommandParseError::Other(format!(
@@ -114,8 +118,11 @@ impl InputParser for ThrowParser {
                                     });
                                 }
                                 Some(CannotThrowReason::TooWeak) => {
-                                    let item_name =
-                                        get_reference_name(item_entity, Some(source_entity), world);
+                                    let item_name = Description::get_reference_name(
+                                        item_entity,
+                                        Some(source_entity),
+                                        world,
+                                    );
                                     return Err(InputParseError::CommandParseError {
                                         verb: THROW_VERB_NAME.to_string(),
                                         error: CommandParseError::Other(format!(
@@ -136,7 +143,7 @@ impl InputParser for ThrowParser {
                                         }));
                                     } else {
                                         // target is not valid
-                                        let target_name = get_reference_name(
+                                        let target_name = Description::get_reference_name(
                                             target_entity,
                                             Some(source_entity),
                                             world,
@@ -181,7 +188,12 @@ impl InputParser for ThrowParser {
         vec![THROW_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Item>(entity, world, &[THROW_FORMAT])
     }
 }
@@ -204,7 +216,7 @@ fn get_cannot_throw_reason(
         return Some(CannotThrowReason::NotThrowable);
     }
 
-    let item_weight = get_weight(item, world);
+    let item_weight = Weight::get(item, world);
 
     let max_weight_can_throw = if let Some(stats) = world.get::<Stats>(thrower) {
         let strength = stats.attributes.get(&Attribute::Strength);
@@ -239,22 +251,34 @@ impl Action for ThrowAction {
             .get::<Location>(performing_entity)
             .expect("Throwing entity should have a location")
             .id;
+        let target_is_living = is_living_entity(target, world);
+
+        let mut result_builder = ActionResult::builder();
+
+        if target_is_living {
+            result_builder = handle_enter_combat(
+                performing_entity,
+                target,
+                CombatRange::Long,
+                result_builder,
+                world,
+            );
+        }
 
         let throw_penalty = get_throw_penalty(item, world);
 
         let throw_result;
-        let target_is_living = is_living_entity(target, world);
         if target_is_living {
             // the target is alive, so it will try to dodge
             (throw_result, _) = Stats::check_vs(
                 VsParticipant {
                     entity: performing_entity,
-                    stat: Attribute::Strength,
+                    stat: Attribute::Strength.into(),
                     modifiers: CheckModifiers::modify_value(-throw_penalty),
                 },
                 VsParticipant {
                     entity: performing_entity,
-                    stat: Skill::Dodge,
+                    stat: Skill::Dodge.into(),
                     modifiers: CheckModifiers::none(),
                 },
                 VsCheckParams::second_wins_ties(),
@@ -275,13 +299,11 @@ impl Action for ThrowAction {
         let message_context = ThrowMessageContext {
             performing_entity,
             item,
-            item_name: get_reference_name(item, Some(performing_entity), world),
+            item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
-            target_name: get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: get_personal_object_pronoun(target, world),
+            target_name: Description::get_reference_name(target, Some(performing_entity), world),
+            target_pronoun: Pronouns::get_personal_object(target, world),
         };
-
-        let mut result_builder = ActionResult::builder();
 
         let hit;
         match throw_result {
@@ -356,11 +378,11 @@ impl Action for ThrowAction {
             if CheckResult::ExtremeSuccess == throw_result {
                 damage *= DIRECT_HIT_DAMAGE_MULT;
             }
-            let item_reference_name = get_article_reference_name(item, world);
+            let item_reference_name = Description::get_article_reference_name(item, world);
             result_builder = result_builder.with_post_effect(Box::new(move |w| {
-                ValueChange {
+                VitalChange {
                     entity: target,
-                    value_type: ValueType::Health,
+                    vital_type: VitalType::Health,
                     operation: ValueChangeOperation::Subtract,
                     amount: damage,
                     message: Some(format!("Ow, you got hit with {item_reference_name}!")),
@@ -428,17 +450,17 @@ impl Action for ThrowAction {
 /// Determines the throw check penalty for throwing the provided item
 fn get_throw_penalty(item: Entity, world: &World) -> f32 {
     // larger items are easier to hit things with, but also harder to throw, so let's say that cancels out and so the only relevant thing is the weight of the item being thrown
-    get_weight(item, world).0 * WEIGHT_PENALTY_PER_KG
+    Weight::get(item, world).0 * WEIGHT_PENALTY_PER_KG
 }
 
 /// Determines how much damage the provided entity does when it hits something
 fn get_hit_damage(item: Entity, world: &World) -> f32 {
-    get_weight(item, world).0 * HIT_DAMAGE_PER_KG
+    Weight::get(item, world).0 * HIT_DAMAGE_PER_KG
 }
 
 /// Determines the difficulty of a throw check targeting the provided inanimate object.
 fn get_inanimate_target_difficulty(target: Entity, world: &World) -> CheckDifficulty {
-    let target_volume = get_volume(target, world);
+    let target_volume = Volume::get(target, world);
     let target_volume_multiplier = if target_volume.0 > 0.0 {
         (1.0 / target_volume.0) * VOLUME_DIFFICULTY_MULT_MULT
     } else {
@@ -489,11 +511,11 @@ fn result_builder_with_throw_extreme_fail_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" hurls ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(" wildly, and it comes nowhere close to ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string("."),
             world,
         )
@@ -522,11 +544,11 @@ fn result_builder_with_throw_fail_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" throws ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(", and it whizzes just past ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string("."),
             world,
         )
@@ -549,9 +571,9 @@ fn result_builder_with_dodge_extreme_fail_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -559,13 +581,13 @@ fn result_builder_with_dodge_extreme_fail_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it seems like ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" doesn't even try to move out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(" directly in the face.");
 
     result_builder
@@ -606,9 +628,9 @@ fn result_builder_with_dodge_fail_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and you aren't able to get out of the way before it hits you in the chest.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -616,13 +638,13 @@ fn result_builder_with_dodge_fail_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" isn't able to get out of the way before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(" in the chest.");
 
     result_builder
@@ -663,9 +685,9 @@ fn result_builder_with_dodge_success_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but you move out of the way just before it hits you.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -673,13 +695,13 @@ fn result_builder_with_dodge_success_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" moves out of the way just before it hits ")
-    .add_entity_personal_object_pronoun(context.target)
+    .add_personal_object_pronoun(context.target)
     .add_string(".");
 
     result_builder
@@ -721,9 +743,9 @@ fn result_builder_with_dodge_extreme_success_messages(
         MessageDelay::Short,
     )
     .only_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but you calmly shift just enough to avoid being hit.");
 
     let third_person_message = ThirdPersonMessage::new(
@@ -731,11 +753,11 @@ fn result_builder_with_dodge_extreme_success_messages(
         MessageDelay::Short,
     )
     .do_not_send_to(context.target)
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", but ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(" calmly shifts just enough to avoid being hit.");
 
     result_builder
@@ -773,11 +795,11 @@ fn result_builder_with_throw_success_messages(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
-    .add_entity_name(context.performing_entity)
+    .add_name(context.performing_entity)
     .add_string(" throws ")
-    .add_entity_name(context.item)
+    .add_name(context.item)
     .add_string(", and it hits ")
-    .add_entity_name(context.target)
+    .add_name(context.target)
     .add_string(".");
 
     result_builder
@@ -818,11 +840,11 @@ fn result_builder_with_throw_extreme_success_messages(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_entity_name(context.performing_entity)
+            .add_name(context.performing_entity)
             .add_string(" deftly throws ")
-            .add_entity_name(context.item)
+            .add_name(context.item)
             .add_string(", and it impacts ")
-            .add_entity_name(context.target)
+            .add_name(context.target)
             .add_string(" perfectly."),
             world,
         )
@@ -840,7 +862,7 @@ pub fn auto_equip_item_to_throw(
     if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id) {
         if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
             if !equipped_items.is_equipped(item) {
-                queue_action_first(
+                ActionQueue::queue_first(
                     world,
                     notification.notification_type.performing_entity,
                     Box::new(EquipAction {
@@ -868,7 +890,7 @@ pub fn verify_wielding_item_to_throw(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,
@@ -890,7 +912,7 @@ pub fn verify_target_in_same_room(
         }
     }
 
-    let target_name = get_reference_name(target, Some(performing_entity), world);
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,

@@ -48,7 +48,7 @@ impl InputParser for SayParser {
         vec![SAY_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }
@@ -78,7 +78,7 @@ impl Action for SayAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" says, \"{text}\"")),
                 world,
             )

@@ -5,8 +5,8 @@ use regex::Regex;
 
 use crate::{
     component::{
-        queue_action_first, ActionEndNotification, AfterActionPerformNotification, Player,
-        SleepState, Vitals,
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, SleepState,
+        Vitals,
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
@@ -77,7 +77,7 @@ impl InputParser for SleepParser {
         vec![SLEEP_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }
@@ -109,7 +109,7 @@ impl Action for SleepAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" falls asleep."),
                     world,
                 );
@@ -141,7 +141,7 @@ impl Action for SleepAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" wakes up."),
                     world,
                 )
@@ -168,7 +168,7 @@ impl Action for SleepAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(" jolts awake."),
                 world,
             )
@@ -241,7 +241,7 @@ pub fn look_on_end_sleep(
 ) {
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(target) = CommandTarget::Here.find_target_entity(performing_entity, world) {
-        queue_action_first(
+        ActionQueue::queue_first(
             world,
             performing_entity,
             Box::new(LookAction {

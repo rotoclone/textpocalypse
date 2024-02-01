@@ -4,17 +4,17 @@ use regex::Regex;
 
 use crate::{
     component::{
-        get_hands_to_equip, queue_action_first, ActionEndNotification,
-        AfterActionPerformNotification, EquipError, EquippedItems, Item, Location, UnequipError,
+        get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
+        EquipError, EquippedItems, Item, Location, UnequipError,
     },
-    find_wearing_entity, find_wielding_entity, get_reference_name,
+    find_wearing_entity, find_wielding_entity,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -65,7 +65,8 @@ impl InputParser for EquipParser {
                     }));
                 } else {
                     // target isn't equippable
-                    let target_name = get_reference_name(target_entity, Some(source_entity), world);
+                    let target_name =
+                        Description::get_reference_name(target_entity, Some(source_entity), world);
                     return Err(InputParseError::CommandParseError {
                         verb: EQUIP_VERB_NAME.to_string(),
                         error: CommandParseError::Other(format!(
@@ -89,7 +90,12 @@ impl InputParser for EquipParser {
         vec![EQUIP_FORMAT.to_string(), UNEQUIP_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Item>(entity, world, &[EQUIP_FORMAT, UNEQUIP_FORMAT])
     }
 }
@@ -105,7 +111,7 @@ pub struct EquipAction {
 impl Action for EquipAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         if self.should_be_equipped {
             match EquippedItems::equip(performing_entity, target, world) {
@@ -171,9 +177,9 @@ impl Action for EquipAction {
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .add_entity_name(performing_entity)
+                .add_name(performing_entity)
                 .add_string(format!(" {takes_out_or_puts_away} "))
-                .add_entity_name(target)
+                .add_name(target)
                 .add_string(".".to_string()),
                 world,
             )
@@ -249,7 +255,7 @@ pub fn verify_has_item_to_equip(
         }
     }
 
-    let item_name = get_reference_name(item, Some(performing_entity), world);
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
 
     VerifyResult::invalid(
         performing_entity,
@@ -267,7 +273,7 @@ pub fn verify_not_wearing_item_to_equip(
 
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
         if wearing_entity == performing_entity {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             return VerifyResult::invalid(
                 performing_entity,
                 GameMessage::Error(format!(
@@ -321,7 +327,7 @@ pub fn auto_unequip_on_equip(
 
                         // queue up unequip actions
                         for item_to_unequip in items_to_unequip {
-                            queue_action_first(
+                            ActionQueue::queue_first(
                                 world,
                                 performing_entity,
                                 Box::new(EquipAction {

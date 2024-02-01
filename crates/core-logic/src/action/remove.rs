@@ -6,15 +6,14 @@ use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, RemoveError, Wearable, WornItems,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     is_living_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -53,8 +52,11 @@ impl InputParser for RemoveParser {
                         }));
                     } else {
                         // target isn't wearable
-                        let target_name =
-                            get_reference_name(target_entity, Some(source_entity), world);
+                        let target_name = Description::get_reference_name(
+                            target_entity,
+                            Some(source_entity),
+                            world,
+                        );
                         return Err(InputParseError::CommandParseError {
                             verb: REMOVE_VERB_NAME.to_string(),
                             error: CommandParseError::Other(format!(
@@ -79,7 +81,12 @@ impl InputParser for RemoveParser {
         vec![REMOVE_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<Wearable>(entity, world, &[REMOVE_FORMAT])
     }
 }
@@ -97,8 +104,8 @@ impl Action for RemoveAction {
         let wearing_entity = self.wearing_entity;
         let target = self.target;
         let wearing_entity_name =
-            get_reference_name(wearing_entity, Some(performing_entity), world);
-        let target_name = get_reference_name(target, Some(performing_entity), world);
+            Description::get_reference_name(wearing_entity, Some(performing_entity), world);
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         match WornItems::remove(wearing_entity, target, world) {
             Ok(()) => (),
@@ -138,9 +145,9 @@ impl Action for RemoveAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" takes off ".to_string())
-                    .add_entity_name(target)
+                    .add_name(target)
                     .add_string(".".to_string()),
                     world,
                 );
@@ -159,11 +166,11 @@ impl Action for RemoveAction {
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                     )
-                    .add_entity_name(performing_entity)
+                    .add_name(performing_entity)
                     .add_string(" takes ".to_string())
-                    .add_entity_name(target)
+                    .add_name(target)
                     .add_string(" off of ")
-                    .add_entity_name(wearing_entity)
+                    .add_name(wearing_entity)
                     .add_string(".".to_string()),
                     world,
                 );
@@ -180,8 +187,11 @@ impl Action for RemoveAction {
                 MessageDelay::None,
             )
         } else {
-            let wearing_entity_name =
-                get_reference_name(self.wearing_entity, Some(performing_entity), world);
+            let wearing_entity_name = Description::get_reference_name(
+                self.wearing_entity,
+                Some(performing_entity),
+                world,
+            );
             ActionInterruptResult::message(
                 performing_entity,
                 format!("You stop taking things off of {wearing_entity_name}."),
@@ -238,7 +248,7 @@ pub fn prevent_remove_from_other_living_entity(
 
     if performing_entity != wearing_entity && is_living_entity(wearing_entity, world) {
         let wearing_entity_name =
-            get_reference_name(wearing_entity, Some(performing_entity), world);
+            Description::get_reference_name(wearing_entity, Some(performing_entity), world);
         let message = format!("You can't remove anything from {wearing_entity_name}.");
         return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
     }

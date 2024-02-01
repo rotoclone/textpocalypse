@@ -52,8 +52,9 @@ pub use color::Color;
 mod constrained_value;
 pub use constrained_value::ConstrainedValue;
 
-mod value_change;
-pub use value_change::ValueType;
+mod vital_change;
+pub use vital_change::VitalChange;
+pub use vital_change::VitalType;
 
 mod swap_tuple;
 
@@ -65,6 +66,12 @@ pub use formatting::*;
 
 mod checks;
 use checks::*;
+
+mod verb_forms;
+use verb_forms::*;
+
+mod range_extensions;
+use range_extensions::*;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
@@ -123,6 +130,9 @@ impl StandardInputParsers {
                 Box::new(DrinkParser),
                 Box::new(SleepParser),
                 Box::new(WaitParser),
+                Box::new(AttackParser),
+                Box::new(ChangeRangeParser),
+                Box::new(RangesParser),
                 Box::new(StopParser),
                 Box::new(PlayersParser),
                 Box::new(HelpParser),
@@ -392,6 +402,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     let worn_items = WornItems::new(5);
     let equipped_items = EquippedItems::new(2);
     let action_queue = ActionQueue::new();
+    let innate_weapon = build_human_innate_weapon();
     let player_entity = world
         .spawn((
             player,
@@ -404,6 +415,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             worn_items,
             equipped_items,
             action_queue,
+            innate_weapon,
         ))
         .id();
     move_entity(player_entity, spawn_room, world);
@@ -417,7 +429,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
     )
-    .add_entity_name(player_entity)
+    .add_name(player_entity)
     .add_string(" appears.")
     .send(
         Some(player_entity),
@@ -440,6 +452,36 @@ fn build_starting_stats() -> Stats {
     stats
 }
 
+/// Builds an innate weapon for a human (a fist).
+fn build_human_innate_weapon() -> InnateWeapon {
+    InnateWeapon {
+        name: "fist".to_string(),
+        weapon: Weapon {
+            weapon_type: WeaponType::Fists,
+            hit_verb: VerbForms {
+                second_person: "punch".to_string(),
+                third_person_plural: "punch".to_string(),
+                third_person_singular: "punches".to_string(),
+            },
+            base_damage_range: 1..=2,
+            critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+            ranges: WeaponRanges {
+                usable: CombatRange::Shortest..=CombatRange::Short,
+                optimal: CombatRange::Shortest..=CombatRange::Shortest,
+                to_hit_penalty: 1,
+                damage_penalty: 0,
+            },
+            stat_requirements: Vec::new(),
+            stat_bonuses: WeaponStatBonuses {
+                damage_bonus_stat_range: 10.0..=20.0,
+                damage_bonus_per_stat_point: 1.0,
+                to_hit_bonus_stat_range: 10.0..=20.0,
+                to_hit_bonus_per_stat_point: 0.2,
+            },
+        },
+    }
+}
+
 /// Despawns the player with the provided ID.
 fn despawn_player(player_id: PlayerId, world: &mut World) {
     if let Some(entity) = find_entity_for_player(player_id, world) {
@@ -447,7 +489,7 @@ fn despawn_player(player_id: PlayerId, world: &mut World) {
             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
         )
-        .add_entity_name(entity)
+        .add_name(entity)
         .add_string(" disappears.")
         .send(
             Some(entity),
@@ -521,9 +563,9 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
             drop(read_world);
             let mut write_world = world.write().unwrap();
             if action.may_require_tick() {
-                queue_action(&mut write_world, entity, action);
+                ActionQueue::queue(&mut write_world, entity, action);
             } else {
-                queue_action_first(&mut write_world, entity, action);
+                ActionQueue::queue_first(&mut write_world, entity, action);
             }
             let any_action_performed = try_perform_queued_actions(&mut write_world);
             drop(write_world);
@@ -659,7 +701,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
     )
-    .add_entity_name(entity)
+    .add_name(entity)
     .add_string(" falls to the ground, dead.")
     .send(
         Some(entity),
@@ -667,7 +709,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
         world,
     );
 
-    clear_action_queue(world, entity);
+    ActionQueue::clear(world, entity);
 
     Notification {
         notification_type: DeathNotification { entity },
@@ -717,9 +759,19 @@ fn kill_entity(entity: Entity, world: &mut World) {
     }
 }
 
+/// A notification that an entity has despawned.
+#[derive(Debug)]
+pub struct DespawnNotification {
+    /// The entity that despawned.
+    entity: Entity,
+}
+
+impl NotificationType for DespawnNotification {}
+
 /// Despawns an entity.
 fn despawn_entity(entity: Entity, world: &mut World) {
     // remove entity from its container
+    // TODO do this in response to the despawn notification instead
     if let Some(location) = world.get::<Location>(entity) {
         let location_id = location.id;
         if let Some(mut container) = world.get_mut::<Container>(location_id) {
@@ -728,151 +780,22 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     }
 
     // despawn contained entities
+    // TODO do this in response to the despawn notification instead
     if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
         for contained_entity in contained_entities {
             despawn_entity(contained_entity, world);
         }
     }
 
+    // send despawn notification
+    Notification {
+        notification_type: DespawnNotification { entity },
+        contents: &(),
+    }
+    .send(world);
+
     // finally, despawn the entity itself
     world.despawn(entity);
-}
-
-/// Gets the name of the provided entity, if it has one.
-fn get_name(entity: Entity, world: &World) -> Option<String> {
-    world.get::<Description>(entity).map(|d| d.name.clone())
-}
-
-/// Builds a string to use to refer to the provided entity from the point of view of another entity.
-///
-/// For example, if the entity is named "book", this will return "the book".
-///
-/// If `pov_entity` is the same as `entity`, this will return "you".
-fn get_reference_name(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
-    if Some(entity) == pov_entity {
-        return "you".to_string();
-    }
-
-    let article = get_definite_article(entity, pov_entity, world)
-        .map_or_else(|| "".to_string(), |a| format!("{a} "));
-    get_name(entity, world).map_or("it".to_string(), |name| format!("{article}{name}"))
-}
-
-/// Gets the definite article to use when referring to the provided entity.
-///
-/// If `pov_entity` owns it, this will return `Some("your")`.
-///
-/// If some other entity owns it, this will return `Some("their")`.
-///
-/// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
-fn get_definite_article(
-    entity: Entity,
-    pov_entity: Option<Entity>,
-    world: &World,
-) -> Option<String> {
-    let owning_entity = find_owning_entity(entity, world);
-
-    let desc = world.get::<Description>(entity);
-    if let Some(owning_entity) = owning_entity {
-        if let Some(pov_entity) = pov_entity {
-            if owning_entity == pov_entity {
-                return Some("your".to_string());
-            }
-        }
-
-        return Some("their".to_string());
-    }
-
-    if let Some(desc) = desc {
-        // return `None` if the entity has no article
-        desc.article.as_ref()?;
-    }
-    Some("the".to_string())
-}
-
-/// Builds a string to use to refer to the provided entity generically.
-///
-/// For example, if the entity is named "book" and has its article set to "a", this will return "a book".
-fn get_article_reference_name(entity: Entity, world: &World) -> String {
-    if let Some(desc) = world.get::<Description>(entity) {
-        if let Some(article) = &desc.article {
-            format!("{} {}", article, desc.name)
-        } else {
-            desc.name.clone()
-        }
-    } else if is_living_entity(entity, world) {
-        "someone".to_string()
-    } else {
-        "something".to_string()
-    }
-}
-
-/// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
-///
-/// If the entity has no description and is alive, this will return "them", otherwise it will return "it".
-fn get_personal_object_pronoun(entity: Entity, world: &World) -> String {
-    if let Some(desc) = world.get::<Description>(entity) {
-        desc.pronouns.personal_object.clone()
-    } else if is_living_entity(entity, world) {
-        "them".to_string()
-    } else {
-        "it".to_string()
-    }
-}
-
-/// Determines the total weight of an entity.
-fn get_weight(entity: Entity, world: &World) -> Weight {
-    get_weight_recursive(entity, world, &mut vec![entity])
-}
-
-fn get_weight_recursive(
-    entity: Entity,
-    world: &World,
-    contained_entities: &mut Vec<Entity>,
-) -> Weight {
-    let mut weight = if let Some(weight) = world.get::<Weight>(entity) {
-        *weight
-    } else if let Some(density) = world.get::<Density>(entity) {
-        if let Some(volume) = world.get::<Volume>(entity) {
-            // entity has density and volume, but no weight, so calculate it
-            density.weight_of_volume(*volume)
-        } else {
-            // entity has no weight, and density but no volume
-            Weight(0.0)
-        }
-    } else {
-        // entity has no weight, and no density
-        Weight(0.0)
-    };
-
-    if let Some(container) = world.get::<Container>(entity) {
-        let contained_weight = container
-            .entities
-            .iter()
-            .map(|e| {
-                if contained_entities.contains(e) {
-                    panic!("{entity:?} contains itself")
-                }
-                contained_entities.push(*e);
-                get_weight_recursive(*e, world, contained_entities)
-            })
-            .sum::<Weight>();
-
-        weight += contained_weight;
-    }
-
-    if let Some(container) = world.get::<FluidContainer>(entity) {
-        let contained_weight = container.contents.get_total_weight(world);
-
-        weight += contained_weight;
-    }
-
-    weight
-}
-
-/// Determines the volume of an entity.
-fn get_volume(entity: Entity, world: &World) -> Volume {
-    world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
 }
 
 /// Determines if an entity is living or not.
@@ -917,4 +840,17 @@ fn find_wielding_entity(entity: Entity, world: &World) -> Option<Entity> {
     }
 
     None
+}
+
+/// Finds a component on the provided entity, or inserts a default version of the component if the entity doesn't have one,
+/// and returns a mutable reference to the existing or just-inserted component.
+fn get_or_insert_mut<C: Component + Default>(entity: Entity, world: &mut World) -> Mut<C> {
+    let mut entity_ref = world.entity_mut(entity);
+    if !entity_ref.contains::<C>() {
+        entity_ref.insert(C::default());
+    }
+
+    world
+        .get_mut::<C>(entity)
+        .expect("component should exist on entity")
 }

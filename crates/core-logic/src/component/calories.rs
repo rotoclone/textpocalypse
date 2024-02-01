@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     action::EatAction,
     notification::Notification,
-    value_change::{ValueChange, ValueChangeOperation},
-    AttributeDescription, ValueType,
+    vital_change::{ValueChangeOperation, VitalChange, VitalType},
+    AttributeDescription,
 };
 
 use super::{
@@ -58,9 +58,9 @@ pub fn increase_satiety_on_eat(
         && notification.notification_type.action_successful
     {
         if let Some(calories) = world.get::<Calories>(notification.contents.target) {
-            ValueChange {
+            VitalChange {
                 entity: notification.notification_type.performing_entity,
-                value_type: ValueType::Satiety,
+                vital_type: VitalType::Satiety,
                 operation: ValueChangeOperation::Add,
                 amount: f32::from(calories.0) * SATIETY_GAIN_PER_CALORIE,
                 message: Some("That hit the spot!".to_string()),

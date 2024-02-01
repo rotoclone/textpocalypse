@@ -1,12 +1,12 @@
-use crate::{ConstrainedValue, ValueType};
+use crate::{vital_change::VitalType, ConstrainedValue};
 
-/// A description of a change of a single value.
+/// A description of a change of a vital value.
 #[derive(Debug, Clone)]
-pub struct ValueChangeDescription {
+pub struct VitalChangeDescription {
     /// The message to include with the display of the new value.
     pub message: String,
-    /// The type of value that changed.
-    pub value_type: ValueType,
+    /// The type of vital that changed.
+    pub vital_type: VitalType,
     /// The old value.
     pub old_value: ConstrainedValue<f32>,
     /// The new value.

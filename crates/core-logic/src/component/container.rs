@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    find_wearing_entity, get_reference_name, get_volume, get_weight,
+    find_wearing_entity,
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage,
 };
@@ -120,7 +120,7 @@ impl Container {
     pub fn used_weight(&self, world: &World) -> Weight {
         self.entities
             .iter()
-            .map(|e| get_weight(*e, world))
+            .map(|e| Weight::get(*e, world))
             .sum::<Weight>()
     }
 
@@ -130,7 +130,7 @@ impl Container {
             .iter()
             // items being worn are considered to have 0 volume for purposes of inventory size limits
             .filter(|e| find_wearing_entity(**e, world).is_none())
-            .map(|e| get_volume(*e, world))
+            .map(|e| Volume::get(*e, world))
             .sum::<Volume>()
     }
 }
@@ -182,32 +182,32 @@ pub fn limit_container_contents(
         .get::<Container>(destination)
         .expect("destination entity should be a container");
 
-    let item_weight = get_weight(item, world);
+    let item_weight = Weight::get(item, world);
     if let Some(max_weight) = &container.max_weight {
         let used_weight = container.used_weight(world);
         if used_weight + item_weight > *max_weight {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too heavy for you to hold.")
             } else {
                 let destination_name =
-                    get_reference_name(destination, Some(performing_entity), world);
+                    Description::get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} is too heavy for {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
         }
     }
 
-    let item_volume = get_volume(item, world);
+    let item_volume = Volume::get(item, world);
     if let Some(max_volume) = &container.volume {
         let used_volume = container.used_volume(world);
         if used_volume + item_volume > *max_volume {
-            let item_name = get_reference_name(item, Some(performing_entity), world);
+            let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             let message = if destination == performing_entity {
                 format!("{item_name} is too big for you to hold.")
             } else {
                 let destination_name =
-                    get_reference_name(destination, Some(performing_entity), world);
+                    Description::get_reference_name(destination, Some(performing_entity), world);
                 format!("{item_name} won't fit in {destination_name}.")
             };
             return VerifyResult::invalid(performing_entity, GameMessage::Error(message));

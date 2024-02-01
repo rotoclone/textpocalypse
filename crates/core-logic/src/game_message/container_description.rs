@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{Container, Description, Volume, Weight},
-    find_wearing_entity, find_wielding_entity, get_volume, get_weight,
+    find_wearing_entity, find_wielding_entity,
 };
 
 /// The description of a container.
@@ -63,8 +63,8 @@ impl ContainerEntityDescription {
     pub fn from_entity(entity: Entity, world: &World) -> Option<ContainerEntityDescription> {
         let entity_ref = world.entity(entity);
         let desc = entity_ref.get::<Description>()?;
-        let volume = get_volume(entity, world);
-        let weight = get_weight(entity, world);
+        let volume = Volume::get(entity, world);
+        let weight = Weight::get(entity, world);
         let is_being_worn = find_wearing_entity(entity, world).is_some();
         let is_equipped = find_wielding_entity(entity, world).is_some();
 

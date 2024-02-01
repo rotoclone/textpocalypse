@@ -34,9 +34,6 @@ pub use player::Player;
 pub use player::PlayerId;
 
 mod action_queue;
-pub use action_queue::clear_action_queue;
-pub use action_queue::queue_action;
-pub use action_queue::queue_action_first;
 pub use action_queue::try_perform_queued_actions;
 pub use action_queue::ActionEndNotification;
 pub use action_queue::ActionQueue;
@@ -83,6 +80,9 @@ pub use sleep_state::SleepState;
 mod wander_behavior;
 pub use wander_behavior::WanderBehavior;
 
+mod self_defense_behavior;
+pub use self_defense_behavior::SelfDefenseBehavior;
+
 mod greet_behavior;
 pub use greet_behavior::GreetBehavior;
 
@@ -110,6 +110,25 @@ mod equipped_items;
 pub use equipped_items::EquipError;
 pub use equipped_items::EquippedItems;
 pub use equipped_items::UnequipError;
+
+mod weapon;
+pub use weapon::Weapon;
+pub use weapon::WeaponDamageAdjustment;
+pub use weapon::WeaponPerformanceAdjustment;
+pub use weapon::WeaponRanges;
+pub use weapon::WeaponStatBonuses;
+pub use weapon::WeaponStatRequirement;
+pub use weapon::WeaponStatRequirementNotMetBehavior;
+pub use weapon::WeaponToHitAdjustment;
+pub use weapon::WeaponType;
+pub use weapon::WeaponUnusableError;
+
+mod innate_weapon;
+pub use innate_weapon::InnateWeapon;
+
+mod combat_state;
+pub use combat_state::CombatRange;
+pub use combat_state::CombatState;
 
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
@@ -145,6 +164,9 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(wander_behavior::wander_on_tick, world);
     NotificationHandlers::add_handler(remove_on_death::<WanderBehavior>, world);
 
+    NotificationHandlers::add_handler(self_defense_behavior::attack_on_tick, world);
+    NotificationHandlers::add_handler(remove_on_death::<SelfDefenseBehavior>, world);
+
     NotificationHandlers::add_handler(greet_behavior::greet_new_entities, world);
     NotificationHandlers::add_handler(remove_on_death::<GreetBehavior>, world);
 
@@ -156,6 +178,9 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(equipped_items::unequip_on_put, world);
     NotificationHandlers::add_handler(equipped_items::unequip_on_wear, world);
+
+    NotificationHandlers::add_handler(combat_state::remove_from_combat_on_death, world);
+    NotificationHandlers::add_handler(combat_state::remove_from_combat_on_despawn, world);
 }
 
 /// Removes a component from an entity when it dies.

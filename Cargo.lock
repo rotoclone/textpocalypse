@@ -311,6 +311,7 @@ dependencies = [
  "rand_distr",
  "regex",
  "strum",
+ "voca_rs",
 ]
 
 [[package]]

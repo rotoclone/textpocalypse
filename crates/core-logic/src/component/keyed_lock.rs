@@ -7,7 +7,6 @@ use crate::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction,
         ThirdPersonMessage, ThirdPersonMessageLocation,
     },
-    get_reference_name,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    queue_action_first, ActionEndNotification, AfterActionPerformNotification, AttributeDescriber,
+    ActionEndNotification, ActionQueue, AfterActionPerformNotification, AttributeDescriber,
     AttributeDetailLevel, BeforeActionNotification, Connection, Container, DescribeAttributes,
     Description, Location, ParseCustomInput, VerifyActionNotification,
 };
@@ -78,7 +77,12 @@ impl InputParser for LockParser {
         vec![UNLOCK_FORMAT.to_string(), LOCK_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
         input_formats_if_has_component::<KeyedLock>(entity, world, &[UNLOCK_FORMAT, LOCK_FORMAT])
     }
 }
@@ -129,7 +133,7 @@ impl Action for LockAction {
             }
         }
 
-        let name = get_reference_name(self.target, Some(performing_entity), world);
+        let name = Description::get_reference_name(self.target, Some(performing_entity), world);
 
         // make sure the performing entity has the key to this lock, if needed
         let mut key = None;
@@ -158,7 +162,7 @@ impl Action for LockAction {
         };
 
         let first_person_key_message = if let Some(key) = key {
-            let key_name = get_reference_name(key, Some(performing_entity), world);
+            let key_name = Description::get_reference_name(key, Some(performing_entity), world);
             format!("use {key_name} to ")
         } else {
             "".to_string()
@@ -168,20 +172,18 @@ impl Action for LockAction {
             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
             MessageDelay::Short,
         )
-        .add_entity_name(performing_entity);
+        .add_name(performing_entity);
 
         if let Some(key) = key {
             third_person_message = third_person_message
                 .add_string(" uses ")
-                .add_entity_name(key)
+                .add_name(key)
                 .add_string(format!(" to {lock_or_unlock} "));
         } else {
             third_person_message = third_person_message.add_string(format!(" {locks_or_unlocks} "));
         }
 
-        third_person_message = third_person_message
-            .add_entity_name(self.target)
-            .add_string(".");
+        third_person_message = third_person_message.add_name(self.target).add_string(".");
 
         ActionResult::builder()
             .with_message(
@@ -285,7 +287,7 @@ impl KeyedLock {
                         MessageDelay::Short,
                     )
                     .add_string("The lock on ")
-                    .add_entity_name(other_side_id)
+                    .add_name(other_side_id)
                     .add_string(format!(" clicks {open_or_closed}."))
                     .send(
                         None,
@@ -344,7 +346,7 @@ pub fn auto_unlock_keyed_locks(
     if notification.contents.should_be_open {
         if let Some(keyed_lock) = world.get::<KeyedLock>(notification.contents.target) {
             if keyed_lock.is_locked {
-                queue_action_first(
+                ActionQueue::queue_first(
                     world,
                     notification.notification_type.performing_entity,
                     Box::new(LockAction {

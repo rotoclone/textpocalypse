@@ -3,9 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    component::{
-        clear_action_queue, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
-    },
+    component::{ActionEndNotification, ActionQueue, AfterActionPerformNotification},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -37,7 +35,7 @@ impl InputParser for StopParser {
         vec![STOP_FORMAT.to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: &World) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
         None
     }
 }
@@ -52,7 +50,7 @@ impl Action for StopAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         if let Some(queue) = world.get::<ActionQueue>(performing_entity) {
             if !queue.is_empty() {
-                clear_action_queue(world, performing_entity);
+                ActionQueue::clear(world, performing_entity);
                 return ActionResult::builder()
                     .with_message(
                         performing_entity,

@@ -1,17 +1,21 @@
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
+use voca_rs::Voca;
 
 use crate::component::{
-    ActionEndNotification, AfterActionPerformNotification, Container, Location,
+    ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Container,
+    Location,
 };
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, get_personal_object_pronoun, get_reference_name, send_message,
-    BeforeActionNotification, MessageCategory, MessageDelay, VerifyActionNotification,
+    can_receive_messages, send_message, BeforeActionNotification, Description,
+    InternalMessageCategory, MessageCategory, MessageDelay, Pronouns, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -95,6 +99,19 @@ mod worn;
 pub use worn::WornAction;
 pub use worn::WornParser;
 
+mod attack;
+pub use attack::AttackAction;
+pub use attack::AttackParser;
+
+mod change_range;
+pub use change_range::ChangeRangeAction;
+pub use change_range::ChangeRangeParser;
+pub use change_range::RangeChangeDirection;
+
+mod ranges;
+pub use ranges::RangesAction;
+pub use ranges::RangesParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(
@@ -122,6 +139,12 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(equip::verify_has_item_to_equip, world);
     VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
     NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
+
+    VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
+    VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
+    VerifyNotificationHandlers::add_handler(attack::verify_attacker_has_weapon, world);
+
+    VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }
 
 /// A message caused by some other entity's action.
@@ -157,19 +180,60 @@ impl ThirdPersonMessage {
         self
     }
 
-    /// Adds an entity name token to the message.
-    pub fn add_entity_name(mut self, entity: Entity) -> ThirdPersonMessage {
+    /// Adds an entity's name to the message.
+    pub fn add_name(mut self, entity: Entity) -> ThirdPersonMessage {
         self.parts
-            .push(MessagePart::Token(MessageToken::EntityName(entity)));
+            .push(MessagePart::Token(MessageToken::Name(entity)));
 
         self
     }
 
-    /// Adds an entity personal object pronoun (e.g. him, her, they) token to the message.
-    pub fn add_entity_personal_object_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+    /// Adds an entity's personal subject pronoun (e.g. he, she, they) to the message.
+    pub fn add_personal_subject_pronoun(
+        mut self,
+        entity: Entity,
+        capitalized: bool,
+    ) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::PersonalSubjectPronoun {
+                entity,
+                capitalized,
+            }));
+
+        self
+    }
+
+    /// Adds an entity's personal object pronoun (e.g. him, her, them) to the message.
+    pub fn add_personal_object_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::PersonalObjectPronoun(
+                entity,
+            )));
+
+        self
+    }
+
+    /// Adds an entity's possessive adjective pronoun (e.g. his, her, their) to the message.
+    pub fn add_possessive_adjective_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
         self.parts.push(MessagePart::Token(
-            MessageToken::EntityPersonalObjectPronoun(entity),
+            MessageToken::PossessiveAdjectivePronoun(entity),
         ));
+
+        self
+    }
+
+    /// Adds an entity's reflexive pronoun (e.g. himself, herself, themself) to the message.
+    pub fn add_reflexive_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::ReflexivePronoun(entity)));
+
+        self
+    }
+
+    /// Adds the form of "to be" to pair with an entity's personal subject pronoun (i.e. is/are) to the message.
+    pub fn add_to_be_form(mut self, entity: Entity) -> ThirdPersonMessage {
+        self.parts
+            .push(MessagePart::Token(MessageToken::ToBeForm(entity)));
 
         self
     }
@@ -300,9 +364,17 @@ pub enum MessagePart {
 /// A token to be interpolated for each message recipient.
 pub enum MessageToken {
     /// The name of an entity.
-    EntityName(Entity),
+    Name(Entity),
+    /// The personal subject pronoun of an entity (e.g. he, she, they).
+    PersonalSubjectPronoun { entity: Entity, capitalized: bool },
     /// The personal object pronoun of an entity (e.g. him, her, them).
-    EntityPersonalObjectPronoun(Entity),
+    PersonalObjectPronoun(Entity),
+    /// The possessive adjective pronoun of an entity (e.g. his, her, their).
+    PossessiveAdjectivePronoun(Entity),
+    /// The reflexive pronoun of an entity (e.g. himself, herself, themself).
+    ReflexivePronoun(Entity),
+    /// The form of "to be" to use with an entity's personal subject pronoun (i.e. is/are).
+    ToBeForm(Entity),
 }
 
 /// The location to send a third-person message in.
@@ -317,14 +389,45 @@ impl MessageToken {
     /// Resolves the token to a string.
     fn to_string(&self, pov_entity: Entity, world: &World) -> String {
         match self {
-            MessageToken::EntityName(e) => get_reference_name(*e, Some(pov_entity), world),
-            MessageToken::EntityPersonalObjectPronoun(e) => {
-                if *e == pov_entity {
-                    "you".to_string()
+            MessageToken::Name(e) => Description::get_reference_name(*e, Some(pov_entity), world),
+            MessageToken::PersonalSubjectPronoun {
+                entity,
+                capitalized,
+            } => {
+                let pronoun = if *entity == pov_entity {
+                    Pronouns::you().personal_subject
                 } else {
-                    get_personal_object_pronoun(*e, world)
+                    Pronouns::get_personal_subject(*entity, world)
+                };
+
+                if *capitalized {
+                    pronoun._capitalize(false)
+                } else {
+                    pronoun
                 }
             }
+            MessageToken::PersonalObjectPronoun(e) => {
+                if *e == pov_entity {
+                    Pronouns::you().personal_object
+                } else {
+                    Pronouns::get_personal_object(*e, world)
+                }
+            }
+            MessageToken::PossessiveAdjectivePronoun(e) => {
+                if *e == pov_entity {
+                    Pronouns::you().possessive_adjective
+                } else {
+                    Pronouns::get_possessive_adjective(*e, world)
+                }
+            }
+            MessageToken::ReflexivePronoun(e) => {
+                if *e == pov_entity {
+                    Pronouns::you().reflexive
+                } else {
+                    Pronouns::get_reflexive(*e, world)
+                }
+            }
+            MessageToken::ToBeForm(e) => Pronouns::get_to_be_form(*e, world),
         }
     }
 }
@@ -719,4 +822,44 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         }
         .send(world);
     }
+}
+
+/// Makes the provided entities enter combat with each other at the provided range, if they're not already in combat.
+fn handle_enter_combat(
+    attacker: Entity,
+    target: Entity,
+    range: CombatRange,
+    mut result_builder: ActionResultBuilder,
+    world: &mut World,
+) -> ActionResultBuilder {
+    if !CombatState::get_entities_in_combat_with(attacker, world)
+        .keys()
+        .contains(&target)
+    {
+        CombatState::set_in_combat(attacker, target, range, world);
+
+        let target_name = Description::get_reference_name(target, Some(attacker), world);
+        result_builder = result_builder
+            .with_message(
+                attacker,
+                format!("You attack {target_name}!"),
+                MessageCategory::Internal(InternalMessageCategory::Action),
+                MessageDelay::Short,
+            )
+            .with_third_person_message(
+                Some(attacker),
+                ThirdPersonMessageLocation::SourceEntity,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                )
+                .add_name(attacker)
+                .add_string(" attacks ")
+                .add_name(target)
+                .add_string("!"),
+                world,
+            );
+    }
+
+    result_builder
 }

@@ -1,15 +1,12 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+};
 
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::resource::get_base_attribute;
-
-/// Marker trait for types of stats (i.e. attributes and skills)
-pub trait Stat: std::fmt::Debug {
-    /// Gets the value of the stat
-    fn get_value(&self, stats: &Stats, world: &World) -> f32;
-}
+use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
 
 /// The stats of an entity.
 #[derive(Component)]
@@ -160,6 +157,59 @@ impl Skills {
     }
 }
 
+/// A stat (i.e. either an attribute or a skill)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Stat {
+    Attribute(Attribute),
+    Skill(Skill),
+}
+
+impl From<Skill> for Stat {
+    fn from(value: Skill) -> Self {
+        Stat::Skill(value)
+    }
+}
+
+impl From<Attribute> for Stat {
+    fn from(value: Attribute) -> Self {
+        Stat::Attribute(value)
+    }
+}
+
+impl Display for Stat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stat::Attribute(attribute) => attribute.fmt(f),
+            Stat::Skill(skill) => skill.fmt(f),
+        }
+    }
+}
+
+impl Stat {
+    /// Gets the value of this stat.
+    pub fn get_value(&self, stats: &Stats, world: &World) -> f32 {
+        match self {
+            Stat::Attribute(attribute) => f32::from(stats.attributes.get(attribute)),
+            Stat::Skill(skill) => stats.get_skill_total(skill, world),
+        }
+    }
+
+    /// Gets the provided entity's value for this stat, if they have stats.
+    pub fn get_entity_value(&self, entity: Entity, world: &World) -> Option<f32> {
+        world
+            .get::<Stats>(entity)
+            .map(|stats| self.get_value(stats, world))
+    }
+
+    /// Gets the display name of this stat.
+    pub fn get_name(&self, world: &World) -> String {
+        match self {
+            Stat::Attribute(attribute) => get_attribute_name(attribute, world).full,
+            Stat::Skill(skill) => get_skill_name(skill, world),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum Attribute {
     Strength,
@@ -168,12 +218,6 @@ pub enum Attribute {
     Perception,
     Endurance,
     Custom(String),
-}
-
-impl Stat for Attribute {
-    fn get_value(&self, stats: &Stats, _: &World) -> f32 {
-        f32::from(stats.attributes.get(self))
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
@@ -194,10 +238,4 @@ pub enum Skill {
     Lockpick,
     Butchery,
     Custom(String),
-}
-
-impl Stat for Skill {
-    fn get_value(&self, stats: &Stats, world: &World) -> f32 {
-        stats.get_skill_total(self, world)
-    }
 }

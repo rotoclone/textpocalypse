@@ -7,7 +7,7 @@ use std::{
 use bevy_ecs::prelude::*;
 use float_cmp::approx_eq;
 
-use crate::{get_volume, AttributeDescription};
+use crate::AttributeDescription;
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
@@ -71,6 +71,13 @@ impl Display for Volume {
     }
 }
 
+impl Volume {
+    /// Determines the volume of an entity.
+    pub fn get(entity: Entity, world: &World) -> Volume {
+        world.get::<Volume>(entity).cloned().unwrap_or(Volume(0.0))
+    }
+}
+
 /// Describes the volume of an entity.
 #[derive(Debug)]
 struct VolumeAttributeDescriber;
@@ -84,7 +91,7 @@ impl AttributeDescriber for VolumeAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if detail_level >= AttributeDetailLevel::Advanced {
-            let volume = get_volume(entity, world);
+            let volume = Volume::get(entity, world);
 
             vec![AttributeDescription::does(format!(
                 "takes up {volume:.2} L of space"

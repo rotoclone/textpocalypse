@@ -105,44 +105,52 @@ impl ActionQueue {
 
         self.actions.extend(self.to_add_back.drain(0..));
     }
-}
 
-/// Clears all queued actions for the provided entity, interrupting any actions that are in progress.
-pub fn clear_action_queue(world: &mut World, entity: Entity) {
-    let mut actions_to_interrupt = Vec::new();
+    /// Clears all queued actions for the provided entity, interrupting any actions that are in progress.
+    pub fn clear(world: &mut World, entity: Entity) {
+        let mut actions_to_interrupt = Vec::new();
 
-    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
-        action_queue.update_queue();
-        for (action, state) in action_queue.actions.drain(0..) {
-            if let ActionState::InProgress = state {
-                actions_to_interrupt.push(action);
+        if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+            action_queue.update_queue();
+            for (action, state) in action_queue.actions.drain(0..) {
+                if let ActionState::InProgress = state {
+                    actions_to_interrupt.push(action);
+                }
             }
+        }
+
+        for action in actions_to_interrupt {
+            interrupt_action(action.as_ref(), entity, world);
         }
     }
 
-    for action in actions_to_interrupt {
-        interrupt_action(action.as_ref(), entity, world);
+    /// Determines if the provided entity has any actions queued.
+    pub fn has_any_queued_actions(world: &World, entity: Entity) -> bool {
+        world
+            .get::<ActionQueue>(entity)
+            .map(|queue| !queue.is_empty())
+            .unwrap_or(false)
     }
-}
 
-/// Queues an action for the provided entity
-pub fn queue_action(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
-    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
-        action_queue
-            .to_add_back
-            .push((action, ActionState::NotStarted));
-    } else {
-        world.entity_mut(performing_entity).insert(ActionQueue {
-            actions: VecDeque::new(),
-            to_add_front: Vec::new(),
-            to_add_back: vec![(action, ActionState::NotStarted)],
-        });
+    /// Queues an action for the provided entity
+    pub fn queue(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
+        if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
+            action_queue
+                .to_add_back
+                .push((action, ActionState::NotStarted));
+        } else {
+            world.entity_mut(performing_entity).insert(ActionQueue {
+                actions: VecDeque::new(),
+                to_add_front: Vec::new(),
+                to_add_back: vec![(action, ActionState::NotStarted)],
+            });
+        }
     }
-}
 
-/// Queues an action for the provided entity to perform before its other queued actions.
-pub fn queue_action_first(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
-    queue_action_first_with_state(world, performing_entity, action, ActionState::NotStarted);
+    /// Queues an action for the provided entity to perform before its other queued actions.
+    pub fn queue_first(world: &mut World, performing_entity: Entity, action: Box<dyn Action>) {
+        queue_action_first_with_state(world, performing_entity, action, ActionState::NotStarted);
+    }
 }
 
 /// Queues an action with the provided state for the provided entity to perform before its other queued actions.
@@ -386,7 +394,7 @@ fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
             result.post_effects.drain(..).for_each(|f| f(world));
 
             if !result.is_complete {
-                queue_action_first(world, entity, action);
+                ActionQueue::queue_first(world, entity, action);
             }
         } else {
             debug!("Done performing tickless actions for entity {entity:?}");

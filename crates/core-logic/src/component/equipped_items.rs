@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{PutAction, WearAction},
-    find_wielding_entity, get_article_reference_name,
+    find_wielding_entity,
     notification::Notification,
-    AttributeDescription,
+    AttributeDescription, Description,
 };
 
 use super::{
@@ -65,7 +65,12 @@ impl EquippedItems {
             .sum()
     }
 
-    /// Returns the item that has been equipped the longest, skipping the provided number of items, if there is one.
+    /// Returns all the equipped items, ordered from least-recently to most-recently equipped.
+    pub fn get_items(&self) -> &Vec<Entity> {
+        &self.items
+    }
+
+    /// Returns the item that has been equipped the longest, if there is one, skipping the provided number of items.
     pub fn get_oldest_item(&self, to_skip: usize) -> Option<Entity> {
         self.items.get(to_skip).copied()
     }
@@ -138,7 +143,7 @@ impl AttributeDescriber for EquippedItemsAttributeDescriber {
             let equipped_entity_names = equipped_items
                 .items
                 .iter()
-                .map(|e| get_article_reference_name(*e, world))
+                .map(|e| Description::get_article_reference_name(*e, world))
                 .collect::<Vec<String>>();
 
             for name in equipped_entity_names {
