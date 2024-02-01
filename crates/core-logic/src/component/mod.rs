@@ -130,6 +130,10 @@ mod combat_state;
 pub use combat_state::CombatRange;
 pub use combat_state::CombatState;
 
+mod invisible;
+pub use invisible::InvisibilityScope;
+pub use invisible::Invisible;
+
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
 use crate::notification::VerifyNotificationHandlers;
