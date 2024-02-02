@@ -77,7 +77,7 @@ impl Action for MoveAction {
         let mut was_successful = false;
 
         if let Some((_, connection)) =
-            current_location.get_connection_in_direction(&self.direction, world)
+            current_location.get_connection_in_direction(&self.direction, performing_entity, world)
         {
             let new_room_id = connection.destination;
             should_tick = true;

@@ -22,9 +22,13 @@ pub struct ContainerDescription {
 
 impl ContainerDescription {
     /// Creates a container description for the provided container.
-    pub fn from_container(container: &Container, world: &World) -> ContainerDescription {
+    pub fn from_container(
+        container: &Container,
+        pov_entity: Entity,
+        world: &World,
+    ) -> ContainerDescription {
         let items = container
-            .entities
+            .get_entities(pov_entity, world)
             .iter()
             .flat_map(|entity| ContainerEntityDescription::from_entity(*entity, world))
             .collect::<Vec<ContainerEntityDescription>>();

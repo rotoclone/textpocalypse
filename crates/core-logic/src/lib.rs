@@ -649,7 +649,9 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
     if let Some(location) = world.get_mut::<Location>(moving_entity) {
         let source_location_id = location.id;
         if let Some(mut source_location) = world.get_mut::<Container>(source_location_id) {
-            source_location.entities.remove(&moving_entity);
+            source_location
+                .get_entities_including_invisible_mut()
+                .remove(&moving_entity);
         }
     }
 
@@ -657,7 +659,7 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
     world
         .get_mut::<Container>(destination_entity)
         .expect("Destination entity should be a container")
-        .entities
+        .get_entities_including_invisible_mut()
         .insert(moving_entity);
 
     // update location
@@ -775,13 +777,18 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     if let Some(location) = world.get::<Location>(entity) {
         let location_id = location.id;
         if let Some(mut container) = world.get_mut::<Container>(location_id) {
-            container.entities.remove(&entity);
+            container
+                .get_entities_including_invisible_mut()
+                .remove(&entity);
         }
     }
 
     // despawn contained entities
     // TODO do this in response to the despawn notification instead
-    if let Some(contained_entities) = world.get::<Container>(entity).map(|c| c.entities.clone()) {
+    if let Some(contained_entities) = world
+        .get::<Container>(entity)
+        .map(|c| c.get_entities_including_invisible().clone())
+    {
         for contained_entity in contained_entities {
             despawn_entity(contained_entity, world);
         }

@@ -36,7 +36,7 @@ pub fn greet_new_entities(
         if let Some(location) = world.get::<Location>(entity) {
             if let Some(container) = world.get::<Container>(location.id) {
                 if container
-                    .entities
+                    .get_entities(entity, world)
                     .contains(&notification.notification_type.performing_entity)
                 {
                     // the move action was successful, and the entity that performed it is standing here, so they must have just arrived

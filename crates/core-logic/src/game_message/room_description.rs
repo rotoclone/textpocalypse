@@ -75,7 +75,7 @@ impl RoomDescription {
         world: &World,
     ) -> RoomDescription {
         let entity_descriptions = container
-            .entities
+            .get_entities(pov_entity, world)
             .iter()
             .filter(|entity| **entity != pov_entity)
             .filter_map(|entity| RoomEntityDescription::from_entity(*entity, world))
@@ -85,7 +85,7 @@ impl RoomDescription {
             name: room.name.clone(),
             description: room.description.clone(),
             entities: entity_descriptions,
-            exits: ExitDescription::from_container(container, world),
+            exits: ExitDescription::from_container(container, pov_entity, world),
             map: Box::new(MapDescription::for_entity(pov_entity, coordinates, world)),
         }
     }
@@ -124,9 +124,13 @@ impl RoomEntityDescription {
 
 impl ExitDescription {
     /// Creates a list of exit descriptions for the provided container.
-    pub fn from_container(container: &Container, world: &World) -> Vec<ExitDescription> {
+    pub fn from_container(
+        container: &Container,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<ExitDescription> {
         container
-            .get_connections(world)
+            .get_connections(pov_entity, world)
             .iter()
             .sorted_by(|a, b| a.1.direction.cmp(&b.1.direction))
             .map(|(_, connection)| {

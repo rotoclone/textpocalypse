@@ -29,7 +29,7 @@ pub fn wander_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
         if let Some(location) = world.get::<Location>(entity) {
             if let Some(container) = world.get::<Container>(location.id) {
                 if let Some((_, connection)) = container
-                    .get_connections(world)
+                    .get_connections(entity, world)
                     .choose(&mut rand::thread_rng())
                 {
                     let action = Box::new(MoveAction {

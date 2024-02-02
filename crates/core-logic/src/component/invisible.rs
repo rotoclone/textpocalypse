@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 
 /// Marks an entity as invisible to certain other entities.
-/// TODO actually check this when looking and finding targets and stuff
 #[derive(Component)]
 pub struct Invisible {
     /// The scope describing which entities this one is hidden from.
@@ -57,49 +56,49 @@ impl Invisible {
         world.entity_mut(entity).remove::<Invisible>();
     }
 
-    /// Makes `entity` invisible to `looking_entity`.
-    pub fn make_invisible_to(entity: Entity, looking_entity: Entity, world: &mut World) {
+    /// Makes `entity` invisible to `pov_entity`.
+    pub fn make_invisible_to(entity: Entity, pov_entity: Entity, world: &mut World) {
         if let Some(mut invisible) = world.get_mut::<Invisible>(entity) {
             match invisible.scope {
                 InvisibilityScope::All => (),
                 InvisibilityScope::Entities(ref mut entities) => {
-                    entities.insert(looking_entity);
+                    entities.insert(pov_entity);
                 }
                 InvisibilityScope::AllExcept(ref mut entities) => {
-                    entities.remove(&looking_entity);
+                    entities.remove(&pov_entity);
                 }
             }
         } else {
             world
                 .entity_mut(entity)
-                .insert(Invisible::to_entity(looking_entity));
+                .insert(Invisible::to_entity(pov_entity));
         }
     }
 
-    /// Makes `entity` visible to `looking_entity`.
-    pub fn make_visible_to(entity: Entity, looking_entity: Entity, world: &mut World) {
+    /// Makes `entity` visible to `pov_entity`.
+    pub fn make_visible_to(entity: Entity, pov_entity: Entity, world: &mut World) {
         if let Some(mut invisible) = world.get_mut::<Invisible>(entity) {
             match invisible.scope {
                 InvisibilityScope::All => {
-                    *invisible = Invisible::to_all_except([looking_entity].into())
+                    *invisible = Invisible::to_all_except([pov_entity].into())
                 }
                 InvisibilityScope::Entities(ref mut entities) => {
-                    entities.remove(&looking_entity);
+                    entities.remove(&pov_entity);
                 }
                 InvisibilityScope::AllExcept(ref mut entities) => {
-                    entities.insert(looking_entity);
+                    entities.insert(pov_entity);
                 }
             }
         }
     }
 
-    /// Returns `true` if `entity` is invisible to `looking_entity`, `false` otherwise.
-    pub fn is_invisible_to(entity: Entity, looking_entity: Entity, world: &World) -> bool {
+    /// Returns `true` if `entity` is invisible to `pov_entity`, `false` otherwise.
+    pub fn is_invisible_to(entity: Entity, pov_entity: Entity, world: &World) -> bool {
         if let Some(invisible) = world.get::<Invisible>(entity) {
             match &invisible.scope {
                 InvisibilityScope::All => true,
-                InvisibilityScope::Entities(entities) => entities.contains(&looking_entity),
-                InvisibilityScope::AllExcept(entities) => !entities.contains(&looking_entity),
+                InvisibilityScope::Entities(entities) => entities.contains(&pov_entity),
+                InvisibilityScope::AllExcept(entities) => !entities.contains(&pov_entity),
             }
         } else {
             false

@@ -61,11 +61,11 @@ fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity
         .get::<Container>(location_id)
         .expect("Entity's location should be a container");
 
-    let mut entities = location.entities.clone();
+    let mut entities = location.get_entities(entity, world).clone();
 
     // include entities in the provided entity's inventory
     if let Some(inventory) = world.get::<Container>(entity) {
-        entities.extend(inventory.entities.clone());
+        entities.extend(inventory.get_entities(entity, world).clone());
     }
 
     entities
@@ -133,7 +133,7 @@ impl CommandTarget {
                     .get::<Container>(location_id)
                     .expect("Looking entity's location should be a container");
                 if let Some((connecting_entity, _)) =
-                    container.get_connection_in_direction(dir, world)
+                    container.get_connection_in_direction(dir, looking_entity, world)
                 {
                     Some(connecting_entity)
                 } else {
@@ -168,7 +168,9 @@ impl CommandTargetName {
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first
         if let Some(container) = world.get::<Container>(looking_entity) {
-            if let Some(found_entity) = container.find_entity_by_name(&self.name, world) {
+            if let Some(found_entity) =
+                container.find_entity_by_name(&self.name, looking_entity, world)
+            {
                 return Some(found_entity);
             }
         }
@@ -181,19 +183,22 @@ impl CommandTargetName {
         let location = world
             .get::<Container>(location_id)
             .expect("Looking entity's location should be a container");
-        location.find_entity_by_name(&self.name, world)
+        location.find_entity_by_name(&self.name, looking_entity, world)
     }
 
     /// Finds the entity described by this target, if it exists in the provided container.
     pub fn find_target_entity_in_container(
         &self,
         containing_entity: Entity,
+        looking_entity: Entity,
         world: &World,
     ) -> Option<Entity> {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
-            if let Some(found_entity) = container.find_entity_by_name(&self.name, world) {
+            if let Some(found_entity) =
+                container.find_entity_by_name(&self.name, looking_entity, world)
+            {
                 return Some(found_entity);
             }
         }

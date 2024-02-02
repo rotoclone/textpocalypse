@@ -246,9 +246,11 @@ pub fn auto_open_connections(
         world.get::<Location>(notification.notification_type.performing_entity)
     {
         if let Some(location) = world.get::<Container>(current_location.id) {
-            if let Some((connecting_entity, _)) =
-                location.get_connection_in_direction(&notification.contents.direction, world)
-            {
+            if let Some((connecting_entity, _)) = location.get_connection_in_direction(
+                &notification.contents.direction,
+                notification.notification_type.performing_entity,
+                world,
+            ) {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
                         ActionQueue::queue_first(
@@ -277,9 +279,11 @@ pub fn prevent_moving_through_closed_connections(
         .map(|location| location.id)
     {
         if let Some(current_location) = world.get::<Container>(location_id) {
-            if let Some((connecting_entity, _)) = current_location
-                .get_connection_in_direction(&notification.contents.direction, world)
-            {
+            if let Some((connecting_entity, _)) = current_location.get_connection_in_direction(
+                &notification.contents.direction,
+                notification.notification_type.performing_entity,
+                world,
+            ) {
                 if let Some(open_state) = world.get::<OpenState>(connecting_entity) {
                     if !open_state.is_open {
                         let message = world
