@@ -104,4 +104,9 @@ impl Invisible {
             false
         }
     }
+
+    /// Returns `true` if `entity` is visible to `pov_entity`, `false` otherwise.
+    pub fn is_visible_to(entity: Entity, pov_entity: Entity, world: &World) -> bool {
+        !Invisible::is_invisible_to(entity, pov_entity, world)
+    }
 }

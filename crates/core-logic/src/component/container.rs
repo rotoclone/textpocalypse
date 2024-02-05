@@ -49,7 +49,7 @@ impl Container {
         self.entities
             .iter()
             .copied()
-            .filter(|entity| !Invisible::is_invisible_to(*entity, pov_entity, world))
+            .filter(|entity| Invisible::is_visible_to(*entity, pov_entity, world))
             .collect()
     }
 
