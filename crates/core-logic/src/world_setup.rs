@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    build_human_innate_weapon,
+    build_human_innate_weapon_bundle,
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
@@ -203,10 +203,12 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
             EquippedItems::new(2),
-            build_human_innate_weapon(),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);
+
+    let npc_innate_weapon = world.spawn(build_human_innate_weapon_bundle()).id();
+    move_entity(npc_innate_weapon, npc_id, world);
 
     let npc_shirt_id = world
         .spawn((

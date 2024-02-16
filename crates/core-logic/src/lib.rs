@@ -402,7 +402,6 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     let worn_items = WornItems::new(5);
     let equipped_items = EquippedItems::new(2);
     let action_queue = ActionQueue::new();
-    let innate_weapon = build_human_innate_weapon();
     let player_entity = world
         .spawn((
             player,
@@ -415,10 +414,12 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             worn_items,
             equipped_items,
             action_queue,
-            innate_weapon,
         ))
         .id();
     move_entity(player_entity, spawn_room, world);
+
+    let innate_weapon = world.spawn(build_human_innate_weapon_bundle()).id();
+    move_entity(innate_weapon, player_entity, world);
 
     world
         .resource_mut::<PlayerIdMapping>()
@@ -452,11 +453,10 @@ fn build_starting_stats() -> Stats {
     stats
 }
 
-/// Builds an innate weapon for a human (a fist).
-fn build_human_innate_weapon() -> InnateWeapon {
-    InnateWeapon {
-        name: "fist".to_string(),
-        weapon: Weapon {
+/// Builds a component bundle for the innate weapon for a human (a fist).
+fn build_human_innate_weapon_bundle() -> impl Bundle {
+    (
+        Weapon {
             weapon_type: WeaponType::Fists,
             hit_verb: VerbForms {
                 second_person: "punch".to_string(),
@@ -479,7 +479,18 @@ fn build_human_innate_weapon() -> InnateWeapon {
                 to_hit_bonus_per_stat_point: 0.2,
             },
         },
-    }
+        Description {
+            name: "fist".to_string(),
+            room_name: "fist".to_string(),
+            plural_name: "fists".to_string(),
+            article: Some("a".to_string()),
+            pronouns: Pronouns::it(),
+            aliases: vec![],
+            description: "a fleshy bundle of fingers".to_string(),
+            attribute_describers: vec![],
+        },
+        Invisible::to_all(),
+    )
 }
 
 /// Despawns the player with the provided ID.

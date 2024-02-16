@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms, Description,
+    verb_forms::VerbForms, Container, Description,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -133,35 +133,38 @@ pub struct WeaponStatBonuses {
 }
 
 impl Weapon {
-    /// Gets the primary weapon the provided entity has equipped, along with its name.
+    /// Gets the primary weapon the provided entity has equipped, including the Entity of the weapon itself.
     /// * If the entity has no weapons equipped, its innate weapon will be returned.
     /// * If the entity has no weapons equipped and no innate weapon, `None` will be returned.
-    pub fn get_primary(entity: Entity, world: &World) -> Option<(&Weapon, String)> {
+    pub fn get_primary(entity: Entity, world: &World) -> Option<(&Weapon, Entity)> {
         // assume the first-equipped weapon is the primary one
         if let Some((weapon, weapon_name)) = Self::get_equipped(entity, world).into_iter().next() {
             return Some((weapon, weapon_name));
         }
 
-        world
-            .get::<InnateWeapon>(entity)
-            .map(|innate_weapon| (&innate_weapon.weapon, innate_weapon.name.clone()))
+        if let Some(inventory) = world.get::<Container>(entity) {
+            if let Some(innate_weapon_entity) = inventory
+                .get_entities_including_invisible()
+                .iter()
+                .find(|item| world.get::<InnateWeapon>(**item).is_some())
+            {
+                if let Some(innate_weapon) = world.get::<Weapon>(*innate_weapon_entity) {
+                    return Some((innate_weapon, *innate_weapon_entity));
+                }
+            }
+        }
+
+        None
     }
 
-    /// Gets all the weapons the provided entity has equipped, along with their names.
+    /// Gets all the weapons the provided entity has equipped, along with their entities.
     /// Weapons will be returned in the order they were equipped, oldest first.
-    pub fn get_equipped(entity: Entity, world: &World) -> Vec<(&Weapon, String)> {
+    pub fn get_equipped(entity: Entity, world: &World) -> Vec<(&Weapon, Entity)> {
         if let Some(equipped_items) = world.get::<EquippedItems>(entity) {
             equipped_items
                 .get_items()
                 .iter()
-                .filter_map(|item| {
-                    world.get::<Weapon>(*item).map(|weapon| {
-                        (
-                            weapon,
-                            Description::get_name(*item, world).unwrap_or("???".to_string()),
-                        )
-                    })
-                })
+                .filter_map(|item| world.get::<Weapon>(*item).map(|weapon| (weapon, *item)))
                 .collect()
         } else {
             Vec::new()
