@@ -479,6 +479,7 @@ fn build_human_innate_weapon_bundle() -> impl Bundle {
                 to_hit_bonus_per_stat_point: 0.2,
             },
         },
+        InnateWeapon,
         Description {
             name: "fist".to_string(),
             room_name: "fist".to_string(),

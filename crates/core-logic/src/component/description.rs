@@ -197,7 +197,7 @@ impl Description {
     ///
     /// If `pov_entity` owns it, this will return `Some("your")`.
     ///
-    /// If some other entity owns it, this will return `Some("their")`.
+    /// If some other entity owns it, this will return that entity's possessive adjective pronoun (e.g. "his", "her", "their", etc.).
     ///
     /// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
     pub fn get_definite_article(
@@ -215,7 +215,7 @@ impl Description {
                 }
             }
 
-            return Some("their".to_string());
+            return Some(Pronouns::get_possessive_adjective(owning_entity, world));
         }
 
         if let Some(desc) = desc {

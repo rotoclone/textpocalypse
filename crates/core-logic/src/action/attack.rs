@@ -124,9 +124,11 @@ impl Action for AttackAction {
         let mut result_builder = ActionResult::builder();
 
         if target == performing_entity {
-            let (weapon, weapon_name) = Weapon::get_primary(performing_entity, world)
+            let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
                 .expect("attacking entity should have a weapon");
             let weapon_hit_verb = weapon.hit_verb.clone();
+            let weapon_name =
+                Description::get_reference_name(weapon_entity, Some(performing_entity), world);
 
             match weapon.calculate_damage(
                 performing_entity,
@@ -143,7 +145,7 @@ impl Action for AttackAction {
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
                         message: Some(format!(
-                            "You {} yourself with your {}!",
+                            "You {} yourself with {}!",
                             weapon_hit_verb.second_person, weapon_name
                         )),
                     }
@@ -171,7 +173,7 @@ impl Action for AttackAction {
                     return handle_weapon_unusable_error(
                         performing_entity,
                         target,
-                        weapon_name,
+                        weapon_entity,
                         e,
                         result_builder,
                         world,
@@ -188,7 +190,7 @@ impl Action for AttackAction {
         result_builder =
             handle_enter_combat(performing_entity, target, range, result_builder, world);
 
-        let (weapon, weapon_name) = Weapon::get_primary(performing_entity, world)
+        let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
             .expect("attacking entity should have a weapon");
         let weapon_hit_verb = weapon.hit_verb.clone();
 
@@ -200,7 +202,7 @@ impl Action for AttackAction {
                     return handle_weapon_unusable_error(
                         performing_entity,
                         target,
-                        weapon_name,
+                        weapon_entity,
                         e,
                         result_builder,
                         world,
@@ -232,7 +234,7 @@ impl Action for AttackAction {
                     return handle_weapon_unusable_error(
                         performing_entity,
                         target,
-                        weapon_name,
+                        weapon_entity,
                         e,
                         result_builder,
                         world,
@@ -247,7 +249,7 @@ impl Action for AttackAction {
             result_builder = handle_damage(
                 performing_entity,
                 target,
-                &weapon_name,
+                weapon_entity,
                 &weapon_hit_verb,
                 damage,
                 body_part,
@@ -258,7 +260,7 @@ impl Action for AttackAction {
             result_builder = handle_miss(
                 performing_entity,
                 target,
-                &weapon_name,
+                weapon_entity,
                 result_builder,
                 world,
             );
@@ -342,11 +344,12 @@ fn apply_body_part_damage_multiplier(base_damage: u32, body_part: BodyPart) -> u
 fn handle_weapon_unusable_error(
     entity: Entity,
     target: Entity,
-    weapon_name: String,
+    weapon_entity: Entity,
     error: WeaponUnusableError,
     result_builder: ActionResultBuilder,
     world: &World,
 ) -> ActionResult {
+    let weapon_name = Description::get_reference_name(weapon_entity, Some(entity), world);
     let reason = match error {
         WeaponUnusableError::StatRequirementNotMet(requirement) => format!(
             "your {} is less than {:.1}",
@@ -366,7 +369,7 @@ fn handle_weapon_unusable_error(
     result_builder
         .with_message(
             entity,
-            format!("You can't use your {weapon_name} because {reason}."),
+            format!("You can't use {weapon_name} because {reason}."),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -379,8 +382,8 @@ fn handle_weapon_unusable_error(
             )
             .add_name(entity)
             .add_string(" flails about uselessly with ")
-            .add_possessive_adjective_pronoun(entity)
-            .add_string(format!(" {weapon_name}.")),
+            .add_name(weapon_entity)
+            .add_string("."),
             world,
         )
         .build_complete_should_tick(false)
@@ -389,7 +392,7 @@ fn handle_weapon_unusable_error(
 fn handle_damage(
     performing_entity: Entity,
     target: Entity,
-    weapon_name: &str,
+    weapon_entity: Entity,
     weapon_hit_verb: &VerbForms,
     damage: u32,
     body_part: BodyPart,
@@ -422,12 +425,14 @@ fn handle_damage(
         .apply(w);
     }));
 
+    let weapon_name =
+        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
     let target_name = Description::get_reference_name(target, Some(performing_entity), world);
     result_builder
         .with_message(
             performing_entity,
             format!(
-                "You {} {}'s {} with a {} from your {}.",
+                "You {} {}'s {} with a {} from {}.",
                 hit_severity_first_person,
                 target_name,
                 body_part,
@@ -451,8 +456,8 @@ fn handle_damage(
                 " in the {} with a {} from ",
                 body_part, weapon_hit_verb.second_person
             ))
-            .add_possessive_adjective_pronoun(performing_entity)
-            .add_string(format!(" {weapon_name}!")),
+            .add_name(weapon_entity)
+            .add_string("!"),
             world,
         )
 }
@@ -460,15 +465,17 @@ fn handle_damage(
 fn handle_miss(
     performing_entity: Entity,
     target: Entity,
-    weapon_name: &str,
+    weapon_entity: Entity,
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
+    let weapon_name =
+        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
     let target_name = Description::get_reference_name(target, Some(performing_entity), world);
     result_builder
         .with_message(
             performing_entity,
-            format!("You fail to hit {target_name} with your {weapon_name}."),
+            format!("You fail to hit {target_name} with {weapon_name}."),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -483,8 +490,8 @@ fn handle_miss(
             .add_string(" fails to hit ")
             .add_name(target)
             .add_string(" with ")
-            .add_possessive_adjective_pronoun(performing_entity)
-            .add_string(format!(" {weapon_name}.")),
+            .add_name(weapon_entity)
+            .add_string("."),
             world,
         )
 }
