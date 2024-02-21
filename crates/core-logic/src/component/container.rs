@@ -6,7 +6,7 @@ use crate::{
     action::PutAction,
     find_wearing_entity,
     notification::{Notification, VerifyResult},
-    AttributeDescription, ContainerDescription, Direction, GameMessage,
+    AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
 
 use super::{
@@ -18,7 +18,7 @@ use super::{
 #[derive(Component)]
 pub struct Container {
     /// The contained entities.
-    pub entities: HashSet<Entity>,
+    entities: HashSet<Entity>,
     /// The maximum volume of items this container can hold, if it is limited.
     pub volume: Option<Volume>,
     /// The maximum weight of items this container can hold, if it is limited.
@@ -44,28 +44,57 @@ impl Container {
         }
     }
 
+    /// Gets all the entities in this container, from the perspective of the provided entity.
+    pub fn get_entities(&self, pov_entity: Entity, world: &World) -> HashSet<Entity> {
+        self.entities
+            .iter()
+            .copied()
+            .filter(|entity| Invisible::is_visible_to(*entity, pov_entity, world))
+            .collect()
+    }
+
+    /// Gets all the entities in this container.
+    pub fn get_entities_including_invisible(&self) -> &HashSet<Entity> {
+        &self.entities
+    }
+
+    /// Gets all the entities in this container mutably.
+    pub fn get_entities_including_invisible_mut(&mut self) -> &mut HashSet<Entity> {
+        &mut self.entities
+    }
+
     /// Retrieves the entity that connects to the provided direction, if there is one.
     pub fn get_connection_in_direction<'w>(
         &self,
         dir: &Direction,
+        pov_entity: Entity,
         world: &'w World,
     ) -> Option<(Entity, &'w Connection)> {
-        self.get_connections(world)
+        self.get_connections(pov_entity, world)
             .into_iter()
             .find(|(_, connection)| connection.direction == *dir)
     }
 
     /// Retrieves all the connections in this container.
-    pub fn get_connections<'w>(&self, world: &'w World) -> Vec<(Entity, &'w Connection)> {
-        self.entities
+    pub fn get_connections<'w>(
+        &self,
+        pov_entity: Entity,
+        world: &'w World,
+    ) -> Vec<(Entity, &'w Connection)> {
+        self.get_entities(pov_entity, world)
             .iter()
             .filter_map(|entity| world.get::<Connection>(*entity).map(|c| (*entity, c)))
             .collect()
     }
 
-    /// Finds the entity with the provided name, if it exists in this container.
-    pub fn find_entity_by_name(&self, entity_name: &str, world: &World) -> Option<Entity> {
-        for entity_id in &self.entities {
+    /// Finds the entity with the provided name, if it exists in this container from the perspective of the provided entity.
+    pub fn find_entity_by_name(
+        &self,
+        entity_name: &str,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Option<Entity> {
+        for entity_id in &self.get_entities(pov_entity, world) {
             if let Some(desc) = world.get::<Description>(*entity_id) {
                 if desc.matches(entity_name) {
                     return Some(*entity_id);
@@ -77,24 +106,32 @@ impl Container {
     }
 
     /// Determines if the provided entity is inside this container, or inside any container in this container, etc.
-    pub fn contains_recursive(&self, entity: Entity, world: &World) -> bool {
-        !self.find_recursive(|e| e == entity, world).is_empty()
+    pub fn contains_recursive(&self, entity: Entity, pov_entity: Entity, world: &World) -> bool {
+        !self
+            .find_recursive(|e| e == entity, pov_entity, world)
+            .is_empty()
     }
 
     /// Finds all entities in this container (or in any container in this container, etc.) for which the provided function returns true.
-    pub fn find_recursive(&self, match_fn: impl Fn(Entity) -> bool, world: &World) -> Vec<Entity> {
-        self.find_recursive_internal(&match_fn, world, &mut vec![])
+    pub fn find_recursive(
+        &self,
+        match_fn: impl Fn(Entity) -> bool,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<Entity> {
+        self.find_recursive_internal(&match_fn, pov_entity, world, &mut vec![])
     }
 
     fn find_recursive_internal(
         &self,
         match_fn: impl Fn(Entity) -> bool + Clone,
+        pov_entity: Entity,
         world: &World,
         contained_entities: &mut Vec<Entity>,
     ) -> Vec<Entity> {
         let mut found_entities = Vec::new();
 
-        for contained_entity in &self.entities {
+        for contained_entity in &self.get_entities(pov_entity, world) {
             if contained_entities.contains(contained_entity) {
                 panic!("{contained_entity:?} contains itself")
             }
@@ -107,6 +144,7 @@ impl Container {
             if let Some(container) = world.get::<Container>(*contained_entity) {
                 found_entities.extend(container.find_recursive_internal(
                     match_fn.clone(),
+                    pov_entity,
                     world,
                     contained_entities,
                 ));
@@ -142,7 +180,7 @@ struct ContainerAttributeDescriber;
 impl AttributeDescriber for ContainerAttributeDescriber {
     fn describe(
         &self,
-        _: Entity,
+        pov_entity: Entity,
         entity: Entity,
         _: AttributeDetailLevel,
         world: &World,
@@ -154,8 +192,9 @@ impl AttributeDescriber for ContainerAttributeDescriber {
                 }
             }
 
-            let message =
-                GameMessage::Container(ContainerDescription::from_container(container, world));
+            let message = GameMessage::Container(ContainerDescription::from_container(
+                container, pov_entity, world,
+            ));
             return vec![AttributeDescription::Message(message)];
         }
 

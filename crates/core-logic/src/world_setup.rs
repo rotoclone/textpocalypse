@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    build_human_innate_weapon,
+    build_human_innate_weapon_bundle,
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
@@ -13,7 +13,7 @@ use crate::{
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity,
     verb_forms::VerbForms,
-    BodyPart, ConstrainedValue, Direction, AFTERLIFE_ROOM_COORDINATES,
+    BodyPart, ConstrainedValue, Direction, Invisible, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -203,10 +203,12 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
             EquippedItems::new(2),
-            build_human_innate_weapon(),
         ))
         .id();
     move_entity(npc_id, street_2_id, world);
+
+    let npc_innate_weapon = world.spawn(build_human_innate_weapon_bundle()).id();
+    move_entity(npc_innate_weapon, npc_id, world);
 
     let npc_shirt_id = world
         .spawn((
@@ -762,6 +764,24 @@ pub fn spawn_start_building(
         ))
         .id();
     move_entity(bat_id, middle_room_id, world);
+
+    let hidden_thing_id = world
+        .spawn((
+            Description {
+                name: "YOU SHOULD NOT BE ABLE TO SEE THIS".to_string(),
+                room_name: "YOU SHOULD NOT BE ABLE TO SEE THIS".to_string(),
+                plural_name: "YOU SHOULD NOT BE ABLE TO SEE THISES".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: Vec::new(),
+                description: "HOW CAN YOU SEE THIS".to_string(),
+                attribute_describers: vec![Item::get_attribute_describer()],
+            },
+            Item::new_one_handed(),
+            Invisible::to_all(),
+        ))
+        .id();
+    move_entity(hidden_thing_id, middle_room_id, world);
 
     middle_room_coords
 }

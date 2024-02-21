@@ -139,8 +139,11 @@ impl Action for LockAction {
         let mut key = None;
         if let Some(key_id) = &lock.key_id {
             if let Some(inventory) = world.get::<Container>(performing_entity) {
-                let mut matching_keys = inventory
-                    .find_recursive(|entity| world.get::<KeyId>(entity) == Some(key_id), world);
+                let mut matching_keys = inventory.find_recursive(
+                    |entity| world.get::<KeyId>(entity) == Some(key_id),
+                    performing_entity,
+                    world,
+                );
 
                 key = matching_keys.pop();
             }

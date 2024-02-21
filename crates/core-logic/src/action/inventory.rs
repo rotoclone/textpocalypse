@@ -48,8 +48,11 @@ struct InventoryAction {
 impl Action for InventoryAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         if let Some(container) = world.get::<Container>(performing_entity) {
-            let message =
-                GameMessage::Container(ContainerDescription::from_container(container, world));
+            let message = GameMessage::Container(ContainerDescription::from_container(
+                container,
+                performing_entity,
+                world,
+            ));
 
             ActionResult::builder()
                 .with_game_message(performing_entity, message)

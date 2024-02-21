@@ -99,7 +99,7 @@ impl Weight {
 
         if let Some(container) = world.get::<Container>(entity) {
             let contained_weight = container
-                .entities
+                .get_entities_including_invisible()
                 .iter()
                 .map(|e| {
                     if contained_entities.contains(e) {

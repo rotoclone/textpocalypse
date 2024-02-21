@@ -81,7 +81,7 @@ impl InputParser for PutParser {
         let item = match &item_target {
             CommandTarget::Named(n) => {
                 //TODO have better error message if the item exists, but isn't in your inventory or whatever
-                match n.find_target_entity_in_container(source_container, world) {
+                match n.find_target_entity_in_container(source_container, entity, world) {
                     Some(e) => e,
                     None => {
                         return Err(InputParseError::CommandParseError {
@@ -106,7 +106,7 @@ impl InputParser for PutParser {
             let inventory = world
                 .get::<Container>(entity)
                 .expect("entity should be a container");
-            if inventory.entities.contains(&item) {
+            if inventory.get_entities(entity, world).contains(&item) {
                 return Err(InputParseError::CommandParseError {
                     verb: verb_name,
                     error: CommandParseError::Other(format!("You already have {item_name}.")),
@@ -118,7 +118,7 @@ impl InputParser for PutParser {
             let inventory = world
                 .get::<Container>(entity)
                 .expect("entity should be a container");
-            if !inventory.entities.contains(&item) {
+            if !inventory.get_entities(entity, world).contains(&item) {
                 return Err(InputParseError::CommandParseError {
                     verb: verb_name,
                     error: CommandParseError::Other(format!("You don't have {item_name}.")),
@@ -451,7 +451,10 @@ pub fn verify_item_in_source(
     let source = notification.contents.source;
 
     if let Some(container) = world.get::<Container>(source) {
-        if container.entities.contains(&item) {
+        if container
+            .get_entities(performing_entity, world)
+            .contains(&item)
+        {
             return VerifyResult::valid();
         }
     }
@@ -475,7 +478,10 @@ pub fn prevent_put_item_inside_itself(
     let destination = notification.contents.destination;
 
     if let Some(container) = world.get::<Container>(item) {
-        if item == destination || container.contains_recursive(destination, world) {
+        //TODO don't ignore invisible entities?
+        if item == destination
+            || container.contains_recursive(destination, performing_entity, world)
+        {
             let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             return VerifyResult::invalid(
                 performing_entity,
