@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms, Container, Description,
+    verb_forms::VerbForms, Container,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};

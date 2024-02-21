@@ -15,7 +15,6 @@ use crate::{
     is_living_entity,
     notification::{Notification, VerifyResult},
     resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
     BeforeActionNotification, BodyPart, Description, GameMessage, InternalMessageCategory,
     MessageCategory, MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
@@ -192,7 +191,6 @@ impl Action for AttackAction {
 
         let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
             .expect("attacking entity should have a weapon");
-        let weapon_hit_verb = weapon.hit_verb.clone();
 
         // try to perform an initial attack
         let to_hit_modification =
@@ -247,12 +245,13 @@ impl Action for AttackAction {
 
         if let Some(damage) = damage {
             result_builder = handle_damage(
-                performing_entity,
-                target,
-                weapon_entity,
-                &weapon_hit_verb,
-                damage,
-                body_part,
+                HitParams {
+                    performing_entity,
+                    target,
+                    weapon_entity,
+                    damage,
+                    body_part,
+                },
                 result_builder,
                 world,
             );
@@ -389,22 +388,30 @@ fn handle_weapon_unusable_error(
         .build_complete_should_tick(false)
 }
 
-fn handle_damage(
+struct HitParams {
+    /// The entity doing the hitting
     performing_entity: Entity,
+    /// The entity getting hit
     target: Entity,
+    /// The weapon used
     weapon_entity: Entity,
-    weapon_hit_verb: &VerbForms,
+    /// The damage done
     damage: u32,
+    /// The body part hit
     body_part: BodyPart,
+}
+
+fn handle_damage(
+    hit_params: HitParams,
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
     //TODO instead of having these messages in here, make them defined on the weapons themselves
     let target_health = world
-        .get::<Vitals>(target)
+        .get::<Vitals>(hit_params.target)
         .map(|vitals| &vitals.health)
         .expect("target should have vitals");
-    let damage_fraction = damage as f32 / target_health.get_max();
+    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
     let (hit_severity_first_person, hit_severity_third_person) =
         if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
             ("mutilate", "mutilates")
@@ -416,26 +423,37 @@ fn handle_damage(
 
     result_builder = result_builder.with_post_effect(Box::new(move |w| {
         VitalChange {
-            entity: target,
+            entity: hit_params.target,
             vital_type: VitalType::Health,
             operation: ValueChangeOperation::Subtract,
-            amount: damage as f32,
-            message: Some(format!("Ow, your {body_part}!")),
+            amount: hit_params.damage as f32,
+            message: Some(format!("Ow, your {}!", hit_params.body_part)),
         }
         .apply(w);
     }));
 
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+    let weapon_name = Description::get_reference_name(
+        hit_params.weapon_entity,
+        Some(hit_params.performing_entity),
+        world,
+    );
+    let target_name = Description::get_reference_name(
+        hit_params.target,
+        Some(hit_params.performing_entity),
+        world,
+    );
+    let weapon_hit_verb = &world
+        .get::<Weapon>(hit_params.weapon_entity)
+        .expect("weapon should be a weapon")
+        .hit_verb;
     result_builder
         .with_message(
-            performing_entity,
+            hit_params.performing_entity,
             format!(
                 "You {} {}'s {} with a {} from {}.",
                 hit_severity_first_person,
                 target_name,
-                body_part,
+                hit_params.body_part,
                 weapon_hit_verb.second_person,
                 weapon_name
             ),
@@ -443,20 +461,20 @@ fn handle_damage(
             MessageDelay::Short,
         )
         .with_third_person_message(
-            Some(performing_entity),
+            Some(hit_params.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .add_name(performing_entity)
+            .add_name(hit_params.performing_entity)
             .add_string(format!(" {hit_severity_third_person} "))
-            .add_name(target)
+            .add_name(hit_params.target)
             .add_string(format!(
                 " in the {} with a {} from ",
-                body_part, weapon_hit_verb.second_person
+                hit_params.body_part, weapon_hit_verb.second_person
             ))
-            .add_name(weapon_entity)
+            .add_name(hit_params.weapon_entity)
             .add_string("!"),
             world,
         )
