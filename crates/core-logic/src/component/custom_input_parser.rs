@@ -12,7 +12,7 @@ pub trait ParseCustomInput {
     /// Registers the custom input parser for this component on the provided entity.
     fn register_custom_input_parser(entity: Entity, world: &mut World) {
         if let Some(mut input_parser) = world.get_mut::<CustomInputParser>(entity) {
-            input_parser.parsers.push(Self::get_parser());
+            input_parser.parsers.extend(Self::get_parsers());
         } else {
             world
                 .entity_mut(entity)
@@ -23,10 +23,10 @@ pub trait ParseCustomInput {
     /// Creates a `CustomInputParser` with the parser for this component.
     fn new_custom_input_parser() -> CustomInputParser {
         CustomInputParser {
-            parsers: vec![Self::get_parser()],
+            parsers: Self::get_parsers(),
         }
     }
 
     /// Returns the `InputParser` for this component.
-    fn get_parser() -> Box<dyn InputParser>;
+    fn get_parsers() -> Vec<Box<dyn InputParser>>;
 }
