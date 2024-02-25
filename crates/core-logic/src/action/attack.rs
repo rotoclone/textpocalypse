@@ -69,27 +69,20 @@ impl InputParser for AttackParser {
                             target: target_entity,
                             notification_sender: ActionNotificationSender::new(),
                         }));
-                    } else {
-                        // target isn't attackable
-                        let target_name = Description::get_reference_name(
-                            target_entity,
-                            Some(source_entity),
-                            world,
-                        );
-                        return Err(InputParseError::CommandParseError {
-                            verb: ATTACK_VERB_NAME.to_string(),
-                            error: CommandParseError::Other(format!(
-                                "You can't attack {target_name}."
-                            )),
-                        });
                     }
-                } else {
-                    // target doesn't exist
+                    let target_name =
+                        Description::get_reference_name(target_entity, Some(source_entity), world);
                     return Err(InputParseError::CommandParseError {
                         verb: ATTACK_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(target),
+                        error: CommandParseError::Other(format!("You can't attack {target_name}.")),
                     });
                 }
+                return Err(InputParseError::CommandParseError {
+                    verb: ATTACK_VERB_NAME.to_string(),
+                    error: CommandParseError::TargetNotFound(target),
+                });
+            } else {
+                //TODO auto-target if entity is in combat with 1 other entity
             }
         }
 

@@ -417,9 +417,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         ))
         .id();
     move_entity(player_entity, spawn_room, world);
-
-    let innate_weapon = world.spawn(build_human_innate_weapon_bundle()).id();
-    move_entity(innate_weapon, player_entity, world);
+    add_human_innate_weapon(player_entity, world);
 
     world
         .resource_mut::<PlayerIdMapping>()
@@ -453,45 +451,50 @@ fn build_starting_stats() -> Stats {
     stats
 }
 
-/// Builds a component bundle for the innate weapon for a human (a fist).
-fn build_human_innate_weapon_bundle() -> impl Bundle {
-    (
-        Weapon {
-            weapon_type: WeaponType::Fists,
-            hit_verb: VerbForms {
-                second_person: "punch".to_string(),
-                third_person_plural: "punch".to_string(),
-                third_person_singular: "punches".to_string(),
+/// Adds the innate weapon for a human (a fist) to an entity.
+fn add_human_innate_weapon(entity: Entity, world: &mut World) {
+    let weapon = world
+        .spawn((
+            Weapon {
+                weapon_type: WeaponType::Fists,
+                hit_verb: VerbForms {
+                    second_person: "punch".to_string(),
+                    third_person_plural: "punch".to_string(),
+                    third_person_singular: "punches".to_string(),
+                },
+                base_damage_range: 1..=2,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Shortest..=CombatRange::Short,
+                    optimal: CombatRange::Shortest..=CombatRange::Shortest,
+                    to_hit_penalty: 1,
+                    damage_penalty: 0,
+                },
+                stat_requirements: Vec::new(),
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 10.0..=20.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 10.0..=20.0,
+                    to_hit_bonus_per_stat_point: 0.2,
+                },
             },
-            base_damage_range: 1..=2,
-            critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
-            ranges: WeaponRanges {
-                usable: CombatRange::Shortest..=CombatRange::Short,
-                optimal: CombatRange::Shortest..=CombatRange::Shortest,
-                to_hit_penalty: 1,
-                damage_penalty: 0,
+            InnateWeapon,
+            Description {
+                name: "fist".to_string(),
+                room_name: "fist".to_string(),
+                plural_name: "fists".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec![],
+                description: "a fleshy bundle of fingers".to_string(),
+                attribute_describers: vec![],
             },
-            stat_requirements: Vec::new(),
-            stat_bonuses: WeaponStatBonuses {
-                damage_bonus_stat_range: 10.0..=20.0,
-                damage_bonus_per_stat_point: 1.0,
-                to_hit_bonus_stat_range: 10.0..=20.0,
-                to_hit_bonus_per_stat_point: 0.2,
-            },
-        },
-        InnateWeapon,
-        Description {
-            name: "fist".to_string(),
-            room_name: "fist".to_string(),
-            plural_name: "fists".to_string(),
-            article: Some("a".to_string()),
-            pronouns: Pronouns::it(),
-            aliases: vec![],
-            description: "a fleshy bundle of fingers".to_string(),
-            attribute_describers: vec![],
-        },
-        Invisible::to_all(),
-    )
+            Invisible::to_all(),
+            FistActions,
+        ))
+        .id();
+    FistActions::register_custom_input_parser(entity, world);
+    move_entity(weapon, entity, world);
 }
 
 /// Despawns the player with the provided ID.
