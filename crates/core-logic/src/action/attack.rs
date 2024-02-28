@@ -47,7 +47,7 @@ const ATTACK_FORMAT: &str = "attack <>";
 const NAME_CAPTURE: &str = "name";
 
 lazy_static! {
-    static ref ATTACK_PATTERN: Regex = Regex::new("^(attack|kill|k) (?P<name>.*)").unwrap();
+    static ref ATTACK_PATTERN: Regex = Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap();
 }
 
 pub struct AttackParser;
@@ -61,6 +61,7 @@ impl InputParser for AttackParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         if let Some(captures) = ATTACK_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
+                // target provided
                 let target = CommandTarget::parse(target_match.as_str());
                 if let Some(target_entity) = target.find_target_entity(source_entity, world) {
                     if world.get::<Vitals>(target_entity).is_some() {
@@ -82,7 +83,23 @@ impl InputParser for AttackParser {
                     error: CommandParseError::TargetNotFound(target),
                 });
             } else {
-                //TODO auto-target if entity is in combat with 1 other entity
+                // no target provided
+                let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
+                if combatants.len() == 1 {
+                    let target_entity = combatants
+                        .keys()
+                        .next()
+                        .expect("combatants should contain an entry");
+                    return Ok(Box::new(AttackAction {
+                        target: *target_entity,
+                        notification_sender: ActionNotificationSender::new(),
+                    }));
+                }
+
+                return Err(InputParseError::CommandParseError {
+                    verb: ATTACK_VERB_NAME.to_string(),
+                    error: CommandParseError::MissingTarget,
+                });
             }
         }
 
@@ -155,8 +172,8 @@ impl Action for AttackAction {
                             .add_string(format!(" {third_person_hit_verb} "))
                             .add_reflexive_pronoun(performing_entity)
                             .add_string(" with ")
-                            .add_possessive_adjective_pronoun(performing_entity)
-                            .add_string(format!(" {weapon_name}.")),
+                            .add_name(weapon_entity)
+                            .add_string("."),
                             world,
                         )
                         .build_complete_should_tick(true);
