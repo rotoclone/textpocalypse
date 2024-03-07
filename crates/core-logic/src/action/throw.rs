@@ -9,6 +9,7 @@ use crate::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
+    handle_enter_combat,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -21,8 +22,8 @@ use crate::{
 };
 
 use super::{
-    handle_enter_combat, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
-    ActionResultBuilder, EquipAction,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
+    EquipAction,
 };
 
 /// The number of kilograms an entity can throw per point of strength they have.

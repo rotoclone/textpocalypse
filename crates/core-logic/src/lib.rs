@@ -73,6 +73,12 @@ use verb_forms::*;
 mod range_extensions;
 use range_extensions::*;
 
+mod integer_extensions;
+use integer_extensions::*;
+
+mod combat_utils;
+use combat_utils::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,

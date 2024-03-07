@@ -3,11 +3,13 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
+    apply_body_part_damage_multiplier,
     checks::{CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
-        ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Location,
-        Skill, Stats, Vitals, Weapon, WeaponUnusableError,
+        ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Skill, Stats,
+        Vitals, Weapon,
     },
+    handle_begin_attack, handle_weapon_unusable_error,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -21,21 +23,12 @@ use crate::{
 };
 
 use super::{
-    handle_enter_combat, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
-    ActionResultBuilder, ThirdPersonMessage, ThirdPersonMessageLocation,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
+    ThirdPersonMessage, ThirdPersonMessageLocation,
 };
 
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
-
-/// Multiplier applied to damage done to the head.
-const HEAD_DAMAGE_MULT: f32 = 1.2;
-
-/// Multiplier applied to damage done to the torso.
-const TORSO_DAMAGE_MULT: f32 = 1.0;
-
-/// Multiplier applied to damage done to non-head and non-torso body parts.
-const APPENDAGE_DAMAGE_MULT: f32 = 0.8;
 
 /// The fraction of a target's health that counts as a high amount of damage.
 const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
@@ -191,18 +184,12 @@ impl Action for AttackAction {
             }
         }
 
-        let range = CombatState::get_entities_in_combat_with(performing_entity, world)
-            .get(&target)
-            .copied()
-            .unwrap_or_else(|| determine_starting_range(performing_entity, target, world));
-
-        result_builder =
-            handle_enter_combat(performing_entity, target, range, result_builder, world);
+        let (mut result_builder, range) =
+            handle_begin_attack(performing_entity, target, result_builder, world);
 
         let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
             .expect("attacking entity should have a weapon");
 
-        // try to perform an initial attack
         let to_hit_modification =
             match weapon.calculate_to_hit_modification(performing_entity, range, world) {
                 Ok(x) => x,
@@ -322,80 +309,6 @@ impl Action for AttackAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
-}
-
-/// Determines the range the provided entities should begin combat at based on their weapons.
-fn determine_starting_range(entity_1: Entity, entity_2: Entity, world: &World) -> CombatRange {
-    let range_1 = Weapon::get_primary(entity_1, world)
-        .map(|(weapon, _)| *weapon.ranges.usable.end())
-        .unwrap_or(CombatRange::Longest);
-
-    let range_2 = Weapon::get_primary(entity_2, world)
-        .map(|(weapon, _)| *weapon.ranges.usable.end())
-        .unwrap_or(CombatRange::Longest);
-
-    range_1.max(range_2)
-}
-
-/// Applies a multiplier to the provided damage based on the provided body part.
-fn apply_body_part_damage_multiplier(base_damage: u32, body_part: BodyPart) -> u32 {
-    let mult = match body_part {
-        BodyPart::Head => HEAD_DAMAGE_MULT,
-        BodyPart::Torso => TORSO_DAMAGE_MULT,
-        _ => APPENDAGE_DAMAGE_MULT,
-    };
-
-    (base_damage as f32 * mult)
-        .round()
-        .clamp(u32::MIN as f32, u32::MAX as f32) as u32
-}
-
-fn handle_weapon_unusable_error(
-    entity: Entity,
-    target: Entity,
-    weapon_entity: Entity,
-    error: WeaponUnusableError,
-    result_builder: ActionResultBuilder,
-    world: &World,
-) -> ActionResult {
-    let weapon_name = Description::get_reference_name(weapon_entity, Some(entity), world);
-    let reason = match error {
-        WeaponUnusableError::StatRequirementNotMet(requirement) => format!(
-            "your {} is less than {:.1}",
-            requirement.stat, requirement.min
-        ),
-        WeaponUnusableError::OutsideUsableRange { usable, actual } => {
-            let distance_phrase = if actual < *usable.start() {
-                "close to"
-            } else {
-                "far away from"
-            };
-            let target_name = Description::get_reference_name(target, Some(entity), world);
-            format!("you are too {distance_phrase} {target_name}")
-        }
-    };
-
-    result_builder
-        .with_message(
-            entity,
-            format!("You can't use {weapon_name} because {reason}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .add_name(entity)
-            .add_string(" flails about uselessly with ")
-            .add_name(weapon_entity)
-            .add_string("."),
-            world,
-        )
-        .build_complete_should_tick(false)
 }
 
 struct HitParams {

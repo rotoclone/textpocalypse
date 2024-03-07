@@ -3,11 +3,13 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    input_parser::InputParser, Action, ActionEndNotification, ActionInterruptResult,
-    ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BeforeActionNotification, CommandParseError, CommandTarget, Description, InputParseError,
-    InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput,
-    VerifyActionNotification, VerifyResult, Vitals,
+    apply_body_part_damage_multiplier, handle_begin_attack, handle_weapon_unusable_error,
+    input_parser::InputParser, resource::WeaponTypeStatCatalog, Action, ActionEndNotification,
+    ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
+    BeforeActionNotification, BodyPart, CheckModifiers, CheckResult, CommandParseError,
+    CommandTarget, Description, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, ParseCustomInput, Skill, Stats, VerifyActionNotification,
+    VerifyResult, Vitals, VsCheckParams, VsParticipant, Weapon,
 };
 
 /// A component that provides special attack actions for fists.
@@ -24,6 +26,12 @@ const UPPERCUT_VERB_NAME: &str = "uppercut";
 const UPPERCUT_FORMAT: &str = "uppercut <>";
 const NAME_CAPTURE: &str = "name";
 
+/// The amount to modify the to hit bonus by for uppercuts.
+const UPPERCUT_TO_HIT_MODIFIER: i16 = -2;
+
+/// The multiplier for damage done by uppercuts.
+const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.2;
+
 lazy_static! {
     static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut) (?P<name>.*)").unwrap();
 }
@@ -37,6 +45,7 @@ impl InputParser for UppercutParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
+        // TODO move this to a common place so it doesn't have to be repeated in every attack variation
         if let Some(captures) = UPPERCUT_PATTERN.captures(input) {
             if let Some(target_match) = captures.name(NAME_CAPTURE) {
                 let target = CommandTarget::parse(target_match.as_str());
@@ -84,14 +93,97 @@ pub struct UppercutAction {
 
 impl Action for UppercutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        //TODO
-        ActionResult::message(
-            performing_entity,
-            "U do a cool uppercut, wow".to_string(),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-            true,
-        )
+        let target = self.target;
+        let mut result_builder = ActionResult::builder();
+
+        let (mut result_builder, range) =
+            handle_begin_attack(performing_entity, target, result_builder, world);
+
+        let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
+            .expect("attacking entity should have a weapon");
+
+        let to_hit_modification =
+            match weapon.calculate_to_hit_modification(performing_entity, range, world) {
+                Ok(x) => x + UPPERCUT_TO_HIT_MODIFIER,
+                Err(e) => {
+                    return handle_weapon_unusable_error(
+                        performing_entity,
+                        target,
+                        weapon_entity,
+                        e,
+                        result_builder,
+                        world,
+                    )
+                }
+            };
+
+        let (to_hit_result, _) = Stats::check_vs(
+            VsParticipant {
+                entity: performing_entity,
+                stat: WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary,
+                modifiers: CheckModifiers::modify_value(to_hit_modification as f32),
+            },
+            VsParticipant {
+                entity: target,
+                stat: Skill::Dodge.into(),
+                modifiers: CheckModifiers::none(),
+            },
+            VsCheckParams::second_wins_ties(),
+            world,
+        );
+
+        let body_part = BodyPart::random_weighted(world);
+        let damage = if to_hit_result.succeeded() {
+            let critical = to_hit_result == CheckResult::ExtremeSuccess;
+            match weapon.calculate_damage(performing_entity, range, critical, world) {
+                Ok(base_damage) => {
+                    let modified_base_damage =
+                        base_damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
+                    Some(apply_body_part_damage_multiplier(
+                        modified_base_damage,
+                        body_part,
+                    ))
+                }
+                Err(e) => {
+                    return handle_weapon_unusable_error(
+                        performing_entity,
+                        target,
+                        weapon_entity,
+                        e,
+                        result_builder,
+                        world,
+                    )
+                }
+            }
+        } else {
+            None
+        };
+
+        /* TODO
+        if let Some(damage) = damage {
+            result_builder = handle_damage(
+                HitParams {
+                    performing_entity,
+                    target,
+                    weapon_entity,
+                    damage,
+                    body_part,
+                },
+                result_builder,
+                world,
+            );
+        } else {
+            result_builder = handle_miss(
+                performing_entity,
+                target,
+                weapon_entity,
+                result_builder,
+                world,
+            );
+        }
+        */
+
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
