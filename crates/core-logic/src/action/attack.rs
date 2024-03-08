@@ -9,7 +9,7 @@ use crate::{
         ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Skill, Stats,
         Vitals, Weapon,
     },
-    handle_begin_attack, handle_weapon_unusable_error,
+    handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -18,22 +18,18 @@ use crate::{
     notification::{Notification, VerifyResult},
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, BodyPart, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, BodyPart, Description, GameMessage, HitParams,
+    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    ThirdPersonMessage, ThirdPersonMessageLocation,
+    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
+    ThirdPersonMessageLocation,
 };
 
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
-
-/// The fraction of a target's health that counts as a high amount of damage.
-const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
-/// The fraction of a target's health that counts as a low amount of damage.
-const LOW_DAMAGE_THRESHOLD: f32 = 0.1;
 
 const ATTACK_VERB_NAME: &str = "attack";
 const ATTACK_FORMAT: &str = "attack <>";
@@ -309,132 +305,6 @@ impl Action for AttackAction {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
     }
-}
-
-struct HitParams {
-    /// The entity doing the hitting
-    performing_entity: Entity,
-    /// The entity getting hit
-    target: Entity,
-    /// The weapon used
-    weapon_entity: Entity,
-    /// The damage done
-    damage: u32,
-    /// The body part hit
-    body_part: BodyPart,
-}
-
-fn handle_damage(
-    hit_params: HitParams,
-    mut result_builder: ActionResultBuilder,
-    world: &mut World,
-) -> ActionResultBuilder {
-    //TODO instead of having these messages in here, make them defined on the weapons themselves
-    let target_health = world
-        .get::<Vitals>(hit_params.target)
-        .map(|vitals| &vitals.health)
-        .expect("target should have vitals");
-    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
-    let (hit_severity_first_person, hit_severity_third_person) =
-        if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
-            ("mutilate", "mutilates")
-        } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
-            ("hit", "hits")
-        } else {
-            ("barely scratch", "barely scratches")
-        };
-
-    result_builder = result_builder.with_post_effect(Box::new(move |w| {
-        VitalChange {
-            entity: hit_params.target,
-            vital_type: VitalType::Health,
-            operation: ValueChangeOperation::Subtract,
-            amount: hit_params.damage as f32,
-            message: Some(format!("Ow, your {}!", hit_params.body_part)),
-        }
-        .apply(w);
-    }));
-
-    let weapon_name = Description::get_reference_name(
-        hit_params.weapon_entity,
-        Some(hit_params.performing_entity),
-        world,
-    );
-    let target_name = Description::get_reference_name(
-        hit_params.target,
-        Some(hit_params.performing_entity),
-        world,
-    );
-    let weapon_hit_verb = &world
-        .get::<Weapon>(hit_params.weapon_entity)
-        .expect("weapon should be a weapon")
-        .hit_verb;
-    result_builder
-        .with_message(
-            hit_params.performing_entity,
-            format!(
-                "You {} {}'s {} with a {} from {}.",
-                hit_severity_first_person,
-                target_name,
-                hit_params.body_part,
-                weapon_hit_verb.second_person,
-                weapon_name
-            ),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(hit_params.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .add_name(hit_params.performing_entity)
-            .add_string(format!(" {hit_severity_third_person} "))
-            .add_name(hit_params.target)
-            .add_string(format!(
-                " in the {} with a {} from ",
-                hit_params.body_part, weapon_hit_verb.second_person
-            ))
-            .add_name(hit_params.weapon_entity)
-            .add_string("!"),
-            world,
-        )
-}
-
-fn handle_miss(
-    performing_entity: Entity,
-    target: Entity,
-    weapon_entity: Entity,
-    result_builder: ActionResultBuilder,
-    world: &mut World,
-) -> ActionResultBuilder {
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
-    result_builder
-        .with_message(
-            performing_entity,
-            format!("You fail to hit {target_name} with {weapon_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .add_name(performing_entity)
-            .add_string(" fails to hit ")
-            .add_name(target)
-            .add_string(" with ")
-            .add_name(weapon_entity)
-            .add_string("."),
-            world,
-        )
 }
 
 /// Verifies that the target is in the same room as the attacker.

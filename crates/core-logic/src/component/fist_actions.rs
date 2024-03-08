@@ -3,13 +3,14 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    apply_body_part_damage_multiplier, handle_begin_attack, handle_weapon_unusable_error,
-    input_parser::InputParser, resource::WeaponTypeStatCatalog, Action, ActionEndNotification,
-    ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BeforeActionNotification, BodyPart, CheckModifiers, CheckResult, CommandParseError,
-    CommandTarget, Description, InputParseError, IntegerExtensions, InternalMessageCategory,
-    MessageCategory, MessageDelay, ParseCustomInput, Skill, Stats, VerifyActionNotification,
-    VerifyResult, Vitals, VsCheckParams, VsParticipant, Weapon,
+    apply_body_part_damage_multiplier, handle_begin_attack, handle_damage, handle_miss,
+    handle_weapon_unusable_error, input_parser::InputParser, resource::WeaponTypeStatCatalog,
+    Action, ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    AfterActionPerformNotification, BeforeActionNotification, BodyPart, CheckModifiers,
+    CheckResult, CommandParseError, CommandTarget, Description, HitParams, InputParseError,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput,
+    Skill, Stats, VerifyActionNotification, VerifyResult, Vitals, VsCheckParams, VsParticipant,
+    Weapon,
 };
 
 /// A component that provides special attack actions for fists.
@@ -93,8 +94,9 @@ pub struct UppercutAction {
 
 impl Action for UppercutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        //TODO move more common stuff to a common place
         let target = self.target;
-        let mut result_builder = ActionResult::builder();
+        let result_builder = ActionResult::builder();
 
         let (mut result_builder, range) =
             handle_begin_attack(performing_entity, target, result_builder, world);
@@ -159,7 +161,6 @@ impl Action for UppercutAction {
             None
         };
 
-        /* TODO
         if let Some(damage) = damage {
             result_builder = handle_damage(
                 HitParams {
@@ -181,7 +182,6 @@ impl Action for UppercutAction {
                 world,
             );
         }
-        */
 
         result_builder.build_complete_should_tick(true)
     }
