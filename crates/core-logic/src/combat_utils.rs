@@ -2,10 +2,11 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    vital_change::ValueChangeOperation, ActionResult, ActionResultBuilder, BodyPart, CombatRange,
-    CombatState, Description, IntegerExtensions, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VitalChange, VitalType, Vitals, Weapon, WeaponUnusableError,
+    resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
+    ActionResultBuilder, BodyPart, CheckModifiers, CheckResult, CombatRange, CombatState,
+    Description, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, Skill,
+    Stats, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
+    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -166,6 +167,63 @@ pub struct HitParams {
     pub damage: u32,
     /// The body part hit
     pub body_part: BodyPart,
+}
+
+/// Performs a check to see if `attacker` hits `target` with `weapon`.
+/// Returns `Some` if it was a hit, `Ok(None)` if it was a miss, and `Err` if the weapon is unusable.
+pub fn check_for_hit(
+    attacker: Entity,
+    target: Entity,
+    weapon_entity: Entity,
+    range: CombatRange,
+    to_hit_modification: f32,
+    world: &mut World,
+) -> Result<Option<HitParams>, WeaponUnusableError> {
+    let weapon = world
+        .get::<Weapon>(weapon_entity)
+        .expect("weapon should be a weapon");
+    let primary_weapon_stat = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary;
+
+    let (to_hit_result, _) = Stats::check_vs(
+        VsParticipant {
+            entity: attacker,
+            stat: primary_weapon_stat,
+            modifiers: CheckModifiers::modify_value(to_hit_modification),
+        },
+        VsParticipant {
+            entity: target,
+            stat: Skill::Dodge.into(),
+            modifiers: CheckModifiers::none(),
+        },
+        VsCheckParams::second_wins_ties(),
+        world,
+    );
+
+    // need to re-borrow this since `check_vs` takes a mutable `World`
+    let weapon = world
+        .get::<Weapon>(weapon_entity)
+        .expect("weapon should be a weapon");
+
+    let body_part = BodyPart::random_weighted(world);
+    if to_hit_result.succeeded() {
+        let critical = to_hit_result == CheckResult::ExtremeSuccess;
+        match weapon.calculate_damage(attacker, range, critical, world) {
+            Ok(x) => {
+                let damage = apply_body_part_damage_multiplier(x, body_part);
+                Ok(Some(HitParams {
+                    performing_entity: attacker,
+                    target,
+                    weapon_entity,
+                    damage,
+                    body_part,
+                }))
+            }
+            Err(e) => Err(e),
+        }
+    } else {
+        // miss
+        Ok(None)
+    }
 }
 
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.

@@ -3,14 +3,14 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    apply_body_part_damage_multiplier, handle_begin_attack, handle_damage, handle_miss,
-    handle_weapon_unusable_error, input_parser::InputParser, resource::WeaponTypeStatCatalog,
-    Action, ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
-    AfterActionPerformNotification, BeforeActionNotification, BodyPart, CheckModifiers,
-    CheckResult, CommandParseError, CommandTarget, Description, HitParams, InputParseError,
-    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput,
-    Skill, Stats, VerifyActionNotification, VerifyResult, Vitals, VsCheckParams, VsParticipant,
-    Weapon,
+    apply_body_part_damage_multiplier, check_for_hit, handle_begin_attack, handle_damage,
+    handle_miss, handle_weapon_unusable_error, input_parser::InputParser,
+    resource::WeaponTypeStatCatalog, Action, ActionEndNotification, ActionInterruptResult,
+    ActionNotificationSender, ActionResult, AfterActionPerformNotification,
+    BeforeActionNotification, BodyPart, CheckModifiers, CheckResult, CommandParseError,
+    CommandTarget, Description, HitParams, InputParseError, IntegerExtensions,
+    InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput, Skill, Stats,
+    VerifyActionNotification, VerifyResult, Vitals, VsCheckParams, VsParticipant, Weapon,
 };
 
 /// A component that provides special attack actions for fists.
@@ -94,7 +94,6 @@ pub struct UppercutAction {
 
 impl Action for UppercutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        //TODO move more common stuff to a common place
         let target = self.target;
         let result_builder = ActionResult::builder();
 
@@ -119,60 +118,30 @@ impl Action for UppercutAction {
                 }
             };
 
-        let (to_hit_result, _) = Stats::check_vs(
-            VsParticipant {
-                entity: performing_entity,
-                stat: WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary,
-                modifiers: CheckModifiers::modify_value(to_hit_modification as f32),
-            },
-            VsParticipant {
-                entity: target,
-                stat: Skill::Dodge.into(),
-                modifiers: CheckModifiers::none(),
-            },
-            VsCheckParams::second_wins_ties(),
+        let hit_params = match check_for_hit(
+            performing_entity,
+            target,
+            weapon_entity,
+            range,
+            to_hit_modification as f32,
             world,
-        );
-
-        let body_part = BodyPart::random_weighted(world);
-        let damage = if to_hit_result.succeeded() {
-            let critical = to_hit_result == CheckResult::ExtremeSuccess;
-            match weapon.calculate_damage(performing_entity, range, critical, world) {
-                Ok(base_damage) => {
-                    let modified_base_damage =
-                        base_damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
-                    Some(apply_body_part_damage_multiplier(
-                        modified_base_damage,
-                        body_part,
-                    ))
-                }
-                Err(e) => {
-                    return handle_weapon_unusable_error(
-                        performing_entity,
-                        target,
-                        weapon_entity,
-                        e,
-                        result_builder,
-                        world,
-                    )
-                }
-            }
-        } else {
-            None
-        };
-
-        if let Some(damage) = damage {
-            result_builder = handle_damage(
-                HitParams {
+        ) {
+            Ok(x) => x,
+            Err(e) => {
+                return handle_weapon_unusable_error(
                     performing_entity,
                     target,
                     weapon_entity,
-                    damage,
-                    body_part,
-                },
-                result_builder,
-                world,
-            );
+                    e,
+                    result_builder,
+                    world,
+                )
+            }
+        };
+
+        if let Some(mut hit_params) = hit_params {
+            hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
+            result_builder = handle_damage(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(
                 performing_entity,

@@ -288,7 +288,8 @@ impl Stats {
         participant_1: VsParticipant,
         participant_2: VsParticipant,
         params: VsCheckParams,
-        world: &World,
+        // TODO mutable so XP can be added in the future
+        world: &mut World,
     ) -> (CheckResult, CheckResult) {
         let entity_1_stats = world.get::<Stats>(participant_1.entity);
         let entity_2_stats = world.get::<Stats>(participant_2.entity);

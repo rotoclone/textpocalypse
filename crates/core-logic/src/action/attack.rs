@@ -3,11 +3,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    apply_body_part_damage_multiplier,
-    checks::{CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
+    check_for_hit,
     component::{
-        ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Skill, Stats,
-        Vitals, Weapon,
+        ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Vitals,
+        Weapon,
     },
     handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{
@@ -16,11 +15,9 @@ use crate::{
     },
     is_living_entity,
     notification::{Notification, VerifyResult},
-    resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, BodyPart, Description, GameMessage, HitParams,
-    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
-    VerifyActionNotification,
+    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -119,7 +116,7 @@ pub struct AttackAction {
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let mut result_builder = ActionResult::builder();
+        let result_builder = ActionResult::builder();
 
         if target == performing_entity {
             let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
@@ -201,53 +198,29 @@ impl Action for AttackAction {
                 }
             };
 
-        let (to_hit_result, _) = Stats::check_vs(
-            VsParticipant {
-                entity: performing_entity,
-                stat: WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary,
-                modifiers: CheckModifiers::modify_value(to_hit_modification as f32),
-            },
-            VsParticipant {
-                entity: target,
-                stat: Skill::Dodge.into(),
-                modifiers: CheckModifiers::none(),
-            },
-            VsCheckParams::second_wins_ties(),
+        let hit_params = match check_for_hit(
+            performing_entity,
+            target,
+            weapon_entity,
+            range,
+            to_hit_modification as f32,
             world,
-        );
-
-        let body_part = BodyPart::random_weighted(world);
-        let damage = if to_hit_result.succeeded() {
-            let critical = to_hit_result == CheckResult::ExtremeSuccess;
-            match weapon.calculate_damage(performing_entity, range, critical, world) {
-                Ok(x) => Some(apply_body_part_damage_multiplier(x, body_part)),
-                Err(e) => {
-                    return handle_weapon_unusable_error(
-                        performing_entity,
-                        target,
-                        weapon_entity,
-                        e,
-                        result_builder,
-                        world,
-                    )
-                }
-            }
-        } else {
-            None
-        };
-
-        if let Some(damage) = damage {
-            result_builder = handle_damage(
-                HitParams {
+        ) {
+            Ok(x) => x,
+            Err(e) => {
+                return handle_weapon_unusable_error(
                     performing_entity,
                     target,
                     weapon_entity,
-                    damage,
-                    body_part,
-                },
-                result_builder,
-                world,
-            );
+                    e,
+                    result_builder,
+                    world,
+                )
+            }
+        };
+
+        if let Some(hit_params) = hit_params {
+            result_builder = handle_damage(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(
                 performing_entity,
