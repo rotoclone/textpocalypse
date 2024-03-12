@@ -1,12 +1,14 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use regex::Regex;
 
 use crate::{
     resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
     ActionResultBuilder, BodyPart, CheckModifiers, CheckResult, CombatRange, CombatState,
-    Description, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, Skill,
-    Stats, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
+    CommandParseError, CommandTarget, Description, InputParseError, IntegerExtensions,
+    InternalMessageCategory, MessageCategory, MessageDelay, Skill, Stats,
+    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation, VitalChange,
+    VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -24,11 +26,63 @@ const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
 /// The fraction of a target's health that counts as a low amount of damage.
 const LOW_DAMAGE_THRESHOLD: f32 = 0.1;
 
+/// Parses input from `source_entity` as an attack command.
+/// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
+///
+/// Returns `Ok` with the target entity, or `Err` if the input is invalid.
+pub fn parse_attack_input(
+    input: &str,
+    source_entity: Entity,
+    pattern: &Regex,
+    target_capture_name: &str,
+    verb_name: &str,
+    world: &World,
+) -> Result<Entity, InputParseError> {
+    if let Some(captures) = pattern.captures(input) {
+        if let Some(target_match) = captures.name(target_capture_name) {
+            let target = CommandTarget::parse(target_match.as_str());
+            if let Some(target_entity) = target.find_target_entity(source_entity, world) {
+                if world.get::<Vitals>(target_entity).is_some() {
+                    // target exists and is attackable
+                    return Ok(target_entity);
+                }
+                let target_name =
+                    Description::get_reference_name(target_entity, Some(source_entity), world);
+                return Err(InputParseError::CommandParseError {
+                    verb: verb_name.to_string(),
+                    error: CommandParseError::Other(format!("You can't attack {target_name}.")),
+                });
+            }
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name.to_string(),
+                error: CommandParseError::TargetNotFound(target),
+            });
+        }
+
+        // no target provided
+        let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
+        if combatants.len() == 1 {
+            let target_entity = combatants
+                .keys()
+                .next()
+                .expect("combatants should contain an entry");
+            return Ok(*target_entity);
+        }
+
+        return Err(InputParseError::CommandParseError {
+            verb: verb_name.to_string(),
+            error: CommandParseError::MissingTarget,
+        });
+    }
+
+    Err(InputParseError::UnknownCommand)
+}
+
 /// Makes the provided entities enter combat with each other, if they're not already in combat.
 pub fn handle_begin_attack(
     attacker: Entity,
     target: Entity,
-    mut result_builder: ActionResultBuilder,
+    result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> (ActionResultBuilder, CombatRange) {
     let range = CombatState::get_entities_in_combat_with(attacker, world)

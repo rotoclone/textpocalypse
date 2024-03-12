@@ -4,17 +4,12 @@ use regex::Regex;
 
 use crate::{
     check_for_hit,
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, CombatState, Location, Vitals,
-        Weapon,
-    },
+    component::{ActionEndNotification, AfterActionPerformNotification, Location, Vitals, Weapon},
     handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity,
     notification::{Notification, VerifyResult},
+    parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
     BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
     MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
@@ -45,51 +40,19 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = ATTACK_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                // target provided
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if world.get::<Vitals>(target_entity).is_some() {
-                        // target exists and is attackable
-                        return Ok(Box::new(AttackAction {
-                            target: target_entity,
-                            notification_sender: ActionNotificationSender::new(),
-                        }));
-                    }
-                    let target_name =
-                        Description::get_reference_name(target_entity, Some(source_entity), world);
-                    return Err(InputParseError::CommandParseError {
-                        verb: ATTACK_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!("You can't attack {target_name}.")),
-                    });
-                }
-                return Err(InputParseError::CommandParseError {
-                    verb: ATTACK_VERB_NAME.to_string(),
-                    error: CommandParseError::TargetNotFound(target),
-                });
-            } else {
-                // no target provided
-                let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
-                if combatants.len() == 1 {
-                    let target_entity = combatants
-                        .keys()
-                        .next()
-                        .expect("combatants should contain an entry");
-                    return Ok(Box::new(AttackAction {
-                        target: *target_entity,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                }
+        let target_entity = parse_attack_input(
+            input,
+            source_entity,
+            &ATTACK_PATTERN,
+            NAME_CAPTURE,
+            ATTACK_VERB_NAME,
+            world,
+        )?;
 
-                return Err(InputParseError::CommandParseError {
-                    verb: ATTACK_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        }
-
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(AttackAction {
+            target: target_entity,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {

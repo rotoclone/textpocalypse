@@ -3,14 +3,12 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    apply_body_part_damage_multiplier, check_for_hit, handle_begin_attack, handle_damage,
-    handle_miss, handle_weapon_unusable_error, input_parser::InputParser,
-    resource::WeaponTypeStatCatalog, Action, ActionEndNotification, ActionInterruptResult,
-    ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BeforeActionNotification, BodyPart, CheckModifiers, CheckResult, CommandParseError,
-    CommandTarget, Description, HitParams, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput, Skill, Stats,
-    VerifyActionNotification, VerifyResult, Vitals, VsCheckParams, VsParticipant, Weapon,
+    check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
+    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
+    ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
+    BeforeActionNotification, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, ParseCustomInput, VerifyActionNotification, VerifyResult,
+    Weapon,
 };
 
 /// A component that provides special attack actions for fists.
@@ -34,7 +32,7 @@ const UPPERCUT_TO_HIT_MODIFIER: i16 = -2;
 const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.2;
 
 lazy_static! {
-    static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut) (?P<name>.*)").unwrap();
+    static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut)( (?P<name>.*))?").unwrap();
 }
 
 struct UppercutParser;
@@ -46,35 +44,19 @@ impl InputParser for UppercutParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        // TODO move this to a common place so it doesn't have to be repeated in every attack variation
-        if let Some(captures) = UPPERCUT_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if world.get::<Vitals>(target_entity).is_some() {
-                        // target exists and is attackable
-                        return Ok(Box::new(UppercutAction {
-                            target: target_entity,
-                            notification_sender: ActionNotificationSender::new(),
-                        }));
-                    }
-                    let target_name =
-                        Description::get_reference_name(target_entity, Some(source_entity), world);
-                    return Err(InputParseError::CommandParseError {
-                        verb: UPPERCUT_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!("You can't attack {target_name}.")),
-                    });
-                }
-                return Err(InputParseError::CommandParseError {
-                    verb: UPPERCUT_VERB_NAME.to_string(),
-                    error: CommandParseError::TargetNotFound(target),
-                });
-            } else {
-                //TODO auto-target if entity is in combat with 1 other entity
-            }
-        }
+        let target_entity = parse_attack_input(
+            input,
+            source_entity,
+            &UPPERCUT_PATTERN,
+            NAME_CAPTURE,
+            UPPERCUT_VERB_NAME,
+            world,
+        )?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(UppercutAction {
+            target: target_entity,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
