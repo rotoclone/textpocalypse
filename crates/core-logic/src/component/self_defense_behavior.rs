@@ -27,7 +27,7 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
             continue;
         }
 
-        if let Some((weapon, _)) = Weapon::get_primary(entity, world) {
+        if let Some((weapon, weapon_entity)) = Weapon::get_primary(entity, world) {
             let targets_in_range = combat_state
                 .get_entities()
                 .iter()
@@ -38,6 +38,7 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
                 // found someone in range
                 let action: Box<dyn Action> = Box::new(AttackAction {
                     target: **target,
+                    weapon: weapon_entity,
                     notification_sender: ActionNotificationSender::new(),
                 });
                 actions.push((entity, action));

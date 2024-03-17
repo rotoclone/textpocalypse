@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
-use regex::Regex;
+use regex::{Captures, Regex};
 
 use crate::{
     resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
@@ -26,6 +26,14 @@ const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
 /// The fraction of a target's health that counts as a low amount of damage.
 const LOW_DAMAGE_THRESHOLD: f32 = 0.1;
 
+/// Describes an attack, parsed into entities.
+pub struct ParsedAttack {
+    /// The target of the attack.
+    pub target: Entity,
+    /// The weapon to use for the attack.
+    pub weapon: Entity,
+}
+
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
 ///
@@ -35,47 +43,114 @@ pub fn parse_attack_input(
     source_entity: Entity,
     pattern: &Regex,
     target_capture_name: &str,
+    weapon_capture_name: &str,
     verb_name: &str,
     world: &World,
-) -> Result<Entity, InputParseError> {
+) -> Result<ParsedAttack, InputParseError> {
     if let Some(captures) = pattern.captures(input) {
-        if let Some(target_match) = captures.name(target_capture_name) {
-            let target = CommandTarget::parse(target_match.as_str());
-            if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                if world.get::<Vitals>(target_entity).is_some() {
-                    // target exists and is attackable
-                    return Ok(target_entity);
-                }
-                let target_name =
-                    Description::get_reference_name(target_entity, Some(source_entity), world);
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::Other(format!("You can't attack {target_name}.")),
-                });
-            }
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::TargetNotFound(target),
-            });
-        }
-
-        // no target provided
-        let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
-        if combatants.len() == 1 {
-            let target_entity = combatants
-                .keys()
-                .next()
-                .expect("combatants should contain an entry");
-            return Ok(*target_entity);
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: verb_name.to_string(),
-            error: CommandParseError::MissingTarget,
+        let target_entity = parse_attack_target(
+            &captures,
+            target_capture_name,
+            source_entity,
+            verb_name,
+            world,
+        )?;
+        let weapon_entity = parse_attack_weapon(
+            &captures,
+            weapon_capture_name,
+            source_entity,
+            verb_name,
+            world,
+        )?;
+        return Ok(ParsedAttack {
+            target: target_entity,
+            weapon: weapon_entity,
         });
     }
 
     Err(InputParseError::UnknownCommand)
+}
+
+/// Finds the target entity of an attack.
+fn parse_attack_target(
+    captures: &Captures,
+    target_capture_name: &str,
+    source_entity: Entity,
+    verb_name: &str,
+    world: &World,
+) -> Result<Entity, InputParseError> {
+    if let Some(target_match) = captures.name(target_capture_name) {
+        let target = CommandTarget::parse(target_match.as_str());
+        if let Some(target_entity) = target.find_target_entity(source_entity, world) {
+            if world.get::<Vitals>(target_entity).is_some() {
+                // target exists and is attackable
+                return Ok(target_entity);
+            }
+            let target_name =
+                Description::get_reference_name(target_entity, Some(source_entity), world);
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name.to_string(),
+                error: CommandParseError::Other(format!("You can't attack {target_name}.")),
+            });
+        }
+        return Err(InputParseError::CommandParseError {
+            verb: verb_name.to_string(),
+            error: CommandParseError::TargetNotFound(target),
+        });
+    }
+
+    // no target provided
+    let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
+    if combatants.len() == 1 {
+        let target_entity = combatants
+            .keys()
+            .next()
+            .expect("combatants should contain an entry");
+        return Ok(*target_entity);
+    }
+
+    Err(InputParseError::CommandParseError {
+        verb: verb_name.to_string(),
+        error: CommandParseError::MissingTarget,
+    })
+}
+
+/// Finds the weapon entity to use in an attack.
+fn parse_attack_weapon(
+    captures: &Captures,
+    weapon_capture_name: &str,
+    source_entity: Entity,
+    verb_name: &str,
+    world: &World,
+) -> Result<Entity, InputParseError> {
+    if let Some(target_match) = captures.name(weapon_capture_name) {
+        let weapon = CommandTarget::parse(target_match.as_str());
+        if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
+            //TODO this should check if it's the correct type of weapon for the requested attack actually
+            if world.get::<Weapon>(weapon_entity).is_some() {
+                // weapon exists and is a weapon
+                return Ok(weapon_entity);
+            }
+            let weapon_name =
+                Description::get_reference_name(weapon_entity, Some(source_entity), world);
+            return Err(InputParseError::CommandParseError {
+                verb: verb_name.to_string(),
+                error: CommandParseError::Other(format!("You can't attack with {weapon_name}.")),
+            });
+        }
+        return Err(InputParseError::CommandParseError {
+            verb: verb_name.to_string(),
+            error: CommandParseError::TargetNotFound(weapon),
+        });
+    }
+
+    // no weapon provided
+    // TODO try to find correct weapon automatically
+
+    Err(InputParseError::CommandParseError {
+        verb: verb_name.to_string(),
+        error: CommandParseError::MissingTarget,
+    })
 }
 
 /// Makes the provided entities enter combat with each other, if they're not already in combat.

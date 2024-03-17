@@ -31,9 +31,11 @@ const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.2;
 const UPPERCUT_VERB_NAME: &str = "uppercut";
 const UPPERCUT_FORMAT: &str = "uppercut <>";
 const NAME_CAPTURE: &str = "name";
+const WEAPON_CAPTURE: &str = "weapon";
 
 lazy_static! {
-    static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut)( (?P<name>.*))?").unwrap();
+    static ref UPPERCUT_PATTERN: Regex =
+        Regex::new("^(uppercut)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
 }
 
 struct UppercutParser;
@@ -45,17 +47,19 @@ impl InputParser for UppercutParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let target_entity = parse_attack_input(
+        let attack = parse_attack_input(
             input,
             source_entity,
             &UPPERCUT_PATTERN,
             NAME_CAPTURE,
+            WEAPON_CAPTURE,
             UPPERCUT_VERB_NAME,
             world,
         )?;
 
         Ok(Box::new(UppercutAction {
-            target: target_entity,
+            target: attack.target,
+            weapon: attack.weapon,
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -72,20 +76,22 @@ impl InputParser for UppercutParser {
 #[derive(Debug)]
 pub struct UppercutAction {
     target: Entity,
+    weapon: Entity,
     notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for UppercutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
+        let weapon_entity = self.weapon;
         let result_builder = ActionResult::builder();
 
         let (mut result_builder, range) =
             handle_begin_attack(performing_entity, target, result_builder, world);
 
-        // TODO use fist weapon actually
-        let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
-            .expect("attacking entity should have a weapon");
+        let weapon = world
+            .get::<Weapon>(weapon_entity)
+            .expect("weapon should be a weapon");
 
         let to_hit_modification =
             match weapon.calculate_to_hit_modification(performing_entity, range, world) {
@@ -198,7 +204,8 @@ const HAYMAKER_VERB_NAME: &str = "haymaker";
 const HAYMAKER_FORMAT: &str = "haymaker <>";
 
 lazy_static! {
-    static ref HAYMAKER_PATTERN: Regex = Regex::new("^(haymaker)( (?P<name>.*))?").unwrap();
+    static ref HAYMAKER_PATTERN: Regex =
+        Regex::new("^(haymaker)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
 }
 
 struct HaymakerParser;
@@ -210,17 +217,19 @@ impl InputParser for HaymakerParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let target_entity = parse_attack_input(
+        let attack = parse_attack_input(
             input,
             source_entity,
             &HAYMAKER_PATTERN,
             NAME_CAPTURE,
+            WEAPON_CAPTURE,
             HAYMAKER_VERB_NAME,
             world,
         )?;
 
         Ok(Box::new(HaymakerAction {
-            target: target_entity,
+            target: attack.target,
+            weapon: attack.weapon,
             charge_ticks_remaining: HAYMAKER_CHARGE_TICKS,
             notification_sender: ActionNotificationSender::new(),
         }))
@@ -238,6 +247,7 @@ impl InputParser for HaymakerParser {
 #[derive(Debug)]
 pub struct HaymakerAction {
     target: Entity,
+    weapon: Entity,
     charge_ticks_remaining: u16,
     notification_sender: ActionNotificationSender<Self>,
 }
@@ -245,6 +255,7 @@ pub struct HaymakerAction {
 impl Action for HaymakerAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
+        let weapon_entity = self.weapon;
         let result_builder = ActionResult::builder();
 
         let (mut result_builder, range) =
@@ -301,9 +312,9 @@ impl Action for HaymakerAction {
                 .build_incomplete(true);
         }
 
-        // TODO use fist weapon actually
-        let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
-            .expect("attacking entity should have a weapon");
+        let weapon = world
+            .get::<Weapon>(weapon_entity)
+            .expect("weapon should be a weapon");
 
         let to_hit_modification =
             match weapon.calculate_to_hit_modification(performing_entity, range, world) {

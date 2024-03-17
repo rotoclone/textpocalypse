@@ -26,9 +26,12 @@ const SELF_DAMAGE_MULT: f32 = 3.0;
 const ATTACK_VERB_NAME: &str = "attack";
 const ATTACK_FORMAT: &str = "attack <>";
 const NAME_CAPTURE: &str = "name";
+const WEAPON_CAPTURE: &str = "weapon";
 
 lazy_static! {
-    static ref ATTACK_PATTERN: Regex = Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap();
+    //TODO this doesn't work because the weapon gets picked up in the name capture
+    static ref ATTACK_PATTERN: Regex =
+        Regex::new("^(attack|kill|k)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
 }
 
 pub struct AttackParser;
@@ -40,17 +43,19 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let target_entity = parse_attack_input(
+        let attack = parse_attack_input(
             input,
             source_entity,
             &ATTACK_PATTERN,
             NAME_CAPTURE,
+            WEAPON_CAPTURE,
             ATTACK_VERB_NAME,
             world,
         )?;
 
         Ok(Box::new(AttackAction {
-            target: target_entity,
+            target: attack.target,
+            weapon: attack.weapon,
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -73,17 +78,20 @@ impl InputParser for AttackParser {
 #[derive(Debug)]
 pub struct AttackAction {
     pub target: Entity,
+    pub weapon: Entity,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
+        let weapon_entity = self.weapon;
         let result_builder = ActionResult::builder();
 
         if target == performing_entity {
-            let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
-                .expect("attacking entity should have a weapon");
+            let weapon = world
+                .get::<Weapon>(weapon_entity)
+                .expect("weapon should be a weapon");
             let weapon_hit_verb = weapon.hit_verb.clone();
             let weapon_name =
                 Description::get_reference_name(weapon_entity, Some(performing_entity), world);
@@ -143,8 +151,9 @@ impl Action for AttackAction {
         let (mut result_builder, range) =
             handle_begin_attack(performing_entity, target, result_builder, world);
 
-        let (weapon, weapon_entity) = Weapon::get_primary(performing_entity, world)
-            .expect("attacking entity should have a weapon");
+        let weapon = world
+            .get::<Weapon>(weapon_entity)
+            .expect("weapon should be a weapon");
 
         let to_hit_modification =
             match weapon.calculate_to_hit_modification(performing_entity, range, world) {
