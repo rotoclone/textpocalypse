@@ -11,8 +11,8 @@ use crate::{
     notification::{Notification, VerifyResult},
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, EquippedItems, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -29,9 +29,9 @@ const NAME_CAPTURE: &str = "name";
 const WEAPON_CAPTURE: &str = "weapon";
 
 lazy_static! {
-    //TODO this doesn't work because the weapon gets picked up in the name capture
-    static ref ATTACK_PATTERN: Regex =
-        Regex::new("^(attack|kill|k)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
+    static ref ATTACK_PATTERN: Regex = Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap();
+    static ref ATTACK_PATTERN_WITH_WEAPON: Regex =
+        Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
 }
 
 pub struct AttackParser;
@@ -47,6 +47,7 @@ impl InputParser for AttackParser {
             input,
             source_entity,
             &ATTACK_PATTERN,
+            &ATTACK_PATTERN_WITH_WEAPON,
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             ATTACK_VERB_NAME,
@@ -296,18 +297,27 @@ pub fn verify_target_alive(
     )
 }
 
-// Verifies that the attacker has some kind of weapon
-pub fn verify_attacker_has_weapon(
+// Verifies that the attacker has the weapon they're trying to attack with.
+pub fn verify_attacker_wielding_weapon(
     notification: &Notification<VerifyActionNotification, AttackAction>,
     world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
-    if Weapon::get_primary(performing_entity, world).is_none() {
-        VerifyResult::invalid(
-            performing_entity,
-            GameMessage::Error("You don't have a weapon to attack with.".to_string()),
-        )
-    } else {
-        VerifyResult::valid()
+    let weapon_entity = notification.contents.weapon;
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        return VerifyResult::valid();
     }
+
+    //TODO treat empty hands as having an innate weapon equipped, to avoid "you don't have your fist equipped" errors
+
+    let weapon_name =
+        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
+    )
 }
+
+//TODO queue an equip action if the attacker isn't holding the weapon they're trying to attack with

@@ -42,33 +42,64 @@ pub fn parse_attack_input(
     input: &str,
     source_entity: Entity,
     pattern: &Regex,
+    pattern_with_weapon: &Regex,
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
     world: &World,
 ) -> Result<ParsedAttack, InputParseError> {
-    if let Some(captures) = pattern.captures(input) {
-        let target_entity = parse_attack_target(
+    if let Some(captures) = pattern_with_weapon.captures(input) {
+        return parse_attack_input_captures(
             &captures,
+            source_entity,
             target_capture_name,
-            source_entity,
-            verb_name,
-            world,
-        )?;
-        let weapon_entity = parse_attack_weapon(
-            &captures,
             weapon_capture_name,
-            source_entity,
             verb_name,
             world,
-        )?;
-        return Ok(ParsedAttack {
-            target: target_entity,
-            weapon: weapon_entity,
-        });
+        );
+    }
+
+    if let Some(captures) = pattern.captures(input) {
+        return parse_attack_input_captures(
+            &captures,
+            source_entity,
+            target_capture_name,
+            weapon_capture_name,
+            verb_name,
+            world,
+        );
     }
 
     Err(InputParseError::UnknownCommand)
+}
+
+fn parse_attack_input_captures(
+    captures: &Captures,
+    source_entity: Entity,
+    target_capture_name: &str,
+    weapon_capture_name: &str,
+    verb_name: &str,
+    world: &World,
+) -> Result<ParsedAttack, InputParseError> {
+    let target_entity = parse_attack_target(
+        captures,
+        target_capture_name,
+        source_entity,
+        verb_name,
+        world,
+    )?;
+    let weapon_entity = parse_attack_weapon(
+        captures,
+        weapon_capture_name,
+        source_entity,
+        verb_name,
+        world,
+    )?;
+
+    Ok(ParsedAttack {
+        target: target_entity,
+        weapon: weapon_entity,
+    })
 }
 
 /// Finds the target entity of an attack.
@@ -145,7 +176,10 @@ fn parse_attack_weapon(
     }
 
     // no weapon provided
-    // TODO try to find correct weapon automatically
+    // TODO try to find a weapon matching the type of attack provided, rather than just using the primary weapon
+    if let Some((_, weapon_entity)) = Weapon::get_primary(source_entity, world) {
+        return Ok(weapon_entity);
+    }
 
     Err(InputParseError::CommandParseError {
         verb: verb_name.to_string(),

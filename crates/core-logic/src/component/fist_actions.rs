@@ -34,8 +34,9 @@ const NAME_CAPTURE: &str = "name";
 const WEAPON_CAPTURE: &str = "weapon";
 
 lazy_static! {
-    static ref UPPERCUT_PATTERN: Regex =
-        Regex::new("^(uppercut)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
+    static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut)( (?P<name>.*))?").unwrap();
+    static ref UPPERCUT_PATTERN_WITH_WEAPON: Regex =
+        Regex::new("^(uppercut)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
 }
 
 struct UppercutParser;
@@ -51,6 +52,7 @@ impl InputParser for UppercutParser {
             input,
             source_entity,
             &UPPERCUT_PATTERN,
+            &UPPERCUT_PATTERN_WITH_WEAPON,
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             UPPERCUT_VERB_NAME,
@@ -204,8 +206,9 @@ const HAYMAKER_VERB_NAME: &str = "haymaker";
 const HAYMAKER_FORMAT: &str = "haymaker <>";
 
 lazy_static! {
-    static ref HAYMAKER_PATTERN: Regex =
-        Regex::new("^(haymaker)( (?P<name>.*))?( (with|using) (?P<weapon>.*))?").unwrap();
+    static ref HAYMAKER_PATTERN: Regex = Regex::new("^(haymaker)( (?P<name>.*))?").unwrap();
+    static ref HAYMAKER_PATTERN_WITH_WEAPON: Regex =
+        Regex::new("^(haymaker)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
 }
 
 struct HaymakerParser;
@@ -221,6 +224,7 @@ impl InputParser for HaymakerParser {
             input,
             source_entity,
             &HAYMAKER_PATTERN,
+            &HAYMAKER_PATTERN_WITH_WEAPON,
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             HAYMAKER_VERB_NAME,

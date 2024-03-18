@@ -860,20 +860,18 @@ pub fn auto_equip_item_to_throw(
     let performing_entity = notification.notification_type.performing_entity;
 
     // only try to equip the item if the thrower already has it, since otherwise the equip action will just fail anyway
-    if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id) {
-        if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-            if !equipped_items.is_equipped(item) {
-                ActionQueue::queue_first(
-                    world,
-                    notification.notification_type.performing_entity,
-                    Box::new(EquipAction {
-                        target: item,
-                        should_be_equipped: true,
-                        notification_sender: ActionNotificationSender::new(),
-                    }),
-                );
-            }
-        }
+    if Some(performing_entity) == world.get::<Location>(item).map(|loc| loc.id)
+        && !EquippedItems::is_equipped(performing_entity, item, world)
+    {
+        ActionQueue::queue_first(
+            world,
+            notification.notification_type.performing_entity,
+            Box::new(EquipAction {
+                target: item,
+                should_be_equipped: true,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
     }
 }
 
@@ -885,10 +883,8 @@ pub fn verify_wielding_item_to_throw(
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
 
-    if let Some(eqipped_items) = world.get::<EquippedItems>(performing_entity) {
-        if eqipped_items.is_equipped(item) {
-            return VerifyResult::valid();
-        }
+    if EquippedItems::is_equipped(performing_entity, item, world) {
+        return VerifyResult::valid();
     }
 
     let item_name = Description::get_reference_name(item, Some(performing_entity), world);

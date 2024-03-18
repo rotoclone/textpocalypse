@@ -142,7 +142,7 @@ pub fn register_action_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
     VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_attacker_has_weapon, world);
+    VerifyNotificationHandlers::add_handler(attack::verify_attacker_wielding_weapon, world);
 
     VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }

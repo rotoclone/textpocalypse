@@ -52,8 +52,16 @@ impl EquippedItems {
         }
     }
 
+    /// Determines whether the provided entity has the provided item equipped.
+    pub fn is_equipped(entity: Entity, item: Entity, world: &World) -> bool {
+        world
+            .get::<EquippedItems>(entity)
+            .map(|equipped| equipped.contains(item))
+            .unwrap_or(false)
+    }
+
     /// Determines whether the provided entity is currently equipped.
-    pub fn is_equipped(&self, entity: Entity) -> bool {
+    pub fn contains(&self, entity: Entity) -> bool {
         self.items.contains(&entity)
     }
 

@@ -860,10 +860,8 @@ fn find_wearing_entity(entity: Entity, world: &World) -> Option<Entity> {
 /// Finds the entity that currently has the provided entity equipped.
 fn find_wielding_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
-        if let Some(equipped_items) = world.get::<EquippedItems>(location.id) {
-            if equipped_items.is_equipped(entity) {
-                return Some(location.id);
-            }
+        if EquippedItems::is_equipped(location.id, entity, world) {
+            return Some(location.id);
         }
     }
 
