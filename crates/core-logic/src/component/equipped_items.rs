@@ -73,6 +73,11 @@ impl EquippedItems {
             .sum()
     }
 
+    /// Determines how many hands are currently available to wield items.
+    pub fn get_num_hands_free(&self, world: &World) -> u8 {
+        self.hands.saturating_sub(self.get_num_hands_used(world))
+    }
+
     /// Returns all the equipped items, ordered from least-recently to most-recently equipped.
     pub fn get_items(&self) -> &Vec<Entity> {
         &self.items

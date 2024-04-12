@@ -142,19 +142,7 @@ impl Weapon {
             return Some((weapon, weapon_name));
         }
 
-        if let Some(inventory) = world.get::<Container>(entity) {
-            if let Some(innate_weapon_entity) = inventory
-                .get_entities_including_invisible()
-                .iter()
-                .find(|item| world.get::<InnateWeapon>(**item).is_some())
-            {
-                if let Some(innate_weapon) = world.get::<Weapon>(*innate_weapon_entity) {
-                    return Some((innate_weapon, *innate_weapon_entity));
-                }
-            }
-        }
-
-        None
+        InnateWeapon::get(entity, world)
     }
 
     /// Gets all the weapons the provided entity has equipped, along with their entities.

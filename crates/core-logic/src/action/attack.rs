@@ -11,8 +11,9 @@ use crate::{
     notification::{Notification, VerifyResult},
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, Description, EquippedItems, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BeforeActionNotification, Description, EquippedItems, GameMessage, InnateWeapon,
+    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
@@ -309,7 +310,16 @@ pub fn verify_attacker_wielding_weapon(
         return VerifyResult::valid();
     }
 
-    //TODO treat empty hands as having an innate weapon equipped, to avoid "you don't have your fist equipped" errors
+    // if at least one hand is empty, treat it as being an innate weapon
+    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+        if equipped_items.get_num_hands_free(world) > 0 {
+            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+                if weapon_entity == innate_weapon_entity {
+                    return VerifyResult::valid();
+                }
+            }
+        }
+    }
 
     let weapon_name =
         Description::get_reference_name(weapon_entity, Some(performing_entity), world);

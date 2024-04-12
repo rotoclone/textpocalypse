@@ -733,7 +733,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item::new_one_handed(),
+            Item::new_two_handed(),
             Weapon {
                 weapon_type: WeaponType::Bludgeon,
                 hit_verb: VerbForms {
