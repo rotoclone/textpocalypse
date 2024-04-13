@@ -11,9 +11,9 @@ use crate::{
     notification::{Notification, VerifyResult},
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, Description, EquippedItems, GameMessage, InnateWeapon,
-    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
-    VerifyActionNotification,
+    ActionQueue, BeforeActionNotification, Description, EquipAction, EquippedItems, GameMessage,
+    InnateWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -298,7 +298,7 @@ pub fn verify_target_alive(
     )
 }
 
-// Verifies that the attacker has the weapon they're trying to attack with.
+/// Verifies that the attacker has the weapon they're trying to attack with.
 pub fn verify_attacker_wielding_weapon(
     notification: &Notification<VerifyActionNotification, AttackAction>,
     world: &World,
@@ -330,4 +330,39 @@ pub fn verify_attacker_wielding_weapon(
     )
 }
 
-//TODO queue an equip action if the attacker isn't holding the weapon they're trying to attack with
+/// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
+pub fn equip_before_attack(
+    notification: &Notification<BeforeActionNotification, AttackAction>,
+    world: &mut World,
+) {
+    let performing_entity = notification.notification_type.performing_entity;
+    let weapon_entity = notification.contents.weapon;
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        // the weapon is already equipped, no need to do anything
+        return;
+    }
+
+    // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+        if weapon_entity == innate_weapon_entity {
+            if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+                if equipped_items.get_num_hands_free(world) == 0 {
+                    // no free hands, unequip something
+                    //TODO
+                }
+            }
+        }
+    }
+
+    // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
+    ActionQueue::queue_first(
+        world,
+        performing_entity,
+        Box::new(EquipAction {
+            target: weapon_entity,
+            should_be_equipped: true,
+            notification_sender: ActionNotificationSender::new(),
+        }),
+    );
+}
