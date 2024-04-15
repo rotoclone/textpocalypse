@@ -346,12 +346,20 @@ pub fn equip_before_attack(
     // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
     if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
         if weapon_entity == innate_weapon_entity {
-            if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-                if equipped_items.get_num_hands_free(world) == 0 {
-                    // no free hands, unequip something
-                    //TODO
-                }
+            let items_to_unequip =
+                EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
+            for item in items_to_unequip {
+                ActionQueue::queue_first(
+                    world,
+                    performing_entity,
+                    Box::new(EquipAction {
+                        target: item,
+                        should_be_equipped: false,
+                        notification_sender: ActionNotificationSender::new(),
+                    }),
+                );
             }
+            return;
         }
     }
 

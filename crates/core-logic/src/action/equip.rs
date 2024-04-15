@@ -306,39 +306,23 @@ pub fn auto_unequip_on_equip(
             .is_valid
         {
             if let Some(num_hands_needed) = get_hands_to_equip(item, world) {
-                if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-                    let num_hands_available = equipped_items.get_num_hands_free(world);
-                    if num_hands_needed.get() > num_hands_available {
-                        // not enough free hands to equip item, figure out which items to unequip
-                        let num_hands_to_free = num_hands_needed.get() - num_hands_available;
-                        let mut num_hands_freed = 0;
-                        let mut items_to_unequip = Vec::new();
-                        while num_hands_to_free > num_hands_freed {
-                            if let Some(oldest_item) =
-                                equipped_items.get_oldest_item(items_to_unequip.len())
-                            {
-                                num_hands_freed += get_hands_to_equip(oldest_item, world)
-                                    .map(|h| h.get())
-                                    .unwrap_or(0);
-                                items_to_unequip.push(oldest_item);
-                            } else {
-                                break;
-                            }
-                        }
+                let items_to_unequip = EquippedItems::get_items_to_unequip_to_free_hands(
+                    performing_entity,
+                    num_hands_needed.get(),
+                    world,
+                );
 
-                        // queue up unequip actions
-                        for item_to_unequip in items_to_unequip {
-                            ActionQueue::queue_first(
-                                world,
-                                performing_entity,
-                                Box::new(EquipAction {
-                                    target: item_to_unequip,
-                                    should_be_equipped: false,
-                                    notification_sender: ActionNotificationSender::new(),
-                                }),
-                            );
-                        }
-                    }
+                // queue up unequip actions
+                for item_to_unequip in items_to_unequip {
+                    ActionQueue::queue_first(
+                        world,
+                        performing_entity,
+                        Box::new(EquipAction {
+                            target: item_to_unequip,
+                            should_be_equipped: false,
+                            notification_sender: ActionNotificationSender::new(),
+                        }),
+                    );
                 }
             }
         }
