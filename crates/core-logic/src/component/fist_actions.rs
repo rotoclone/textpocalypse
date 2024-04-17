@@ -56,6 +56,7 @@ impl InputParser for UppercutParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             UPPERCUT_VERB_NAME,
+            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 
@@ -228,6 +229,7 @@ impl InputParser for HaymakerParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             HAYMAKER_VERB_NAME,
+            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 

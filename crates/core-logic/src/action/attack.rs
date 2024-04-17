@@ -52,6 +52,7 @@ impl InputParser for AttackParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             ATTACK_VERB_NAME,
+            |_, _| true,
             world,
         )?;
 

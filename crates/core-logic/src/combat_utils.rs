@@ -36,9 +36,10 @@ pub struct ParsedAttack {
 
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
+/// `weapon_matcher` should return `true` when passed an entity that would be a valid weapon for use in the attack.
 ///
 /// Returns `Ok` with the target entity, or `Err` if the input is invalid.
-pub fn parse_attack_input(
+pub fn parse_attack_input<F>(
     input: &str,
     source_entity: Entity,
     pattern: &Regex,
@@ -46,8 +47,12 @@ pub fn parse_attack_input(
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
+    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError> {
+) -> Result<ParsedAttack, InputParseError>
+where
+    F: Fn(Entity, &World) -> bool,
+{
     if let Some(captures) = pattern_with_weapon.captures(input) {
         return parse_attack_input_captures(
             &captures,
@@ -55,6 +60,7 @@ pub fn parse_attack_input(
             target_capture_name,
             weapon_capture_name,
             verb_name,
+            weapon_matcher,
             world,
         );
     }
@@ -66,6 +72,7 @@ pub fn parse_attack_input(
             target_capture_name,
             weapon_capture_name,
             verb_name,
+            weapon_matcher,
             world,
         );
     }
@@ -73,14 +80,18 @@ pub fn parse_attack_input(
     Err(InputParseError::UnknownCommand)
 }
 
-fn parse_attack_input_captures(
+fn parse_attack_input_captures<F>(
     captures: &Captures,
     source_entity: Entity,
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
+    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError> {
+) -> Result<ParsedAttack, InputParseError>
+where
+    F: Fn(Entity, &World) -> bool,
+{
     let target_entity = parse_attack_target(
         captures,
         target_capture_name,
@@ -93,6 +104,7 @@ fn parse_attack_input_captures(
         weapon_capture_name,
         source_entity,
         verb_name,
+        weapon_matcher,
         world,
     )?;
 
@@ -147,19 +159,24 @@ fn parse_attack_target(
 }
 
 /// Finds the weapon entity to use in an attack.
-fn parse_attack_weapon(
+/// Weapons valid for use in the attack will return `true` when passed into the provided `weapon_matcher`.
+fn parse_attack_weapon<F>(
     captures: &Captures,
     weapon_capture_name: &str,
     source_entity: Entity,
     verb_name: &str,
+    weapon_matcher: F,
     world: &World,
-) -> Result<Entity, InputParseError> {
+) -> Result<Entity, InputParseError>
+where
+    F: Fn(Entity, &World) -> bool,
+{
     if let Some(target_match) = captures.name(weapon_capture_name) {
         let weapon = CommandTarget::parse(target_match.as_str());
         if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
-            //TODO this should check if it's the correct type of weapon for the requested attack actually
-            if world.get::<Weapon>(weapon_entity).is_some() {
-                // weapon exists and is a weapon
+            if world.get::<Weapon>(weapon_entity).is_some() && weapon_matcher(weapon_entity, world)
+            {
+                // weapon exists and is the correct type of weapon
                 return Ok(weapon_entity);
             }
             let weapon_name =
