@@ -5,10 +5,10 @@ use regex::{Captures, Regex};
 use crate::{
     resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
     ActionResultBuilder, BodyPart, CheckModifiers, CheckResult, CombatRange, CombatState,
-    CommandParseError, CommandTarget, Description, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, Skill, Stats,
-    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation, VitalChange,
-    VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
+    CommandParseError, CommandTarget, Container, Description, EquippedItems, InnateWeapon,
+    InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
+    Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
+    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -193,11 +193,39 @@ where
     }
 
     // no weapon provided
-    // TODO try to find a weapon matching the type of attack provided, rather than just using the primary weapon
+    // prioritize the primary weapon
     if let Some((_, weapon_entity)) = Weapon::get_primary(source_entity, world) {
-        return Ok(weapon_entity);
+        if weapon_matcher(weapon_entity, world) {
+            return Ok(weapon_entity);
+        }
     }
 
+    // primary weapon didn't match, so fall back to other equipped weapons
+    if let Some(equipped_items) = world.get::<EquippedItems>(source_entity) {
+        for item in equipped_items.get_items() {
+            if world.get::<Weapon>(*item).is_some() && weapon_matcher(*item, world) {
+                return Ok(*item);
+            }
+        }
+    }
+
+    // no equipped weapons matched, try innate weapon
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(source_entity, world) {
+        if weapon_matcher(innate_weapon_entity, world) {
+            return Ok(innate_weapon_entity);
+        }
+    }
+
+    // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
+    if let Some(container) = world.get::<Container>(source_entity) {
+        for item in container.get_entities(source_entity, world) {
+            if world.get::<Weapon>(item).is_some() && weapon_matcher(item, world) {
+                return Ok(item);
+            }
+        }
+    }
+
+    // couldn't find a matching weapon
     Err(InputParseError::CommandParseError {
         verb: verb_name.to_string(),
         error: CommandParseError::MissingTarget,
