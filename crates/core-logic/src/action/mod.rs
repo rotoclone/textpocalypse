@@ -142,7 +142,8 @@ pub fn register_action_handlers(world: &mut World) {
 
     VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
     VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_attacker_has_weapon, world);
+    VerifyNotificationHandlers::add_handler(attack::verify_attacker_wielding_weapon, world);
+    NotificationHandlers::add_handler(attack::equip_before_attack, world);
 
     VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }
@@ -828,44 +829,4 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         }
         .send(world);
     }
-}
-
-/// Makes the provided entities enter combat with each other at the provided range, if they're not already in combat.
-fn handle_enter_combat(
-    attacker: Entity,
-    target: Entity,
-    range: CombatRange,
-    mut result_builder: ActionResultBuilder,
-    world: &mut World,
-) -> ActionResultBuilder {
-    if !CombatState::get_entities_in_combat_with(attacker, world)
-        .keys()
-        .contains(&target)
-    {
-        CombatState::set_in_combat(attacker, target, range, world);
-
-        let target_name = Description::get_reference_name(target, Some(attacker), world);
-        result_builder = result_builder
-            .with_message(
-                attacker,
-                format!("You attack {target_name}!"),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
-                Some(attacker),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                )
-                .add_name(attacker)
-                .add_string(" attacks ")
-                .add_name(target)
-                .add_string("!"),
-                world,
-            );
-    }
-
-    result_builder
 }

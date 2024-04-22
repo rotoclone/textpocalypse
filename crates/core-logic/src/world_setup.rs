@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    build_human_innate_weapon_bundle,
+    add_human_innate_weapon,
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
@@ -206,9 +206,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
         ))
         .id();
     move_entity(npc_id, street_2_id, world);
-
-    let npc_innate_weapon = world.spawn(build_human_innate_weapon_bundle()).id();
-    move_entity(npc_innate_weapon, npc_id, world);
+    add_human_innate_weapon(npc_id, world);
 
     let npc_shirt_id = world
         .spawn((
@@ -735,7 +733,7 @@ pub fn spawn_start_building(
                     Weight::get_attribute_describer(),
                 ],
             },
-            Item::new_one_handed(),
+            Item::new_two_handed(),
             Weapon {
                 weapon_type: WeaponType::Bludgeon,
                 hit_verb: VerbForms {

@@ -304,8 +304,8 @@ impl KeyedLock {
 }
 
 impl ParseCustomInput for KeyedLock {
-    fn get_parser() -> Box<dyn InputParser> {
-        Box::new(LockParser)
+    fn get_parsers() -> Vec<Box<dyn InputParser>> {
+        vec![Box::new(LockParser)]
     }
 }
 

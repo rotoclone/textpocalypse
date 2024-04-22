@@ -132,8 +132,8 @@ impl Action for RespawnAction {
 pub struct Respawner;
 
 impl ParseCustomInput for Respawner {
-    fn get_parser() -> Box<dyn InputParser> {
-        Box::new(RespawnParser)
+    fn get_parsers() -> Vec<Box<dyn InputParser>> {
+        vec![Box::new(RespawnParser)]
     }
 }
 

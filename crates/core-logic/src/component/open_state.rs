@@ -204,8 +204,8 @@ impl OpenState {
 }
 
 impl ParseCustomInput for OpenState {
-    fn get_parser() -> Box<dyn InputParser> {
-        Box::new(SlamParser)
+    fn get_parsers() -> Vec<Box<dyn InputParser>> {
+        vec![Box::new(SlamParser)]
     }
 }
 

@@ -52,8 +52,16 @@ impl EquippedItems {
         }
     }
 
+    /// Determines whether the provided entity has the provided item equipped.
+    pub fn is_equipped(entity: Entity, item: Entity, world: &World) -> bool {
+        world
+            .get::<EquippedItems>(entity)
+            .map(|equipped| equipped.contains(item))
+            .unwrap_or(false)
+    }
+
     /// Determines whether the provided entity is currently equipped.
-    pub fn is_equipped(&self, entity: Entity) -> bool {
+    pub fn contains(&self, entity: Entity) -> bool {
         self.items.contains(&entity)
     }
 
@@ -63,6 +71,11 @@ impl EquippedItems {
             .iter()
             .flat_map(|item| get_hands_to_equip(*item, world).map(|h: NonZeroU8| h.get()))
             .sum()
+    }
+
+    /// Determines how many hands are currently available to wield items.
+    pub fn get_num_hands_free(&self, world: &World) -> u8 {
+        self.hands.saturating_sub(self.get_num_hands_used(world))
     }
 
     /// Returns all the equipped items, ordered from least-recently to most-recently equipped.
@@ -123,6 +136,38 @@ impl EquippedItems {
         }
 
         Err(UnequipError::NotEquipped)
+    }
+
+    /// Determines which items the provided entity should unequip in order to have the provided number of hands free.
+    /// If the entity already has at least the provided number of hands free, an empty list will be returned.
+    pub fn get_items_to_unequip_to_free_hands(
+        entity: Entity,
+        free_hands_needed: u8,
+        world: &World,
+    ) -> Vec<Entity> {
+        let mut items_to_unequip = Vec::new();
+        if let Some(equipped_items) = world.get::<EquippedItems>(entity) {
+            let num_hands_available = equipped_items.get_num_hands_free(world);
+            if free_hands_needed > num_hands_available {
+                // not enough free hands, figure out which items to unequip
+                let num_hands_to_free = free_hands_needed - num_hands_available;
+                let mut num_hands_freed = 0;
+                let mut items_checked = 0;
+                while num_hands_to_free > num_hands_freed {
+                    if let Some(item) = equipped_items.get_oldest_item(items_checked) {
+                        if let Some(hands_to_equip) = get_hands_to_equip(item, world) {
+                            items_to_unequip.push(item);
+                            num_hands_freed += hands_to_equip.get();
+                        }
+                        items_checked += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        items_to_unequip
     }
 }
 
