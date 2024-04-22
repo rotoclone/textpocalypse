@@ -79,6 +79,9 @@ use integer_extensions::*;
 mod combat_utils;
 use combat_utils::*;
 
+mod message_format;
+use message_format::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,

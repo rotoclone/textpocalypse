@@ -522,6 +522,7 @@ pub fn handle_miss(
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
+    //TODO instead of having these messages in here, make them defined on the weapons themselves
     let weapon_name =
         Description::get_reference_name(weapon_entity, Some(performing_entity), world);
     let target_name = Description::get_reference_name(target, Some(performing_entity), world);
