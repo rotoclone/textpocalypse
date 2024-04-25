@@ -113,6 +113,20 @@ impl Pronouns {
         }
     }
 
+    /// Gets the possessive pronoun to use when referring to the provided entity (e.g. his, hers, theirs).
+    ///
+    /// If the entity has no description and is alive, this will return "theirs".
+    /// If the entity has no description and is not alive, this will return "its".
+    pub fn get_possessive(entity: Entity, world: &World) -> String {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.possessive.clone()
+        } else if is_living_entity(entity, world) {
+            "theirs".to_string()
+        } else {
+            "its".to_string()
+        }
+    }
+
     /// Gets the possessive adjective pronoun to use when referring to the provided entity (e.g. his, her, their).
     ///
     /// If the entity has no description and is alive, this will return "their".
@@ -156,6 +170,18 @@ impl Pronouns {
             "are".to_string()
         } else {
             "is".to_string()
+        }
+    }
+
+    /// Determines whether the provided entity's pronouns are plural.
+    ///
+    /// If the entity has no description and is alive, this will return true (to be paired with "they").
+    /// If the entity has no description and is not alive, this will return false (to be paired with "it").
+    pub fn is_plural(entity: Entity, world: &World) -> bool {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.plural
+        } else {
+            is_living_entity(entity, world)
         }
     }
 }
