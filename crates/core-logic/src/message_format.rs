@@ -2,6 +2,12 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use nom::{
+    bytes::complete::{is_not, tag},
+    character::complete::alphanumeric1,
+    sequence::{delimited, separated_pair},
+    IResult,
+};
 
 use crate::{Description, Pronouns};
 
@@ -32,11 +38,11 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///   * `theirs`: the entity's possessive pronoun
     ///   * `their`: the entity's possessive adjective pronoun
     ///   * `themself`: the entity's reflexive pronoun
-    /// * `${name:a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
+    /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
     ///
     /// Token names must be alphanumeric.
     ///
-    /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object:hit/hits} ${target.them}.`
+    /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
     pub fn new(format_string: String) -> MessageFormat<T> {
         MessageFormat(format_string, PhantomData)
@@ -79,6 +85,53 @@ impl ParsedMessageFormat {
     fn from(format_string: &str) -> ParsedMessageFormat {
         todo!() //TODO
     }
+}
+
+const TOKEN_START: &str = "${";
+const TOKEN_END: &str = "}";
+const PLURAL_SINGULAR_SEPARATOR: &str = "/";
+const TOKEN_TYPE_SEPARATOR: &str = ".";
+
+fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
+    let (remaining, (plural, singular)) = separated_pair(
+        is_not(PLURAL_SINGULAR_SEPARATOR),
+        tag(PLURAL_SINGULAR_SEPARATOR),
+        is_not(""),
+    )(input)?;
+
+    Ok((
+        remaining,
+        TokenType::PluralSingular {
+            plural: plural.to_string(),
+            singular: singular.to_string(),
+        },
+    ))
+}
+
+fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
+    let token_type = match input {
+        "name" => TokenType::Name,
+        "they" => TokenType::PersonalSubjectPronoun,
+        "them" => TokenType::PersonalObjectPronoun,
+        "theirs" => TokenType::PossessivePronoun,
+        "their" => TokenType::PossessiveAdjectivePronoun,
+        "themself" => TokenType::ReflexivePronoun,
+        x => return parse_plural_singular_token_type(x),
+    };
+
+    Ok(("", token_type))
+}
+
+fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
+    delimited(
+        tag(TOKEN_START),
+        separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
+        tag(TOKEN_END),
+    )(input)
+}
+
+fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    todo!() //TODO
 }
 
 impl MessageFormatChunk {
