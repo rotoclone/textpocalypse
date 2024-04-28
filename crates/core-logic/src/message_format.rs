@@ -3,8 +3,10 @@ use std::{collections::HashMap, marker::PhantomData};
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use nom::{
-    bytes::complete::{is_not, tag},
+    branch::alt,
+    bytes::complete::{is_not, tag, take_till1, take_until, take_until1},
     character::complete::alphanumeric1,
+    combinator::{eof, rest},
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -92,20 +94,34 @@ const TOKEN_END: &str = "}";
 const PLURAL_SINGULAR_SEPARATOR: &str = "/";
 const TOKEN_TYPE_SEPARATOR: &str = ".";
 
-fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
-    let (remaining, (plural, singular)) = separated_pair(
-        is_not(PLURAL_SINGULAR_SEPARATOR),
-        tag(PLURAL_SINGULAR_SEPARATOR),
-        is_not(""),
-    )(input)?;
+fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    alt((parse_token_chunk, parse_non_token_chunk))(input)
+}
+
+fn parse_non_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    let (remaining, matched) = alt((take_until1(TOKEN_START), rest))(input)?;
+
+    Ok((remaining, MessageFormatChunk::String(matched.to_string())))
+}
+
+fn parse_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    let (remaining, (token_name, token_type)) = parse_token(input)?;
 
     Ok((
         remaining,
-        TokenType::PluralSingular {
-            plural: plural.to_string(),
-            singular: singular.to_string(),
+        MessageFormatChunk::Token {
+            name: token_name.to_string(),
+            token_type,
         },
     ))
+}
+
+fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
+    delimited(
+        tag(TOKEN_START),
+        separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
+        tag(TOKEN_END),
+    )(input)
 }
 
 fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
@@ -122,16 +138,20 @@ fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
     Ok(("", token_type))
 }
 
-fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
-    delimited(
-        tag(TOKEN_START),
-        separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
-        tag(TOKEN_END),
-    )(input)
-}
+fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
+    let (remaining, (plural, singular)) = separated_pair(
+        take_until(PLURAL_SINGULAR_SEPARATOR),
+        tag(PLURAL_SINGULAR_SEPARATOR),
+        rest,
+    )(input)?;
 
-fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    todo!() //TODO
+    Ok((
+        remaining,
+        TokenType::PluralSingular {
+            plural: plural.to_string(),
+            singular: singular.to_string(),
+        },
+    ))
 }
 
 impl MessageFormatChunk {
