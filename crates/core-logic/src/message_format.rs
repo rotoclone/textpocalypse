@@ -7,6 +7,7 @@ use nom::{
     bytes::complete::{is_not, tag, take_till1, take_until, take_until1},
     character::complete::alphanumeric1,
     combinator::{eof, rest},
+    multi::many0,
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -14,7 +15,7 @@ use nom::{
 use crate::{Description, Pronouns};
 
 /// A message with places for interpolated values, such as entity names.
-pub struct MessageFormat<T: MessageTokens>(String, PhantomData<fn(T)>);
+pub struct MessageFormat<T: MessageTokens>(Vec<MessageFormatChunk>, PhantomData<fn(T)>);
 
 /// Trait for providing tokens for message interpolation.
 pub trait MessageTokens {
@@ -23,6 +24,7 @@ pub trait MessageTokens {
 }
 
 /// An error during message interpolation.
+#[derive(Debug)]
 pub enum InterpolationError {
     /// A token in the format string has no matching entity provided.
     MissingToken(String),
@@ -46,8 +48,11 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
-    pub fn new(format_string: String) -> MessageFormat<T> {
-        MessageFormat(format_string, PhantomData)
+    pub fn new(format_string: &str) -> Result<MessageFormat<T>, ParseError> {
+        Ok(MessageFormat(
+            MessageFormatChunk::parse(format_string)?,
+            PhantomData,
+        ))
     }
 
     /// Produces an interpolated string to display to `pov_entity` using the provided tokens, or `Err` if the interpolation failed.
@@ -57,9 +62,8 @@ impl<T: MessageTokens> MessageFormat<T> {
         tokens: &T,
         world: &World,
     ) -> Result<String, InterpolationError> {
-        let parsed_format = ParsedMessageFormat::from(&self.0);
         let mut interpolated_chunks = Vec::new();
-        for chunk in parsed_format.0 {
+        for chunk in &self.0 {
             interpolated_chunks.push(chunk.interpolate(pov_entity, tokens, world)?);
         }
         Ok(interpolated_chunks.join(""))
@@ -83,9 +87,27 @@ enum TokenType {
     PluralSingular { plural: String, singular: String },
 }
 
-impl ParsedMessageFormat {
-    fn from(format_string: &str) -> ParsedMessageFormat {
-        todo!() //TODO
+#[derive(Debug)]
+pub enum ParseError<'i> {
+    /// Some of the input remained unparsed for some reason.
+    /// The unparsed part is included.
+    UnparsedInput(&'i str),
+    /// Some other kind of thing went wrong with the parsing
+    InternalParserError(nom::Err<nom::error::Error<&'i str>>),
+}
+
+impl MessageFormatChunk {
+    /// Parses the provided format string into chunks.
+    fn parse(format_string: &str) -> Result<Vec<MessageFormatChunk>, ParseError> {
+        match many0(parse_chunk)(format_string) {
+            Ok((remaining, chunks)) => {
+                if !remaining.is_empty() {
+                    return Err(ParseError::UnparsedInput(remaining));
+                }
+                Ok(chunks)
+            }
+            Err(e) => Err(ParseError::InternalParserError(e)),
+        }
     }
 }
 
@@ -195,5 +217,42 @@ impl TokenType {
                 }
             }
         }
+    }
+}
+
+mod tests {
+    use super::*;
+
+    struct TestTokens(HashMap<String, Entity>);
+
+    impl MessageTokens for TestTokens {
+        fn get_token_map(&self) -> HashMap<String, Entity> {
+            self.0.clone()
+        }
+    }
+
+    #[test]
+    fn interpolate_empty() {
+        let format = MessageFormat::new("").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(HashMap::new());
+
+        assert_eq!("", format.interpolate(pov_entity, &tokens, &world).unwrap());
+    }
+
+    #[test]
+    fn interpolate_no_tokens() {
+        let format = MessageFormat::new("oh hello there").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(HashMap::new());
+
+        assert_eq!(
+            "oh hello there",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 }
