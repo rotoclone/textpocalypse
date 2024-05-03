@@ -156,18 +156,23 @@ fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
         "theirs" => TokenType::PossessivePronoun,
         "their" => TokenType::PossessiveAdjectivePronoun,
         "themself" => TokenType::ReflexivePronoun,
-        x => return parse_plural_singular_token_type(x),
+        _ => return parse_plural_singular_token_type(input),
     };
+
+    dbg!(remaining); //TODO
 
     Ok((remaining, token_type))
 }
 
 fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
+    dbg!(input); //TODO remove
     let (remaining, (plural, singular)) = separated_pair(
         take_until(PLURAL_SINGULAR_SEPARATOR),
         tag(PLURAL_SINGULAR_SEPARATOR),
-        rest,
+        take_until(TOKEN_END),
     )(input)?;
+
+    dbg!(remaining); //TODO remove
 
     Ok((
         remaining,
