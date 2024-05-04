@@ -401,11 +401,7 @@ impl MessageToken {
                 entity,
                 capitalized,
             } => {
-                let pronoun = if *entity == pov_entity {
-                    Pronouns::you().personal_subject
-                } else {
-                    Pronouns::get_personal_subject(*entity, world)
-                };
+                let pronoun = Pronouns::get_personal_subject(*entity, Some(pov_entity), world);
 
                 if *capitalized {
                     pronoun._capitalize(false)

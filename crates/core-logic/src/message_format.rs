@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use nom::{
     branch::alt,
-    bytes::complete::{is_not, tag, take_till1, take_until, take_until1},
+    bytes::complete::{tag, take_till1, take_until, take_until1, take_while1},
     character::complete::alphanumeric1,
-    combinator::{eof, rest},
+    combinator::{eof, rest, success},
     multi::many0,
     sequence::{delimited, separated_pair},
     IResult,
@@ -72,6 +72,7 @@ impl<T: MessageTokens> MessageFormat<T> {
 
 struct ParsedMessageFormat(Vec<MessageFormatChunk>);
 
+#[derive(Debug, PartialEq, Eq)]
 enum MessageFormatChunk {
     String(String),
     Token { name: String, token_type: TokenType },
@@ -118,11 +119,12 @@ const PLURAL_SINGULAR_SEPARATOR: &str = "/";
 const TOKEN_TYPE_SEPARATOR: &str = ".";
 
 fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    alt((parse_token_chunk, parse_non_token_chunk))(input)
+    dbg!("input to parse_chunk", input); //TODO
+    dbg!(alt((parse_token_chunk, parse_non_token_chunk))(input)) //TODO
 }
 
 fn parse_non_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, matched) = alt((take_until1(TOKEN_START), rest))(input)?;
+    let (remaining, matched) = alt((take_until1(TOKEN_START), take_while1(|_| true)))(input)?;
 
     Ok((remaining, MessageFormatChunk::String(matched.to_string())))
 }
@@ -159,20 +161,15 @@ fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
         _ => return parse_plural_singular_token_type(input),
     };
 
-    dbg!(remaining); //TODO
-
     Ok((remaining, token_type))
 }
 
 fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
-    dbg!(input); //TODO remove
     let (remaining, (plural, singular)) = separated_pair(
         take_until(PLURAL_SINGULAR_SEPARATOR),
         tag(PLURAL_SINGULAR_SEPARATOR),
         take_until(TOKEN_END),
     )(input)?;
-
-    dbg!(remaining); //TODO remove
 
     Ok((
         remaining,
@@ -209,7 +206,9 @@ impl TokenType {
     fn interpolate(&self, entity: Entity, pov_entity: Entity, world: &World) -> String {
         match self {
             TokenType::Name => Description::get_reference_name(entity, Some(pov_entity), world),
-            TokenType::PersonalSubjectPronoun => Pronouns::get_personal_subject(entity, world),
+            TokenType::PersonalSubjectPronoun => {
+                Pronouns::get_personal_subject(entity, Some(pov_entity), world)
+            }
             TokenType::PersonalObjectPronoun => Pronouns::get_personal_object(entity, world),
             TokenType::PossessivePronoun => Pronouns::get_possessive(entity, world),
             TokenType::PossessiveAdjectivePronoun => {
@@ -217,7 +216,8 @@ impl TokenType {
             }
             TokenType::ReflexivePronoun => Pronouns::get_reflexive(entity, world),
             TokenType::PluralSingular { plural, singular } => {
-                if Pronouns::is_plural(entity, world) {
+                // if this entity is the POV entity, it will be referred to elsewhere as "you", which is grammatically plural
+                if entity == pov_entity || Pronouns::is_plural(entity, world) {
                     plural.to_string()
                 } else {
                     singular.to_string()
@@ -238,33 +238,18 @@ mod tests {
         }
     }
 
-    #[test]
-    fn parse_token_valid() {
-        let input = "${entity1.name}";
-
-        assert_eq!(
-            ("", ("entity1", TokenType::Name)),
-            parse_token(input).unwrap()
-        );
-    }
-
-    #[test]
-    fn parse_token_valid_plural_forms() {
-        let input = "${entity1.eat/eats}";
-
-        assert_eq!(
-            (
-                "",
-                (
-                    "entity1",
-                    TokenType::PluralSingular {
-                        plural: "eat".to_string(),
-                        singular: "eats".to_string()
-                    }
-                )
-            ),
-            parse_token(input).unwrap()
-        );
+    #[allow(unused)]
+    fn build_entity_1_description() -> Description {
+        Description {
+            name: "some entity".to_string(),
+            room_name: "some entity room name".to_string(),
+            plural_name: "some entities".to_string(),
+            article: Some("a".to_string()),
+            pronouns: Pronouns::it(),
+            aliases: vec![],
+            description: "it's an entity wow".to_string(),
+            attribute_describers: vec![],
+        }
     }
 
     #[test]
@@ -293,23 +278,26 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_just_token() {
+    fn interpolate_special_characters() {
+        let format = MessageFormat::new("oh hello there $a {{}{}{}}}}}}{{{{{ ./b./././").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(HashMap::new());
+
+        assert_eq!(
+            "oh hello there $a {{}{}{}}}}}}{{{{{ ./b./././",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name() {
         let format = MessageFormat::new("${entity1.name}").unwrap();
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let entity_1 = world
-            .spawn(Description {
-                name: "some entity".to_string(),
-                room_name: "some entity room name".to_string(),
-                plural_name: "some entities".to_string(),
-                article: Some("a".to_string()),
-                pronouns: Pronouns::it(),
-                aliases: vec![],
-                description: "it's an entity wow".to_string(),
-                attribute_describers: vec![],
-            })
-            .id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
         let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
 
         assert_eq!(
@@ -319,23 +307,174 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_token_at_beginning() {
-        let format = MessageFormat::new("${entity1.name} and stuff").unwrap();
+    fn interpolate_name_no_article() {
+        let format = MessageFormat::new("${entity1.name}").unwrap();
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world
             .spawn(Description {
-                name: "some entity".to_string(),
-                room_name: "some entity room name".to_string(),
-                plural_name: "some entities".to_string(),
-                article: Some("a".to_string()),
-                pronouns: Pronouns::it(),
-                aliases: vec![],
-                description: "it's an entity wow".to_string(),
-                attribute_describers: vec![],
+                article: None,
+                ..build_entity_1_description()
             })
             .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "some entity",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.name}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world
+            .spawn(Description {
+                article: None,
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "you",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_personal_subject() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_personal_object() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_possessive() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_possessive_adjective() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_possessive_reflexive() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_personal_subject_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.they}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "you",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_personal_object_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.them}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "you",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_possessive_same_as_pov_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_possessive_adjective_same_as_pov_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_possessive_reflexive_same_as_pov_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn interpolate_plural_forms_singular() {
+        let format =
+            MessageFormat::new("${entity1.this is the plural form/this is the singular form}")
+                .unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "this is the singular form",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plural_forms_plural() {
+        let format =
+            MessageFormat::new("${entity1.this is the plural form/this is the singular form}")
+                .unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::they(),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "this is the plural form",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plural_forms_singular_same_as_pov_entity() {
+        let format =
+            MessageFormat::new("${entity1.this is the plural form/this is the singular form}")
+                .unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "this is the plural form",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_token_at_beginning() {
+        let format = MessageFormat::new("${entity1.name} and stuff").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
         let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
 
         assert_eq!(
@@ -350,18 +489,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let entity_1 = world
-            .spawn(Description {
-                name: "some entity".to_string(),
-                room_name: "some entity room name".to_string(),
-                plural_name: "some entities".to_string(),
-                article: Some("a".to_string()),
-                pronouns: Pronouns::it(),
-                aliases: vec![],
-                description: "it's an entity wow".to_string(),
-                attribute_describers: vec![],
-            })
-            .id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
         let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
 
         assert_eq!(
@@ -376,23 +504,83 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let entity_1 = world
-            .spawn(Description {
-                name: "some entity".to_string(),
-                room_name: "some entity room name".to_string(),
-                plural_name: "some entities".to_string(),
-                article: Some("a".to_string()),
-                pronouns: Pronouns::it(),
-                aliases: vec![],
-                description: "it's an entity wow".to_string(),
-                attribute_describers: vec![],
-            })
-            .id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
         let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
 
         assert_eq!(
             "stuff and the some entity wow",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_multiple_tokens() {
+        //TODO add some way to specify whether an entity's name is plural separate from its pronouns.
+        // For example, if a person is named Bob and their pronouns are they/them, "<name> <are/is> here" should be "Bob is here", but "<personal subject> <are/is> here" should be "they are here".
+        let format =
+            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} cool. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+                .unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let entity_2 = world
+            .spawn(Description {
+                name: "some other entity".to_string(),
+                room_name: "some other entity room name".to_string(),
+                plural_name: "some other entities".to_string(),
+                article: None,
+                pronouns: Pronouns::they(),
+                aliases: vec![],
+                description: "it's a different entity wow".to_string(),
+                attribute_describers: vec![],
+            })
+            .id();
+        let tokens = TestTokens(
+            [
+                ("entity1".to_string(), entity_1),
+                ("entity2".to_string(), entity_2),
+            ]
+            .into(),
+        );
+
+        assert_eq!(
+            "it's the some entity and it is cool. Oh hey and some other entity is here and they are cool too I guess.",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_multiple_tokens_same_as_pov_entity() {
+        let format =
+            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} cool. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+                .unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let entity_2 = world
+            .spawn(Description {
+                name: "some other entity".to_string(),
+                room_name: "some other entity room name".to_string(),
+                plural_name: "some other entities".to_string(),
+                article: None,
+                pronouns: Pronouns::they(),
+                aliases: vec![],
+                description: "it's a different entity wow".to_string(),
+                attribute_describers: vec![],
+            })
+            .id();
+        let tokens = TestTokens(
+            [
+                ("entity1".to_string(), entity_1),
+                ("entity2".to_string(), entity_2),
+            ]
+            .into(),
+        );
+
+        assert_eq!(
+            "it's you and you are cool. Oh hey and some other entity is here and they are cool too I guess.",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
         );
     }
 }

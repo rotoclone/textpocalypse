@@ -87,10 +87,17 @@ impl Pronouns {
 
     /// Gets the personal subject pronoun to use when referring to the provided entity (e.g. he, she, they).
     ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "you".
     /// If the entity has no description and is alive, this will return "they".
     /// If the entity has no description and is not alive, this will return "it".
-    pub fn get_personal_subject(entity: Entity, world: &World) -> String {
-        if let Some(desc) = world.get::<Description>(entity) {
+    pub fn get_personal_subject(
+        entity: Entity,
+        pov_entity: Option<Entity>,
+        world: &World,
+    ) -> String {
+        if pov_entity == Some(entity) {
+            "you".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
             desc.pronouns.personal_subject.clone()
         } else if is_living_entity(entity, world) {
             "they".to_string()
@@ -98,6 +105,8 @@ impl Pronouns {
             "it".to_string()
         }
     }
+
+    //TODO add pov_entity vvv
 
     /// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
     ///
