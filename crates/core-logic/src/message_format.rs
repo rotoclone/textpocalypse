@@ -347,27 +347,102 @@ mod tests {
 
     #[test]
     fn interpolate_personal_subject() {
-        //TODO
+        let format = MessageFormat::new("${entity1.they}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::new("p subj", "p obj", "poss", "poss adj", "refl", false),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "p subj",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_personal_object() {
-        //TODO
+        let format = MessageFormat::new("${entity1.them}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::new("p subj", "p obj", "poss", "poss adj", "refl", false),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "p obj",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_possessive() {
-        //TODO
+        let format = MessageFormat::new("${entity1.theirs}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::new("p subj", "p obj", "poss", "poss adj", "refl", false),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "poss",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_possessive_adjective() {
-        //TODO
+        let format = MessageFormat::new("${entity1.their}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::new("p subj", "p obj", "poss", "poss adj", "refl", false),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "poss adj",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_possessive_reflexive() {
-        //TODO
+        let format = MessageFormat::new("${entity1.themself}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                pronouns: Pronouns::new("p subj", "p obj", "poss", "poss adj", "refl", false),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "refl",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
