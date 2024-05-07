@@ -209,12 +209,16 @@ impl TokenType {
             TokenType::PersonalSubjectPronoun => {
                 Pronouns::get_personal_subject(entity, Some(pov_entity), world)
             }
-            TokenType::PersonalObjectPronoun => Pronouns::get_personal_object(entity, world),
-            TokenType::PossessivePronoun => Pronouns::get_possessive(entity, world),
-            TokenType::PossessiveAdjectivePronoun => {
-                Pronouns::get_possessive_adjective(entity, world)
+            TokenType::PersonalObjectPronoun => {
+                Pronouns::get_personal_object(entity, Some(pov_entity), world)
             }
-            TokenType::ReflexivePronoun => Pronouns::get_reflexive(entity, world),
+            TokenType::PossessivePronoun => {
+                Pronouns::get_possessive(entity, Some(pov_entity), world)
+            }
+            TokenType::PossessiveAdjectivePronoun => {
+                Pronouns::get_possessive_adjective(entity, Some(pov_entity), world)
+            }
+            TokenType::ReflexivePronoun => Pronouns::get_reflexive(entity, Some(pov_entity), world),
             TokenType::PluralSingular { plural, singular } => {
                 // if this entity is the POV entity, it will be referred to elsewhere as "you", which is grammatically plural
                 if entity == pov_entity || Pronouns::is_plural(entity, world) {
@@ -475,17 +479,44 @@ mod tests {
 
     #[test]
     fn interpolate_possessive_same_as_pov_entity() {
-        //TODO
+        let format = MessageFormat::new("${entity1.theirs}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "yours",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_possessive_adjective_same_as_pov_entity() {
-        //TODO
+        let format = MessageFormat::new("${entity1.their}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "your",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
     }
 
     #[test]
     fn interpolate_possessive_reflexive_same_as_pov_entity() {
-        //TODO
+        let format = MessageFormat::new("${entity1.themself}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens([("entity1".to_string(), entity_1)].into());
+
+        assert_eq!(
+            "yourself",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
     }
 
     #[test]

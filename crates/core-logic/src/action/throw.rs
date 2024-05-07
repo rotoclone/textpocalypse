@@ -303,7 +303,7 @@ impl Action for ThrowAction {
             item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
             target_name: Description::get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: Pronouns::get_personal_object(target, world),
+            target_pronoun: Pronouns::get_personal_object(target, Some(performing_entity), world),
         };
 
         let hit;

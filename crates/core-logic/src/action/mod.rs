@@ -410,25 +410,13 @@ impl MessageToken {
                 }
             }
             MessageToken::PersonalObjectPronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().personal_object
-                } else {
-                    Pronouns::get_personal_object(*e, world)
-                }
+                Pronouns::get_personal_object(*e, Some(pov_entity), world)
             }
             MessageToken::PossessiveAdjectivePronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().possessive_adjective
-                } else {
-                    Pronouns::get_possessive_adjective(*e, world)
-                }
+                Pronouns::get_possessive_adjective(*e, Some(pov_entity), world)
             }
             MessageToken::ReflexivePronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().reflexive
-                } else {
-                    Pronouns::get_reflexive(*e, world)
-                }
+                Pronouns::get_reflexive(*e, Some(pov_entity), world)
             }
             MessageToken::ToBeForm(e) => Pronouns::get_to_be_form(*e, world),
         }
