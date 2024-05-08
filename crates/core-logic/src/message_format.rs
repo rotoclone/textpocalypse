@@ -1,12 +1,10 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_till1, take_until, take_until1, take_while1},
+    bytes::complete::{tag, take_until, take_until1, take_while1},
     character::complete::alphanumeric1,
-    combinator::{eof, rest, success},
     multi::many0,
     sequence::{delimited, separated_pair},
     IResult,
@@ -43,6 +41,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///   * `their`: the entity's possessive adjective pronoun
     ///   * `themself`: the entity's reflexive pronoun
     /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
+    /// * `${name}`, where `name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity. //TODO implement this
     ///
     /// Token names must be alphanumeric.
     ///
@@ -119,8 +118,7 @@ const PLURAL_SINGULAR_SEPARATOR: &str = "/";
 const TOKEN_TYPE_SEPARATOR: &str = ".";
 
 fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    dbg!("input to parse_chunk", input); //TODO
-    dbg!(alt((parse_token_chunk, parse_non_token_chunk))(input)) //TODO
+    alt((parse_token_chunk, parse_non_token_chunk))(input)
 }
 
 fn parse_non_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {

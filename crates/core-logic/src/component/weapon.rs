@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms,
+    verb_forms::VerbForms, MessageFormat, MessageTokens,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -17,6 +17,7 @@ pub struct Weapon {
     /// The type of weapon this is.
     pub weapon_type: WeaponType,
     /// The verb to use when describing hits from this weapon. E.g. shoot, stab, etc.
+    /// TODO remove
     pub hit_verb: VerbForms,
     /// The amount of damage the weapon can do.
     pub base_damage_range: RangeInclusive<u32>,
@@ -28,6 +29,8 @@ pub struct Weapon {
     pub stat_requirements: Vec<WeaponStatRequirement>,
     /// Parameters for bonuses based on the weapon user's stats.
     pub stat_bonuses: WeaponStatBonuses,
+    /// The messages for using this weapon.
+    pub messages: WeaponMessages,
 }
 
 /// Represents a type of weapon.
@@ -130,6 +133,29 @@ pub struct WeaponStatBonuses {
     pub to_hit_bonus_stat_range: RangeInclusive<f32>,
     /// The to-hit bonus per point in the weapon's to-hit bonus stat above the start and up to the end of the to-hit bonus stat range.
     pub to_hit_bonus_per_stat_point: f32,
+}
+
+/// Describes the messages to send when a weapon is used.
+pub struct WeaponMessages {
+    /// Messages for misses
+    pub miss: Vec<MessageFormat<WeaponMessageTokens>>,
+    /// Messages for hits
+    pub hit: Vec<MessageFormat<WeaponMessageTokens>>,
+    /// Messages for critical hits
+    pub crit: Vec<MessageFormat<WeaponMessageTokens>>,
+}
+
+pub struct WeaponMessageTokens {
+    pub attacker: Entity,
+    pub target: Entity,
+    pub weapon: Entity,
+    pub body_part: String,
+}
+
+impl MessageTokens for WeaponMessageTokens {
+    fn get_token_map(&self) -> std::collections::HashMap<String, Entity> {
+        todo!() //TODO
+    }
 }
 
 impl Weapon {
