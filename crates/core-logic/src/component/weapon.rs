@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms, MessageFormat, MessageTokens,
+    verb_forms::VerbForms, MessageFormat, MessageTokens, TokenName, TokenValue,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -153,8 +153,26 @@ pub struct WeaponMessageTokens {
 }
 
 impl MessageTokens for WeaponMessageTokens {
-    fn get_token_map(&self) -> std::collections::HashMap<String, Entity> {
-        todo!() //TODO
+    fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
+        [
+            (
+                TokenName("attacker".to_string()),
+                TokenValue::Entity(self.attacker),
+            ),
+            (
+                TokenName("target".to_string()),
+                TokenValue::Entity(self.target),
+            ),
+            (
+                TokenName("weapon".to_string()),
+                TokenValue::Entity(self.weapon),
+            ),
+            (
+                TokenName("body_part".to_string()),
+                TokenValue::String(self.body_part.clone()),
+            ),
+        ]
+        .into()
     }
 }
 

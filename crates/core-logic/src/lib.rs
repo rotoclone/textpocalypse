@@ -486,6 +486,11 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     to_hit_bonus_stat_range: 10.0..=20.0,
                     to_hit_bonus_per_stat_point: 0.2,
                 },
+                messages: WeaponMessages {
+                    miss: vec![],
+                    hit: vec![],
+                    crit: vec![],
+                },
             },
             InnateWeapon,
             Description {

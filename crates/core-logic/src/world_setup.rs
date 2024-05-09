@@ -13,7 +13,7 @@ use crate::{
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity,
     verb_forms::VerbForms,
-    BodyPart, ConstrainedValue, Direction, Invisible, AFTERLIFE_ROOM_COORDINATES,
+    BodyPart, ConstrainedValue, Direction, Invisible, WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -755,6 +755,11 @@ pub fn spawn_start_building(
                     damage_bonus_per_stat_point: 1.0,
                     to_hit_bonus_stat_range: 10.0..=20.0,
                     to_hit_bonus_per_stat_point: 1.0,
+                },
+                messages: WeaponMessages {
+                    miss: vec![],
+                    hit: vec![],
+                    crit: vec![],
                 },
             },
             Volume(0.5),
