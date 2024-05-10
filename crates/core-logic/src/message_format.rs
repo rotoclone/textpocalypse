@@ -87,6 +87,7 @@ struct ParsedMessageFormat(Vec<MessageFormatChunk>);
 #[derive(Debug, PartialEq, Eq)]
 enum MessageFormatChunk {
     String(String),
+    PlainToken(TokenName),
     Token {
         name: TokenName,
         token_type: TokenType,
@@ -95,7 +96,6 @@ enum MessageFormatChunk {
 
 #[derive(Debug, PartialEq, Eq)]
 enum TokenType {
-    Plain,
     Name,
     PersonalSubjectPronoun,
     PersonalObjectPronoun,
@@ -135,13 +135,11 @@ const PLURAL_SINGULAR_SEPARATOR: &str = "/";
 const TOKEN_TYPE_SEPARATOR: &str = ".";
 
 fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    alt((parse_token_chunk, parse_non_token_chunk))(input)
-}
-
-fn parse_non_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, matched) = alt((take_until1(TOKEN_START), take_while1(|_| true)))(input)?;
-
-    Ok((remaining, MessageFormatChunk::String(matched.to_string())))
+    alt((
+        parse_token_chunk,
+        parse_plain_token_chunk,
+        parse_string_chunk,
+    ))(input)
 }
 
 fn parse_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
@@ -159,10 +157,7 @@ fn parse_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
     delimited(
         tag(TOKEN_START),
-        alt((
-            separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
-            parse_plain_token,
-        )),
+        separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
         tag(TOKEN_END),
     )(input)
 }
@@ -198,10 +193,20 @@ fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
     ))
 }
 
-fn parse_plain_token(input: &str) -> IResult<&str, (&str, TokenType)> {
-    let (remaining, token_name) = take_until(TOKEN_END)(input)?;
+fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    let (remaining, token_name) =
+        delimited(tag(TOKEN_START), alphanumeric1, tag(TOKEN_END))(input)?;
 
-    Ok((remaining, (token_name, TokenType::Plain)))
+    Ok((
+        remaining,
+        MessageFormatChunk::PlainToken(TokenName(token_name.to_string())),
+    ))
+}
+
+fn parse_string_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
+    let (remaining, matched) = alt((take_until1(TOKEN_START), take_while1(|_| true)))(input)?;
+
+    Ok((remaining, MessageFormatChunk::String(matched.to_string())))
 }
 
 impl MessageFormatChunk {
@@ -214,29 +219,29 @@ impl MessageFormatChunk {
     ) -> Result<String, InterpolationError> {
         match self {
             MessageFormatChunk::String(s) => Ok(s.to_string()),
+            MessageFormatChunk::PlainToken(name) => {
+                if let Some(token_value) = tokens.get_token_map().get(name) {
+                    if let TokenValue::String(s) = token_value {
+                        Ok(s.clone())
+                    } else {
+                        Err(InterpolationError::InvalidTokenValue(
+                            name.clone(),
+                            token_value.clone(),
+                        ))
+                    }
+                } else {
+                    Err(InterpolationError::MissingToken(name.clone()))
+                }
+            }
             MessageFormatChunk::Token { name, token_type } => {
                 if let Some(token_value) = tokens.get_token_map().get(name) {
-                    match token_value {
-                        TokenValue::String(s) => {
-                            if let TokenType::Plain = token_type {
-                                Ok(s.clone())
-                            } else {
-                                Err(InterpolationError::InvalidTokenValue(
-                                    name.clone(),
-                                    token_value.clone(),
-                                ))
-                            }
-                        }
-                        TokenValue::Entity(e) => {
-                            if let TokenType::Plain = token_type {
-                                Err(InterpolationError::InvalidTokenValue(
-                                    name.clone(),
-                                    token_value.clone(),
-                                ))
-                            } else {
-                                Ok(token_type.interpolate_entity(*e, pov_entity, world))
-                            }
-                        }
+                    if let TokenValue::Entity(e) = token_value {
+                        Ok(token_type.interpolate(*e, pov_entity, world))
+                    } else {
+                        Err(InterpolationError::InvalidTokenValue(
+                            name.clone(),
+                            token_value.clone(),
+                        ))
                     }
                 } else {
                     Err(InterpolationError::MissingToken(name.clone()))
@@ -248,9 +253,8 @@ impl MessageFormatChunk {
 
 impl TokenType {
     /// Interpolates this token with values from `entity`, from the point of view of `pov_entity`.
-    fn interpolate_entity(&self, entity: Entity, pov_entity: Entity, world: &World) -> String {
+    fn interpolate(&self, entity: Entity, pov_entity: Entity, world: &World) -> String {
         match self {
-            TokenType::Plain => panic!("aah"), //TODO
             TokenType::Name => Description::get_reference_name(entity, Some(pov_entity), world),
             TokenType::PersonalSubjectPronoun => {
                 Pronouns::get_personal_subject(entity, Some(pov_entity), world)
