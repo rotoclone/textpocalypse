@@ -4,10 +4,10 @@ use bevy_ecs::prelude::*;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_until1, take_while1},
-    character::complete::alphanumeric1,
+    character::{complete::alphanumeric1, is_alphanumeric},
     multi::many0,
     sequence::{delimited, separated_pair},
-    IResult,
+    AsChar, IResult,
 };
 
 use crate::{Description, Pronouns};
@@ -56,7 +56,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
     /// * `${name}`, where `name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity.
     ///
-    /// Token names must be alphanumeric.
+    /// Token names must be alphanumeric, but can contain underscores.
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
@@ -157,7 +157,11 @@ fn parse_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
     delimited(
         tag(TOKEN_START),
-        separated_pair(alphanumeric1, tag(TOKEN_TYPE_SEPARATOR), parse_token_type),
+        separated_pair(
+            take_while1(is_valid_token_name_char),
+            tag(TOKEN_TYPE_SEPARATOR),
+            parse_token_type,
+        ),
         tag(TOKEN_END),
     )(input)
 }
@@ -194,8 +198,11 @@ fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
 }
 
 fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, token_name) =
-        delimited(tag(TOKEN_START), alphanumeric1, tag(TOKEN_END))(input)?;
+    let (remaining, token_name) = delimited(
+        tag(TOKEN_START),
+        take_while1(is_valid_token_name_char),
+        tag(TOKEN_END),
+    )(input)?;
 
     Ok((
         remaining,
@@ -207,6 +214,11 @@ fn parse_string_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
     let (remaining, matched) = alt((take_until1(TOKEN_START), take_while1(|_| true)))(input)?;
 
     Ok((remaining, MessageFormatChunk::String(matched.to_string())))
+}
+
+/// Checks whether a character is allowed to be part of a token name.
+fn is_valid_token_name_char(c: char) -> bool {
+    c == '_' || c.is_alphanumeric()
 }
 
 impl MessageFormatChunk {
@@ -788,7 +800,7 @@ mod tests {
         //TODO add some way to specify whether an entity's name is plural separate from its pronouns.
         // For example, if a person is named Bob and their pronouns are they/them, "<name> <are/is> here" should be "Bob is here", but "<personal subject> <are/is> here" should be "they are here".
         let format =
-            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} cool. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
                 .unwrap();
 
         let mut world = World::new();
@@ -816,12 +828,16 @@ mod tests {
                     TokenName("entity2".to_string()),
                     TokenValue::Entity(entity_2),
                 ),
+                (
+                    TokenName("a_string".to_string()),
+                    TokenValue::String("pretty cool".to_string()),
+                ),
             ]
             .into(),
         );
 
         assert_eq!(
-            "it's the some entity and it is cool. Oh hey and some other entity is here and they are cool too I guess.",
+            "it's the some entity and it is pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
     }
@@ -829,7 +845,7 @@ mod tests {
     #[test]
     fn interpolate_multiple_tokens_same_as_pov_entity() {
         let format =
-            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} cool. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
                 .unwrap();
 
         let mut world = World::new();
@@ -856,12 +872,16 @@ mod tests {
                     TokenName("entity2".to_string()),
                     TokenValue::Entity(entity_2),
                 ),
+                (
+                    TokenName("a_string".to_string()),
+                    TokenValue::String("pretty cool".to_string()),
+                ),
             ]
             .into(),
         );
 
         assert_eq!(
-            "it's you and you are cool. Oh hey and some other entity is here and they are cool too I guess.",
+            "it's you and you are pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
             format.interpolate(entity_1, &tokens, &world).unwrap()
         );
     }
