@@ -4,10 +4,9 @@ use bevy_ecs::prelude::*;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_until1, take_while1},
-    character::{complete::alphanumeric1, is_alphanumeric},
     multi::many0,
     sequence::{delimited, separated_pair},
-    AsChar, IResult,
+    IResult,
 };
 
 use crate::{Description, Pronouns};
@@ -33,7 +32,7 @@ pub trait MessageTokens {
 }
 
 /// An error during message interpolation.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum InterpolationError {
     /// A token in the format string has no matching value provided.
     MissingToken(TokenName),
@@ -105,7 +104,7 @@ enum TokenType {
     PluralSingular { plural: String, singular: String },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParseError<'i> {
     /// Some of the input remained unparsed for some reason.
     /// The unparsed part is included.
@@ -358,6 +357,49 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_plain() {
+        let format = MessageFormat::new("${somethin}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(
+            [(
+                TokenName("somethin".to_string()),
+                TokenValue::String("oh hello".to_string()),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            "oh hello",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_wrong_token_value_type() {
+        let format = MessageFormat::new("${somethin}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(
+            [(
+                TokenName("somethin".to_string()),
+                TokenValue::Entity(pov_entity),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            Err(InterpolationError::InvalidTokenValue(
+                TokenName("somethin".to_string()),
+                TokenValue::Entity(pov_entity)
+            )),
+            format.interpolate(pov_entity, &tokens, &world)
+        );
+    }
+
+    #[test]
     fn interpolate_name() {
         let format = MessageFormat::new("${entity1.name}").unwrap();
 
@@ -375,6 +417,29 @@ mod tests {
         assert_eq!(
             "the some entity",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_wrong_token_value_type() {
+        let format = MessageFormat::new("${entity1.name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(
+            [(
+                TokenName("entity1".to_string()),
+                TokenValue::String("oh hello".to_string()),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            Err(InterpolationError::InvalidTokenValue(
+                TokenName("entity1".to_string()),
+                TokenValue::String("oh hello".to_string())
+            )),
+            format.interpolate(pov_entity, &tokens, &world)
         );
     }
 
@@ -886,9 +951,5 @@ mod tests {
         );
     }
 
-    //TODO tests with plain tokens
-
     //TODO tests with invalid format strings
-
-    //TODO tests with invalid token values
 }
