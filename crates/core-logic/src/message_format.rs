@@ -357,6 +357,134 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_invalid_token_name() {
+        let format = MessageFormat::new("${abc*}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(HashMap::new());
+
+        assert_eq!(
+            "${abc*}",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_invalid_token_type() {
+        let format = MessageFormat::new("${entity1.florb}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens(
+            [(
+                TokenName("entity1".to_string()),
+                TokenValue::Entity(entity_1),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            "${entity1.florb}",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_empty_token() {
+        let format = MessageFormat::new("${}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(HashMap::new());
+
+        assert_eq!(
+            "${}",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_missing_token() {
+        let format = MessageFormat::new("${somethin}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens([].into());
+
+        assert_eq!(
+            Err(InterpolationError::MissingToken(TokenName(
+                "somethin".to_string()
+            ))),
+            format.interpolate(pov_entity, &tokens, &world)
+        );
+    }
+
+    #[test]
+    fn interpolate_name_missing_token() {
+        let format = MessageFormat::new("${entity1.name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens([].into());
+
+        assert_eq!(
+            Err(InterpolationError::MissingToken(TokenName(
+                "entity1".to_string()
+            ))),
+            format.interpolate(pov_entity, &tokens, &world)
+        );
+    }
+
+    #[test]
+    fn interpolate_duplicate_token_names_different_value_types_string_provided() {
+        let format = MessageFormat::new("${entity1.name} and ${entity1}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = TestTokens(
+            [(
+                TokenName("entity1".to_string()),
+                TokenValue::String("sup".to_string()),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            Err(InterpolationError::InvalidTokenValue(
+                TokenName("entity1".to_string()),
+                TokenValue::String("sup".to_string())
+            )),
+            format.interpolate(pov_entity, &tokens, &world)
+        );
+    }
+
+    #[test]
+    fn interpolate_duplicate_token_names_different_value_types_entity_provided() {
+        let format = MessageFormat::new("${entity1.name} and ${entity1}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = TestTokens(
+            [(
+                TokenName("entity1".to_string()),
+                TokenValue::Entity(entity_1),
+            )]
+            .into(),
+        );
+
+        assert_eq!(
+            Err(InterpolationError::InvalidTokenValue(
+                TokenName("entity1".to_string()),
+                TokenValue::Entity(entity_1)
+            )),
+            format.interpolate(pov_entity, &tokens, &world)
+        );
+    }
+
+    #[test]
     fn interpolate_plain() {
         let format = MessageFormat::new("${somethin}").unwrap();
 
@@ -382,10 +510,11 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
         let tokens = TestTokens(
             [(
                 TokenName("somethin".to_string()),
-                TokenValue::Entity(pov_entity),
+                TokenValue::Entity(entity_1),
             )]
             .into(),
         );
@@ -393,7 +522,7 @@ mod tests {
         assert_eq!(
             Err(InterpolationError::InvalidTokenValue(
                 TokenName("somethin".to_string()),
-                TokenValue::Entity(pov_entity)
+                TokenValue::Entity(entity_1)
             )),
             format.interpolate(pov_entity, &tokens, &world)
         );
@@ -951,5 +1080,49 @@ mod tests {
         );
     }
 
-    //TODO tests with invalid format strings
+    #[test]
+    fn interpolate_multiple_tokens_with_invalid_token() {
+        let format =
+            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+                .unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let entity_2 = world
+            .spawn(Description {
+                name: "some other entity".to_string(),
+                room_name: "some other entity room name".to_string(),
+                plural_name: "some other entities".to_string(),
+                article: None,
+                pronouns: Pronouns::they(),
+                aliases: vec![],
+                description: "it's a different entity wow".to_string(),
+                attribute_describers: vec![],
+            })
+            .id();
+        let tokens = TestTokens(
+            [
+                (
+                    TokenName("entity1".to_string()),
+                    TokenValue::Entity(entity_1),
+                ),
+                (
+                    TokenName("entity2".to_string()),
+                    TokenValue::Entity(entity_2),
+                ),
+                (
+                    TokenName("a_string".to_string()),
+                    TokenValue::String("pretty cool".to_string()),
+                ),
+            ]
+            .into(),
+        );
+
+        //TODO make invalid tokens not break all subsequent token parsing
+        assert_eq!(
+            "it's the some entity and it is pretty cool. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
 }
