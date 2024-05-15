@@ -210,7 +210,7 @@ fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 }
 
 fn parse_string_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, matched) = alt((take_until1(TOKEN_START), take_while1(|_| true)))(input)?;
+    let (remaining, matched) = alt((take_until(TOKEN_START), take_while1(|_| true)))(input)?; //TODO change back?
 
     Ok((remaining, MessageFormatChunk::String(matched.to_string())))
 }
@@ -358,51 +358,34 @@ mod tests {
 
     #[test]
     fn interpolate_invalid_token_name() {
-        let format = MessageFormat::new("${abc*}").unwrap();
-
-        let mut world = World::new();
-        let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(HashMap::new());
-
-        assert_eq!(
-            "${abc*}",
-            format.interpolate(pov_entity, &tokens, &world).unwrap()
-        );
+        assert!(matches!(
+            MessageFormat::<TestTokens>::new("${abc*}"),
+            Err(ParseError::InternalParserError(_))
+        ));
     }
 
     #[test]
     fn interpolate_invalid_token_type() {
-        let format = MessageFormat::new("${entity1.florb}").unwrap();
-
-        let mut world = World::new();
-        let pov_entity = world.spawn_empty().id();
-        let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
-
-        assert_eq!(
-            "${entity1.florb}",
-            format.interpolate(pov_entity, &tokens, &world).unwrap()
-        );
+        assert!(matches!(
+            MessageFormat::<TestTokens>::new("${entity1.florb}"),
+            Err(ParseError::InternalParserError(_))
+        ));
     }
 
     #[test]
     fn interpolate_empty_token() {
-        let format = MessageFormat::new("${}").unwrap();
+        assert!(matches!(
+            MessageFormat::<TestTokens>::new("${}"),
+            Err(ParseError::InternalParserError(_))
+        ));
+    }
 
-        let mut world = World::new();
-        let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(HashMap::new());
-
-        assert_eq!(
-            "${}",
-            format.interpolate(pov_entity, &tokens, &world).unwrap()
-        );
+    #[test]
+    fn interpolate_partial_token() {
+        assert!(matches!(
+            MessageFormat::<TestTokens>::new("oh ${hello"),
+            Err(ParseError::InternalParserError(_))
+        ));
     }
 
     #[test]
@@ -1081,9 +1064,9 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_multiple_tokens_with_invalid_token() {
+    fn interpolate_multiple_tokens_no_non_token_parts() {
         let format =
-            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+            MessageFormat::new("${entity1.name}${entity1.they}${entity1.are/is}${a_string}")
                 .unwrap();
 
         let mut world = World::new();
@@ -1119,10 +1102,19 @@ mod tests {
             .into(),
         );
 
-        //TODO make invalid tokens not break all subsequent token parsing
         assert_eq!(
-            "it's the some entity and it is pretty cool. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.",
+            "the some entityitispretty cool",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
+    }
+
+    #[test]
+    fn interpolate_multiple_tokens_with_invalid_token() {
+        let format_string = "it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.";
+
+        assert!(matches!(
+            MessageFormat::<TestTokens>::new(format_string),
+            Err(ParseError::InternalParserError(_))
+        ));
     }
 }
