@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
@@ -7,8 +8,9 @@ use crate::{
     ActionResultBuilder, BodyPart, CheckModifiers, CheckResult, CombatRange, CombatState,
     CommandParseError, CommandTarget, Container, Description, EquippedItems, InnateWeapon,
     InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
-    Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
+    MessageFormat, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
+    ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant,
+    Weapon, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -476,20 +478,20 @@ pub fn handle_damage(
         Some(hit_params.performing_entity),
         world,
     );
-    let weapon_hit_verb = &world
+    let hit_message = &world
         .get::<Weapon>(hit_params.weapon_entity)
         .expect("weapon should be a weapon")
-        .hit_verb;
+        .messages
+        .hit
+        .choose(&mut rand::thread_rng())
+        .unwrap_or_else(|| &MessageFormat::new("${attacker.name} ${attacker.hit/hits} ${target.name}'s ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+
     result_builder
         .with_message(
             hit_params.performing_entity,
             format!(
-                "You {} {}'s {} with a {} from {}.",
-                hit_severity_first_person,
-                target_name,
-                hit_params.body_part,
-                weapon_hit_verb.second_person,
-                weapon_name
+                "You hit {}'s {} with {}.",
+                target_name, hit_params.body_part, weapon_hit_verb.second_person, weapon_name
             ),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,

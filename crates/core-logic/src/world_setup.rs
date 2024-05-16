@@ -11,9 +11,8 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity,
-    verb_forms::VerbForms,
-    BodyPart, ConstrainedValue, Direction, Invisible, WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, WeaponMessages,
+    AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -736,11 +735,6 @@ pub fn spawn_start_building(
             Item::new_two_handed(),
             Weapon {
                 weapon_type: WeaponType::Bludgeon,
-                hit_verb: VerbForms {
-                    second_person: "bonk".to_string(),
-                    third_person_plural: "bonk".to_string(),
-                    third_person_singular: "bonks".to_string(),
-                },
                 base_damage_range: 10..=15,
                 critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
                 ranges: WeaponRanges {
@@ -757,9 +751,9 @@ pub fn spawn_start_building(
                     to_hit_bonus_per_stat_point: 1.0,
                 },
                 messages: WeaponMessages {
-                    miss: vec![],
-                    hit: vec![],
-                    crit: vec![],
+                    miss: vec![MessageFormat::new("${attacker.name} ${attacker.swing/swings} ${weapon.name} wide of ${target.name). Strike!").expect("message format should be valid")],
+                    hit: vec![MessageFormat::new("${attacker.name} ${attacker.bonk/bonks} ${target.name} on the ${body_part} with ${weapon.name}.").expect("message format should be valid")],
+                    crit: vec![MessageFormat::new("${attacker.name} ${attacker.wind/winds} up with ${weapon.name} and ${attacker.connect/connects} with ${target.name}'s ${body_part} with a loud crack.").expect("message format should be valid")],
                 },
             },
             Volume(0.5),

@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms, MessageFormat, MessageTokens, TokenName, TokenValue,
+    MessageFormat, MessageTokens, TokenName, TokenValue,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -16,9 +16,6 @@ use super::{combat_state::CombatRange, InnateWeapon, Stat};
 pub struct Weapon {
     /// The type of weapon this is.
     pub weapon_type: WeaponType,
-    /// The verb to use when describing hits from this weapon. E.g. shoot, stab, etc.
-    /// TODO remove
-    pub hit_verb: VerbForms,
     /// The amount of damage the weapon can do.
     pub base_damage_range: RangeInclusive<u32>,
     /// How to modify the damage on a critical hit.
@@ -145,10 +142,15 @@ pub struct WeaponMessages {
     pub crit: Vec<MessageFormat<WeaponMessageTokens>>,
 }
 
+/// Tokens used in weapon messages.
 pub struct WeaponMessageTokens {
+    /// The attacking entity
     pub attacker: Entity,
+    /// The target of the attack
     pub target: Entity,
+    /// THe weapon used in the attack
     pub weapon: Entity,
+    /// The name of the body part hit in the attack
     pub body_part: String,
 }
 

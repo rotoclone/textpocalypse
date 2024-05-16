@@ -114,6 +114,7 @@ pub use equipped_items::UnequipError;
 mod weapon;
 pub use weapon::Weapon;
 pub use weapon::WeaponDamageAdjustment;
+pub use weapon::WeaponMessageTokens;
 pub use weapon::WeaponMessages;
 pub use weapon::WeaponPerformanceAdjustment;
 pub use weapon::WeaponRanges;

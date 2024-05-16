@@ -466,11 +466,6 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
         .spawn((
             Weapon {
                 weapon_type: WeaponType::Fists,
-                hit_verb: VerbForms {
-                    second_person: "punch".to_string(),
-                    third_person_plural: "punch".to_string(),
-                    third_person_singular: "punches".to_string(),
-                },
                 base_damage_range: 1..=2,
                 critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
                 ranges: WeaponRanges {
@@ -486,6 +481,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     to_hit_bonus_stat_range: 10.0..=20.0,
                     to_hit_bonus_per_stat_point: 0.2,
                 },
+                //TODO
                 messages: WeaponMessages {
                     miss: vec![],
                     hit: vec![],

@@ -55,6 +55,8 @@ impl<T: MessageTokens> MessageFormat<T> {
     /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
     /// * `${name}`, where `name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity.
     ///
+    /// TODO add a way to denote that a token's replacement should be capitalized
+    ///
     /// Token names must be alphanumeric, but can contain underscores.
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
@@ -210,7 +212,7 @@ fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 }
 
 fn parse_string_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, matched) = alt((take_until(TOKEN_START), take_while1(|_| true)))(input)?; //TODO change back?
+    let (remaining, matched) = alt((take_until(TOKEN_START), take_while1(|_| true)))(input)?;
 
     Ok((remaining, MessageFormatChunk::String(matched.to_string())))
 }
