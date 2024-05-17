@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 use bevy_ecs::prelude::*;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until, take_until1, take_while1},
+    bytes::complete::{tag, take_until, take_while1},
     multi::many0,
     sequence::{delimited, separated_pair},
     IResult,
@@ -12,6 +12,7 @@ use nom::{
 use crate::{Description, Pronouns};
 
 /// A message with places for interpolated values, such as entity names.
+#[derive(Clone)]
 pub struct MessageFormat<T: MessageTokens>(Vec<MessageFormatChunk>, PhantomData<fn(T)>);
 
 /// The name of a token\
@@ -85,7 +86,7 @@ impl<T: MessageTokens> MessageFormat<T> {
 
 struct ParsedMessageFormat(Vec<MessageFormatChunk>);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum MessageFormatChunk {
     String(String),
     PlainToken(TokenName),
@@ -95,7 +96,7 @@ enum MessageFormatChunk {
     },
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum TokenType {
     Name,
     PersonalSubjectPronoun,

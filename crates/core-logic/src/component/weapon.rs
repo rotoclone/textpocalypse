@@ -143,6 +143,7 @@ pub struct WeaponMessages {
 }
 
 /// Tokens used in weapon messages.
+#[derive(Clone)]
 pub struct WeaponMessageTokens {
     /// The attacking entity
     pub attacker: Entity,

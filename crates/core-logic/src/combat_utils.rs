@@ -10,7 +10,7 @@ use crate::{
     InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
     ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant,
-    Weapon, WeaponUnusableError,
+    Weapon, WeaponMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -375,6 +375,8 @@ pub struct HitParams {
     pub weapon_entity: Entity,
     /// The damage done
     pub damage: u32,
+    /// Whether the hit is a critical hit or not
+    pub is_crit: bool,
     /// The body part hit
     pub body_part: BodyPart,
 }
@@ -425,6 +427,7 @@ pub fn check_for_hit(
                     target,
                     weapon_entity,
                     damage,
+                    is_crit: critical,
                     body_part,
                 }))
             }
@@ -442,7 +445,7 @@ pub fn handle_damage(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    //TODO instead of having these messages in here, make them defined on the weapons themselves
+    //TODO replace is_crit with a hit severity enum based on percentage of target health removed?
     let target_health = world
         .get::<Vitals>(hit_params.target)
         .map(|vitals| &vitals.health)
@@ -478,21 +481,36 @@ pub fn handle_damage(
         Some(hit_params.performing_entity),
         world,
     );
-    let hit_message = &world
+
+    let weapon_messages = world
         .get::<Weapon>(hit_params.weapon_entity)
         .expect("weapon should be a weapon")
-        .messages
-        .hit
+        .messages;
+
+    let hit_messages_to_choose_from = if hit_params.is_crit {
+        weapon_messages.crit
+    } else {
+        weapon_messages.hit
+    };
+
+    let hit_message = hit_messages_to_choose_from
         .choose(&mut rand::thread_rng())
-        .unwrap_or_else(|| &MessageFormat::new("${attacker.name} ${attacker.hit/hits} ${target.name}'s ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+        .cloned()
+        .unwrap_or_else(|| MessageFormat::new("${attacker.name} ${attacker.hit/hits} ${target.name}'s ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+
+    let hit_message_tokens = WeaponMessageTokens {
+        attacker: hit_params.performing_entity,
+        target: hit_params.target,
+        weapon: hit_params.weapon_entity,
+        body_part: hit_params.body_part.to_string(),
+    };
 
     result_builder
         .with_message(
             hit_params.performing_entity,
-            format!(
-                "You hit {}'s {} with {}.",
-                target_name, hit_params.body_part, weapon_hit_verb.second_person, weapon_name
-            ),
+            hit_message
+                .interpolate(hit_params.performing_entity, &hit_message_tokens, world)
+                .expect("hit message should interpolate correctly"),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -502,16 +520,9 @@ pub fn handle_damage(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(hit_params.performing_entity)
-            .add_string(format!(" {hit_severity_third_person} "))
-            .add_name(hit_params.target)
-            .add_string(format!(
-                " in the {} with a {} from ",
-                hit_params.body_part, weapon_hit_verb.second_person
-            ))
-            .add_name(hit_params.weapon_entity)
-            .add_string("!"),
+                hit_message,
+                hit_message_tokens,
+            ),
             world,
         )
 }
