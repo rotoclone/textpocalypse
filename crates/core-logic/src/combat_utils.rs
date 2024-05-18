@@ -10,7 +10,7 @@ use crate::{
     InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
     ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant,
-    Weapon, WeaponMessageTokens, WeaponUnusableError,
+    Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -498,7 +498,7 @@ pub fn handle_damage(
         .cloned()
         .unwrap_or_else(|| MessageFormat::new("${attacker.name} ${attacker.hit/hits} ${target.name}'s ${body_part} with ${weapon.name}.").expect("message format should be valid"));
 
-    let hit_message_tokens = WeaponMessageTokens {
+    let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
         target: hit_params.target,
         weapon: hit_params.weapon_entity,
@@ -510,7 +510,7 @@ pub fn handle_damage(
             hit_params.performing_entity,
             hit_message
                 .interpolate(hit_params.performing_entity, &hit_message_tokens, world)
-                .expect("hit message should interpolate correctly"),
+                .expect("hit message interpolation should not fail"),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -535,14 +535,24 @@ pub fn handle_miss(
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    //TODO instead of having these messages in here, make them defined on the weapons themselves
     let weapon_name =
         Description::get_reference_name(weapon_entity, Some(performing_entity), world);
     let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    let miss_message = world.get::<Weapon>(weapon_entity).expect("weapon should be a weapon").messages.miss.choose(&mut rand::thread_rng()).cloned().unwrap_or_else(|| MessageFormat::new("${attacker.name} ${attacker.fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
+
+    let miss_message_tokens = WeaponMissMessageTokens {
+        attacker: performing_entity,
+        target,
+        weapon: weapon_entity,
+    };
+
     result_builder
         .with_message(
             performing_entity,
-            format!("You fail to hit {target_name} with {weapon_name}."),
+            miss_message
+                .interpolate(performing_entity, &miss_message_tokens, world)
+                .expect("miss message should interpolate correctly"),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -552,13 +562,9 @@ pub fn handle_miss(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(performing_entity)
-            .add_string(" fails to hit ")
-            .add_name(target)
-            .add_string(" with ")
-            .add_name(weapon_entity)
-            .add_string("."),
+                miss_message,
+                miss_message_tokens,
+            ),
             world,
         )
 }

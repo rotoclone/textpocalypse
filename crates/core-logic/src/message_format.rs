@@ -8,6 +8,7 @@ use nom::{
     sequence::{delimited, separated_pair},
     IResult,
 };
+use voca_rs::Voca;
 
 use crate::{Description, Pronouns};
 
@@ -56,9 +57,11 @@ impl<T: MessageTokens> MessageFormat<T> {
     /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
     /// * `${name}`, where `name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity.
     ///
-    /// TODO add a way to denote that a token's replacement should be capitalized
+    /// For typed tokens, if the first character of the type of the token is capitalized (for example, `${someToken.They}`), then the interpolated value will have its first character capitalized.
     ///
-    /// Token names must be alphanumeric, but can contain underscores.
+    /// For plain tokens, if the first character of the name of the token is capitalized (for example, `${SomeToken}`), then the first letter of the token's value will have its first character capitalized.
+    ///
+    /// Token must be alphanumeric, but can contain underscores.
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
@@ -89,10 +92,14 @@ struct ParsedMessageFormat(Vec<MessageFormatChunk>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum MessageFormatChunk {
     String(String),
-    PlainToken(TokenName),
+    PlainToken {
+        name: TokenName,
+        capitalize: bool,
+    },
     Token {
         name: TokenName,
         token_type: TokenType,
+        capitalize: bool,
     },
 }
 
@@ -145,18 +152,19 @@ fn parse_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 }
 
 fn parse_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
-    let (remaining, (token_name, token_type)) = parse_token(input)?;
+    let (remaining, (token_name, (token_type, capitalize))) = parse_token(input)?;
 
     Ok((
         remaining,
         MessageFormatChunk::Token {
             name: TokenName(token_name.to_string()),
             token_type,
+            capitalize,
         },
     ))
 }
 
-fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
+fn parse_token(input: &str) -> IResult<&str, (&str, (TokenType, bool))> {
     delimited(
         tag(TOKEN_START),
         separated_pair(
@@ -168,22 +176,24 @@ fn parse_token(input: &str) -> IResult<&str, (&str, TokenType)> {
     )(input)
 }
 
-fn parse_token_type(input: &str) -> IResult<&str, TokenType> {
+fn parse_token_type(input: &str) -> IResult<&str, (TokenType, bool)> {
     let (remaining, token_type_string) = take_until(TOKEN_END)(input)?;
     let token_type = match token_type_string {
-        "name" => TokenType::Name,
-        "they" => TokenType::PersonalSubjectPronoun,
-        "them" => TokenType::PersonalObjectPronoun,
-        "theirs" => TokenType::PossessivePronoun,
-        "their" => TokenType::PossessiveAdjectivePronoun,
-        "themself" => TokenType::ReflexivePronoun,
+        "name" | "Name" => TokenType::Name,
+        "they" | "They" => TokenType::PersonalSubjectPronoun,
+        "them" | "Them" => TokenType::PersonalObjectPronoun,
+        "theirs" | "Theirs" => TokenType::PossessivePronoun,
+        "their" | "Their" => TokenType::PossessiveAdjectivePronoun,
+        "themself" | "Themself" => TokenType::ReflexivePronoun,
         _ => return parse_plural_singular_token_type(input),
     };
 
-    Ok((remaining, token_type))
+    let capitalize = token_type_string._is_upper_first();
+
+    Ok((remaining, (token_type, capitalize)))
 }
 
-fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
+fn parse_plural_singular_token_type(input: &str) -> IResult<&str, (TokenType, bool)> {
     let (remaining, (plural, singular)) = separated_pair(
         take_until(PLURAL_SINGULAR_SEPARATOR),
         tag(PLURAL_SINGULAR_SEPARATOR),
@@ -192,10 +202,13 @@ fn parse_plural_singular_token_type(input: &str) -> IResult<&str, TokenType> {
 
     Ok((
         remaining,
-        TokenType::PluralSingular {
-            plural: plural.to_string(),
-            singular: singular.to_string(),
-        },
+        (
+            TokenType::PluralSingular {
+                plural: plural.to_string(),
+                singular: singular.to_string(),
+            },
+            false,
+        ),
     ))
 }
 
@@ -208,7 +221,10 @@ fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
 
     Ok((
         remaining,
-        MessageFormatChunk::PlainToken(TokenName(token_name.to_string())),
+        MessageFormatChunk::PlainToken {
+            name: TokenName(token_name.to_string()),
+            capitalize: token_name._is_upper_first(),
+        },
     ))
 }
 
@@ -233,10 +249,15 @@ impl MessageFormatChunk {
     ) -> Result<String, InterpolationError> {
         match self {
             MessageFormatChunk::String(s) => Ok(s.to_string()),
-            MessageFormatChunk::PlainToken(name) => {
+            MessageFormatChunk::PlainToken { name, capitalize } => {
+                //TODO handle plain tokens with uppercase first letters correctly
                 if let Some(token_value) = tokens.get_token_map().get(name) {
                     if let TokenValue::String(s) = token_value {
-                        Ok(s.clone())
+                        if *capitalize {
+                            Ok(s.clone()._upper_first())
+                        } else {
+                            Ok(s.clone())
+                        }
                     } else {
                         Err(InterpolationError::InvalidTokenValue(
                             name.clone(),
@@ -247,9 +268,14 @@ impl MessageFormatChunk {
                     Err(InterpolationError::MissingToken(name.clone()))
                 }
             }
-            MessageFormatChunk::Token { name, token_type } => {
+            MessageFormatChunk::Token {
+                name,
+                token_type,
+                capitalize,
+            } => {
                 if let Some(token_value) = tokens.get_token_map().get(name) {
                     if let TokenValue::Entity(e) = token_value {
+                        //TODO capitalize if needed
                         Ok(token_type.interpolate(*e, pov_entity, world))
                     } else {
                         Err(InterpolationError::InvalidTokenValue(
@@ -1120,4 +1146,6 @@ mod tests {
             Err(ParseError::InternalParserError(_))
         ));
     }
+
+    //TODO tests for capitalization
 }

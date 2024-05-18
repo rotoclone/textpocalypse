@@ -135,16 +135,16 @@ pub struct WeaponStatBonuses {
 /// Describes the messages to send when a weapon is used.
 pub struct WeaponMessages {
     /// Messages for misses
-    pub miss: Vec<MessageFormat<WeaponMessageTokens>>,
+    pub miss: Vec<MessageFormat<WeaponMissMessageTokens>>,
     /// Messages for hits
-    pub hit: Vec<MessageFormat<WeaponMessageTokens>>,
+    pub hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
     /// Messages for critical hits
-    pub crit: Vec<MessageFormat<WeaponMessageTokens>>,
+    pub crit: Vec<MessageFormat<WeaponHitMessageTokens>>,
 }
 
-/// Tokens used in weapon messages.
+/// Tokens used in weapon messages for hits.
 #[derive(Clone)]
-pub struct WeaponMessageTokens {
+pub struct WeaponHitMessageTokens {
     /// The attacking entity
     pub attacker: Entity,
     /// The target of the attack
@@ -155,7 +155,18 @@ pub struct WeaponMessageTokens {
     pub body_part: String,
 }
 
-impl MessageTokens for WeaponMessageTokens {
+/// Tokens used in weapon messages for misses.
+#[derive(Clone)]
+pub struct WeaponMissMessageTokens {
+    /// The attacking entity
+    pub attacker: Entity,
+    /// The target of the attack
+    pub target: Entity,
+    /// THe weapon used in the attack
+    pub weapon: Entity,
+}
+
+impl MessageTokens for WeaponHitMessageTokens {
     fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
         [
             (
@@ -173,6 +184,26 @@ impl MessageTokens for WeaponMessageTokens {
             (
                 TokenName("body_part".to_string()),
                 TokenValue::String(self.body_part.clone()),
+            ),
+        ]
+        .into()
+    }
+}
+
+impl MessageTokens for WeaponMissMessageTokens {
+    fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
+        [
+            (
+                TokenName("attacker".to_string()),
+                TokenValue::Entity(self.attacker),
+            ),
+            (
+                TokenName("target".to_string()),
+                TokenValue::Entity(self.target),
+            ),
+            (
+                TokenName("weapon".to_string()),
+                TokenValue::Entity(self.weapon),
             ),
         ]
         .into()
