@@ -16,9 +16,21 @@ use crate::{Description, Pronouns};
 #[derive(Clone)]
 pub struct MessageFormat<T: MessageTokens>(Vec<MessageFormatChunk>, PhantomData<fn(T)>);
 
-/// The name of a token\
+/// The name of a token
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub struct TokenName(pub String);
+pub struct TokenName(String);
+
+impl From<&str> for TokenName {
+    fn from(value: &str) -> Self {
+        TokenName(value.to_string())
+    }
+}
+
+impl From<String> for TokenName {
+    fn from(value: String) -> Self {
+        TokenName(value)
+    }
+}
 
 /// The value to use when interpolating a token
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -31,6 +43,38 @@ pub enum TokenValue {
 pub trait MessageTokens {
     /// Returns a map of token names to what to use to fill in the interpolated values.
     fn get_token_map(&self) -> HashMap<TokenName, TokenValue>;
+}
+
+/// A generic set of tokens, for use with one-time message formats that don't need fancy token type safety.
+pub struct BasicTokens(HashMap<TokenName, TokenValue>);
+
+impl MessageTokens for BasicTokens {
+    fn get_token_map(&self) -> HashMap<TokenName, TokenValue> {
+        self.0.clone()
+    }
+}
+
+impl BasicTokens {
+    /// Creates an empty set of tokens.
+    pub fn new() -> BasicTokens {
+        BasicTokens(HashMap::new())
+    }
+
+    /// Adds a string token.
+    pub fn with_string(mut self, name: TokenName, value: String) -> BasicTokens {
+        self.with_token(name, TokenValue::String(value))
+    }
+
+    /// Adds an entity token.
+    pub fn with_entity(mut self, name: TokenName, value: Entity) -> BasicTokens {
+        self.with_token(name, TokenValue::Entity(value))
+    }
+
+    /// Adds a token, replacing any previous value with the same name.
+    fn with_token(mut self, name: TokenName, value: TokenValue) -> BasicTokens {
+        self.0.insert(name, value);
+        self
+    }
 }
 
 /// An error during message interpolation.
@@ -324,14 +368,6 @@ impl TokenType {
 mod tests {
     use super::*;
 
-    struct TestTokens(HashMap<TokenName, TokenValue>);
-
-    impl MessageTokens for TestTokens {
-        fn get_token_map(&self) -> HashMap<TokenName, TokenValue> {
-            self.0.clone()
-        }
-    }
-
     #[allow(unused)]
     fn build_entity_1_description() -> Description {
         Description {
@@ -352,7 +388,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(HashMap::new());
+        let tokens = BasicTokens::new();
 
         assert_eq!("", format.interpolate(pov_entity, &tokens, &world).unwrap());
     }
@@ -363,7 +399,21 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(HashMap::new());
+        let tokens = BasicTokens::new();
+
+        assert_eq!(
+            "oh hello there",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_no_tokens_with_token_provided() {
+        let format = MessageFormat::new("oh hello there").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_string("hello".into(), "sup".to_string());
 
         assert_eq!(
             "oh hello there",
@@ -377,7 +427,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(HashMap::new());
+        let tokens = BasicTokens::new();
 
         assert_eq!(
             "oh hello there $a {{}{}{}}}}}}{{{{{ ./b./././",
@@ -388,7 +438,7 @@ mod tests {
     #[test]
     fn interpolate_invalid_token_name() {
         assert!(matches!(
-            MessageFormat::<TestTokens>::new("${abc*}"),
+            MessageFormat::<BasicTokens>::new("${abc*}"),
             Err(ParseError::InternalParserError(_))
         ));
     }
@@ -396,7 +446,7 @@ mod tests {
     #[test]
     fn interpolate_invalid_token_type() {
         assert!(matches!(
-            MessageFormat::<TestTokens>::new("${entity1.florb}"),
+            MessageFormat::<BasicTokens>::new("${entity1.florb}"),
             Err(ParseError::InternalParserError(_))
         ));
     }
@@ -404,7 +454,7 @@ mod tests {
     #[test]
     fn interpolate_empty_token() {
         assert!(matches!(
-            MessageFormat::<TestTokens>::new("${}"),
+            MessageFormat::<BasicTokens>::new("${}"),
             Err(ParseError::InternalParserError(_))
         ));
     }
@@ -412,7 +462,7 @@ mod tests {
     #[test]
     fn interpolate_partial_token() {
         assert!(matches!(
-            MessageFormat::<TestTokens>::new("oh ${hello"),
+            MessageFormat::<BasicTokens>::new("oh ${hello"),
             Err(ParseError::InternalParserError(_))
         ));
     }
@@ -423,7 +473,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens([].into());
+        let tokens = BasicTokens::new();
 
         assert_eq!(
             Err(InterpolationError::MissingToken(TokenName(
@@ -439,7 +489,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens([].into());
+        let tokens = BasicTokens::new();
 
         assert_eq!(
             Err(InterpolationError::MissingToken(TokenName(
@@ -455,17 +505,11 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::String("sup".to_string()),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_string("entity1".into(), "sup".to_string());
 
         assert_eq!(
             Err(InterpolationError::InvalidTokenValue(
-                TokenName("entity1".to_string()),
+                "entity1".into(),
                 TokenValue::String("sup".to_string())
             )),
             format.interpolate(pov_entity, &tokens, &world)
@@ -479,17 +523,11 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             Err(InterpolationError::InvalidTokenValue(
-                TokenName("entity1".to_string()),
+                "entity1".into(),
                 TokenValue::Entity(entity_1)
             )),
             format.interpolate(pov_entity, &tokens, &world)
@@ -502,13 +540,7 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(
-            [(
-                TokenName("somethin".to_string()),
-                TokenValue::String("oh hello".to_string()),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_string("somethin".into(), "oh hello".to_string());
 
         assert_eq!(
             "oh hello",
@@ -523,17 +555,11 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("somethin".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("somethin".into(), entity_1);
 
         assert_eq!(
             Err(InterpolationError::InvalidTokenValue(
-                TokenName("somethin".to_string()),
+                "somethin".into(),
                 TokenValue::Entity(entity_1)
             )),
             format.interpolate(pov_entity, &tokens, &world)
@@ -547,13 +573,7 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "the some entity",
@@ -567,17 +587,11 @@ mod tests {
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::String("oh hello".to_string()),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_string("entity1".into(), "oh hello".to_string());
 
         assert_eq!(
             Err(InterpolationError::InvalidTokenValue(
-                TokenName("entity1".to_string()),
+                "entity1".into(),
                 TokenValue::String("oh hello".to_string())
             )),
             format.interpolate(pov_entity, &tokens, &world)
@@ -596,13 +610,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "some entity",
@@ -621,13 +629,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "you",
@@ -647,13 +649,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "p subj",
@@ -673,13 +669,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "p obj",
@@ -699,13 +689,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "poss",
@@ -725,13 +709,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "poss adj",
@@ -751,13 +729,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "refl",
@@ -771,13 +743,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "you",
@@ -791,13 +757,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "you",
@@ -811,13 +771,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "yours",
@@ -831,13 +785,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "your",
@@ -851,13 +799,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "yourself",
@@ -874,13 +816,7 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "this is the singular form",
@@ -902,13 +838,7 @@ mod tests {
                 ..build_entity_1_description()
             })
             .id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "this is the plural form",
@@ -924,13 +854,7 @@ mod tests {
 
         let mut world = World::new();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "this is the plural form",
@@ -945,13 +869,7 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "the some entity and stuff",
@@ -966,13 +884,7 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "stuff and the some entity",
@@ -987,13 +899,7 @@ mod tests {
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world.spawn(build_entity_1_description()).id();
-        let tokens = TestTokens(
-            [(
-                TokenName("entity1".to_string()),
-                TokenValue::Entity(entity_1),
-            )]
-            .into(),
-        );
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
 
         assert_eq!(
             "stuff and the some entity wow",
@@ -1024,23 +930,10 @@ mod tests {
                 attribute_describers: vec![],
             })
             .id();
-        let tokens = TestTokens(
-            [
-                (
-                    TokenName("entity1".to_string()),
-                    TokenValue::Entity(entity_1),
-                ),
-                (
-                    TokenName("entity2".to_string()),
-                    TokenValue::Entity(entity_2),
-                ),
-                (
-                    TokenName("a_string".to_string()),
-                    TokenValue::String("pretty cool".to_string()),
-                ),
-            ]
-            .into(),
-        );
+        let tokens = BasicTokens::new()
+            .with_entity("entity1".into(), entity_1)
+            .with_entity("entity2".into(), entity_2)
+            .with_string("a_string".into(), "pretty_cool".to_string());
 
         assert_eq!(
             "it's the some entity and it is pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
@@ -1068,23 +961,10 @@ mod tests {
                 attribute_describers: vec![],
             })
             .id();
-        let tokens = TestTokens(
-            [
-                (
-                    TokenName("entity1".to_string()),
-                    TokenValue::Entity(entity_1),
-                ),
-                (
-                    TokenName("entity2".to_string()),
-                    TokenValue::Entity(entity_2),
-                ),
-                (
-                    TokenName("a_string".to_string()),
-                    TokenValue::String("pretty cool".to_string()),
-                ),
-            ]
-            .into(),
-        );
+        let tokens = BasicTokens::new()
+            .with_entity("entity1".into(), entity_1)
+            .with_entity("entity2".into(), entity_2)
+            .with_string("a_string".into(), "pretty_cool".to_string());
 
         assert_eq!(
             "it's you and you are pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
@@ -1113,23 +993,10 @@ mod tests {
                 attribute_describers: vec![],
             })
             .id();
-        let tokens = TestTokens(
-            [
-                (
-                    TokenName("entity1".to_string()),
-                    TokenValue::Entity(entity_1),
-                ),
-                (
-                    TokenName("entity2".to_string()),
-                    TokenValue::Entity(entity_2),
-                ),
-                (
-                    TokenName("a_string".to_string()),
-                    TokenValue::String("pretty cool".to_string()),
-                ),
-            ]
-            .into(),
-        );
+        let tokens = BasicTokens::new()
+            .with_entity("entity1".into(), entity_1)
+            .with_entity("entity2".into(), entity_2)
+            .with_string("a_string".into(), "pretty_cool".to_string());
 
         assert_eq!(
             "the some entityitispretty cool",
@@ -1142,7 +1009,7 @@ mod tests {
         let format_string = "it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. ${} Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.";
 
         assert!(matches!(
-            MessageFormat::<TestTokens>::new(format_string),
+            MessageFormat::<BasicTokens>::new(format_string),
             Err(ParseError::InternalParserError(_))
         ));
     }
