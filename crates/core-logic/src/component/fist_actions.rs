@@ -6,8 +6,8 @@ use crate::{
     check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
     ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BeforeActionNotification, Description, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput,
+    BasicTokens, BeforeActionNotification, Description, InputParseError, IntegerExtensions,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, ParseCustomInput,
     SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
     VerifyActionNotification, VerifyResult, Weapon,
 };
@@ -286,11 +286,14 @@ impl Action for HaymakerAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" faces ")
-                    .add_name(target)
-                    .add_string(" and winds up for a haymaker."),
+                        MessageFormat::new(
+                            "${attacker.Name} faces ${target.name} and winds up for a haymaker.",
+                        )
+                        .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("attacker".into(), performing_entity)
+                            .with_entity("target".into(), target),
+                    ),
                     world,
                 )
                 .build_incomplete(true);
@@ -310,9 +313,10 @@ impl Action for HaymakerAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" continues preparing for a haymaker."),
+                        MessageFormat::new("${attacker.Name} continues preparing for a haymaker.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("attacker".into(), performing_entity),
+                    ),
                     world,
                 )
                 .build_incomplete(true);

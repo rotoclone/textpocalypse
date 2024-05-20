@@ -162,27 +162,18 @@ pub struct WeaponMissMessageTokens {
     pub attacker: Entity,
     /// The target of the attack
     pub target: Entity,
-    /// THe weapon used in the attack
+    /// The weapon used in the attack
     pub weapon: Entity,
 }
 
 impl MessageTokens for WeaponHitMessageTokens {
     fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
         [
+            ("attacker".into(), TokenValue::Entity(self.attacker)),
+            ("target".into(), TokenValue::Entity(self.target)),
+            ("weapon".into(), TokenValue::Entity(self.weapon)),
             (
-                TokenName("attacker".to_string()),
-                TokenValue::Entity(self.attacker),
-            ),
-            (
-                TokenName("target".to_string()),
-                TokenValue::Entity(self.target),
-            ),
-            (
-                TokenName("weapon".to_string()),
-                TokenValue::Entity(self.weapon),
-            ),
-            (
-                TokenName("body_part".to_string()),
+                "body_part".into(),
                 TokenValue::String(self.body_part.clone()),
             ),
         ]
@@ -193,18 +184,9 @@ impl MessageTokens for WeaponHitMessageTokens {
 impl MessageTokens for WeaponMissMessageTokens {
     fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
         [
-            (
-                TokenName("attacker".to_string()),
-                TokenValue::Entity(self.attacker),
-            ),
-            (
-                TokenName("target".to_string()),
-                TokenValue::Entity(self.target),
-            ),
-            (
-                TokenName("weapon".to_string()),
-                TokenValue::Entity(self.weapon),
-            ),
+            ("attacker".into(), TokenValue::Entity(self.attacker)),
+            ("target".into(), TokenValue::Entity(self.target)),
+            ("weapon".into(), TokenValue::Entity(self.weapon)),
         ]
         .into()
     }

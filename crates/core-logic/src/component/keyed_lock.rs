@@ -12,8 +12,8 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    AttributeDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory,
+    AttributeDescription, BasicTokens, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory,
 };
 
 use super::{
@@ -171,22 +171,23 @@ impl Action for LockAction {
             "".to_string()
         };
 
-        let mut third_person_message = ThirdPersonMessage::new(
-            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-            MessageDelay::Short,
+        let (message_format, message_tokens) = if let Some(key) = key {
+            (MessageFormat::new(
+                "${performing_entity.Name} uses ${key.Name} to ${lock_or_unlock} ${target.name}.",
+            )
+            .expect("message format should be valid"),
+            BasicTokens::new().with_entity("performing_entity".into(), performing_entity).with_entity("key".into(), key).with_string("lock_or_unlock".into(), lock_or_unlock.to_string()).with_entity("target".into(), self.target)
         )
-        .add_name(performing_entity);
-
-        if let Some(key) = key {
-            third_person_message = third_person_message
-                .add_string(" uses ")
-                .add_name(key)
-                .add_string(format!(" to {lock_or_unlock} "));
         } else {
-            third_person_message = third_person_message.add_string(format!(" {locks_or_unlocks} "));
-        }
-
-        third_person_message = third_person_message.add_name(self.target).add_string(".");
+            (
+                MessageFormat::new("${performing_entity.Name} ${locks_or_unlocks} ${target.name}.")
+                    .expect("message format should be valid"),
+                BasicTokens::new()
+                    .with_entity("performing_entity".into(), performing_entity)
+                    .with_string("locks_or_unlocks".into(), locks_or_unlocks.to_string())
+                    .with_entity("target".into(), self.target),
+            )
+        };
 
         ActionResult::builder()
             .with_message(
@@ -198,7 +199,12 @@ impl Action for LockAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                third_person_message,
+                ThirdPersonMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                    message_format,
+                    message_tokens,
+                ),
                 world,
             )
             .build_complete_should_tick(true)
@@ -288,10 +294,14 @@ impl KeyedLock {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
+                        MessageFormat::new(
+                            "The lock on ${other_side.name} clicks ${open_or_closed}.",
+                        )
+                        .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("other_side".into(), other_side_id)
+                            .with_string("open_or_closed".into(), open_or_closed.to_string()),
                     )
-                    .add_string("The lock on ")
-                    .add_name(other_side_id)
-                    .add_string(format!(" clicks {open_or_closed}."))
                     .send(
                         None,
                         ThirdPersonMessageLocation::Location(location.id),

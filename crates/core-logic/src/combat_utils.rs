@@ -351,11 +351,10 @@ pub fn handle_weapon_unusable_error(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(entity)
-            .add_string(" flails about uselessly with ")
-            .add_name(weapon_entity)
-            .add_string("."),
+                MessageFormat::new("${entity.Name} flails about uselessly with ${weapon.name}.")
+                    .expect("message format should be valid"),
+                BasicTokens::new().with_entity("entity".into(), entity),
+            ),
             world,
         )
         .build_complete_should_tick(false)

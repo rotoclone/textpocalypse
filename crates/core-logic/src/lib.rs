@@ -436,9 +436,9 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
+        MessageFormat::new("${player.Name} appears.").expect("message format should be valid"),
+        BasicTokens::new().with_entity("player".into(), player_entity),
     )
-    .add_name(player_entity)
-    .add_string(" appears.")
     .send(
         Some(player_entity),
         ThirdPersonMessageLocation::SourceEntity,
@@ -513,9 +513,10 @@ fn despawn_player(player_id: PlayerId, world: &mut World) {
         ThirdPersonMessage::new(
             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
+            MessageFormat::new("${player.Name} disappears.")
+                .expect("message format should be valid"),
+            BasicTokens::new().with_entity("player".into(), entity),
         )
-        .add_name(entity)
-        .add_string(" disappears.")
         .send(
             Some(entity),
             ThirdPersonMessageLocation::SourceEntity,
@@ -727,9 +728,10 @@ fn kill_entity(entity: Entity, world: &mut World) {
     ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::new("${player.Name} falls to the ground, dead.")
+            .expect("message format should be valid"),
+        BasicTokens::new().with_entity("player".into(), entity),
     )
-    .add_name(entity)
-    .add_string(" falls to the ground, dead.")
     .send(
         Some(entity),
         ThirdPersonMessageLocation::SourceEntity,

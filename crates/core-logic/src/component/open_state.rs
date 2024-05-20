@@ -12,8 +12,8 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BasicTokens, BeforeActionNotification, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -188,9 +188,12 @@ impl OpenState {
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                             MessageDelay::Short,
+                            MessageFormat::new("${other_side.Name} swings ${open_or_closed}.")
+                                .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("other_side".into(), other_side_id)
+                                .with_string("open_or_closed".into(), open_or_closed.to_string()),
                         )
-                        .add_name(other_side_id)
-                        .add_string(format!(" swings {open_or_closed}."))
                         .send(
                             None,
                             ThirdPersonMessageLocation::Location(location.id),
