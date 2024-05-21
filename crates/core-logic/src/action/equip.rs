@@ -13,8 +13,9 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BasicTokens, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
@@ -178,11 +179,18 @@ impl Action for EquipAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(format!(" {takes_out_or_puts_away} "))
-                .add_name(target)
-                .add_string(".".to_string()),
+                    MessageFormat::new(
+                        "${performing_entity.Name} ${takes_out_or_puts_away} ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_string(
+                            "takes_out_or_puts_away".into(),
+                            takes_out_or_puts_away.to_string(),
+                        )
+                        .with_entity("target".into(), self.target),
+                ),
                 world,
             )
             .build_complete_should_tick(true)

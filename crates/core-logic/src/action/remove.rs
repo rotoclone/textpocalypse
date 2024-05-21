@@ -12,8 +12,9 @@ use crate::{
     },
     is_living_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    BasicTokens, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
@@ -144,11 +145,12 @@ impl Action for RemoveAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" takes off ".to_string())
-                    .add_name(target)
-                    .add_string(".".to_string()),
+                        MessageFormat::new("${performing_entity.Name} takes off ${target.name}.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("performing_entity".into(), performing_entity)
+                            .with_entity("target".into(), target),
+                    ),
                     world,
                 );
         } else {
@@ -165,13 +167,13 @@ impl Action for RemoveAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" takes ".to_string())
-                    .add_name(target)
-                    .add_string(" off of ")
-                    .add_name(wearing_entity)
-                    .add_string(".".to_string()),
+                        MessageFormat::new("${performing_entity.Name} takes ${target.name} off of ${wearing_entity.name}.")
+                            .expect("message format should be valid"),
+                            BasicTokens::new()
+                            .with_entity("performing_entity".into(), performing_entity)
+                            .with_entity("target".into(), target)
+                            .with_entity("wearing_entity".into(), wearing_entity),
+                    ),
                     world,
                 );
         }

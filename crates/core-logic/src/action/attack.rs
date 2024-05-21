@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
+use rand::seq::SliceRandom;
 use regex::Regex;
 
 use crate::{
@@ -11,9 +12,9 @@ use crate::{
     notification::{Notification, VerifyResult},
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    ActionQueue, BeforeActionNotification, Description, EquipAction, EquippedItems, GameMessage,
-    InnateWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionQueue, BeforeActionNotification, BodyPart, Description, EquipAction, EquippedItems,
+    GameMessage, InnateWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
 };
 
 use super::{
@@ -95,9 +96,17 @@ impl Action for AttackAction {
             let weapon = world
                 .get::<Weapon>(weapon_entity)
                 .expect("weapon should be a weapon");
-            let weapon_hit_verb = weapon.hit_verb.clone();
             let weapon_name =
                 Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+            let hit_message_format = weapon.messages.hit.choose(&mut rand::thread_rng())
+            .cloned()
+            .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.hit/hits} ${target.themself} with ${weapon.name}.").expect("message format should be valid"));
+            let hit_message_tokens = WeaponHitMessageTokens {
+                attacker: performing_entity,
+                target,
+                weapon: weapon_entity,
+                body_part: BodyPart::Head.to_string(),
+            };
 
             match weapon.calculate_damage(
                 performing_entity,
@@ -106,17 +115,16 @@ impl Action for AttackAction {
                 world,
             ) {
                 Ok(damage) => {
-                    let third_person_hit_verb = weapon_hit_verb.third_person_singular;
-
                     VitalChange {
                         entity: performing_entity,
                         vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message: Some(format!(
-                            "You {} yourself with {}!",
-                            weapon_hit_verb.second_person, weapon_name
-                        )),
+                        message: Some(
+                            hit_message_format
+                                .interpolate(performing_entity, &hit_message_tokens, world)
+                                .expect("self hit message should interpolate properly"),
+                        ),
                     }
                     .apply(world);
 
@@ -127,13 +135,9 @@ impl Action for AttackAction {
                             ThirdPersonMessage::new(
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
-                            )
-                            .add_name(performing_entity)
-                            .add_string(format!(" {third_person_hit_verb} "))
-                            .add_reflexive_pronoun(performing_entity)
-                            .add_string(" with ")
-                            .add_name(weapon_entity)
-                            .add_string("."),
+                                hit_message_format,
+                                hit_message_tokens,
+                            ),
                             world,
                         )
                         .build_complete_should_tick(true);

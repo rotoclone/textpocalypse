@@ -15,8 +15,8 @@ use crate::{
     },
     notification::VerifyResult,
     resource::get_fluid_name,
-    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    BasicTokens, BeforeActionNotification, Description, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -314,13 +314,14 @@ impl Action for PourAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(format!(" pours some {fluid_name} from "))
-                .add_name(self.source)
-                .add_string(" into ".to_string())
-                .add_name(self.target)
-                .add_string(".".to_string()),
+                    MessageFormat::new("${performing_entity.Name} pours some ${fluid_name} from ${source.name} into ${target.name}.")
+                        .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_string("fluid_name".into(), fluid_name)
+                        .with_entity("source".into(), self.source)
+                        .with_entity("target".into(), self.target),
+                ),
                 world,
             )
             .build_complete_should_tick(true)

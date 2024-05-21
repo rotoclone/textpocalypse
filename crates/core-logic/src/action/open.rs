@@ -9,8 +9,8 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BasicTokens, BeforeActionNotification, Description, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -153,11 +153,15 @@ impl Action for OpenAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(format!(" {opens_or_closes} "))
-                .add_name(self.target)
-                .add_string(".".to_string()),
+                    MessageFormat::new(
+                        "${performing_entity.Name} ${opens_or_closes} ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_string("opens_or_closes".into(), opens_or_closes.to_string())
+                        .with_entity("target".into(), self.target),
+                ),
                 world,
             )
             .build_complete_should_tick(true)
