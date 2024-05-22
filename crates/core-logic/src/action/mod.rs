@@ -1,21 +1,19 @@
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 use voca_rs::Voca;
 
 use crate::component::{
-    ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Container,
-    Location,
+    ActionEndNotification, AfterActionPerformNotification, Container, Location,
 };
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, message_format, send_message, BeforeActionNotification, Description,
-    InternalMessageCategory, InterpolationError, Invisible, MessageCategory, MessageDelay,
-    MessageFormat, MessageTokens, Pronouns, SurroundingsMessageCategory, VerifyActionNotification,
+    can_receive_messages, send_message, BeforeActionNotification, Description, InterpolationError,
+    Invisible, MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
+    VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 

@@ -11,8 +11,8 @@ use crate::{
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    BasicTokens, BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -109,9 +109,12 @@ impl Action for MoveAction {
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
-                        )
-                        .add_name(performing_entity)
-                        .add_string(format!(" walks {}.", self.direction)),
+                            MessageFormat::new("${performing_entity.Name} walks ${direction}.")
+                                .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("performing_entity".into(), performing_entity)
+                                .with_string("direction".into(), self.direction.to_string()),
+                        ),
                         world,
                     )
                     .with_third_person_message(
@@ -120,9 +123,17 @@ impl Action for MoveAction {
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
-                        )
-                        .add_name(performing_entity)
-                        .add_string(format!(" walks in from the {}.", self.direction.opposite())),
+                            MessageFormat::new(
+                                "${performing_entity.Name} walks in from the ${direction}.",
+                            )
+                            .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("performing_entity".into(), performing_entity)
+                                .with_string(
+                                    "direction".into(),
+                                    self.direction.opposite().to_string(),
+                                ),
+                        ),
                         world,
                     );
             }
@@ -233,11 +244,12 @@ fn try_escape_combat(
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
-                    )
-                    .add_name(entity)
-                    .add_string(format!(
-                        " tries to escape to the {direction}, but can't get away.",
-                    )),
+                        MessageFormat::new("${entity.Name} tries to escape to the ${direction}, but can't get away.")
+                                .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("entity".into(), entity)
+                                .with_string("direction".into(), direction.to_string()),
+                    ),
                     world,
                 );
             return (result_builder, false);
