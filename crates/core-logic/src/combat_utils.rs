@@ -451,7 +451,7 @@ pub fn handle_damage(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    //TODO replace is_crit with a hit severity enum based on percentage of target health removed?
+    /* TODO replace is_crit with a hit severity enum based on percentage of target health removed?
     let target_health = world
         .get::<Vitals>(hit_params.target)
         .map(|vitals| &vitals.health)
@@ -465,6 +465,7 @@ pub fn handle_damage(
         } else {
             ("barely scratch", "barely scratches")
         };
+        */
 
     result_builder = result_builder.with_post_effect(Box::new(move |w| {
         VitalChange {
@@ -477,26 +478,15 @@ pub fn handle_damage(
         .apply(w);
     }));
 
-    let weapon_name = Description::get_reference_name(
-        hit_params.weapon_entity,
-        Some(hit_params.performing_entity),
-        world,
-    );
-    let target_name = Description::get_reference_name(
-        hit_params.target,
-        Some(hit_params.performing_entity),
-        world,
-    );
-
-    let weapon_messages = world
+    let weapon_messages = &world
         .get::<Weapon>(hit_params.weapon_entity)
         .expect("weapon should be a weapon")
         .messages;
 
     let hit_messages_to_choose_from = if hit_params.is_crit {
-        weapon_messages.crit
+        &weapon_messages.crit
     } else {
-        weapon_messages.hit
+        &weapon_messages.hit
     };
 
     let hit_message = hit_messages_to_choose_from
@@ -541,11 +531,13 @@ pub fn handle_miss(
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
-
-    let miss_message = world.get::<Weapon>(weapon_entity).expect("weapon should be a weapon").messages.miss.choose(&mut rand::thread_rng()).cloned().unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
+    let miss_message = world
+        .get::<Weapon>(weapon_entity)
+        .expect("weapon should be a weapon")
+        .messages
+        .miss
+        .choose(&mut rand::thread_rng()).cloned()
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
 
     let miss_message_tokens = WeaponMissMessageTokens {
         attacker: performing_entity,

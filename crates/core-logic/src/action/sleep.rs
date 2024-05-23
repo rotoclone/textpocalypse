@@ -10,8 +10,8 @@ use crate::{
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -108,9 +108,10 @@ impl Action for SleepAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" falls asleep."),
+                        MessageFormat::new("${entity.Name} falls asleep.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("entity".into(), performing_entity),
+                    ),
                     world,
                 );
         }
@@ -140,9 +141,10 @@ impl Action for SleepAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" wakes up."),
+                        MessageFormat::new("${entity.Name} wakes up.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("entity".into(), performing_entity),
+                    ),
                     world,
                 )
                 .build_complete_should_tick(true);
@@ -167,9 +169,10 @@ impl Action for SleepAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" jolts awake."),
+                    MessageFormat::new("${entity.Name} jolts awake.")
+                        .expect("message format should be valid"),
+                    BasicTokens::new().with_entity("entity".into(), performing_entity),
+                ),
                 world,
             )
             .build()

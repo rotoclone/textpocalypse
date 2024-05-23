@@ -61,12 +61,12 @@ impl BasicTokens {
     }
 
     /// Adds a string token.
-    pub fn with_string(mut self, name: TokenName, value: String) -> BasicTokens {
+    pub fn with_string(self, name: TokenName, value: String) -> BasicTokens {
         self.with_token(name, TokenValue::String(value))
     }
 
     /// Adds an entity token.
-    pub fn with_entity(mut self, name: TokenName, value: Entity) -> BasicTokens {
+    pub fn with_entity(self, name: TokenName, value: Entity) -> BasicTokens {
         self.with_token(name, TokenValue::Entity(value))
     }
 
