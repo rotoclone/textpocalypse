@@ -489,6 +489,7 @@ pub fn handle_damage(
         &weapon_messages.hit
     };
 
+    //TODO "Some Guy hits you's torso with his fist."
     let hit_message = hit_messages_to_choose_from
         .choose(&mut rand::thread_rng())
         .cloned()

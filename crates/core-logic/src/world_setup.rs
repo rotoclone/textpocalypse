@@ -751,8 +751,9 @@ pub fn spawn_start_building(
                     to_hit_bonus_per_stat_point: 1.0,
                 },
                 messages: WeaponMessages {
-                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.swing/swings} ${weapon.name} wide of ${target.name). Strike!").expect("message format should be valid")],
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.swing/swings} ${weapon.name} wide of ${target.name}. Strike!").expect("message format should be valid")],
                     hit: vec![MessageFormat::new("${attacker.Name} ${attacker.bonk/bonks} ${target.name} on the ${body_part} with ${weapon.name}.").expect("message format should be valid")],
+                    //TODO "Some Guy hits you's torso with his fist."
                     crit: vec![MessageFormat::new("${attacker.Name} ${attacker.wind/winds} up with ${weapon.name} and ${attacker.connect/connects} with ${target.name}'s ${body_part} with a loud crack.").expect("message format should be valid")],
                 },
             },
