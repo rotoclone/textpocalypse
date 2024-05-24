@@ -266,7 +266,7 @@ fn parse_plain_token_chunk(input: &str) -> IResult<&str, MessageFormatChunk> {
     Ok((
         remaining,
         MessageFormatChunk::PlainToken {
-            name: TokenName(token_name.to_string()),
+            name: TokenName(token_name._lower_first()),
             capitalize: token_name._is_upper_first(),
         },
     ))
@@ -294,7 +294,6 @@ impl MessageFormatChunk {
         match self {
             MessageFormatChunk::String(s) => Ok(s.to_string()),
             MessageFormatChunk::PlainToken { name, capitalize } => {
-                //TODO handle plain tokens with uppercase first letters correctly
                 if let Some(token_value) = tokens.get_token_map().get(name) {
                     if let TokenValue::String(s) = token_value {
                         if *capitalize {
@@ -319,8 +318,12 @@ impl MessageFormatChunk {
             } => {
                 if let Some(token_value) = tokens.get_token_map().get(name) {
                     if let TokenValue::Entity(e) = token_value {
-                        //TODO capitalize if needed
-                        Ok(token_type.interpolate(*e, pov_entity, world))
+                        let interpolated_value = token_type.interpolate(*e, pov_entity, world);
+                        if *capitalize {
+                            Ok(interpolated_value._upper_first())
+                        } else {
+                            Ok(interpolated_value)
+                        }
                     } else {
                         Err(InterpolationError::InvalidTokenValue(
                             name.clone(),
@@ -549,6 +552,20 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_plain_capitalized() {
+        let format = MessageFormat::new("${Somethin}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_string("somethin".into(), "oh hello".to_string());
+
+        assert_eq!(
+            "Oh hello",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
     fn interpolate_plain_wrong_token_value_type() {
         let format = MessageFormat::new("${somethin}").unwrap();
 
@@ -577,6 +594,21 @@ mod tests {
 
         assert_eq!(
             "the some entity",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_capitalized() {
+        let format = MessageFormat::new("${entity1.Name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "The some entity",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
     }
@@ -619,6 +651,26 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_name_no_article_capitalized() {
+        let format = MessageFormat::new("${entity1.Name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                article: None,
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "Some entity",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
     fn interpolate_name_same_as_pov_entity() {
         let format = MessageFormat::new("${entity1.name}").unwrap();
 
@@ -633,6 +685,25 @@ mod tests {
 
         assert_eq!(
             "you",
+            format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_same_as_pov_entity_capitalized() {
+        let format = MessageFormat::new("${entity1.Name}").unwrap();
+
+        let mut world = World::new();
+        let entity_1 = world
+            .spawn(Description {
+                article: None,
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "You",
             format.interpolate(entity_1, &tokens, &world).unwrap()
         );
     }
@@ -912,7 +983,7 @@ mod tests {
         //TODO add some way to specify whether an entity's name is plural separate from its pronouns.
         // For example, if a person is named Bob and their pronouns are they/them, "<name> <are/is> here" should be "Bob is here", but "<personal subject> <are/is> here" should be "they are here".
         let format =
-            MessageFormat::new("it's ${entity1.name} and ${entity1.they} ${entity1.are/is} ${a_string}. Oh hey and ${entity2.name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
+            MessageFormat::new("it's ${entity1.name} and ${entity1.They} ${entity1.are/is} ${a_string}. Oh hey and ${entity2.Name} is here and ${entity2.they} ${entity2.are/is} cool too I guess.")
                 .unwrap();
 
         let mut world = World::new();
@@ -933,10 +1004,10 @@ mod tests {
         let tokens = BasicTokens::new()
             .with_entity("entity1".into(), entity_1)
             .with_entity("entity2".into(), entity_2)
-            .with_string("a_string".into(), "pretty_cool".to_string());
+            .with_string("a_string".into(), "pretty cool".to_string());
 
         assert_eq!(
-            "it's the some entity and it is pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
+            "it's the some entity and It is pretty cool. Oh hey and Some other entity is here and they are cool too I guess.",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
     }
@@ -964,7 +1035,7 @@ mod tests {
         let tokens = BasicTokens::new()
             .with_entity("entity1".into(), entity_1)
             .with_entity("entity2".into(), entity_2)
-            .with_string("a_string".into(), "pretty_cool".to_string());
+            .with_string("a_string".into(), "pretty cool".to_string());
 
         assert_eq!(
             "it's you and you are pretty cool. Oh hey and some other entity is here and they are cool too I guess.",
@@ -996,7 +1067,7 @@ mod tests {
         let tokens = BasicTokens::new()
             .with_entity("entity1".into(), entity_1)
             .with_entity("entity2".into(), entity_2)
-            .with_string("a_string".into(), "pretty_cool".to_string());
+            .with_string("a_string".into(), "pretty cool".to_string());
 
         assert_eq!(
             "the some entityitispretty cool",
@@ -1013,6 +1084,4 @@ mod tests {
             Err(ParseError::InternalParserError(_))
         ));
     }
-
-    //TODO tests for capitalization
 }
