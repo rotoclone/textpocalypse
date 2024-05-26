@@ -280,7 +280,7 @@ pub fn handle_enter_combat(
         CombatState::set_in_combat(attacker, target, range, world);
 
         let message_format =
-            MessageFormat::new("${attacker.Name} ${attacker.attack/attacks} ${target.name}!")
+            MessageFormat::new("${attacker.Name} ${attacker.you:attack/attacks} ${target.name}!")
                 .expect("message format should be valid");
         let message_tokens = BasicTokens::new()
             .with_entity("attacker".into(), attacker)
@@ -489,11 +489,10 @@ pub fn handle_damage(
         &weapon_messages.hit
     };
 
-    //TODO "Some Guy hits you's torso with his fist."
     let hit_message = hit_messages_to_choose_from
         .choose(&mut rand::thread_rng())
         .cloned()
-        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.hit/hits} ${target.name}'s ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
 
     let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
@@ -538,7 +537,7 @@ pub fn handle_miss(
         .messages
         .miss
         .choose(&mut rand::thread_rng()).cloned()
-        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
 
     let miss_message_tokens = WeaponMissMessageTokens {
         attacker: performing_entity,
