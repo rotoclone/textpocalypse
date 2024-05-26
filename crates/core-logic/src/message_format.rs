@@ -91,15 +91,17 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///
     /// Places for tokens in the format string are enclosed in `${}`.
     /// Tokens can be in the following formats:
-    /// * `${name.type}`, where `name` is the name of the token, and `type` is one of the following types:
+    /// * `${token_name.type}`, where `token_name` is the name of the token, and `type` is one of the following types:
     ///   * `name`: the entity's name
+    ///   * `name's`: the possessive version of the entity's name, which will be either "your", or the entity's name followed by "'s", depending on if the entity is the POV entity.
     ///   * `they`: the entity's personal subject pronoun
     ///   * `them`: the entity's personal object pronoun
     ///   * `theirs`: the entity's possessive pronoun
     ///   * `their`: the entity's possessive adjective pronoun
     ///   * `themself`: the entity's reflexive pronoun
-    /// * `${name.a/b}`, where `name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
-    /// * `${name}`, where `name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity.
+    ///   * `you:a/b`: `a` if the entity is the POV entity, `b` otherwise //TODO implement this
+    /// * `${token_name.a/b}`, where `token_name` is the name of the token, `a` is the text to use if the entity's pronouns are plural, and `b` is the text to use if the entity's pronouns are singular
+    /// * `${token_name}`, where `token_name` is the name of the token. This token will be simply the string associated with the token, not a value derived from an entity.
     ///
     /// For typed tokens, if the first character of the type of the token is capitalized (for example, `${someToken.They}`), then the interpolated value will have its first character capitalized.
     ///
@@ -107,7 +109,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///
     /// Token must be alphanumeric, but can contain underscores.
     ///
-    /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} moves out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
+    /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} ${target.you:move/moves} out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
     pub fn new(format_string: &str) -> Result<MessageFormat<T>, ParseError> {
         Ok(MessageFormat(
@@ -150,6 +152,7 @@ enum MessageFormatChunk {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum TokenType {
     Name,
+    PossessiveName,
     PersonalSubjectPronoun,
     PersonalObjectPronoun,
     PossessivePronoun,
@@ -224,6 +227,7 @@ fn parse_token_type(input: &str) -> IResult<&str, (TokenType, bool)> {
     let (remaining, token_type_string) = take_until(TOKEN_END)(input)?;
     let token_type = match token_type_string {
         "name" | "Name" => TokenType::Name,
+        "name's" | "Name's" => TokenType::PossessiveName,
         "they" | "They" => TokenType::PersonalSubjectPronoun,
         "them" | "Them" => TokenType::PersonalObjectPronoun,
         "theirs" | "Theirs" => TokenType::PossessivePronoun,
@@ -343,6 +347,17 @@ impl TokenType {
     fn interpolate(&self, entity: Entity, pov_entity: Entity, world: &World) -> String {
         match self {
             TokenType::Name => Description::get_reference_name(entity, Some(pov_entity), world),
+            TokenType::PossessiveName => {
+                if entity == pov_entity {
+                    // TODO but what if it should be "yours" instead of "your"?
+                    "your".to_string()
+                } else {
+                    format!(
+                        "{}'s",
+                        Description::get_reference_name(entity, Some(pov_entity), world)
+                    )
+                }
+            }
             TokenType::PersonalSubjectPronoun => {
                 Pronouns::get_personal_subject(entity, Some(pov_entity), world)
             }
@@ -705,6 +720,35 @@ mod tests {
         assert_eq!(
             "You",
             format.interpolate(entity_1, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_possessive() {
+        let format = MessageFormat::new("${entity1.name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "the some entity's",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_possessive_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), pov_entity);
+
+        assert_eq!(
+            "your",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
     }
 

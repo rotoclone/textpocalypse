@@ -115,6 +115,7 @@ mod weapon;
 pub use weapon::Weapon;
 pub use weapon::WeaponDamageAdjustment;
 pub use weapon::WeaponHitMessageTokens;
+pub use weapon::WeaponMessage;
 pub use weapon::WeaponMessages;
 pub use weapon::WeaponMissMessageTokens;
 pub use weapon::WeaponPerformanceAdjustment;
