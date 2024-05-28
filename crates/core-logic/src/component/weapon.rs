@@ -158,6 +158,7 @@ pub struct WeaponStatBonuses {
 }
 
 /// Describes the messages to send when a weapon is used.
+/// TODO does this need to be generic over the attack type?
 pub struct WeaponMessages<T: AttackType> {
     /// Messages for misses
     pub miss: Vec<MessageFormat<WeaponMissMessageTokens>>,
