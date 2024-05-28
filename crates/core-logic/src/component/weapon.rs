@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{marker::PhantomData, ops::RangeInclusive};
 
 use bevy_ecs::prelude::*;
 use rand::{thread_rng, Rng};
@@ -27,7 +27,7 @@ pub struct Weapon {
     /// Parameters for bonuses based on the weapon user's stats.
     pub stat_bonuses: WeaponStatBonuses,
     /// The messages for using this weapon.
-    pub messages: WeaponMessages,
+    pub messages: WeaponMessages<DefaultAttack>,
 }
 
 /// Represents a type of weapon.
@@ -45,6 +45,31 @@ pub enum WeaponType {
     Fists,
     /// A mod-defined weapon type
     Custom(String),
+}
+
+/// Trait for structs describing a type of attack.
+pub trait AttackType: Sized {
+    /// Determines whether the provided weapon entity can perform this attack.
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool;
+
+    /// Gets the messages to use for attacks of this type with the provided weapon, if there are any defined.
+    /// TODO have this just take in `&self` and make `AttackType` a component?
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>>;
+}
+
+/// The default attack that every weapon has.
+pub struct DefaultAttack;
+
+impl AttackType for DefaultAttack {
+    fn can_perform_with(_: Entity, _: &World) -> bool {
+        true
+    }
+
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+        world
+            .get::<Weapon>(weapon_entity)
+            .map(|weapon| &weapon.messages)
+    }
 }
 
 /// Describes the ranges at which a weapon can be used.
@@ -133,13 +158,14 @@ pub struct WeaponStatBonuses {
 }
 
 /// Describes the messages to send when a weapon is used.
-pub struct WeaponMessages {
+pub struct WeaponMessages<T: AttackType> {
     /// Messages for misses
     pub miss: Vec<MessageFormat<WeaponMissMessageTokens>>,
     /// Messages for hits
     pub hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
     /// Messages for critical hits
     pub crit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    pub _t: PhantomData<fn(T)>,
 }
 
 /// Describes a message to send when a weapon is used.

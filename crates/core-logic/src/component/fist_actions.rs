@@ -6,15 +6,20 @@ use crate::{
     check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
     ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BasicTokens, BeforeActionNotification, Description, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, ParseCustomInput,
-    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VerifyActionNotification, VerifyResult, Weapon,
+    AttackType, BasicTokens, BeforeActionNotification, Description, InputParseError,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    ParseCustomInput, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
+    VerifyActionNotification, VerifyResult, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
 #[derive(Component)]
-pub struct FistActions;
+pub struct FistActions {
+    /// Messages for the uppercut attack.
+    pub uppercut_messages: WeaponMessages<UppercutAction>,
+    /// Messages for the haymaker attack.
+    pub haymaker_messages: WeaponMessages<HaymakerAction>,
+}
 
 impl ParseCustomInput for FistActions {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
@@ -48,7 +53,7 @@ impl InputParser for UppercutParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<UppercutAction>(
             input,
             source_entity,
             &UPPERCUT_PATTERN,
@@ -56,7 +61,6 @@ impl InputParser for UppercutParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             UPPERCUT_VERB_NAME,
-            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 
@@ -134,7 +138,7 @@ impl Action for UppercutAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
-            result_builder = handle_damage(hit_params, result_builder, world);
+            result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(
                 performing_entity,
@@ -194,6 +198,18 @@ impl Action for UppercutAction {
     }
 }
 
+impl AttackType for UppercutAction {
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool {
+        world.get::<FistActions>(weapon_entity).is_some()
+    }
+
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+        world
+            .get::<FistActions>(weapon_entity)
+            .map(|fist_actions| &fist_actions.uppercut_messages)
+    }
+}
+
 /// The amount to modify the to hit bonus by for haymakers.
 const HAYMAKER_TO_HIT_MODIFIER: i16 = 2;
 
@@ -221,7 +237,7 @@ impl InputParser for HaymakerParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<HaymakerAction>(
             input,
             source_entity,
             &HAYMAKER_PATTERN,
@@ -229,7 +245,6 @@ impl InputParser for HaymakerParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             HAYMAKER_VERB_NAME,
-            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 
@@ -364,7 +379,7 @@ impl Action for HaymakerAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(HAYMAKER_DAMAGE_MULTIPLIER);
-            result_builder = handle_damage(hit_params, result_builder, world);
+            result_builder = handle_damage::<HaymakerAction>(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(
                 performing_entity,
@@ -421,5 +436,17 @@ impl Action for HaymakerAction {
     fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
+    }
+}
+
+impl AttackType for HaymakerAction {
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool {
+        world.get::<FistActions>(weapon_entity).is_some()
+    }
+
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+        world
+            .get::<FistActions>(weapon_entity)
+            .map(|fist_actions| &fist_actions.haymaker_messages)
     }
 }

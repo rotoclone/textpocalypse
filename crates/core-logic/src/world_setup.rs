@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy_ecs::prelude::*;
 
 use crate::{
@@ -754,6 +756,7 @@ pub fn spawn_start_building(
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wide of ${target.name}. Strike!").expect("message format should be valid")],
                     hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bonk/bonks} ${target.name} on the ${body_part} with ${weapon.name}.").expect("message format should be valid")],
                     crit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:wind/winds} up with ${weapon.name} and ${attacker.you:connect/connects} with ${target.name's} ${body_part} with a loud crack.").expect("message format should be valid")],
+                    _t: PhantomData
                 },
             },
             Volume(0.5),

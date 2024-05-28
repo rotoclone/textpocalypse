@@ -12,9 +12,10 @@ use crate::{
     notification::{Notification, VerifyResult},
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    ActionQueue, BeforeActionNotification, BodyPart, Description, EquipAction, EquippedItems,
-    GameMessage, InnateWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    ActionQueue, BeforeActionNotification, BodyPart, DefaultAttack, Description, EquipAction,
+    EquippedItems, GameMessage, InnateWeapon, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
+    WeaponHitMessageTokens,
 };
 
 use super::{
@@ -45,7 +46,7 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<DefaultAttack>(
             input,
             source_entity,
             &ATTACK_PATTERN,
@@ -53,7 +54,6 @@ impl InputParser for AttackParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             ATTACK_VERB_NAME,
-            |_, _| true,
             world,
         )?;
 
@@ -197,7 +197,7 @@ impl Action for AttackAction {
         };
 
         if let Some(hit_params) = hit_params {
-            result_builder = handle_damage(hit_params, result_builder, world);
+            result_builder = handle_damage::<DefaultAttack>(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(
                 performing_entity,

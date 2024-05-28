@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -5,12 +7,13 @@ use regex::{Captures, Regex};
 
 use crate::{
     resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
-    ActionResultBuilder, BasicTokens, BodyPart, CheckModifiers, CheckResult, CombatRange,
-    CombatState, CommandParseError, CommandTarget, Container, Description, EquippedItems,
-    InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
-    ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant,
-    Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
+    ActionResultBuilder, AttackType, BasicTokens, BodyPart, CheckModifiers, CheckResult,
+    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
+    EquippedItems, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, Skill, Stats, SurroundingsMessageCategory,
+    ThirdPersonMessage, ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams,
+    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMessages, WeaponMissMessageTokens,
+    WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -38,10 +41,9 @@ pub struct ParsedAttack {
 
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
-/// `weapon_matcher` should return `true` when passed an entity that would be a valid weapon for use in the attack.
 ///
 /// Returns `Ok` with the target entity, or `Err` if the input is invalid.
-pub fn parse_attack_input<F>(
+pub fn parse_attack_input<T: AttackType>(
     input: &str,
     source_entity: Entity,
     pattern: &Regex,
@@ -49,32 +51,26 @@ pub fn parse_attack_input<F>(
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<ParsedAttack, InputParseError> {
     if let Some(captures) = pattern_with_weapon.captures(input) {
-        return parse_attack_input_captures(
+        return parse_attack_input_captures::<T>(
             &captures,
             source_entity,
             target_capture_name,
             weapon_capture_name,
             verb_name,
-            weapon_matcher,
             world,
         );
     }
 
     if let Some(captures) = pattern.captures(input) {
-        return parse_attack_input_captures(
+        return parse_attack_input_captures::<T>(
             &captures,
             source_entity,
             target_capture_name,
             weapon_capture_name,
             verb_name,
-            weapon_matcher,
             world,
         );
     }
@@ -82,18 +78,14 @@ where
     Err(InputParseError::UnknownCommand)
 }
 
-fn parse_attack_input_captures<F>(
+fn parse_attack_input_captures<T: AttackType>(
     captures: &Captures,
     source_entity: Entity,
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<ParsedAttack, InputParseError> {
     let target_entity = parse_attack_target(
         captures,
         target_capture_name,
@@ -101,12 +93,11 @@ where
         verb_name,
         world,
     )?;
-    let weapon_entity = parse_attack_weapon(
+    let weapon_entity = parse_attack_weapon::<T>(
         captures,
         weapon_capture_name,
         source_entity,
         verb_name,
-        weapon_matcher,
         world,
     )?;
 
@@ -161,22 +152,18 @@ fn parse_attack_target(
 }
 
 /// Finds the weapon entity to use in an attack.
-/// Weapons valid for use in the attack will return `true` when passed into the provided `weapon_matcher`.
-fn parse_attack_weapon<F>(
+fn parse_attack_weapon<T: AttackType>(
     captures: &Captures,
     weapon_capture_name: &str,
     source_entity: Entity,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<Entity, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<Entity, InputParseError> {
     if let Some(target_match) = captures.name(weapon_capture_name) {
         let weapon = CommandTarget::parse(target_match.as_str());
         if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
-            if world.get::<Weapon>(weapon_entity).is_some() && weapon_matcher(weapon_entity, world)
+            if world.get::<Weapon>(weapon_entity).is_some()
+                && T::can_perform_with(weapon_entity, world)
             {
                 // weapon exists and is the correct type of weapon
                 return Ok(weapon_entity);
@@ -197,7 +184,7 @@ where
     // no weapon provided
     // prioritize the primary weapon
     if let Some((_, weapon_entity)) = Weapon::get_primary(source_entity, world) {
-        if weapon_matcher(weapon_entity, world) {
+        if T::can_perform_with(weapon_entity, world) {
             return Ok(weapon_entity);
         }
     }
@@ -205,7 +192,7 @@ where
     // primary weapon didn't match, so fall back to other equipped weapons
     if let Some(equipped_items) = world.get::<EquippedItems>(source_entity) {
         for item in equipped_items.get_items() {
-            if world.get::<Weapon>(*item).is_some() && weapon_matcher(*item, world) {
+            if world.get::<Weapon>(*item).is_some() && T::can_perform_with(*item, world) {
                 return Ok(*item);
             }
         }
@@ -213,7 +200,7 @@ where
 
     // no equipped weapons matched, try innate weapon
     if let Some((_, innate_weapon_entity)) = InnateWeapon::get(source_entity, world) {
-        if weapon_matcher(innate_weapon_entity, world) {
+        if T::can_perform_with(innate_weapon_entity, world) {
             return Ok(innate_weapon_entity);
         }
     }
@@ -221,7 +208,7 @@ where
     // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
     if let Some(container) = world.get::<Container>(source_entity) {
         for item in container.get_entities(source_entity, world) {
-            if world.get::<Weapon>(item).is_some() && weapon_matcher(item, world) {
+            if world.get::<Weapon>(item).is_some() && T::can_perform_with(item, world) {
                 return Ok(item);
             }
         }
@@ -446,7 +433,7 @@ pub fn check_for_hit(
 }
 
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.
-pub fn handle_damage(
+pub fn handle_damage<T: AttackType>(
     hit_params: HitParams,
     mut result_builder: ActionResultBuilder,
     world: &mut World,
@@ -478,20 +465,16 @@ pub fn handle_damage(
         .apply(w);
     }));
 
-    let weapon_messages = &world
-        .get::<Weapon>(hit_params.weapon_entity)
-        .expect("weapon should be a weapon")
-        .messages;
+    let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
 
     let hit_messages_to_choose_from = if hit_params.is_crit {
-        &weapon_messages.crit
+        weapon_messages.map(|m| &m.crit)
     } else {
-        &weapon_messages.hit
+        weapon_messages.map(|m| &m.hit)
     };
 
     let hit_message = hit_messages_to_choose_from
-        .choose(&mut rand::thread_rng())
-        .cloned()
+        .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
 
     let hit_message_tokens = WeaponHitMessageTokens {

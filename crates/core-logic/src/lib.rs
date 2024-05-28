@@ -5,8 +5,9 @@ use log::{debug, warn};
 use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
+    marker::PhantomData,
     sync::{Arc, RwLock},
-    thread::{self},
+    thread,
     time::{Duration, SystemTime},
 };
 
@@ -486,6 +487,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     miss: vec![],
                     hit: vec![],
                     crit: vec![],
+                    _t: PhantomData,
                 },
             },
             InnateWeapon,
@@ -500,7 +502,22 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 attribute_describers: vec![],
             },
             Invisible::to_all(),
-            FistActions,
+            FistActions {
+                //TODO
+                uppercut_messages: WeaponMessages {
+                    miss: vec![],
+                    hit: vec![],
+                    crit: vec![],
+                    _t: PhantomData,
+                },
+                //TODO
+                haymaker_messages: WeaponMessages {
+                    miss: vec![],
+                    hit: vec![],
+                    crit: vec![],
+                    _t: PhantomData,
+                },
+            },
         ))
         .id();
     FistActions::register_custom_input_parser(entity, world);

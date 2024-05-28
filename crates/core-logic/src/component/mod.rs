@@ -112,6 +112,8 @@ pub use equipped_items::EquippedItems;
 pub use equipped_items::UnequipError;
 
 mod weapon;
+pub use weapon::AttackType;
+pub use weapon::DefaultAttack;
 pub use weapon::Weapon;
 pub use weapon::WeaponDamageAdjustment;
 pub use weapon::WeaponHitMessageTokens;
