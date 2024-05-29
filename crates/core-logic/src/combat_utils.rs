@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -12,8 +10,7 @@ use crate::{
     EquippedItems, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
     MessageCategory, MessageDelay, MessageFormat, Skill, Stats, SurroundingsMessageCategory,
     ThirdPersonMessage, ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams,
-    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMessages, WeaponMissMessageTokens,
-    WeaponUnusableError,
+    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -438,22 +435,6 @@ pub fn handle_damage<T: AttackType>(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    /* TODO replace is_crit with a hit severity enum based on percentage of target health removed?
-    let target_health = world
-        .get::<Vitals>(hit_params.target)
-        .map(|vitals| &vitals.health)
-        .expect("target should have vitals");
-    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
-    let (hit_severity_first_person, hit_severity_third_person) =
-        if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
-            ("mutilate", "mutilates")
-        } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
-            ("hit", "hits")
-        } else {
-            ("barely scratch", "barely scratches")
-        };
-        */
-
     result_builder = result_builder.with_post_effect(Box::new(move |w| {
         VitalChange {
             entity: hit_params.target,
@@ -467,10 +448,18 @@ pub fn handle_damage<T: AttackType>(
 
     let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
 
-    let hit_messages_to_choose_from = if hit_params.is_crit {
-        weapon_messages.map(|m| &m.crit)
+    let target_health = world
+        .get::<Vitals>(hit_params.target)
+        .map(|vitals| &vitals.health)
+        .expect("target should have vitals");
+    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
+
+    let hit_messages_to_choose_from = if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
+        weapon_messages.map(|m| &m.major_hit)
+    } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
+        weapon_messages.map(|m: &crate::WeaponMessages| &m.regular_hit)
     } else {
-        weapon_messages.map(|m| &m.hit)
+        weapon_messages.map(|m| &m.minor_hit)
     };
 
     let hit_message = hit_messages_to_choose_from
@@ -517,7 +506,7 @@ pub fn handle_miss(
     let miss_message = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon")
-        .messages
+        .default_attack_messages
         .miss
         .choose(&mut rand::thread_rng()).cloned()
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));

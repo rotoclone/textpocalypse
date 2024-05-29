@@ -96,7 +96,7 @@ impl Action for AttackAction {
             let weapon = world
                 .get::<Weapon>(weapon_entity)
                 .expect("weapon should be a weapon");
-            let hit_message_format = weapon.messages.hit.choose(&mut rand::thread_rng())
+            let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
             .cloned()
             .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} with ${weapon.name}.").expect("message format should be valid"));
             let hit_message_tokens = WeaponHitMessageTokens {

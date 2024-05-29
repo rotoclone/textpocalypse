@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
 use bevy_ecs::prelude::*;
 use rand::{thread_rng, Rng};
@@ -26,8 +26,8 @@ pub struct Weapon {
     pub stat_requirements: Vec<WeaponStatRequirement>,
     /// Parameters for bonuses based on the weapon user's stats.
     pub stat_bonuses: WeaponStatBonuses,
-    /// The messages for using this weapon.
-    pub messages: WeaponMessages<DefaultAttack>,
+    /// The messages for default attacks with this weapon.
+    pub default_attack_messages: WeaponMessages,
 }
 
 /// Represents a type of weapon.
@@ -48,13 +48,12 @@ pub enum WeaponType {
 }
 
 /// Trait for structs describing a type of attack.
-pub trait AttackType: Sized {
+pub trait AttackType {
     /// Determines whether the provided weapon entity can perform this attack.
     fn can_perform_with(weapon_entity: Entity, world: &World) -> bool;
 
     /// Gets the messages to use for attacks of this type with the provided weapon, if there are any defined.
-    /// TODO have this just take in `&self` and make `AttackType` a component?
-    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>>;
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages>;
 }
 
 /// The default attack that every weapon has.
@@ -65,10 +64,10 @@ impl AttackType for DefaultAttack {
         true
     }
 
-    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
         world
             .get::<Weapon>(weapon_entity)
-            .map(|weapon| &weapon.messages)
+            .map(|weapon| &weapon.default_attack_messages)
     }
 }
 
@@ -158,15 +157,15 @@ pub struct WeaponStatBonuses {
 }
 
 /// Describes the messages to send when a weapon is used.
-/// TODO does this need to be generic over the attack type?
-pub struct WeaponMessages<T: AttackType> {
+pub struct WeaponMessages {
     /// Messages for misses
     pub miss: Vec<MessageFormat<WeaponMissMessageTokens>>,
-    /// Messages for hits
-    pub hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
-    /// Messages for critical hits
-    pub crit: Vec<MessageFormat<WeaponHitMessageTokens>>,
-    pub _t: PhantomData<fn(T)>,
+    /// Messages for hits that don't do much damage
+    pub minor_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    /// Messages for hits that do a normal amount of damage
+    pub regular_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    /// Messages for hits that do a lot of damage
+    pub major_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
 }
 
 /// Describes a message to send when a weapon is used.

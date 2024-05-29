@@ -483,11 +483,11 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     to_hit_bonus_per_stat_point: 0.2,
                 },
                 //TODO
-                messages: WeaponMessages {
+                default_attack_messages: WeaponMessages {
                     miss: vec![],
-                    hit: vec![],
-                    crit: vec![],
-                    _t: PhantomData,
+                    minor_hit: vec![],
+                    regular_hit: vec![],
+                    major_hit: vec![],
                 },
             },
             InnateWeapon,
@@ -506,16 +506,16 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 //TODO
                 uppercut_messages: WeaponMessages {
                     miss: vec![],
-                    hit: vec![],
-                    crit: vec![],
-                    _t: PhantomData,
+                    minor_hit: vec![],
+                    regular_hit: vec![],
+                    major_hit: vec![],
                 },
                 //TODO
                 haymaker_messages: WeaponMessages {
                     miss: vec![],
-                    hit: vec![],
-                    crit: vec![],
-                    _t: PhantomData,
+                    minor_hit: vec![],
+                    regular_hit: vec![],
+                    major_hit: vec![],
                 },
             },
         ))

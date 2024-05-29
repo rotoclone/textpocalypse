@@ -16,9 +16,9 @@ use crate::{
 #[derive(Component)]
 pub struct FistActions {
     /// Messages for the uppercut attack.
-    pub uppercut_messages: WeaponMessages<UppercutAction>,
+    pub uppercut_messages: WeaponMessages,
     /// Messages for the haymaker attack.
-    pub haymaker_messages: WeaponMessages<HaymakerAction>,
+    pub haymaker_messages: WeaponMessages,
 }
 
 impl ParseCustomInput for FistActions {
@@ -203,7 +203,7 @@ impl AttackType for UppercutAction {
         world.get::<FistActions>(weapon_entity).is_some()
     }
 
-    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
         world
             .get::<FistActions>(weapon_entity)
             .map(|fist_actions| &fist_actions.uppercut_messages)
@@ -444,7 +444,7 @@ impl AttackType for HaymakerAction {
         world.get::<FistActions>(weapon_entity).is_some()
     }
 
-    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages<Self>> {
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
         world
             .get::<FistActions>(weapon_entity)
             .map(|fist_actions| &fist_actions.haymaker_messages)
