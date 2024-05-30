@@ -270,7 +270,6 @@ pub fn handle_enter_combat(
             .with_entity("attacker".into(), attacker)
             .with_entity("target".into(), target);
 
-        let target_name = Description::get_reference_name(target, Some(attacker), world);
         result_builder = result_builder
             .with_message(
                 attacker,

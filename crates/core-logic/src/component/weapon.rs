@@ -168,17 +168,6 @@ pub struct WeaponMessages {
     pub major_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
 }
 
-/// Describes a message to send when a weapon is used.
-/// TODO remove
-pub struct WeaponMessage<T: MessageTokens> {
-    /// The format for the message to send to the attacker
-    pub attacker_pov: MessageFormat<T>,
-    /// The format for the message to send to the target
-    pub target_pov: MessageFormat<T>,
-    /// The format for the message to send to entities other than the attacker or target
-    pub third_person: MessageFormat<T>,
-}
-
 /// Tokens used in weapon messages for hits.
 #[derive(Clone)]
 pub struct WeaponHitMessageTokens {
