@@ -92,8 +92,10 @@ impl<T: MessageTokens> MessageFormat<T> {
     /// Places for tokens in the format string are enclosed in `${}`.
     /// Tokens can be in the following formats:
     /// * `${token_name.type}`, where `token_name` is the name of the token, and `type` is one of the following types:
-    ///   * `name`: the entity's name
-    ///   * `name's`: the possessive version of the entity's name, which will be either "your", or the entity's name followed by "'s", depending on if the entity is the POV entity.
+    ///   * `name`: the entity's name, including an article like "your" or "the"
+    ///   * `plain_name`: just entity entity's name, with no article
+    ///   * `name's`: the possessive version of the entity's name, which will be either "your", or the entity's name followed by "'s", depending on if the entity is the POV entity, including an article like "your" or "the"
+    ///   * `plain_name's`: the possessive version of the entity's name, as above, but with no article
     ///   * `they`: the entity's personal subject pronoun
     ///   * `them`: the entity's personal object pronoun
     ///   * `theirs`: the entity's possessive pronoun
@@ -150,8 +152,10 @@ enum MessageFormatChunk {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum TokenType {
-    Name,
-    PossessiveName,
+    Name {
+        with_article: bool,
+        possessive: bool,
+    },
     PersonalSubjectPronoun,
     PersonalObjectPronoun,
     PossessivePronoun,
@@ -234,8 +238,22 @@ fn parse_token(input: &str) -> IResult<&str, (&str, (TokenType, bool))> {
 fn parse_token_type(input: &str) -> IResult<&str, (TokenType, bool)> {
     let (remaining, token_type_string) = take_until(TOKEN_END)(input)?;
     let token_type = match token_type_string {
-        "name" | "Name" => TokenType::Name,
-        "name's" | "Name's" => TokenType::PossessiveName,
+        "name" | "Name" => TokenType::Name {
+            with_article: true,
+            possessive: false,
+        },
+        "plain_name" | "Plain_name" => TokenType::Name {
+            with_article: false,
+            possessive: false,
+        },
+        "name's" | "Name's" => TokenType::Name {
+            with_article: true,
+            possessive: true,
+        },
+        "plain_name's" | "Plain_name's" => TokenType::Name {
+            with_article: false,
+            possessive: true,
+        },
         "they" | "They" => TokenType::PersonalSubjectPronoun,
         "them" | "Them" => TokenType::PersonalObjectPronoun,
         "theirs" | "Theirs" => TokenType::PossessivePronoun,
@@ -377,16 +395,34 @@ impl TokenType {
     /// Interpolates this token with values from `entity`, from the point of view of `pov_entity`.
     fn interpolate(&self, entity: Entity, pov_entity: Entity, world: &World) -> String {
         match self {
-            TokenType::Name => Description::get_reference_name(entity, Some(pov_entity), world),
-            TokenType::PossessiveName => {
+            TokenType::Name {
+                with_article,
+                possessive,
+            } => {
                 if entity == pov_entity {
-                    // TODO but what if it should be "yours" instead of "your"?
-                    "your".to_string()
+                    if *possessive {
+                        // TODO but what if it should be "yours" instead of "your"?
+                        "your".to_string()
+                    } else {
+                        "you".to_string()
+                    }
                 } else {
-                    format!(
-                        "{}'s",
+                    let name = if *with_article {
                         Description::get_reference_name(entity, Some(pov_entity), world)
-                    )
+                    } else {
+                        Description::get_name(entity, world).unwrap_or_else(|| "???".to_string())
+                    };
+
+                    if *possessive {
+                        // english, amirite
+                        if name == "it" {
+                            "its".to_string()
+                        } else {
+                            format!("{name}'s")
+                        }
+                    } else {
+                        name
+                    }
                 }
             }
             TokenType::PersonalSubjectPronoun => {
@@ -670,6 +706,21 @@ mod tests {
     }
 
     #[test]
+    fn interpolate_name_no_name() {
+        let format = MessageFormat::new("${entity1.name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "it",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
     fn interpolate_name_wrong_token_value_type() {
         let format = MessageFormat::new("${entity1.name}").unwrap();
 
@@ -687,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_name_no_article() {
+    fn interpolate_name_entity_has_no_article() {
         let format = MessageFormat::new("${entity1.name}").unwrap();
 
         let mut world = World::new();
@@ -707,7 +758,7 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_name_no_article_capitalized() {
+    fn interpolate_name_entity_has_no_article_capitalized() {
         let format = MessageFormat::new("${entity1.Name}").unwrap();
 
         let mut world = World::new();
@@ -782,6 +833,139 @@ mod tests {
     #[test]
     fn interpolate_name_possessive_same_as_pov_entity() {
         let format = MessageFormat::new("${entity1.name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), pov_entity);
+
+        assert_eq!(
+            "your",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_name_possessive_no_name() {
+        let format = MessageFormat::new("${entity1.name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "its",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name() {
+        let format = MessageFormat::new("${entity1.plain_name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "some entity",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_capitalized() {
+        let format = MessageFormat::new("${entity1.Plain_name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "Some entity",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_no_name() {
+        let format = MessageFormat::new("${entity1.plain_name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "???",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.plain_name}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), pov_entity);
+
+        assert_eq!(
+            "you",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_possessive() {
+        let format = MessageFormat::new("${entity1.plain_name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "some entity's",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_possessive_capitalized() {
+        let format = MessageFormat::new("${entity1.Plain_name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "Some entity's",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_possessive_no_name() {
+        let format = MessageFormat::new("${entity1.plain_name's}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "???'s",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_plain_name_possessive_same_as_pov_entity() {
+        let format = MessageFormat::new("${entity1.plain_name's}").unwrap();
 
         let mut world = World::new();
         let pov_entity = world.spawn_empty().id();

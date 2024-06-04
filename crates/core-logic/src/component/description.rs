@@ -260,7 +260,6 @@ impl Description {
     ) -> Option<String> {
         let owning_entity = find_owning_entity(entity, world);
 
-        let desc = world.get::<Description>(entity);
         if let Some(owning_entity) = owning_entity {
             return Some(Pronouns::get_possessive_adjective(
                 owning_entity,
@@ -269,7 +268,7 @@ impl Description {
             ));
         }
 
-        if let Some(desc) = desc {
+        if let Some(desc) = world.get::<Description>(entity) {
             // return `None` if the entity has no article
             desc.article.as_ref()?;
         }

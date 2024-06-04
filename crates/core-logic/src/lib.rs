@@ -484,10 +484,9 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 },
                 default_attack_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lurch/lurches} forward as ${weapon.name} sails harmlessly past ${target.name}.").expect("message format should be valid")],
-                    //TODO "Some Guy's his fist grazes your head." (provide a way to specify whether a name should include an article or not)
-                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.name} ${weapon.graze/grazes} ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.graze/grazes} ${target.name's} ${body_part}.").expect("message format should be valid")],
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part}.").expect("message format should be valid")],
-                    major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.name} ${weapon.wallop/wallops} ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
                 },
             },
             InnateWeapon,
