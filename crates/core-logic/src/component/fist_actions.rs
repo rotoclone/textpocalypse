@@ -6,7 +6,7 @@ use crate::{
     check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
     ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    AttackType, BasicTokens, BeforeActionNotification, Description, InputParseError,
+    AttackType, BasicTokens, BeforeActionNotification, BodyPart, Description, InputParseError,
     IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     ParseCustomInput, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
     VerifyActionNotification, VerifyResult, Weapon, WeaponMessages,
@@ -31,7 +31,7 @@ impl ParseCustomInput for FistActions {
 const UPPERCUT_TO_HIT_MODIFIER: i16 = -2;
 
 /// The multiplier for damage done by uppercuts.
-const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.2;
+const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.1;
 
 const UPPERCUT_VERB_NAME: &str = "uppercut";
 const UPPERCUT_FORMAT: &str = "uppercut <>";
@@ -138,6 +138,7 @@ impl Action for UppercutAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
+            hit_params.body_part = BodyPart::Head;
             result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss(

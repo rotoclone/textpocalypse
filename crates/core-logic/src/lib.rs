@@ -484,7 +484,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 },
                 default_attack_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lurch/lurches} forward as ${weapon.name} sails harmlessly past ${target.name}.").expect("message format should be valid")],
-                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.graze/grazes} ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.glance/glances} off of ${target.name's} ${body_part}.").expect("message format should be valid")],
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part}.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
                 },
@@ -502,19 +502,18 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
             },
             Invisible::to_all(),
             FistActions {
-                //TODO
                 uppercut_messages: WeaponMessages {
-                    miss: vec![],
-                    minor_hit: vec![],
-                    regular_hit: vec![],
-                    major_hit: vec![],
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:jut/juts} ${weapon.name} upward near where ${target.name} was moments ago.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} barely ${attacker.you:catch/catches} ${target.name's} ${body_part} with an uppercut.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part} with a solid uppercut.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
                 },
                 //TODO
                 haymaker_messages: WeaponMessages {
                     miss: vec![],
                     minor_hit: vec![],
                     regular_hit: vec![],
-                    major_hit: vec![],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part} with a sickening crunch.").expect("message format should be valid")],
                 },
             },
         ))
