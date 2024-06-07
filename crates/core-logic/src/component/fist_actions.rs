@@ -338,6 +338,34 @@ impl Action for HaymakerAction {
                 .build_incomplete(true);
         }
 
+        /*
+        TODO if the target escapes while the haymaker is charging, you end up in combat with them again:
+        haymaker
+        You face Some Guy and wind up for a haymaker.
+
+        Some Guy walks east.
+
+        You attack Some Guy!
+
+        You stumble as Some Guy dodges out of the way of what looks like would have been a painful hit from your fist.
+
+        l
+        ........|| Street (7:03 AM, Day 1)
+        ....[]..||
+        ..==()==## An old street running east-west. The pavement is cracked and the
+        .......... lines are faded.
+        ..........
+
+        Exits: N (The middle room), E (Street), W (Street)
+
+        range
+        +----------+------------------------------+
+        | Name     | Range                        |
+        +=========================================+
+        | Some Guy | short (farther than optimal) |
+        +----------+------------------------------+
+         */
+
         let weapon = world
             .get::<Weapon>(weapon_entity)
             .expect("weapon should be a weapon");
