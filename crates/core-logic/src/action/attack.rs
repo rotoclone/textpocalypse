@@ -199,7 +199,7 @@ impl Action for AttackAction {
         if let Some(hit_params) = hit_params {
             result_builder = handle_damage::<DefaultAttack>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<DefaultAttack>(
                 performing_entity,
                 target,
                 weapon_entity,

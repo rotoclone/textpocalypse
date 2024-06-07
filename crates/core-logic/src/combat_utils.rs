@@ -495,19 +495,16 @@ pub fn handle_damage<T: AttackType>(
 }
 
 /// Adds messages to `result_builder` describing a missed attack.
-pub fn handle_miss(
+pub fn handle_miss<T: AttackType>(
     performing_entity: Entity,
     target: Entity,
     weapon_entity: Entity,
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let miss_message = world
-        .get::<Weapon>(weapon_entity)
-        .expect("weapon should be a weapon")
-        .default_attack_messages
-        .miss
-        .choose(&mut rand::thread_rng()).cloned()
+    let miss_message = T::get_messages(weapon_entity, world)
+        .map(|m| &m.miss)
+        .and_then(|m| m.choose(&mut rand::thread_rng())).cloned()
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
 
     let miss_message_tokens = WeaponMissMessageTokens {

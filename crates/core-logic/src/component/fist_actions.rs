@@ -141,7 +141,7 @@ impl Action for UppercutAction {
             hit_params.body_part = BodyPart::Head;
             result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<UppercutAction>(
                 performing_entity,
                 target,
                 weapon_entity,
@@ -382,7 +382,7 @@ impl Action for HaymakerAction {
             hit_params.damage = hit_params.damage.mul_and_round(HAYMAKER_DAMAGE_MULTIPLIER);
             result_builder = handle_damage::<HaymakerAction>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<HaymakerAction>(
                 performing_entity,
                 target,
                 weapon_entity,
