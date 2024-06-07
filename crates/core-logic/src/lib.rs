@@ -5,7 +5,6 @@ use log::{debug, warn};
 use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
-    marker::PhantomData,
     sync::{Arc, RwLock},
     thread,
     time::{Duration, SystemTime},
@@ -508,11 +507,10 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part} with a solid uppercut.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
                 },
-                //TODO
                 haymaker_messages: WeaponMessages {
-                    miss: vec![],
-                    minor_hit: vec![],
-                    regular_hit: vec![],
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:stumble/stumbles} as ${target.name} dodges out of the way of what looks like would have been a painful hit from ${weapon.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} haymaker barely catches ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:land/lands} a powerful punch to ${target.name's} ${body_part}.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part} with a sickening crunch.").expect("message format should be valid")],
                 },
             },

@@ -401,7 +401,6 @@ impl TokenType {
             } => {
                 if entity == pov_entity {
                     if *possessive {
-                        // TODO but what if it should be "yours" instead of "your"?
                         "your".to_string()
                     } else {
                         "you".to_string()
