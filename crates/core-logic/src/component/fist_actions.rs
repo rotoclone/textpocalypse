@@ -479,3 +479,5 @@ impl AttackType for HaymakerAction {
             .map(|fist_actions| &fist_actions.haymaker_messages)
     }
 }
+
+//TODO cancel HaymakerAction when the attacker and target exit combat

@@ -16,6 +16,17 @@ pub struct Notification<'c, T: NotificationType, Contents> {
     pub contents: &'c Contents,
 }
 
+impl<'c, T: NotificationType + 'static> Notification<'c, T, ()> {
+    /// Sends a notification with the provided type and no contents.
+    pub fn send_no_contents(notification_type: T, world: &mut World) {
+        Notification {
+            notification_type,
+            contents: &(),
+        }
+        .send(world);
+    }
+}
+
 impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'c, T, C> {
     /// Sends this notification to all the handlers registered for it.
     pub fn send(&self, world: &mut World) {

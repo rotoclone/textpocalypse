@@ -675,11 +675,7 @@ impl NotificationType for TickNotification {}
 fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
 
-    Notification {
-        notification_type: TickNotification,
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(TickNotification, world);
 }
 
 /// Moves an entity to a container.
@@ -753,11 +749,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
     ActionQueue::clear(world, entity);
 
-    Notification {
-        notification_type: DeathNotification { entity },
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(DeathNotification { entity }, world);
 
     let name = world
         .get::<Description>(entity)
@@ -835,11 +827,7 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     }
 
     // send despawn notification
-    Notification {
-        notification_type: DespawnNotification { entity },
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(DespawnNotification { entity }, world);
 
     // finally, despawn the entity itself
     world.despawn(entity);
