@@ -1,16 +1,21 @@
+use std::collections::HashMap;
+
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
-    resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
-    ActionResultBuilder, AttackType, BasicTokens, BodyPart, CheckModifiers, CheckResult,
+    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, Action,
+    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, AttackAction,
+    AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
     CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
-    EquippedItems, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, Skill, Stats, SurroundingsMessageCategory,
-    ThirdPersonMessage, ThirdPersonMessageLocation, VitalChange, VitalType, Vitals, VsCheckParams,
-    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
+    EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon, InputParseError,
+    IntegerExtensions, InternalMessageCategory, Location, MessageCategory, MessageDelay,
+    MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
+    ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
+    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
+    WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -533,4 +538,155 @@ pub fn handle_miss<T: AttackType>(
             ),
             world,
         )
+}
+
+/// Verifies that everything is in order for an attack.
+pub fn verify_combat_action_valid<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let verify_results = vec![
+        verify_target_in_same_room(notification, world),
+        verify_target_alive(notification, world),
+        verify_attacker_wielding_weapon(notification, world),
+    ];
+
+    if verify_results.iter().all(|r| r.is_valid) {
+        return VerifyResult::valid();
+    }
+
+    let messages = verify_results
+        .into_iter()
+        .flat_map(|r| r.messages)
+        .collect::<HashMap<Entity, Vec<GameMessage>>>();
+    VerifyResult::invalid_with_messages(messages)
+}
+
+/// Verifies that the target is in the same room as the attacker.
+fn verify_target_in_same_room<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.contents.get_target();
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    let attacker_location = world.get::<Location>(performing_entity);
+    let target_location = world.get::<Location>(target);
+
+    if attacker_location.is_none()
+        || target_location.is_none()
+        || attacker_location != target_location
+    {
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("{target_name} is not here.")),
+        );
+    }
+
+    VerifyResult::valid()
+}
+
+/// Verifies that the target is alive.
+fn verify_target_alive<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.contents.get_target();
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    if is_living_entity(target, world) {
+        return VerifyResult::valid();
+    }
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("{target_name} is not alive.")),
+    )
+}
+
+/// Verifies that the attacker has the weapon they're trying to attack with.
+fn verify_attacker_wielding_weapon<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let weapon_entity = notification.contents.get_weapon();
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        return VerifyResult::valid();
+    }
+
+    // if at least one hand is empty, treat it as being an innate weapon
+    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+        if equipped_items.get_num_hands_free(world) > 0 {
+            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+                if weapon_entity == innate_weapon_entity {
+                    return VerifyResult::valid();
+                }
+            }
+        }
+    }
+
+    let weapon_name =
+        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
+    )
+}
+
+/// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
+pub fn equip_before_attack<A: AttackType>(
+    notification: &Notification<BeforeActionNotification, A>,
+    world: &mut World,
+) {
+    let performing_entity = notification.notification_type.performing_entity;
+    let weapon_entity = notification.contents.get_weapon();
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        // the weapon is already equipped, no need to do anything
+        return;
+    }
+
+    // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+        if weapon_entity == innate_weapon_entity {
+            let items_to_unequip =
+                EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
+            for item in items_to_unequip {
+                ActionQueue::queue_first(
+                    world,
+                    performing_entity,
+                    Box::new(EquipAction {
+                        target: item,
+                        should_be_equipped: false,
+                        notification_sender: ActionNotificationSender::new(),
+                    }),
+                );
+            }
+            return;
+        }
+    }
+
+    // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
+    ActionQueue::queue_first(
+        world,
+        performing_entity,
+        Box::new(EquipAction {
+            target: weapon_entity,
+            should_be_equipped: true,
+            notification_sender: ActionNotificationSender::new(),
+        }),
+    );
+}
+
+/// Cancels any queued attacks when combat ends.
+pub fn cancel_attacks_when_exit_combat(
+    notification: &Notification<ExitCombatNotification, ()>,
+    world: &mut World,
+) {
+    //TODO
 }

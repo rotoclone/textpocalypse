@@ -113,7 +113,6 @@ pub use equipped_items::UnequipError;
 
 mod weapon;
 pub use weapon::AttackType;
-pub use weapon::DefaultAttack;
 pub use weapon::Weapon;
 pub use weapon::WeaponDamageAdjustment;
 pub use weapon::WeaponHitMessageTokens;
@@ -134,6 +133,8 @@ pub use innate_weapon::InnateWeapon;
 mod combat_state;
 pub use combat_state::CombatRange;
 pub use combat_state::CombatState;
+pub use combat_state::EnterCombatNotification;
+pub use combat_state::ExitCombatNotification;
 
 mod invisible;
 pub use invisible::InvisibilityScope;

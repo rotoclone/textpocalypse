@@ -3,14 +3,18 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
-    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
-    ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    AttackType, BasicTokens, BeforeActionNotification, BodyPart, Description, InputParseError,
-    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    ParseCustomInput, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VerifyActionNotification, VerifyResult, Weapon, WeaponMessages,
+    check_for_hit, combat_utils, handle_begin_attack, handle_damage, handle_miss,
+    handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
+    ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionQueue,
+    ActionResult, AfterActionPerformNotification, AttackType, BasicTokens,
+    BeforeActionNotification, BodyPart, Description, InputParseError, IntegerExtensions,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, Notification,
+    NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, ThirdPersonMessage,
+    ThirdPersonMessageLocation, VerifyActionNotification, VerifyNotificationHandlers, VerifyResult,
+    Weapon, WeaponMessages,
 };
+
+use super::combat_state::ExitCombatNotification;
 
 /// A component that provides special attack actions for fists.
 #[derive(Component)]
@@ -24,6 +28,26 @@ pub struct FistActions {
 impl ParseCustomInput for FistActions {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
         vec![Box::new(UppercutParser), Box::new(HaymakerParser)]
+    }
+
+    fn register_handlers(world: &mut World) {
+        VerifyNotificationHandlers::add_handler(
+            combat_utils::verify_combat_action_valid::<UppercutAction>,
+            world,
+        );
+        NotificationHandlers::add_handler(
+            combat_utils::equip_before_attack::<UppercutAction>,
+            world,
+        );
+
+        VerifyNotificationHandlers::add_handler(
+            combat_utils::verify_combat_action_valid::<HaymakerAction>,
+            world,
+        );
+        NotificationHandlers::add_handler(
+            combat_utils::equip_before_attack::<HaymakerAction>,
+            world,
+        );
     }
 }
 
@@ -208,6 +232,14 @@ impl AttackType for UppercutAction {
         world
             .get::<FistActions>(weapon_entity)
             .map(|fist_actions| &fist_actions.uppercut_messages)
+    }
+
+    fn get_target(&self) -> Entity {
+        self.target
+    }
+
+    fn get_weapon(&self) -> Entity {
+        self.weapon
     }
 }
 
@@ -478,6 +510,12 @@ impl AttackType for HaymakerAction {
             .get::<FistActions>(weapon_entity)
             .map(|fist_actions| &fist_actions.haymaker_messages)
     }
-}
 
-//TODO cancel HaymakerAction when the attacker and target exit combat
+    fn get_target(&self) -> Entity {
+        self.target
+    }
+
+    fn get_weapon(&self) -> Entity {
+        self.weapon
+    }
+}

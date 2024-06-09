@@ -11,9 +11,9 @@ use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, send_message, BeforeActionNotification, Description, InterpolationError,
-    Invisible, MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
-    VerifyActionNotification,
+    can_receive_messages, combat_utils, send_message, BeforeActionNotification, Description,
+    InterpolationError, Invisible, MessageCategory, MessageDelay, MessageFormat, MessageTokens,
+    Pronouns, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -138,10 +138,13 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
     NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
 
-    VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_attacker_wielding_weapon, world);
-    NotificationHandlers::add_handler(attack::equip_before_attack, world);
+    VerifyNotificationHandlers::add_handler(
+        combat_utils::verify_combat_action_valid::<AttackAction>,
+        world,
+    );
+    NotificationHandlers::add_handler(combat_utils::equip_before_attack::<AttackAction>, world);
+
+    NotificationHandlers::add_handler(combat_utils::cancel_attacks_when_exit_combat, world);
 
     VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }

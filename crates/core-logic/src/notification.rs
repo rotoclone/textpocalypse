@@ -54,6 +54,7 @@ impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'
 
             for handle_fn in handle_fns {
                 let response = handle_fn(self, world);
+                //TODO continue calling verification handlers and send messages for all of the failed ones?
                 if !response.is_valid {
                     return response;
                 }

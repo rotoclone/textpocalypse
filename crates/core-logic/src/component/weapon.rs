@@ -54,21 +54,12 @@ pub trait AttackType {
 
     /// Gets the messages to use for attacks of this type with the provided weapon, if there are any defined.
     fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages>;
-}
 
-/// The default attack that every weapon has.
-pub struct DefaultAttack;
+    /// Gets the target of the attack.
+    fn get_target(&self) -> Entity;
 
-impl AttackType for DefaultAttack {
-    fn can_perform_with(_: Entity, _: &World) -> bool {
-        true
-    }
-
-    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
-        world
-            .get::<Weapon>(weapon_entity)
-            .map(|weapon| &weapon.default_attack_messages)
-    }
+    /// Gets the weapon used in the attack.
+    fn get_weapon(&self) -> Entity;
 }
 
 /// Describes the ranges at which a weapon can be used.
