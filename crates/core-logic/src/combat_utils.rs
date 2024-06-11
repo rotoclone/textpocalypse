@@ -688,5 +688,18 @@ pub fn cancel_attacks_when_exit_combat(
     notification: &Notification<ExitCombatNotification, ()>,
     world: &mut World,
 ) {
-    //TODO
+    ActionQueue::cancel(
+        is_combat_action,
+        world,
+        notification.notification_type.entity_1,
+    );
+    ActionQueue::cancel(
+        is_combat_action,
+        world,
+        notification.notification_type.entity_2,
+    );
+}
+
+fn is_combat_action(action: &dyn Action) -> bool {
+    todo!() //TODO figure out how to identify combat actions
 }

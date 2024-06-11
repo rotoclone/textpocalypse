@@ -108,15 +108,34 @@ impl ActionQueue {
 
     /// Clears all queued actions for the provided entity, interrupting any actions that are in progress.
     pub fn clear(world: &mut World, entity: Entity) {
+        ActionQueue::cancel(|_| true, world, entity);
+    }
+
+    /// Cancels actions for the provided entity for which the provided function returns true, interrupting any actions that are in progress.
+    pub fn cancel<F>(should_cancel: F, world: &mut World, entity: Entity)
+    where
+        F: Fn(&dyn Action) -> bool,
+    {
         let mut actions_to_interrupt = Vec::new();
 
         if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+            //TODO keep the 3 queues separate?
             action_queue.update_queue();
+            /*
+              This takes all the actions out of the queue, and then adds back the ones that shouldn't be canceled, which seems silly, but you can't
+              remove from a list while iterating over it, and this is the only way I was able to get the ownership to work.
+            */
+            let mut actions_to_keep = VecDeque::new();
             for (action, state) in action_queue.actions.drain(0..) {
-                if let ActionState::InProgress = state {
-                    actions_to_interrupt.push(action);
+                if should_cancel(action.as_ref()) {
+                    if let ActionState::InProgress = state {
+                        actions_to_interrupt.push(action);
+                    }
+                } else {
+                    actions_to_keep.push_back((action, state));
                 }
             }
+            action_queue.actions = actions_to_keep;
         }
 
         for action in actions_to_interrupt {
