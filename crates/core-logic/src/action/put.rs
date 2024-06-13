@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -11,9 +13,9 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    BasicTokens, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -380,6 +382,10 @@ impl Action for PutAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

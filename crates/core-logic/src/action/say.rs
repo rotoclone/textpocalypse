@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -6,8 +8,8 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -94,6 +96,10 @@ impl Action for SayAction {
 
     fn may_require_tick(&self) -> bool {
         false
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

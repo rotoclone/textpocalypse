@@ -649,6 +649,15 @@ impl ActionInterruptResultBuilder {
     }
 }
 
+/// Represents a tag that describes an action.
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub enum ActionTag {
+    /// For actions that have to do with combat.
+    Combat,
+    /// A non-standard tag.
+    Custom(String),
+}
+
 pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
@@ -659,6 +668,9 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     /// Returns whether the action might take game time to perform.
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world
     fn may_require_tick(&self) -> bool;
+
+    /// Returns the tags of this action, so it can be identified.
+    fn get_tags(&self) -> HashSet<ActionTag>;
 
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(

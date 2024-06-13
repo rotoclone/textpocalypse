@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -12,8 +14,8 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    AttributeDescription, BasicTokens, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    ActionTag, AttributeDescription, BasicTokens, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
 };
 
 use super::{
@@ -226,6 +228,10 @@ impl Action for LockAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

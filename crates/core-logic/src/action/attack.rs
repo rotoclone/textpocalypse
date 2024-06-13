@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use rand::seq::SliceRandom;
@@ -11,9 +13,9 @@ use crate::{
     notification::VerifyResult,
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
-    WeaponHitMessageTokens, WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification, WeaponHitMessageTokens, WeaponMessages,
 };
 
 use super::{
@@ -220,6 +222,10 @@ impl Action for AttackAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(

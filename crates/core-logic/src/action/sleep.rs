@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -10,8 +12,8 @@ use crate::{
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -180,6 +182,10 @@ impl Action for SleepAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

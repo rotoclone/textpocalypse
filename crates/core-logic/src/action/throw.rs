@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
@@ -19,9 +19,9 @@ use crate::{
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, MessageTokens, Pronouns, SurroundingsMessageCategory, TokenName,
-    TokenValue, VerifyActionNotification, Volume,
+    ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
+    SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
 };
 
 use super::{
@@ -416,6 +416,10 @@ impl Action for ThrowAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

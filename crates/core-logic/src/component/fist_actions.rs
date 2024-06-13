@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -5,16 +7,13 @@ use regex::Regex;
 use crate::{
     check_for_hit, combat_utils, handle_begin_attack, handle_damage, handle_miss,
     handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
-    ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionQueue,
-    ActionResult, AfterActionPerformNotification, AttackType, BasicTokens,
-    BeforeActionNotification, BodyPart, Description, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, Notification,
-    NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, ThirdPersonMessage,
-    ThirdPersonMessageLocation, VerifyActionNotification, VerifyNotificationHandlers, VerifyResult,
-    Weapon, WeaponMessages,
+    ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionTag, AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification,
+    BodyPart, Description, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
+    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
+    VerifyActionNotification, VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
 };
-
-use super::combat_state::ExitCombatNotification;
 
 /// A component that provides special attack actions for fists.
 #[derive(Component)]
@@ -188,6 +187,10 @@ impl Action for UppercutAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(
@@ -465,6 +468,10 @@ impl Action for HaymakerAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(

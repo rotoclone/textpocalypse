@@ -67,9 +67,9 @@ pub struct ActionQueue {
     /// The queue of actions to be performed.
     actions: VecDeque<(Box<dyn Action>, ActionState)>,
     /// Actions that should be added to the beginning of the queue.
-    to_add_front: Vec<(Box<dyn Action>, ActionState)>,
+    to_add_front: VecDeque<(Box<dyn Action>, ActionState)>,
     /// Actions that should be added to the end of the queue.
-    to_add_back: Vec<(Box<dyn Action>, ActionState)>,
+    to_add_back: VecDeque<(Box<dyn Action>, ActionState)>,
 }
 
 impl ActionQueue {
@@ -77,8 +77,8 @@ impl ActionQueue {
     pub fn new() -> ActionQueue {
         ActionQueue {
             actions: VecDeque::new(),
-            to_add_front: Vec::new(),
-            to_add_back: Vec::new(),
+            to_add_front: VecDeque::new(),
+            to_add_back: VecDeque::new(),
         }
     }
 
@@ -116,30 +116,18 @@ impl ActionQueue {
     where
         F: Fn(&dyn Action) -> bool,
     {
-        let mut actions_to_interrupt = Vec::new();
+        let mut removed_actions = Vec::new();
 
         if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
-            //TODO keep the 3 queues separate?
-            action_queue.update_queue();
-            /*
-              This takes all the actions out of the queue, and then adds back the ones that shouldn't be canceled, which seems silly, but you can't
-              remove from a list while iterating over it, and this is the only way I was able to get the ownership to work.
-            */
-            let mut actions_to_keep = VecDeque::new();
-            for (action, state) in action_queue.actions.drain(0..) {
-                if should_cancel(action.as_ref()) {
-                    if let ActionState::InProgress = state {
-                        actions_to_interrupt.push(action);
-                    }
-                } else {
-                    actions_to_keep.push_back((action, state));
-                }
-            }
-            action_queue.actions = actions_to_keep;
+            removed_actions.extend(remove_if(&mut action_queue.to_add_front, &should_cancel));
+            removed_actions.extend(remove_if(&mut action_queue.actions, &should_cancel));
+            removed_actions.extend(remove_if(&mut action_queue.to_add_back, &should_cancel));
         }
 
-        for action in actions_to_interrupt {
-            interrupt_action(action.as_ref(), entity, world);
+        for (action, state) in removed_actions {
+            if let ActionState::InProgress = state {
+                interrupt_action(action.as_ref(), entity, world);
+            }
         }
     }
 
@@ -156,12 +144,12 @@ impl ActionQueue {
         if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
             action_queue
                 .to_add_back
-                .push((action, ActionState::NotStarted));
+                .push_back((action, ActionState::NotStarted));
         } else {
             world.entity_mut(performing_entity).insert(ActionQueue {
                 actions: VecDeque::new(),
-                to_add_front: Vec::new(),
-                to_add_back: vec![(action, ActionState::NotStarted)],
+                to_add_front: VecDeque::new(),
+                to_add_back: [(action, ActionState::NotStarted)].into(),
             });
         }
     }
@@ -172,6 +160,34 @@ impl ActionQueue {
     }
 }
 
+/// Removes all the actions from `actions` that return true when passed to `should_cancel`.
+/// Returns the removed actions.
+fn remove_if<F>(
+    actions: &mut VecDeque<(Box<dyn Action>, ActionState)>,
+    should_cancel: &F,
+) -> Vec<(Box<dyn Action>, ActionState)>
+where
+    F: Fn(&dyn Action) -> bool,
+{
+    let mut removed_actions = Vec::new();
+
+    /*
+      This takes all the actions out of the queue, and then adds back the ones that shouldn't be canceled, which seems silly, but you can't
+      remove from a list while iterating over it, and this is the only way I was able to get the ownership to work.
+    */
+    let mut actions_to_keep = VecDeque::new();
+    for (action, state) in actions.drain(0..) {
+        if should_cancel(action.as_ref()) {
+            removed_actions.push((action, state));
+        } else {
+            actions_to_keep.push_back((action, state));
+        }
+    }
+    *actions = actions_to_keep;
+
+    removed_actions
+}
+
 /// Queues an action with the provided state for the provided entity to perform before its other queued actions.
 fn queue_action_first_with_state(
     world: &mut World,
@@ -180,12 +196,12 @@ fn queue_action_first_with_state(
     state: ActionState,
 ) {
     if let Some(mut action_queue) = world.get_mut::<ActionQueue>(performing_entity) {
-        action_queue.to_add_front.push((action, state));
+        action_queue.to_add_front.push_back((action, state));
     } else {
         world.entity_mut(performing_entity).insert(ActionQueue {
             actions: VecDeque::new(),
-            to_add_front: vec![(action, state)],
-            to_add_back: Vec::new(),
+            to_add_front: [(action, state)].into(),
+            to_add_back: VecDeque::new(),
         });
     }
 }

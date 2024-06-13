@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -10,9 +12,9 @@ use crate::{
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    BasicTokens, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -282,6 +284,10 @@ impl Action for ChangeRangeAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(

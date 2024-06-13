@@ -7,15 +7,15 @@ use regex::{Captures, Regex};
 
 use crate::{
     is_living_entity, resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, Action,
-    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, AttackAction,
-    AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
-    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
-    EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon, InputParseError,
-    IntegerExtensions, InternalMessageCategory, Location, MessageCategory, MessageDelay,
-    MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
-    ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
-    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
-    WeaponUnusableError,
+    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
+    AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
+    CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
+    Description, EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
+    InputParseError, IntegerExtensions, InternalMessageCategory, Location, MessageCategory,
+    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
+    ThirdPersonMessage, ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult,
+    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens,
+    WeaponMissMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -701,5 +701,5 @@ pub fn cancel_attacks_when_exit_combat(
 }
 
 fn is_combat_action(action: &dyn Action) -> bool {
-    todo!() //TODO figure out how to identify combat actions
+    action.get_tags().contains(&ActionTag::Combat)
 }
