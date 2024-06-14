@@ -6,7 +6,7 @@ use strum::EnumIter;
 
 use crate::{
     component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    verb_forms::VerbForms, Container,
+    MessageFormat, MessageTokens, TokenName, TokenValue,
 };
 
 use super::{combat_state::CombatRange, InnateWeapon, Stat};
@@ -16,8 +16,6 @@ use super::{combat_state::CombatRange, InnateWeapon, Stat};
 pub struct Weapon {
     /// The type of weapon this is.
     pub weapon_type: WeaponType,
-    /// The verb to use when describing hits from this weapon. E.g. shoot, stab, etc.
-    pub hit_verb: VerbForms,
     /// The amount of damage the weapon can do.
     pub base_damage_range: RangeInclusive<u32>,
     /// How to modify the damage on a critical hit.
@@ -28,6 +26,8 @@ pub struct Weapon {
     pub stat_requirements: Vec<WeaponStatRequirement>,
     /// Parameters for bonuses based on the weapon user's stats.
     pub stat_bonuses: WeaponStatBonuses,
+    /// The messages for default attacks with this weapon.
+    pub default_attack_messages: WeaponMessages,
 }
 
 /// Represents a type of weapon.
@@ -45,6 +45,21 @@ pub enum WeaponType {
     Fists,
     /// A mod-defined weapon type
     Custom(String),
+}
+
+/// Trait for structs describing a type of attack.
+pub trait AttackType {
+    /// Determines whether the provided weapon entity can perform this attack.
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool;
+
+    /// Gets the messages to use for attacks of this type with the provided weapon, if there are any defined.
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages>;
+
+    /// Gets the target of the attack.
+    fn get_target(&self) -> Entity;
+
+    /// Gets the weapon used in the attack.
+    fn get_weapon(&self) -> Entity;
 }
 
 /// Describes the ranges at which a weapon can be used.
@@ -130,6 +145,68 @@ pub struct WeaponStatBonuses {
     pub to_hit_bonus_stat_range: RangeInclusive<f32>,
     /// The to-hit bonus per point in the weapon's to-hit bonus stat above the start and up to the end of the to-hit bonus stat range.
     pub to_hit_bonus_per_stat_point: f32,
+}
+
+/// Describes the messages to send when a weapon is used.
+pub struct WeaponMessages {
+    /// Messages for misses
+    pub miss: Vec<MessageFormat<WeaponMissMessageTokens>>,
+    /// Messages for hits that don't do much damage
+    pub minor_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    /// Messages for hits that do a normal amount of damage
+    pub regular_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    /// Messages for hits that do a lot of damage
+    pub major_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+}
+
+/// Tokens used in weapon messages for hits.
+#[derive(Clone)]
+pub struct WeaponHitMessageTokens {
+    /// The attacking entity
+    pub attacker: Entity,
+    /// The target of the attack
+    pub target: Entity,
+    /// THe weapon used in the attack
+    pub weapon: Entity,
+    /// The name of the body part hit in the attack
+    pub body_part: String,
+}
+
+/// Tokens used in weapon messages for misses.
+#[derive(Clone)]
+pub struct WeaponMissMessageTokens {
+    /// The attacking entity
+    pub attacker: Entity,
+    /// The target of the attack
+    pub target: Entity,
+    /// The weapon used in the attack
+    pub weapon: Entity,
+}
+
+impl MessageTokens for WeaponHitMessageTokens {
+    fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
+        [
+            ("attacker".into(), TokenValue::Entity(self.attacker)),
+            ("target".into(), TokenValue::Entity(self.target)),
+            ("weapon".into(), TokenValue::Entity(self.weapon)),
+            (
+                "body_part".into(),
+                TokenValue::String(self.body_part.clone()),
+            ),
+        ]
+        .into()
+    }
+}
+
+impl MessageTokens for WeaponMissMessageTokens {
+    fn get_token_map(&self) -> std::collections::HashMap<TokenName, TokenValue> {
+        [
+            ("attacker".into(), TokenValue::Entity(self.attacker)),
+            ("target".into(), TokenValue::Entity(self.target)),
+            ("weapon".into(), TokenValue::Entity(self.weapon)),
+        ]
+        .into()
+    }
 }
 
 impl Weapon {

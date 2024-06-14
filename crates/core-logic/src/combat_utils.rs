@@ -1,14 +1,21 @@
+use std::collections::HashMap;
+
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
-    resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, ActionResult,
-    ActionResultBuilder, BodyPart, CheckModifiers, CheckResult, CombatRange, CombatState,
-    CommandParseError, CommandTarget, Container, Description, EquippedItems, InnateWeapon,
-    InputParseError, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
-    Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponUnusableError,
+    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, Action,
+    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
+    AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
+    CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
+    Description, EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
+    InputParseError, IntegerExtensions, InternalMessageCategory, Location, MessageCategory,
+    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
+    ThirdPersonMessage, ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult,
+    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens,
+    WeaponMissMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -36,10 +43,9 @@ pub struct ParsedAttack {
 
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
-/// `weapon_matcher` should return `true` when passed an entity that would be a valid weapon for use in the attack.
 ///
 /// Returns `Ok` with the target entity, or `Err` if the input is invalid.
-pub fn parse_attack_input<F>(
+pub fn parse_attack_input<T: AttackType>(
     input: &str,
     source_entity: Entity,
     pattern: &Regex,
@@ -47,32 +53,26 @@ pub fn parse_attack_input<F>(
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<ParsedAttack, InputParseError> {
     if let Some(captures) = pattern_with_weapon.captures(input) {
-        return parse_attack_input_captures(
+        return parse_attack_input_captures::<T>(
             &captures,
             source_entity,
             target_capture_name,
             weapon_capture_name,
             verb_name,
-            weapon_matcher,
             world,
         );
     }
 
     if let Some(captures) = pattern.captures(input) {
-        return parse_attack_input_captures(
+        return parse_attack_input_captures::<T>(
             &captures,
             source_entity,
             target_capture_name,
             weapon_capture_name,
             verb_name,
-            weapon_matcher,
             world,
         );
     }
@@ -80,18 +80,14 @@ where
     Err(InputParseError::UnknownCommand)
 }
 
-fn parse_attack_input_captures<F>(
+fn parse_attack_input_captures<T: AttackType>(
     captures: &Captures,
     source_entity: Entity,
     target_capture_name: &str,
     weapon_capture_name: &str,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<ParsedAttack, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<ParsedAttack, InputParseError> {
     let target_entity = parse_attack_target(
         captures,
         target_capture_name,
@@ -99,12 +95,11 @@ where
         verb_name,
         world,
     )?;
-    let weapon_entity = parse_attack_weapon(
+    let weapon_entity = parse_attack_weapon::<T>(
         captures,
         weapon_capture_name,
         source_entity,
         verb_name,
-        weapon_matcher,
         world,
     )?;
 
@@ -159,22 +154,18 @@ fn parse_attack_target(
 }
 
 /// Finds the weapon entity to use in an attack.
-/// Weapons valid for use in the attack will return `true` when passed into the provided `weapon_matcher`.
-fn parse_attack_weapon<F>(
+fn parse_attack_weapon<T: AttackType>(
     captures: &Captures,
     weapon_capture_name: &str,
     source_entity: Entity,
     verb_name: &str,
-    weapon_matcher: F,
     world: &World,
-) -> Result<Entity, InputParseError>
-where
-    F: Fn(Entity, &World) -> bool,
-{
+) -> Result<Entity, InputParseError> {
     if let Some(target_match) = captures.name(weapon_capture_name) {
         let weapon = CommandTarget::parse(target_match.as_str());
         if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
-            if world.get::<Weapon>(weapon_entity).is_some() && weapon_matcher(weapon_entity, world)
+            if world.get::<Weapon>(weapon_entity).is_some()
+                && T::can_perform_with(weapon_entity, world)
             {
                 // weapon exists and is the correct type of weapon
                 return Ok(weapon_entity);
@@ -195,7 +186,7 @@ where
     // no weapon provided
     // prioritize the primary weapon
     if let Some((_, weapon_entity)) = Weapon::get_primary(source_entity, world) {
-        if weapon_matcher(weapon_entity, world) {
+        if T::can_perform_with(weapon_entity, world) {
             return Ok(weapon_entity);
         }
     }
@@ -203,7 +194,7 @@ where
     // primary weapon didn't match, so fall back to other equipped weapons
     if let Some(equipped_items) = world.get::<EquippedItems>(source_entity) {
         for item in equipped_items.get_items() {
-            if world.get::<Weapon>(*item).is_some() && weapon_matcher(*item, world) {
+            if world.get::<Weapon>(*item).is_some() && T::can_perform_with(*item, world) {
                 return Ok(*item);
             }
         }
@@ -211,7 +202,7 @@ where
 
     // no equipped weapons matched, try innate weapon
     if let Some((_, innate_weapon_entity)) = InnateWeapon::get(source_entity, world) {
-        if weapon_matcher(innate_weapon_entity, world) {
+        if T::can_perform_with(innate_weapon_entity, world) {
             return Ok(innate_weapon_entity);
         }
     }
@@ -219,7 +210,7 @@ where
     // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
     if let Some(container) = world.get::<Container>(source_entity) {
         for item in container.get_entities(source_entity, world) {
-            if world.get::<Weapon>(item).is_some() && weapon_matcher(item, world) {
+            if world.get::<Weapon>(item).is_some() && T::can_perform_with(item, world) {
                 return Ok(item);
             }
         }
@@ -277,11 +268,19 @@ pub fn handle_enter_combat(
     {
         CombatState::set_in_combat(attacker, target, range, world);
 
-        let target_name = Description::get_reference_name(target, Some(attacker), world);
+        let message_format =
+            MessageFormat::new("${attacker.Name} ${attacker.you:attack/attacks} ${target.name}!")
+                .expect("message format should be valid");
+        let message_tokens = BasicTokens::new()
+            .with_entity("attacker".into(), attacker)
+            .with_entity("target".into(), target);
+
         result_builder = result_builder
             .with_message(
                 attacker,
-                format!("You attack {target_name}!"),
+                message_format
+                    .interpolate(attacker, &message_tokens, world)
+                    .expect("enter combat message interpolation shold not fail"),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
@@ -291,11 +290,9 @@ pub fn handle_enter_combat(
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(attacker)
-                .add_string(" attacks ")
-                .add_name(target)
-                .add_string("!"),
+                    message_format,
+                    message_tokens,
+                ),
                 world,
             );
     }
@@ -342,11 +339,10 @@ pub fn handle_weapon_unusable_error(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(entity)
-            .add_string(" flails about uselessly with ")
-            .add_name(weapon_entity)
-            .add_string("."),
+                MessageFormat::new("${entity.Name} flails about uselessly with ${weapon.name}.")
+                    .expect("message format should be valid"),
+                BasicTokens::new().with_entity("entity".into(), entity),
+            ),
             world,
         )
         .build_complete_should_tick(false)
@@ -373,6 +369,8 @@ pub struct HitParams {
     pub weapon_entity: Entity,
     /// The damage done
     pub damage: u32,
+    /// Whether the hit is a critical hit or not
+    pub is_crit: bool,
     /// The body part hit
     pub body_part: BodyPart,
 }
@@ -423,6 +421,7 @@ pub fn check_for_hit(
                     target,
                     weapon_entity,
                     damage,
+                    is_crit: critical,
                     body_part,
                 }))
             }
@@ -435,26 +434,11 @@ pub fn check_for_hit(
 }
 
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.
-pub fn handle_damage(
+pub fn handle_damage<T: AttackType>(
     hit_params: HitParams,
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    //TODO instead of having these messages in here, make them defined on the weapons themselves
-    let target_health = world
-        .get::<Vitals>(hit_params.target)
-        .map(|vitals| &vitals.health)
-        .expect("target should have vitals");
-    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
-    let (hit_severity_first_person, hit_severity_third_person) =
-        if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
-            ("mutilate", "mutilates")
-        } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
-            ("hit", "hits")
-        } else {
-            ("barely scratch", "barely scratches")
-        };
-
     result_builder = result_builder.with_post_effect(Box::new(move |w| {
         VitalChange {
             entity: hit_params.target,
@@ -466,31 +450,39 @@ pub fn handle_damage(
         .apply(w);
     }));
 
-    let weapon_name = Description::get_reference_name(
-        hit_params.weapon_entity,
-        Some(hit_params.performing_entity),
-        world,
-    );
-    let target_name = Description::get_reference_name(
-        hit_params.target,
-        Some(hit_params.performing_entity),
-        world,
-    );
-    let weapon_hit_verb = &world
-        .get::<Weapon>(hit_params.weapon_entity)
-        .expect("weapon should be a weapon")
-        .hit_verb;
+    let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
+
+    let target_health = world
+        .get::<Vitals>(hit_params.target)
+        .map(|vitals| &vitals.health)
+        .expect("target should have vitals");
+    let damage_fraction = hit_params.damage as f32 / target_health.get_max();
+
+    let hit_messages_to_choose_from = if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
+        weapon_messages.map(|m| &m.major_hit)
+    } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
+        weapon_messages.map(|m: &crate::WeaponMessages| &m.regular_hit)
+    } else {
+        weapon_messages.map(|m| &m.minor_hit)
+    };
+
+    let hit_message = hit_messages_to_choose_from
+        .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+
+    let hit_message_tokens = WeaponHitMessageTokens {
+        attacker: hit_params.performing_entity,
+        target: hit_params.target,
+        weapon: hit_params.weapon_entity,
+        body_part: hit_params.body_part.to_string(),
+    };
+
     result_builder
         .with_message(
             hit_params.performing_entity,
-            format!(
-                "You {} {}'s {} with a {} from {}.",
-                hit_severity_first_person,
-                target_name,
-                hit_params.body_part,
-                weapon_hit_verb.second_person,
-                weapon_name
-            ),
+            hit_message
+                .interpolate(hit_params.performing_entity, &hit_message_tokens, world)
+                .expect("hit message interpolation should not fail"),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -500,35 +492,38 @@ pub fn handle_damage(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(hit_params.performing_entity)
-            .add_string(format!(" {hit_severity_third_person} "))
-            .add_name(hit_params.target)
-            .add_string(format!(
-                " in the {} with a {} from ",
-                hit_params.body_part, weapon_hit_verb.second_person
-            ))
-            .add_name(hit_params.weapon_entity)
-            .add_string("!"),
+                hit_message,
+                hit_message_tokens,
+            ),
             world,
         )
 }
 
 /// Adds messages to `result_builder` describing a missed attack.
-pub fn handle_miss(
+pub fn handle_miss<T: AttackType>(
     performing_entity: Entity,
     target: Entity,
     weapon_entity: Entity,
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+    let miss_message = T::get_messages(weapon_entity, world)
+        .map(|m| &m.miss)
+        .and_then(|m| m.choose(&mut rand::thread_rng())).cloned()
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
+
+    let miss_message_tokens = WeaponMissMessageTokens {
+        attacker: performing_entity,
+        target,
+        weapon: weapon_entity,
+    };
+
     result_builder
         .with_message(
             performing_entity,
-            format!("You fail to hit {target_name} with {weapon_name}."),
+            miss_message
+                .interpolate(performing_entity, &miss_message_tokens, world)
+                .expect("miss message should interpolate correctly"),
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
@@ -538,13 +533,173 @@ pub fn handle_miss(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(performing_entity)
-            .add_string(" fails to hit ")
-            .add_name(target)
-            .add_string(" with ")
-            .add_name(weapon_entity)
-            .add_string("."),
+                miss_message,
+                miss_message_tokens,
+            ),
             world,
         )
+}
+
+/// Verifies that everything is in order for an attack.
+pub fn verify_combat_action_valid<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let verify_results = vec![
+        verify_target_in_same_room(notification, world),
+        verify_target_alive(notification, world),
+        verify_attacker_wielding_weapon(notification, world),
+    ];
+
+    if verify_results.iter().all(|r| r.is_valid) {
+        return VerifyResult::valid();
+    }
+
+    let messages = verify_results
+        .into_iter()
+        .flat_map(|r| r.messages)
+        .collect::<HashMap<Entity, Vec<GameMessage>>>();
+    VerifyResult::invalid_with_messages(messages)
+}
+
+/// Verifies that the target is in the same room as the attacker.
+fn verify_target_in_same_room<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.contents.get_target();
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    let attacker_location = world.get::<Location>(performing_entity);
+    let target_location = world.get::<Location>(target);
+
+    if attacker_location.is_none()
+        || target_location.is_none()
+        || attacker_location != target_location
+    {
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("{target_name} is not here.")),
+        );
+    }
+
+    VerifyResult::valid()
+}
+
+/// Verifies that the target is alive.
+fn verify_target_alive<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let target = notification.contents.get_target();
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    if is_living_entity(target, world) {
+        return VerifyResult::valid();
+    }
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("{target_name} is not alive.")),
+    )
+}
+
+/// Verifies that the attacker has the weapon they're trying to attack with.
+fn verify_attacker_wielding_weapon<A: AttackType>(
+    notification: &Notification<VerifyActionNotification, A>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let weapon_entity = notification.contents.get_weapon();
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        return VerifyResult::valid();
+    }
+
+    // if at least one hand is empty, treat it as being an innate weapon
+    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+        if equipped_items.get_num_hands_free(world) > 0 {
+            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+                if weapon_entity == innate_weapon_entity {
+                    return VerifyResult::valid();
+                }
+            }
+        }
+    }
+
+    let weapon_name =
+        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
+    )
+}
+
+/// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
+pub fn equip_before_attack<A: AttackType>(
+    notification: &Notification<BeforeActionNotification, A>,
+    world: &mut World,
+) {
+    let performing_entity = notification.notification_type.performing_entity;
+    let weapon_entity = notification.contents.get_weapon();
+
+    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+        // the weapon is already equipped, no need to do anything
+        return;
+    }
+
+    // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+        if weapon_entity == innate_weapon_entity {
+            let items_to_unequip =
+                EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
+            for item in items_to_unequip {
+                ActionQueue::queue_first(
+                    world,
+                    performing_entity,
+                    Box::new(EquipAction {
+                        target: item,
+                        should_be_equipped: false,
+                        notification_sender: ActionNotificationSender::new(),
+                    }),
+                );
+            }
+            return;
+        }
+    }
+
+    // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
+    ActionQueue::queue_first(
+        world,
+        performing_entity,
+        Box::new(EquipAction {
+            target: weapon_entity,
+            should_be_equipped: true,
+            notification_sender: ActionNotificationSender::new(),
+        }),
+    );
+}
+
+/// Cancels any queued attacks when combat ends.
+pub fn cancel_attacks_when_exit_combat(
+    notification: &Notification<ExitCombatNotification, ()>,
+    world: &mut World,
+) {
+    ActionQueue::cancel(
+        is_combat_action,
+        world,
+        notification.notification_type.entity_1,
+    );
+    ActionQueue::cancel(
+        is_combat_action,
+        world,
+        notification.notification_type.entity_2,
+    );
+}
+
+fn is_combat_action(action: &dyn Action) -> bool {
+    action.get_tags().contains(&ActionTag::Combat)
 }

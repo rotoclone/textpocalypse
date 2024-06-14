@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
@@ -13,8 +13,9 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, Description, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
@@ -153,11 +154,14 @@ impl Action for DrinkAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" takes a drink from ".to_string())
-                .add_name(self.target)
-                .add_string(".".to_string()),
+                    MessageFormat::new(
+                        "${performing_entity.Name} takes a drink from ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_entity("target".into(), self.target),
+                ),
                 world,
             )
             .build_complete_should_tick(true)
@@ -174,6 +178,10 @@ impl Action for DrinkAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

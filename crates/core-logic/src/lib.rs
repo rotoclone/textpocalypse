@@ -6,7 +6,7 @@ use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
-    thread::{self},
+    thread,
     time::{Duration, SystemTime},
 };
 
@@ -78,6 +78,9 @@ use integer_extensions::*;
 
 mod combat_utils;
 use combat_utils::*;
+
+mod message_format;
+use message_format::*;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
@@ -433,9 +436,9 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
+        MessageFormat::new("${player.Name} appears.").expect("message format should be valid"),
+        BasicTokens::new().with_entity("player".into(), player_entity),
     )
-    .add_name(player_entity)
-    .add_string(" appears.")
     .send(
         Some(player_entity),
         ThirdPersonMessageLocation::SourceEntity,
@@ -463,11 +466,6 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
         .spawn((
             Weapon {
                 weapon_type: WeaponType::Fists,
-                hit_verb: VerbForms {
-                    second_person: "punch".to_string(),
-                    third_person_plural: "punch".to_string(),
-                    third_person_singular: "punches".to_string(),
-                },
                 base_damage_range: 1..=2,
                 critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
                 ranges: WeaponRanges {
@@ -483,6 +481,12 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     to_hit_bonus_stat_range: 10.0..=20.0,
                     to_hit_bonus_per_stat_point: 0.2,
                 },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lurch/lurches} forward as ${weapon.name} sails harmlessly past ${target.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.glance/glances} off of ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
+                },
             },
             InnateWeapon,
             Description {
@@ -496,7 +500,20 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 attribute_describers: vec![],
             },
             Invisible::to_all(),
-            FistActions,
+            FistActions {
+                uppercut_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:jut/juts} ${weapon.name} upward near where ${target.name} was moments ago.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} barely ${attacker.you:catch/catches} ${target.name's} ${body_part} with an uppercut.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part} with a solid uppercut.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
+                },
+                haymaker_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:stumble/stumbles} as ${target.name} dodges out of the way of what looks like would have been a painful hit from ${weapon.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} haymaker barely catches ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:land/lands} a powerful punch to ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part} with a sickening crunch.").expect("message format should be valid")],
+                },
+            },
         ))
         .id();
     FistActions::register_custom_input_parser(entity, world);
@@ -509,9 +526,10 @@ fn despawn_player(player_id: PlayerId, world: &mut World) {
         ThirdPersonMessage::new(
             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
+            MessageFormat::new("${player.Name} disappears.")
+                .expect("message format should be valid"),
+            BasicTokens::new().with_entity("player".into(), entity),
         )
-        .add_name(entity)
-        .add_string(" disappears.")
         .send(
             Some(entity),
             ThirdPersonMessageLocation::SourceEntity,
@@ -657,11 +675,7 @@ impl NotificationType for TickNotification {}
 fn tick(world: &mut World) {
     world.resource_mut::<Time>().tick();
 
-    Notification {
-        notification_type: TickNotification,
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(TickNotification, world);
 }
 
 /// Moves an entity to a container.
@@ -723,9 +737,10 @@ fn kill_entity(entity: Entity, world: &mut World) {
     ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::new("${player.Name} falls to the ground, dead.")
+            .expect("message format should be valid"),
+        BasicTokens::new().with_entity("player".into(), entity),
     )
-    .add_name(entity)
-    .add_string(" falls to the ground, dead.")
     .send(
         Some(entity),
         ThirdPersonMessageLocation::SourceEntity,
@@ -734,11 +749,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
 
     ActionQueue::clear(world, entity);
 
-    Notification {
-        notification_type: DeathNotification { entity },
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(DeathNotification { entity }, world);
 
     let name = world
         .get::<Description>(entity)
@@ -816,11 +827,7 @@ fn despawn_entity(entity: Entity, world: &mut World) {
     }
 
     // send despawn notification
-    Notification {
-        notification_type: DespawnNotification { entity },
-        contents: &(),
-    }
-    .send(world);
+    Notification::send_no_contents(DespawnNotification { entity }, world);
 
     // finally, despawn the entity itself
     world.despawn(entity);

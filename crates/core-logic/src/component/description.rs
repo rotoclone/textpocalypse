@@ -87,10 +87,17 @@ impl Pronouns {
 
     /// Gets the personal subject pronoun to use when referring to the provided entity (e.g. he, she, they).
     ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "you".
     /// If the entity has no description and is alive, this will return "they".
     /// If the entity has no description and is not alive, this will return "it".
-    pub fn get_personal_subject(entity: Entity, world: &World) -> String {
-        if let Some(desc) = world.get::<Description>(entity) {
+    pub fn get_personal_subject(
+        entity: Entity,
+        pov_entity: Option<Entity>,
+        world: &World,
+    ) -> String {
+        if pov_entity == Some(entity) {
+            "you".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
             desc.pronouns.personal_subject.clone()
         } else if is_living_entity(entity, world) {
             "they".to_string()
@@ -101,10 +108,17 @@ impl Pronouns {
 
     /// Gets the personal object pronoun to use when referring to the provided entity (e.g. him, her, them).
     ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "you".
     /// If the entity has no description and is alive, this will return "them".
     /// If the entity has no description and is not alive, this will return "it".
-    pub fn get_personal_object(entity: Entity, world: &World) -> String {
-        if let Some(desc) = world.get::<Description>(entity) {
+    pub fn get_personal_object(
+        entity: Entity,
+        pov_entity: Option<Entity>,
+        world: &World,
+    ) -> String {
+        if pov_entity == Some(entity) {
+            "you".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
             desc.pronouns.personal_object.clone()
         } else if is_living_entity(entity, world) {
             "them".to_string()
@@ -113,12 +127,36 @@ impl Pronouns {
         }
     }
 
+    /// Gets the possessive pronoun to use when referring to the provided entity (e.g. his, hers, theirs).
+    ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "yours".
+    /// If the entity has no description and is alive, this will return "theirs".
+    /// If the entity has no description and is not alive, this will return "its".
+    pub fn get_possessive(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+        if pov_entity == Some(entity) {
+            "yours".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.possessive.clone()
+        } else if is_living_entity(entity, world) {
+            "theirs".to_string()
+        } else {
+            "its".to_string()
+        }
+    }
+
     /// Gets the possessive adjective pronoun to use when referring to the provided entity (e.g. his, her, their).
     ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "your".
     /// If the entity has no description and is alive, this will return "their".
     /// If the entity has no description and is not alive, this will return "its".
-    pub fn get_possessive_adjective(entity: Entity, world: &World) -> String {
-        if let Some(desc) = world.get::<Description>(entity) {
+    pub fn get_possessive_adjective(
+        entity: Entity,
+        pov_entity: Option<Entity>,
+        world: &World,
+    ) -> String {
+        if pov_entity == Some(entity) {
+            "your".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
             desc.pronouns.possessive_adjective.clone()
         } else if is_living_entity(entity, world) {
             "their".to_string()
@@ -129,10 +167,13 @@ impl Pronouns {
 
     /// Gets the reflexive pronoun to use when referring to the provided entity (e.g. himself, herself, themself).
     ///
+    /// If a POV entity is provided, and it's the same as the entity, this will return "yourself".
     /// If the entity has no description and is alive, this will return "themself".
     /// If the entity has no description and is not alive, this will return "itself".
-    pub fn get_reflexive(entity: Entity, world: &World) -> String {
-        if let Some(desc) = world.get::<Description>(entity) {
+    pub fn get_reflexive(entity: Entity, pov_entity: Option<Entity>, world: &World) -> String {
+        if pov_entity == Some(entity) {
+            "yourself".to_string()
+        } else if let Some(desc) = world.get::<Description>(entity) {
             desc.pronouns.reflexive.clone()
         } else if is_living_entity(entity, world) {
             "themself".to_string()
@@ -156,6 +197,18 @@ impl Pronouns {
             "are".to_string()
         } else {
             "is".to_string()
+        }
+    }
+
+    /// Determines whether the provided entity's pronouns are plural.
+    ///
+    /// If the entity has no description and is alive, this will return true (to be paired with "they").
+    /// If the entity has no description and is not alive, this will return false (to be paired with "it").
+    pub fn is_plural(entity: Entity, world: &World) -> bool {
+        if let Some(desc) = world.get::<Description>(entity) {
+            desc.pronouns.plural
+        } else {
+            is_living_entity(entity, world)
         }
     }
 }
@@ -207,18 +260,15 @@ impl Description {
     ) -> Option<String> {
         let owning_entity = find_owning_entity(entity, world);
 
-        let desc = world.get::<Description>(entity);
         if let Some(owning_entity) = owning_entity {
-            if let Some(pov_entity) = pov_entity {
-                if owning_entity == pov_entity {
-                    return Some("your".to_string());
-                }
-            }
-
-            return Some(Pronouns::get_possessive_adjective(owning_entity, world));
+            return Some(Pronouns::get_possessive_adjective(
+                owning_entity,
+                pov_entity,
+                world,
+            ));
         }
 
-        if let Some(desc) = desc {
+        if let Some(desc) = world.get::<Description>(entity) {
             // return `None` if the entity has no article
             desc.article.as_ref()?;
         }

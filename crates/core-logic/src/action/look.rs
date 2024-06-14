@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -14,7 +16,7 @@ use crate::{
         InputParser,
     },
     notification::VerifyResult,
-    BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
+    ActionTag, BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
     InternalMessageCategory, MessageCategory, MessageDelay, RoomDescription,
     VerifyActionNotification, World,
 };
@@ -192,6 +194,10 @@ impl Action for LookAction {
 
     fn may_require_tick(&self) -> bool {
         false
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

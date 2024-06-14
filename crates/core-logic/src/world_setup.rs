@@ -11,9 +11,8 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity,
-    verb_forms::VerbForms,
-    BodyPart, ConstrainedValue, Direction, Invisible, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, WeaponMessages,
+    AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -736,11 +735,6 @@ pub fn spawn_start_building(
             Item::new_two_handed(),
             Weapon {
                 weapon_type: WeaponType::Bludgeon,
-                hit_verb: VerbForms {
-                    second_person: "bonk".to_string(),
-                    third_person_plural: "bonk".to_string(),
-                    third_person_singular: "bonks".to_string(),
-                },
                 base_damage_range: 10..=15,
                 critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
                 ranges: WeaponRanges {
@@ -755,6 +749,15 @@ pub fn spawn_start_building(
                     damage_bonus_per_stat_point: 1.0,
                     to_hit_bonus_stat_range: 10.0..=20.0,
                     to_hit_bonus_per_stat_point: 1.0,
+                },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wide of ${target.name}. Strike!").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wildly, and ${attacker.you:manage/manages} to deal a glancing blow to ${target.name's} ${body_part}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bonk/bonks} ${target.name} on the ${body_part} with ${weapon.name}.").expect("message format should be valid")],
+                    major_hit: vec![
+                        MessageFormat::new("${attacker.Name} ${attacker.you:wind/winds} up with ${weapon.name} and ${attacker.you:connect/connects} with ${target.name's} ${body_part} with a loud crack.").expect("message format should be valid"),
+                        MessageFormat::new("${target.Name} ${target.you:scream/screams} as ${attacker.name} ${attacker.you:bash/bashes} ${target.their} ${body_part} with ${weapon.name}.").expect("message format should be valid")
+                    ],
                 },
             },
             Volume(0.5),

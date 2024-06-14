@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     get_or_insert_mut, notification::Notification, DeathNotification, DespawnNotification,
+    NotificationType,
 };
 
 /// Describes who an entity is in combat with.
@@ -23,6 +24,28 @@ pub enum CombatRange {
     Long,
     Longest,
 }
+
+/// A notification that two entities have started fighting.
+#[derive(Debug)]
+pub struct EnterCombatNotification {
+    /// One of the entities entering combat.
+    pub entity_1: Entity,
+    /// The other entity entering combat.
+    pub entity_2: Entity,
+}
+
+impl NotificationType for EnterCombatNotification {}
+
+/// A notification that two entities have stopped fighting.
+#[derive(Debug)]
+pub struct ExitCombatNotification {
+    /// One of the entities exiting combat.
+    pub entity_1: Entity,
+    /// The other entity exiting combat.
+    pub entity_2: Entity,
+}
+
+impl NotificationType for ExitCombatNotification {}
 
 impl CombatState {
     /// Finds all the entities the provided entity is currently in combat with.
@@ -53,6 +76,8 @@ impl CombatState {
         entity_2_combat_state
             .entities_in_combat_with
             .insert(entity_1, range);
+
+        Notification::send_no_contents(EnterCombatNotification { entity_1, entity_2 }, world);
     }
 
     /// Marks the provided entities as not in combat with each other.
@@ -66,6 +91,8 @@ impl CombatState {
         entity_2_combat_state
             .entities_in_combat_with
             .remove(&entity_1);
+
+        Notification::send_no_contents(ExitCombatNotification { entity_1, entity_2 }, world);
     }
 
     /// Marks the provided entity as not in combat with anyone.

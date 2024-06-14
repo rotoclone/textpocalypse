@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -10,8 +12,9 @@ use crate::{
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -190,11 +193,13 @@ impl Action for ChangeRangeAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(format!(" tries to {movement_phrase} "))
-                    .add_name(target)
-                    .add_string(", but can't manage to."),
+                        MessageFormat::new("${performing_entity.Name} tries to ${movement_phrase} ${target.name}, but can't manage to.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("performing_entity".into(), performing_entity)
+                            .with_string("movement_phrase".into(), movement_phrase.to_string())
+                            .with_entity("target".into(), target),
+                    ),
                     world,
                 )
                 .build_complete_should_tick(false);
@@ -238,16 +243,15 @@ impl Action for ChangeRangeAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
+                    MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}. ${performing_entity.They} ${performing_entity.are/is} now at ${new_range} range.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("performing_entity".into(), performing_entity)
+                            .with_string("movement_phrase".into(), movement_phrase_third_person.to_string())
+                            .with_entity("target".into(), target)
+                            .with_string("new_range".into(), new_range.to_string()),
                 )
-                .only_send_to(target)
-                .add_name(performing_entity)
-                .add_string(format!(" {movement_phrase_third_person} "))
-                .add_name(target)
-                .add_string(". ")
-                .add_personal_subject_pronoun(performing_entity, true)
-                .add_string(" ")
-                .add_to_be_form(performing_entity)
-                .add_string(format!(" now at {new_range} range.")),
+                .only_send_to(target),
                 world,
             )
             .with_third_person_message(
@@ -256,12 +260,14 @@ impl Action for ChangeRangeAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
+                    MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("performing_entity".into(), performing_entity)
+                            .with_string("movement_phrase".into(), movement_phrase_third_person.to_string())
+                            .with_entity("target".into(), target),
                 )
-                .do_not_send_to(target)
-                .add_name(performing_entity)
-                .add_string(format!(" {movement_phrase_third_person} "))
-                .add_name(target)
-                .add_string("."),
+                .do_not_send_to(target),
                 world,
             )
             .build_complete_should_tick(true)
@@ -278,6 +284,10 @@ impl Action for ChangeRangeAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(

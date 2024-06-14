@@ -1,19 +1,21 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
+use rand::seq::SliceRandom;
 use regex::Regex;
 
 use crate::{
     check_for_hit,
-    component::{ActionEndNotification, AfterActionPerformNotification, Location, Vitals, Weapon},
+    component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
     handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    is_living_entity,
-    notification::{Notification, VerifyResult},
+    notification::VerifyResult,
     parse_attack_input,
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    ActionQueue, BeforeActionNotification, Description, EquipAction, EquippedItems, GameMessage,
-    InnateWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification, WeaponHitMessageTokens, WeaponMessages,
 };
 
 use super::{
@@ -44,7 +46,7 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<AttackAction>(
             input,
             source_entity,
             &ATTACK_PATTERN,
@@ -52,7 +54,6 @@ impl InputParser for AttackParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             ATTACK_VERB_NAME,
-            |_, _| true,
             world,
         )?;
 
@@ -95,9 +96,15 @@ impl Action for AttackAction {
             let weapon = world
                 .get::<Weapon>(weapon_entity)
                 .expect("weapon should be a weapon");
-            let weapon_hit_verb = weapon.hit_verb.clone();
-            let weapon_name =
-                Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+            let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
+            .cloned()
+            .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} with ${weapon.name}.").expect("message format should be valid"));
+            let hit_message_tokens = WeaponHitMessageTokens {
+                attacker: performing_entity,
+                target,
+                weapon: weapon_entity,
+                body_part: BodyPart::Head.to_string(),
+            };
 
             match weapon.calculate_damage(
                 performing_entity,
@@ -106,17 +113,16 @@ impl Action for AttackAction {
                 world,
             ) {
                 Ok(damage) => {
-                    let third_person_hit_verb = weapon_hit_verb.third_person_singular;
-
                     VitalChange {
                         entity: performing_entity,
                         vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message: Some(format!(
-                            "You {} yourself with {}!",
-                            weapon_hit_verb.second_person, weapon_name
-                        )),
+                        message: Some(
+                            hit_message_format
+                                .interpolate(performing_entity, &hit_message_tokens, world)
+                                .expect("self hit message should interpolate properly"),
+                        ),
                     }
                     .apply(world);
 
@@ -127,13 +133,9 @@ impl Action for AttackAction {
                             ThirdPersonMessage::new(
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
-                            )
-                            .add_name(performing_entity)
-                            .add_string(format!(" {third_person_hit_verb} "))
-                            .add_reflexive_pronoun(performing_entity)
-                            .add_string(" with ")
-                            .add_name(weapon_entity)
-                            .add_string("."),
+                                hit_message_format,
+                                hit_message_tokens,
+                            ),
                             world,
                         )
                         .build_complete_should_tick(true);
@@ -195,9 +197,9 @@ impl Action for AttackAction {
         };
 
         if let Some(hit_params) = hit_params {
-            result_builder = handle_damage(hit_params, result_builder, world);
+            result_builder = handle_damage::<AttackAction>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<AttackAction>(
                 performing_entity,
                 target,
                 weapon_entity,
@@ -220,6 +222,10 @@ impl Action for AttackAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(
@@ -255,123 +261,22 @@ impl Action for AttackAction {
     }
 }
 
-/// Verifies that the target is in the same room as the attacker.
-pub fn verify_target_in_same_room(
-    notification: &Notification<VerifyActionNotification, AttackAction>,
-    world: &World,
-) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let target = notification.contents.target;
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
-
-    let attacker_location = world.get::<Location>(performing_entity);
-    let target_location = world.get::<Location>(target);
-
-    if attacker_location.is_none()
-        || target_location.is_none()
-        || attacker_location != target_location
-    {
-        return VerifyResult::invalid(
-            performing_entity,
-            GameMessage::Error(format!("{target_name} is not here.")),
-        );
+impl AttackType for AttackAction {
+    fn can_perform_with(_: Entity, _: &World) -> bool {
+        true
     }
 
-    VerifyResult::valid()
-}
-
-/// Verifies that the target is alive.
-pub fn verify_target_alive(
-    notification: &Notification<VerifyActionNotification, AttackAction>,
-    world: &World,
-) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let target = notification.contents.target;
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
-
-    if is_living_entity(target, world) {
-        return VerifyResult::valid();
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
+        world
+            .get::<Weapon>(weapon_entity)
+            .map(|weapon| &weapon.default_attack_messages)
     }
 
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("{target_name} is not alive.")),
-    )
-}
-
-/// Verifies that the attacker has the weapon they're trying to attack with.
-pub fn verify_attacker_wielding_weapon(
-    notification: &Notification<VerifyActionNotification, AttackAction>,
-    world: &World,
-) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let weapon_entity = notification.contents.weapon;
-
-    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
-        return VerifyResult::valid();
+    fn get_target(&self) -> Entity {
+        self.target
     }
 
-    // if at least one hand is empty, treat it as being an innate weapon
-    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-        if equipped_items.get_num_hands_free(world) > 0 {
-            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
-                if weapon_entity == innate_weapon_entity {
-                    return VerifyResult::valid();
-                }
-            }
-        }
+    fn get_weapon(&self) -> Entity {
+        self.weapon
     }
-
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
-    )
-}
-
-/// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
-pub fn equip_before_attack(
-    notification: &Notification<BeforeActionNotification, AttackAction>,
-    world: &mut World,
-) {
-    let performing_entity = notification.notification_type.performing_entity;
-    let weapon_entity = notification.contents.weapon;
-
-    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
-        // the weapon is already equipped, no need to do anything
-        return;
-    }
-
-    // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
-    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
-        if weapon_entity == innate_weapon_entity {
-            let items_to_unequip =
-                EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
-            for item in items_to_unequip {
-                ActionQueue::queue_first(
-                    world,
-                    performing_entity,
-                    Box::new(EquipAction {
-                        target: item,
-                        should_be_equipped: false,
-                        notification_sender: ActionNotificationSender::new(),
-                    }),
-                );
-            }
-            return;
-        }
-    }
-
-    // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
-    ActionQueue::queue_first(
-        world,
-        performing_entity,
-        Box::new(EquipAction {
-            target: weapon_entity,
-            should_be_equipped: true,
-            notification_sender: ActionNotificationSender::new(),
-        }),
-    );
 }

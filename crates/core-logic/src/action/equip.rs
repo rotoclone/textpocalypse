@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -13,8 +15,9 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -178,11 +181,18 @@ impl Action for EquipAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(format!(" {takes_out_or_puts_away} "))
-                .add_name(target)
-                .add_string(".".to_string()),
+                    MessageFormat::new(
+                        "${performing_entity.Name} ${takes_out_or_puts_away} ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_string(
+                            "takes_out_or_puts_away".into(),
+                            takes_out_or_puts_away.to_string(),
+                        )
+                        .with_entity("target".into(), self.target),
+                ),
                 world,
             )
             .build_complete_should_tick(true)
@@ -208,6 +218,10 @@ impl Action for EquipAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

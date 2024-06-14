@@ -1,21 +1,19 @@
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 use voca_rs::Voca;
 
 use crate::component::{
-    ActionEndNotification, AfterActionPerformNotification, CombatRange, CombatState, Container,
-    Location,
+    ActionEndNotification, AfterActionPerformNotification, Container, Location,
 };
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, send_message, BeforeActionNotification, Description,
-    InternalMessageCategory, Invisible, MessageCategory, MessageDelay, Pronouns,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    can_receive_messages, combat_utils, send_message, BeforeActionNotification, Description,
+    InterpolationError, Invisible, MessageCategory, MessageDelay, MessageFormat, MessageTokens,
+    Pronouns, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -140,18 +138,23 @@ pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
     NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
 
-    VerifyNotificationHandlers::add_handler(attack::verify_target_in_same_room, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_target_alive, world);
-    VerifyNotificationHandlers::add_handler(attack::verify_attacker_wielding_weapon, world);
-    NotificationHandlers::add_handler(attack::equip_before_attack, world);
+    VerifyNotificationHandlers::add_handler(
+        combat_utils::verify_combat_action_valid::<AttackAction>,
+        world,
+    );
+    NotificationHandlers::add_handler(combat_utils::equip_before_attack::<AttackAction>, world);
+
+    NotificationHandlers::add_handler(combat_utils::cancel_attacks_when_exit_combat, world);
 
     VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }
 
 /// A message caused by some other entity's action.
-pub struct ThirdPersonMessage {
-    /// The parts of the message.
-    pub parts: Vec<MessagePart>,
+pub struct ThirdPersonMessage<T: MessageTokens> {
+    /// The format of the message.
+    pub message_format: MessageFormat<T>,
+    /// The tokens to use to interpolate the message.
+    pub message_tokens: T,
     /// The category of the message.
     pub category: MessageCategory,
     /// The delay of the message.
@@ -162,81 +165,22 @@ pub struct ThirdPersonMessage {
     pub receivers_to_exclude: HashSet<Entity>,
 }
 
-impl ThirdPersonMessage {
-    /// Creates a message with no parts.
-    pub fn new(category: MessageCategory, delay: MessageDelay) -> ThirdPersonMessage {
+impl<T: MessageTokens> ThirdPersonMessage<T> {
+    /// Creates a message with no specific receivers set.
+    pub fn new(
+        category: MessageCategory,
+        delay: MessageDelay,
+        message_format: MessageFormat<T>,
+        message_tokens: T,
+    ) -> ThirdPersonMessage<T> {
         ThirdPersonMessage {
-            parts: Vec::new(),
+            message_format,
+            message_tokens,
             category,
             delay,
             receivers_override: None,
             receivers_to_exclude: HashSet::new(),
         }
-    }
-
-    /// Adds a string to the message.
-    pub fn add_string<T: Into<String>>(mut self, string: T) -> ThirdPersonMessage {
-        self.parts.push(MessagePart::String(string.into()));
-
-        self
-    }
-
-    /// Adds an entity's name to the message.
-    pub fn add_name(mut self, entity: Entity) -> ThirdPersonMessage {
-        self.parts
-            .push(MessagePart::Token(MessageToken::Name(entity)));
-
-        self
-    }
-
-    /// Adds an entity's personal subject pronoun (e.g. he, she, they) to the message.
-    pub fn add_personal_subject_pronoun(
-        mut self,
-        entity: Entity,
-        capitalized: bool,
-    ) -> ThirdPersonMessage {
-        self.parts
-            .push(MessagePart::Token(MessageToken::PersonalSubjectPronoun {
-                entity,
-                capitalized,
-            }));
-
-        self
-    }
-
-    /// Adds an entity's personal object pronoun (e.g. him, her, them) to the message.
-    pub fn add_personal_object_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
-        self.parts
-            .push(MessagePart::Token(MessageToken::PersonalObjectPronoun(
-                entity,
-            )));
-
-        self
-    }
-
-    /// Adds an entity's possessive adjective pronoun (e.g. his, her, their) to the message.
-    pub fn add_possessive_adjective_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
-        self.parts.push(MessagePart::Token(
-            MessageToken::PossessiveAdjectivePronoun(entity),
-        ));
-
-        self
-    }
-
-    /// Adds an entity's reflexive pronoun (e.g. himself, herself, themself) to the message.
-    pub fn add_reflexive_pronoun(mut self, entity: Entity) -> ThirdPersonMessage {
-        self.parts
-            .push(MessagePart::Token(MessageToken::ReflexivePronoun(entity)));
-
-        self
-    }
-
-    /// Adds the form of "to be" to pair with an entity's personal subject pronoun (i.e. is/are) to the message.
-    pub fn add_to_be_form(mut self, entity: Entity) -> ThirdPersonMessage {
-        self.parts
-            .push(MessagePart::Token(MessageToken::ToBeForm(entity)));
-
-        self
     }
 
     /// Sets this message to be only sent to the provided entity.
@@ -245,7 +189,7 @@ impl ThirdPersonMessage {
     /// If an entity is passed to both `only_send_to` and `do_not_send_to`, the entity will not receive the message.
     ///
     /// Calling this multiple times will override any previous calls.
-    pub fn only_send_to(mut self, entity: Entity) -> ThirdPersonMessage {
+    pub fn only_send_to(mut self, entity: Entity) -> ThirdPersonMessage<T> {
         self.receivers_override = Some(HashSet::from([entity]));
 
         self
@@ -257,7 +201,7 @@ impl ThirdPersonMessage {
     /// If an entity is passed to both `only_send_to_entities` and `do_not_send_to_entities`, the entity will not receive the message.
     ///
     /// Calling this multiple times will override any previous calls.
-    pub fn only_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage {
+    pub fn only_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage<T> {
         self.receivers_override = Some(entities.iter().cloned().collect());
 
         self
@@ -268,7 +212,7 @@ impl ThirdPersonMessage {
     /// If an entity is passed to both `only_send_to` and `do_not_send_to`, the entity will not receive the message.
     ///
     /// Calling this multiple times will add more entities to not send messages to.
-    pub fn do_not_send_to(mut self, entity: Entity) -> ThirdPersonMessage {
+    pub fn do_not_send_to(mut self, entity: Entity) -> ThirdPersonMessage<T> {
         self.receivers_to_exclude.insert(entity);
 
         self
@@ -279,7 +223,7 @@ impl ThirdPersonMessage {
     /// If an entity is passed to both `only_send_to_entities` and `do_not_send_to_entities`, the entity will not receive the message.
     ///
     /// Calling this multiple times will add more entities to not send messages to.
-    pub fn do_not_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage {
+    pub fn do_not_send_to_entities(mut self, entities: &[Entity]) -> ThirdPersonMessage<T> {
         self.receivers_to_exclude.extend(entities);
 
         self
@@ -292,7 +236,10 @@ impl ThirdPersonMessage {
         message_location: ThirdPersonMessageLocation,
         world: &World,
     ) {
-        for (entity, message) in self.into_game_messages(source_entity, message_location, world) {
+        for (entity, message) in self
+            .into_game_messages(source_entity, message_location, world)
+            .expect("message interpolation should not fail")
+        {
             send_message(world, entity, message);
         }
     }
@@ -303,7 +250,7 @@ impl ThirdPersonMessage {
         source_entity: Option<Entity>,
         message_location: ThirdPersonMessageLocation,
         world: &World,
-    ) -> HashMap<Entity, GameMessage> {
+    ) -> Result<HashMap<Entity, GameMessage>, InterpolationError> {
         let mut message_map = HashMap::new();
 
         let location = match message_location {
@@ -332,31 +279,28 @@ impl ThirdPersonMessage {
                                 continue;
                             }
                         }
-                        message_map.insert(*entity, self.to_game_message_for(*entity, world));
+                        message_map.insert(*entity, self.to_game_message_for(*entity, world)?);
                     }
                 }
             }
         }
 
-        message_map
+        Ok(message_map)
     }
 
     /// Builds a message for the provided entity.
-    fn to_game_message_for(&self, pov_entity: Entity, world: &World) -> GameMessage {
-        let mut resolved_parts = Vec::new();
-
-        for part in &self.parts {
-            match part {
-                MessagePart::String(s) => resolved_parts.push(s.to_string()),
-                MessagePart::Token(t) => resolved_parts.push(t.to_string(pov_entity, world)),
-            }
-        }
-
-        GameMessage::Message {
-            content: resolved_parts.join(""),
+    fn to_game_message_for(
+        &self,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Result<GameMessage, InterpolationError> {
+        Ok(GameMessage::Message {
+            content: self
+                .message_format
+                .interpolate(pov_entity, &self.message_tokens, world)?,
             category: self.category,
             delay: self.delay,
-        }
+        })
     }
 }
 
@@ -401,11 +345,7 @@ impl MessageToken {
                 entity,
                 capitalized,
             } => {
-                let pronoun = if *entity == pov_entity {
-                    Pronouns::you().personal_subject
-                } else {
-                    Pronouns::get_personal_subject(*entity, world)
-                };
+                let pronoun = Pronouns::get_personal_subject(*entity, Some(pov_entity), world);
 
                 if *capitalized {
                     pronoun._capitalize(false)
@@ -414,25 +354,13 @@ impl MessageToken {
                 }
             }
             MessageToken::PersonalObjectPronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().personal_object
-                } else {
-                    Pronouns::get_personal_object(*e, world)
-                }
+                Pronouns::get_personal_object(*e, Some(pov_entity), world)
             }
             MessageToken::PossessiveAdjectivePronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().possessive_adjective
-                } else {
-                    Pronouns::get_possessive_adjective(*e, world)
-                }
+                Pronouns::get_possessive_adjective(*e, Some(pov_entity), world)
             }
             MessageToken::ReflexivePronoun(e) => {
-                if *e == pov_entity {
-                    Pronouns::you().reflexive
-                } else {
-                    Pronouns::get_reflexive(*e, world)
-                }
+                Pronouns::get_reflexive(*e, Some(pov_entity), world)
             }
             MessageToken::ToBeForm(e) => Pronouns::get_to_be_form(*e, world),
         }
@@ -559,15 +487,16 @@ impl ActionResultBuilder {
     }
 
     /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
-    pub fn with_third_person_message(
+    pub fn with_third_person_message<T: MessageTokens>(
         mut self,
         source_entity: Option<Entity>,
         message_location: ThirdPersonMessageLocation,
-        third_person_message: ThirdPersonMessage,
+        third_person_message: ThirdPersonMessage<T>,
         world: &World,
     ) -> ActionResultBuilder {
-        for (entity, message) in
-            third_person_message.into_game_messages(source_entity, message_location, world)
+        for (entity, message) in third_person_message
+            .into_game_messages(source_entity, message_location, world)
+            .expect("message interpolation should not fail")
         {
             self = self.with_game_message(entity, message);
         }
@@ -682,15 +611,16 @@ impl ActionInterruptResultBuilder {
     }
 
     /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
-    pub fn with_third_person_message(
+    pub fn with_third_person_message<T: MessageTokens>(
         mut self,
         source_entity: Option<Entity>,
         message_location: ThirdPersonMessageLocation,
-        third_person_message: ThirdPersonMessage,
+        third_person_message: ThirdPersonMessage<T>,
         world: &World,
     ) -> ActionInterruptResultBuilder {
-        for (entity, message) in
-            third_person_message.into_game_messages(source_entity, message_location, world)
+        for (entity, message) in third_person_message
+            .into_game_messages(source_entity, message_location, world)
+            .expect("message interpolation should not fail")
         {
             self = self.with_game_message(entity, message);
         }
@@ -719,6 +649,15 @@ impl ActionInterruptResultBuilder {
     }
 }
 
+/// Represents a tag that describes an action.
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub enum ActionTag {
+    /// For actions that have to do with combat.
+    Combat,
+    /// A non-standard tag.
+    Custom(String),
+}
+
 pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
@@ -729,6 +668,9 @@ pub trait Action: std::fmt::Debug + Send + Sync {
     /// Returns whether the action might take game time to perform.
     /// TODO consider having 2 separate action traits, one for actions that might require a tick that takes in a mutable world, and one for actions that won't require a tick that takes in an immutable world
     fn may_require_tick(&self) -> bool;
+
+    /// Returns the tags of this action, so it can be identified.
+    fn get_tags(&self) -> HashSet<ActionTag>;
 
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(

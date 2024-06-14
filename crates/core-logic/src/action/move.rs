@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -11,8 +13,9 @@ use crate::{
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Direction, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Direction, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification,
 };
 
 use super::{
@@ -109,9 +112,12 @@ impl Action for MoveAction {
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
-                        )
-                        .add_name(performing_entity)
-                        .add_string(format!(" walks {}.", self.direction)),
+                            MessageFormat::new("${performing_entity.Name} walks ${direction}.")
+                                .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("performing_entity".into(), performing_entity)
+                                .with_string("direction".into(), self.direction.to_string()),
+                        ),
                         world,
                     )
                     .with_third_person_message(
@@ -120,9 +126,17 @@ impl Action for MoveAction {
                         ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
-                        )
-                        .add_name(performing_entity)
-                        .add_string(format!(" walks in from the {}.", self.direction.opposite())),
+                            MessageFormat::new(
+                                "${performing_entity.Name} walks in from the ${direction}.",
+                            )
+                            .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("performing_entity".into(), performing_entity)
+                                .with_string(
+                                    "direction".into(),
+                                    self.direction.opposite().to_string(),
+                                ),
+                        ),
                         world,
                     );
             }
@@ -151,6 +165,10 @@ impl Action for MoveAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(
@@ -233,11 +251,12 @@ fn try_escape_combat(
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
-                    )
-                    .add_name(entity)
-                    .add_string(format!(
-                        " tries to escape to the {direction}, but can't get away.",
-                    )),
+                        MessageFormat::new("${entity.Name} tries to escape to the ${direction}, but can't get away.")
+                                .expect("message format should be valid"),
+                            BasicTokens::new()
+                                .with_entity("entity".into(), entity)
+                                .with_string("direction".into(), direction.to_string()),
+                    ),
                     world,
                 );
             return (result_builder, false);

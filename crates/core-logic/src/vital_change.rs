@@ -92,16 +92,15 @@ impl VitalChange {
             }
 
             //TODO add ability to specify other entities to send notifications to
-            Notification {
-                notification_type: VitalChangedNotification {
+            Notification::send_no_contents(
+                VitalChangedNotification {
                     entity: self.entity,
                     vital_type: self.vital_type,
                     old_value,
                     new_value,
                 },
-                contents: &(),
-            }
-            .send(world);
+                world,
+            );
         }
     }
 }

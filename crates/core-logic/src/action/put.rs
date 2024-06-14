@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -11,8 +13,9 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -291,11 +294,12 @@ impl Action for PutAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" picks up ")
-                    .add_name(self.item)
-                    .add_string("."),
+                        MessageFormat::new("${entity.Name} picks up ${item.name}.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("entity".into(), performing_entity)
+                            .with_entity("item".into(), self.item),
+                    ),
                 )
             } else {
                 let source_name =
@@ -305,13 +309,13 @@ impl Action for PutAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" gets ")
-                    .add_name(self.item)
-                    .add_string(" from ")
-                    .add_name(self.source)
-                    .add_string("."),
+                        MessageFormat::new("${entity.Name} gets ${item.name} from ${source.name}.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("entity".into(), performing_entity)
+                            .with_entity("item".into(), self.item)
+                            .with_entity("source".into(), self.source),
+                    ),
                 )
             }
         } else if self.destination == performing_entity_location {
@@ -320,11 +324,12 @@ impl Action for PutAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" drops ")
-                .add_name(self.item)
-                .add_string("."),
+                    MessageFormat::new("${entity.Name} drops ${item.name}.")
+                        .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("entity".into(), performing_entity)
+                        .with_entity("item".into(), self.item),
+                ),
             )
         } else {
             let destination_name =
@@ -334,13 +339,15 @@ impl Action for PutAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" puts ")
-                .add_name(self.item)
-                .add_string(" into ")
-                .add_name(self.destination)
-                .add_string("."),
+                    MessageFormat::new(
+                        "${entity.Name} puts ${item.name} into ${destination.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("entity".into(), performing_entity)
+                        .with_entity("item".into(), self.item)
+                        .with_entity("destination".into(), self.destination),
+                ),
             )
         };
 
@@ -375,6 +382,10 @@ impl Action for PutAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

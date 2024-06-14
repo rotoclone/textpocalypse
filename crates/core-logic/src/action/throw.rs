@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -17,8 +19,9 @@ use crate::{
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    BeforeActionNotification, Description, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, Pronouns, SurroundingsMessageCategory, VerifyActionNotification, Volume,
+    ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
+    SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
 };
 
 use super::{
@@ -303,7 +306,7 @@ impl Action for ThrowAction {
             item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
             target_name: Description::get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: Pronouns::get_personal_object(target, world),
+            target_pronoun: Pronouns::get_personal_object(target, Some(performing_entity), world),
         };
 
         let hit;
@@ -415,6 +418,10 @@ impl Action for ThrowAction {
         true
     }
 
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
+    }
+
     fn send_before_notification(
         &self,
         notification_type: BeforeActionNotification,
@@ -489,6 +496,37 @@ struct ThrowMessageContext {
     target_pronoun: String,
 }
 
+/// Tokens for messages about throws.
+struct ThrowMessageTokens {
+    /// The entity doing the throwing
+    thrower: Entity,
+    /// The entity getting thrown
+    item: Entity,
+    /// The entity getting thrown at
+    target: Entity,
+}
+
+impl MessageTokens for ThrowMessageTokens {
+    fn get_token_map(&self) -> HashMap<TokenName, TokenValue> {
+        [
+            ("thrower".into(), TokenValue::Entity(self.thrower)),
+            ("item".into(), TokenValue::Entity(self.item)),
+            ("target".into(), TokenValue::Entity(self.target)),
+        ]
+        .into()
+    }
+}
+
+impl From<&ThrowMessageContext> for ThrowMessageTokens {
+    fn from(context: &ThrowMessageContext) -> Self {
+        ThrowMessageTokens {
+            thrower: context.performing_entity,
+            item: context.item,
+            target: context.target,
+        }
+    }
+}
+
 /// Adds messages to the provided result builder for when the throw was an extreme failure.
 fn result_builder_with_throw_extreme_fail_messages(
     result_builder: ActionResultBuilder,
@@ -511,13 +549,10 @@ fn result_builder_with_throw_extreme_fail_messages(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(context.performing_entity)
-            .add_string(" hurls ")
-            .add_name(context.item)
-            .add_string(" wildly, and it comes nowhere close to ")
-            .add_name(context.target)
-            .add_string("."),
+                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} hurls ${item.name} wildly, and it comes nowhere close to ${target.name}.")
+                    .expect("message format should be valid"),
+                context.into(),
+            ),
             world,
         )
 }
@@ -544,13 +579,12 @@ fn result_builder_with_throw_fail_messages(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(context.performing_entity)
-            .add_string(" throws ")
-            .add_name(context.item)
-            .add_string(", and it whizzes just past ")
-            .add_name(context.target)
-            .add_string("."),
+                MessageFormat::<ThrowMessageTokens>::new(
+                    "${thrower.Name} throws ${item.name}, and it whizzes just past ${target.name}.",
+                )
+                .expect("message format should be valid"),
+                context.into(),
+            ),
             world,
         )
 }
@@ -570,26 +604,20 @@ fn result_builder_with_dodge_extreme_fail_messages(
     let target_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like you don't even try to move out of the way before it hits you directly in the face.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .only_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", and it seems like you don't even try to move out of the way before it hits you directly in the face.");
+    .only_send_to(context.target);
 
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like ${target.name} doesn't even try to move out of the way before it hits ${target.them} directly in the face.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .do_not_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", and it seems like ")
-    .add_name(context.target)
-    .add_string(" doesn't even try to move out of the way before it hits ")
-    .add_personal_object_pronoun(context.target)
-    .add_string(" directly in the face.");
+    .do_not_send_to(context.target);
 
     result_builder
         .with_message(
@@ -627,26 +655,20 @@ fn result_builder_with_dodge_fail_messages(
     let target_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and you aren't able to get out of the way before it hits you in the chest.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .only_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", and you aren't able to get out of the way before it hits you in the chest.");
+    .only_send_to(context.target);
 
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${target.name} isn't able to get out of the way before it hits ${target.them} in the chest.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .do_not_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", and ")
-    .add_name(context.target)
-    .add_string(" isn't able to get out of the way before it hits ")
-    .add_personal_object_pronoun(context.target)
-    .add_string(" in the chest.");
+    .do_not_send_to(context.target);
 
     result_builder
         .with_message(
@@ -684,26 +706,20 @@ fn result_builder_with_dodge_success_messages(
     let target_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you move out of the way just before it hits you.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .only_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", but you move out of the way just before it hits you.");
+    .only_send_to(context.target);
 
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} moves out of the way just before it hits ${target.them}.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .do_not_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", but ")
-    .add_name(context.target)
-    .add_string(" moves out of the way just before it hits ")
-    .add_personal_object_pronoun(context.target)
-    .add_string(".");
+    .do_not_send_to(context.target);
 
     result_builder
         .with_message(
@@ -742,24 +758,20 @@ fn result_builder_with_dodge_extreme_success_messages(
     let target_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you calmly shift just enough to avoid being hit.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .only_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", but you calmly shift just enough to avoid being hit.");
+    .only_send_to(context.target);
 
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} calmly shifts just enough to avoid being hit.")
+            .expect("message format should be valid"),
+        context.into(),
     )
-    .do_not_send_to(context.target)
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", but ")
-    .add_name(context.target)
-    .add_string(" calmly shifts just enough to avoid being hit.");
+    .do_not_send_to(context.target);
 
     result_builder
         .with_message(
@@ -795,13 +807,10 @@ fn result_builder_with_throw_success_messages(
     let third_person_message = ThirdPersonMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-    )
-    .add_name(context.performing_entity)
-    .add_string(" throws ")
-    .add_name(context.item)
-    .add_string(", and it hits ")
-    .add_name(context.target)
-    .add_string(".");
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
+            .expect("message format should be valid"),
+        context.into(),
+    );
 
     result_builder
         .with_message(
@@ -840,13 +849,10 @@ fn result_builder_with_throw_extreme_success_messages(
             ThirdPersonMessage::new(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-            )
-            .add_name(context.performing_entity)
-            .add_string(" deftly throws ")
-            .add_name(context.item)
-            .add_string(", and it impacts ")
-            .add_name(context.target)
-            .add_string(" perfectly."),
+                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly throws ${item.name}, and it impacts ${target.name} perfectly.")
+            .expect("message format should be valid"),
+        context.into(),
+            ),
             world,
         )
 }

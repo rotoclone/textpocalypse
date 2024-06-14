@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -11,8 +13,8 @@ use crate::{
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -73,9 +75,10 @@ impl Action for RespawnAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(" appears."),
+                    MessageFormat::new("${entity.Name} appears.")
+                        .expect("message format should be valid"),
+                    BasicTokens::new().with_entity("entity".into(), performing_entity),
+                ),
                 world,
             )
             .build_complete_should_tick(true)
@@ -92,6 +95,10 @@ impl Action for RespawnAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

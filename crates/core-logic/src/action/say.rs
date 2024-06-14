@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -6,8 +8,8 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{
@@ -77,9 +79,12 @@ impl Action for SayAction {
                 ThirdPersonMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
-                )
-                .add_name(performing_entity)
-                .add_string(format!(" says, \"{text}\"")),
+                    MessageFormat::new("${performing_entity.Name} says, \"${text}\"")
+                        .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("performing_entity".into(), performing_entity)
+                        .with_string("text".into(), text.clone()),
+                ),
                 world,
             )
             .build_complete_no_tick(true)
@@ -91,6 +96,10 @@ impl Action for SayAction {
 
     fn may_require_tick(&self) -> bool {
         false
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

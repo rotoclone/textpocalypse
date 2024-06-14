@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -6,7 +8,8 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification, Container},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
-    BeforeActionNotification, ContainerDescription, GameMessage, VerifyActionNotification, World,
+    ActionTag, BeforeActionNotification, ContainerDescription, GameMessage,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -68,6 +71,10 @@ impl Action for InventoryAction {
 
     fn may_require_tick(&self) -> bool {
         false
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [].into()
     }
 
     fn send_before_notification(

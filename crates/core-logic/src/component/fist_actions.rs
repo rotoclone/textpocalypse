@@ -1,24 +1,52 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    check_for_hit, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
-    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
-    ActionInterruptResult, ActionNotificationSender, ActionResult, AfterActionPerformNotification,
-    BeforeActionNotification, Description, InputParseError, IntegerExtensions,
-    InternalMessageCategory, MessageCategory, MessageDelay, ParseCustomInput,
+    check_for_hit, combat_utils, handle_begin_attack, handle_damage, handle_miss,
+    handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
+    ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionTag, AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification,
+    BodyPart, Description, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
     SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VerifyActionNotification, VerifyResult, Weapon,
+    VerifyActionNotification, VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
 #[derive(Component)]
-pub struct FistActions;
+pub struct FistActions {
+    /// Messages for the uppercut attack.
+    pub uppercut_messages: WeaponMessages,
+    /// Messages for the haymaker attack.
+    pub haymaker_messages: WeaponMessages,
+}
 
 impl ParseCustomInput for FistActions {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
         vec![Box::new(UppercutParser), Box::new(HaymakerParser)]
+    }
+
+    fn register_handlers(world: &mut World) {
+        VerifyNotificationHandlers::add_handler(
+            combat_utils::verify_combat_action_valid::<UppercutAction>,
+            world,
+        );
+        NotificationHandlers::add_handler(
+            combat_utils::equip_before_attack::<UppercutAction>,
+            world,
+        );
+
+        VerifyNotificationHandlers::add_handler(
+            combat_utils::verify_combat_action_valid::<HaymakerAction>,
+            world,
+        );
+        NotificationHandlers::add_handler(
+            combat_utils::equip_before_attack::<HaymakerAction>,
+            world,
+        );
     }
 }
 
@@ -26,7 +54,7 @@ impl ParseCustomInput for FistActions {
 const UPPERCUT_TO_HIT_MODIFIER: i16 = -2;
 
 /// The multiplier for damage done by uppercuts.
-const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.2;
+const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.1;
 
 const UPPERCUT_VERB_NAME: &str = "uppercut";
 const UPPERCUT_FORMAT: &str = "uppercut <>";
@@ -48,7 +76,7 @@ impl InputParser for UppercutParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<UppercutAction>(
             input,
             source_entity,
             &UPPERCUT_PATTERN,
@@ -56,7 +84,6 @@ impl InputParser for UppercutParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             UPPERCUT_VERB_NAME,
-            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 
@@ -134,9 +161,10 @@ impl Action for UppercutAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
-            result_builder = handle_damage(hit_params, result_builder, world);
+            hit_params.body_part = BodyPart::Head;
+            result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<UppercutAction>(
                 performing_entity,
                 target,
                 weapon_entity,
@@ -159,6 +187,10 @@ impl Action for UppercutAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(
@@ -194,6 +226,26 @@ impl Action for UppercutAction {
     }
 }
 
+impl AttackType for UppercutAction {
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool {
+        world.get::<FistActions>(weapon_entity).is_some()
+    }
+
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
+        world
+            .get::<FistActions>(weapon_entity)
+            .map(|fist_actions| &fist_actions.uppercut_messages)
+    }
+
+    fn get_target(&self) -> Entity {
+        self.target
+    }
+
+    fn get_weapon(&self) -> Entity {
+        self.weapon
+    }
+}
+
 /// The amount to modify the to hit bonus by for haymakers.
 const HAYMAKER_TO_HIT_MODIFIER: i16 = 2;
 
@@ -221,7 +273,7 @@ impl InputParser for HaymakerParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input(
+        let attack = parse_attack_input::<HaymakerAction>(
             input,
             source_entity,
             &HAYMAKER_PATTERN,
@@ -229,7 +281,6 @@ impl InputParser for HaymakerParser {
             NAME_CAPTURE,
             WEAPON_CAPTURE,
             HAYMAKER_VERB_NAME,
-            |e, w| w.get::<FistActions>(e).is_some(),
             world,
         )?;
 
@@ -286,11 +337,14 @@ impl Action for HaymakerAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" faces ")
-                    .add_name(target)
-                    .add_string(" and winds up for a haymaker."),
+                        MessageFormat::new(
+                            "${attacker.Name} faces ${target.name} and winds up for a haymaker.",
+                        )
+                        .expect("message format should be valid"),
+                        BasicTokens::new()
+                            .with_entity("attacker".into(), performing_entity)
+                            .with_entity("target".into(), target),
+                    ),
                     world,
                 )
                 .build_incomplete(true);
@@ -310,9 +364,10 @@ impl Action for HaymakerAction {
                     ThirdPersonMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                    )
-                    .add_name(performing_entity)
-                    .add_string(" continues preparing for a haymaker."),
+                        MessageFormat::new("${attacker.Name} continues preparing for a haymaker.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("attacker".into(), performing_entity),
+                    ),
                     world,
                 )
                 .build_incomplete(true);
@@ -360,9 +415,9 @@ impl Action for HaymakerAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(HAYMAKER_DAMAGE_MULTIPLIER);
-            result_builder = handle_damage(hit_params, result_builder, world);
+            result_builder = handle_damage::<HaymakerAction>(hit_params, result_builder, world);
         } else {
-            result_builder = handle_miss(
+            result_builder = handle_miss::<HaymakerAction>(
                 performing_entity,
                 target,
                 weapon_entity,
@@ -385,6 +440,10 @@ impl Action for HaymakerAction {
 
     fn may_require_tick(&self) -> bool {
         true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
     }
 
     fn send_before_notification(
@@ -417,5 +476,25 @@ impl Action for HaymakerAction {
     fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
+    }
+}
+
+impl AttackType for HaymakerAction {
+    fn can_perform_with(weapon_entity: Entity, world: &World) -> bool {
+        world.get::<FistActions>(weapon_entity).is_some()
+    }
+
+    fn get_messages(weapon_entity: Entity, world: &World) -> Option<&WeaponMessages> {
+        world
+            .get::<FistActions>(weapon_entity)
+            .map(|fist_actions| &fist_actions.haymaker_messages)
+    }
+
+    fn get_target(&self) -> Entity {
+        self.target
+    }
+
+    fn get_weapon(&self) -> Entity {
+        self.weapon
     }
 }
