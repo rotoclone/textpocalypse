@@ -130,7 +130,7 @@ impl Container {
     ) -> Vec<Entity> {
         self.find_recursive_internal(
             &match_fn,
-            |container| container.get_entities(pov_entity, world),
+            &|container| container.get_entities(pov_entity, world),
             world,
             &mut vec![],
         )
@@ -146,7 +146,7 @@ impl Container {
     ) -> Vec<Entity> {
         self.find_recursive_internal(
             &match_fn,
-            |container| container.get_entities_including_invisible().clone(),
+            &|container| container.get_entities_including_invisible().clone(),
             world,
             &mut vec![],
         )
@@ -155,7 +155,7 @@ impl Container {
     fn find_recursive_internal(
         &self,
         match_fn: impl Fn(Entity) -> bool + Clone,
-        get_entities_fn: impl Fn(&Container) -> HashSet<Entity>,
+        get_entities_fn: &impl Fn(&Container) -> HashSet<Entity>,
         world: &World,
         contained_entities: &mut Vec<Entity>,
     ) -> Vec<Entity> {
@@ -174,7 +174,7 @@ impl Container {
             if let Some(container) = world.get::<Container>(contained_entity) {
                 found_entities.extend(container.find_recursive_internal(
                     match_fn.clone(),
-                    &get_entities_fn,
+                    get_entities_fn,
                     world,
                     contained_entities,
                 ));
