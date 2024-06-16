@@ -112,6 +112,15 @@ impl Container {
             .is_empty()
     }
 
+    /// Determines if the provided entity is inside this container, or inside any container in this container, etc.
+    ///
+    /// Invisible entities will also be checked.
+    pub fn contains_recursive_including_invisible(&self, entity: Entity, world: &World) -> bool {
+        !self
+            .find_recursive_including_invisible(|e| e == entity, world)
+            .is_empty()
+    }
+
     /// Finds all entities in this container (or in any container in this container, etc.) for which the provided function returns true.
     pub fn find_recursive(
         &self,
@@ -119,32 +128,53 @@ impl Container {
         pov_entity: Entity,
         world: &World,
     ) -> Vec<Entity> {
-        self.find_recursive_internal(&match_fn, pov_entity, world, &mut vec![])
+        self.find_recursive_internal(
+            &match_fn,
+            |container| container.get_entities(pov_entity, world),
+            world,
+            &mut vec![],
+        )
+    }
+
+    /// Finds all entities in this container (or in any container in this container, etc.) for which the provided function returns true.
+    ///
+    /// Invisible entities will also be checked.
+    pub fn find_recursive_including_invisible(
+        &self,
+        match_fn: impl Fn(Entity) -> bool,
+        world: &World,
+    ) -> Vec<Entity> {
+        self.find_recursive_internal(
+            &match_fn,
+            |container| container.get_entities_including_invisible().clone(),
+            world,
+            &mut vec![],
+        )
     }
 
     fn find_recursive_internal(
         &self,
         match_fn: impl Fn(Entity) -> bool + Clone,
-        pov_entity: Entity,
+        get_entities_fn: impl Fn(&Container) -> HashSet<Entity>,
         world: &World,
         contained_entities: &mut Vec<Entity>,
     ) -> Vec<Entity> {
         let mut found_entities = Vec::new();
 
-        for contained_entity in &self.get_entities(pov_entity, world) {
-            if contained_entities.contains(contained_entity) {
+        for contained_entity in get_entities_fn(self) {
+            if contained_entities.contains(&contained_entity) {
                 panic!("{contained_entity:?} contains itself")
             }
-            contained_entities.push(*contained_entity);
+            contained_entities.push(contained_entity);
 
-            if match_fn(*contained_entity) {
-                found_entities.push(*contained_entity);
+            if match_fn(contained_entity) {
+                found_entities.push(contained_entity);
             }
 
-            if let Some(container) = world.get::<Container>(*contained_entity) {
+            if let Some(container) = world.get::<Container>(contained_entity) {
                 found_entities.extend(container.find_recursive_internal(
                     match_fn.clone(),
-                    pov_entity,
+                    &get_entities_fn,
                     world,
                     contained_entities,
                 ));

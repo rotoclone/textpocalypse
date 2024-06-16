@@ -217,6 +217,6 @@ impl Action for DrinkAction {
     }
 }
 
-//TODO auto-equip item to drink from
+//TODO auto-equip item to drink from?
 
-//TODO verify that the item to drink from is equipped by the drinker
+//TODO verify that the item to drink from is equipped by the drinker?

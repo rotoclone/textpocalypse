@@ -421,7 +421,7 @@ impl Action for PutAction {
     }
 }
 
-//TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item
+//TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item?
 
 /// Verifies that the source and destination entities are containers.
 pub fn verify_source_and_destination_are_containers(
@@ -489,9 +489,8 @@ pub fn prevent_put_item_inside_itself(
     let destination = notification.contents.destination;
 
     if let Some(container) = world.get::<Container>(item) {
-        //TODO don't ignore invisible entities?
         if item == destination
-            || container.contains_recursive(destination, performing_entity, world)
+            || container.contains_recursive_including_invisible(destination, world)
         {
             let item_name = Description::get_reference_name(item, Some(performing_entity), world);
             return VerifyResult::invalid(
