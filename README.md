@@ -20,7 +20,7 @@ Planned features (in no particular order):
 - [ ] base building
 - [x] "survival needs" (hunger, thirst, etc.)
 - [x] stats/skills
-- [ ] combat
+- [x] combat
 - [ ] crafting
 - [x] mini-map
 - [ ] audio
