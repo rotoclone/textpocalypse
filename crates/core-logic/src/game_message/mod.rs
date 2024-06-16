@@ -33,6 +33,9 @@ pub use stats_description::StatsDescription;
 mod vital_change_description;
 pub use vital_change_description::VitalChangeDescription;
 
+mod vital_change_short_description;
+pub use vital_change_short_description::VitalChangeShortDescription;
+
 mod action_description;
 pub use action_description::ActionDescription;
 
@@ -50,6 +53,9 @@ pub use map_description::MapDescription;
 mod help_description;
 pub use help_description::HelpDescription;
 
+/// Resolution of the visualization for short vital change messages.
+const SHORT_VITAL_CHANGE_RESOLUTION: u8 = 10;
+
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug, Clone)]
 pub enum GameMessage {
@@ -61,6 +67,10 @@ pub enum GameMessage {
     Vitals(VitalsDescription),
     Stats(StatsDescription),
     VitalChange(VitalChangeDescription, MessageDelay),
+    VitalChangeShort(
+        VitalChangeShortDescription<SHORT_VITAL_CHANGE_RESOLUTION>,
+        MessageDelay,
+    ),
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),

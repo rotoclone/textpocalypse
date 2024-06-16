@@ -286,6 +286,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
+ "map-range",
  "nom",
  "rand",
  "rand_distr",
@@ -668,6 +669,15 @@ name = "log"
 version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+
+[[package]]
+name = "map-range"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bffa558d7f51b549670be5ff6db164cd9be428c035cbf4e3f782db3da66845a5"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "memchr"

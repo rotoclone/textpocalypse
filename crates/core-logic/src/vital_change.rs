@@ -4,6 +4,7 @@ use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
     send_message, ConstrainedValue, GameMessage, MessageDelay, VitalChangeDescription,
+    VitalChangeShortDescription,
 };
 
 /// A change to a vital value.
@@ -16,8 +17,26 @@ pub struct VitalChange {
     pub operation: ValueChangeOperation,
     /// The amount by which the value should be changed.
     pub amount: f32,
-    /// The accompanying message, if the entity should be made aware of the change.
-    pub message: Option<String>,
+    /// The accompanying messages to send for the change.
+    pub message_params: Vec<VitalChangeMessageParams>,
+}
+
+/// Describes a message to send about a vital change.
+pub struct VitalChangeMessageParams {
+    /// The entity to send the message to
+    pub entity: Entity,
+    /// The text of the message
+    pub message: String,
+    /// The type of visualization to accompany the message
+    pub visualization_type: VitalChangeVisualizationType,
+}
+
+/// The type of visualization to accompany a vital change message.
+pub enum VitalChangeVisualizationType {
+    /// A full-size bar with the numeric value of the vital.
+    Full,
+    /// A shorter bar with no numeric value.
+    Abbreviated,
 }
 
 /// A type of change to a value.
@@ -77,21 +96,25 @@ impl VitalChange {
 
             let new_value = value.clone();
 
-            if let Some(message) = self.message {
-                let message = VitalChangeDescription {
-                    message,
+            for message_params in self.message_params {
+                let description = VitalChangeDescription {
+                    message: message_params.message,
                     vital_type: self.vital_type,
                     old_value: old_value.clone(),
                     new_value: new_value.clone(),
                 };
-                send_message(
-                    world,
-                    self.entity,
-                    GameMessage::VitalChange(message, MessageDelay::Short),
-                );
+                let message = match message_params.visualization_type {
+                    VitalChangeVisualizationType::Full => {
+                        GameMessage::VitalChange(description, MessageDelay::Short)
+                    }
+                    VitalChangeVisualizationType::Abbreviated => GameMessage::VitalChangeShort(
+                        VitalChangeShortDescription::from_vital_change_description(&description),
+                        MessageDelay::Short,
+                    ),
+                };
+                send_message(world, message_params.entity, message);
             }
 
-            //TODO add ability to specify other entities to send notifications to
             Notification::send_no_contents(
                 VitalChangedNotification {
                     entity: self.entity,

@@ -1,4 +1,6 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Range, Sub};
+
+use map_range::MapRange;
 
 /// A value that cannot go over a maximum or under a minimum.
 #[derive(Debug, Clone)]
@@ -89,5 +91,18 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Co
     /// Gets the minimum allowable value.
     pub fn get_max(&self) -> T {
         self.max
+    }
+}
+
+impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy + MapRange>
+    ConstrainedValue<T>
+{
+    /// Maps the current value to fit in a new range.
+    pub fn map_range(&self, new_range: Range<T>) -> ConstrainedValue<T> {
+        let new_value = self
+            .get()
+            .map_range(self.get_min()..self.get_max(), new_range);
+
+        ConstrainedValue::new(new_value, new_range.start, new_range.end)
     }
 }
