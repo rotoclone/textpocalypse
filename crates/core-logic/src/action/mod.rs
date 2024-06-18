@@ -163,6 +163,9 @@ pub struct ThirdPersonMessage<T: MessageTokens> {
     pub receivers_override: Option<HashSet<Entity>>,
     /// A list of entities to not send the message to.
     pub receivers_to_exclude: HashSet<Entity>,
+    /// The decorations to include alongside the message.
+    /// TODO remove this in favor of `message_params` on `VitalChange`?
+    pub decorations: Vec<Box<dyn MessageDecoration>>,
 }
 
 impl<T: MessageTokens> ThirdPersonMessage<T> {
@@ -180,6 +183,7 @@ impl<T: MessageTokens> ThirdPersonMessage<T> {
             delay,
             receivers_override: None,
             receivers_to_exclude: HashSet::new(),
+            decorations: Vec::new(),
         }
     }
 

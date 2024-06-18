@@ -5,7 +5,7 @@ use crate::{vital_change::VitalType, ConstrainedValue, VitalChangeDescription};
 /// `R` is the resolution of the change. `old_value` and `new_value` will be constrained to ranges of `0..=R``.
 /// For example, if `R` is 10, then a 10% change in the vital value would register as a difference of 1 between `old_value` and `new_value`,
 /// and if `R` is 5, then a 20% change in the vital value would register as a difference of 1 between `old_value` and `new_value`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VitalChangeShortDescription<const R: u8> {
     /// The message to include with the display of the new value.
     pub message: String,
@@ -32,5 +32,44 @@ impl<const R: u8> VitalChangeShortDescription<R> {
             old_value,
             new_value,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_change() {
+        let desc = VitalChangeDescription {
+            message: "oh hello".to_string(),
+            vital_type: VitalType::Health,
+            old_value: ConstrainedValue::new(50.0, 0.0, 100.0),
+            new_value: ConstrainedValue::new(50.0, 0.0, 100.0),
+        };
+
+        let short_desc_even_resolution =
+            VitalChangeShortDescription::<10>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                message: "oh hello".to_string(),
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(5, 0, 10),
+                new_value: ConstrainedValue::new(5, 0, 10)
+            },
+            short_desc_even_resolution
+        );
+
+        let short_desc_odd_resolution =
+            VitalChangeShortDescription::<7>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                message: "oh hello".to_string(),
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(4, 0, 7),
+                new_value: ConstrainedValue::new(4, 0, 7)
+            },
+            short_desc_odd_resolution
+        );
     }
 }

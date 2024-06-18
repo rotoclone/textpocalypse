@@ -18,6 +18,7 @@ pub struct VitalChange {
     /// The amount by which the value should be changed.
     pub amount: f32,
     /// The accompanying messages to send for the change.
+    /// TODO remove this in favor of `decorations` on `ThirdPersonMessage`?
     pub message_params: Vec<VitalChangeMessageParams>,
 }
 
@@ -51,7 +52,7 @@ pub enum ValueChangeOperation {
     Set,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VitalType {
     Health,
     Satiety,

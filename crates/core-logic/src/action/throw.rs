@@ -18,7 +18,10 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    vital_change::{ValueChangeOperation, VitalChange, VitalType},
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalType,
+    },
     ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
     MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
     SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
@@ -389,7 +392,11 @@ impl Action for ThrowAction {
                     vital_type: VitalType::Health,
                     operation: ValueChangeOperation::Subtract,
                     amount: damage,
-                    message: Some(format!("Ow, you got hit with {item_reference_name}!")),
+                    message_params: vec![VitalChangeMessageParams {
+                        entity: target,
+                        message: format!("Ow, you got hit with {item_reference_name}!"),
+                        visualization_type: VitalChangeVisualizationType::Full,
+                    }],
                 }
                 .apply(w)
             }))

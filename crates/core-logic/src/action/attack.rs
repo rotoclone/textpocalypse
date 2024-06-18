@@ -12,7 +12,10 @@ use crate::{
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
-    vital_change::{ValueChangeOperation, VitalChange, VitalType},
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalType,
+    },
     ActionTag, AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory,
     MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
     VerifyActionNotification, WeaponHitMessageTokens, WeaponMessages,
@@ -113,16 +116,19 @@ impl Action for AttackAction {
                 world,
             ) {
                 Ok(damage) => {
+                    let message = hit_message_format
+                        .interpolate(performing_entity, &hit_message_tokens, world)
+                        .expect("self hit message should interpolate properly");
                     VitalChange {
                         entity: performing_entity,
                         vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message: Some(
-                            hit_message_format
-                                .interpolate(performing_entity, &hit_message_tokens, world)
-                                .expect("self hit message should interpolate properly"),
-                        ),
+                        message_params: vec![VitalChangeMessageParams {
+                            entity: performing_entity,
+                            message,
+                            visualization_type: VitalChangeVisualizationType::Full,
+                        }],
                     }
                     .apply(world);
 

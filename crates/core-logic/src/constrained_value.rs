@@ -3,7 +3,7 @@ use std::ops::{Add, Mul, Range, Sub};
 use map_range::MapRange;
 
 /// A value that cannot go over a maximum or under a minimum.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Copy, PartialEq)]
 pub struct ConstrainedValue<
     T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy,
 > {

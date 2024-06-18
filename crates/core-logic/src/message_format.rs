@@ -459,6 +459,7 @@ impl TokenType {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

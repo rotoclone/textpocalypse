@@ -5,7 +5,10 @@ use crate::{
     interrupt_entity, kill_entity,
     notification::Notification,
     send_message,
-    vital_change::{ValueChangeOperation, VitalChange, VitalChangedNotification, VitalType},
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalChangedNotification, VitalType,
+    },
     ConstrainedValue, GameMessage, MessageDelay, TickNotification, VitalChangeDescription,
 };
 
@@ -125,7 +128,11 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
                 vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: STARVATION_DAMAGE_PER_TICK,
-                message: Some("You're starving to death!".to_string()),
+                message_params: vec![VitalChangeMessageParams {
+                    entity,
+                    message: "You're starving to death!".to_string(),
+                    visualization_type: VitalChangeVisualizationType::Full,
+                }],
             });
         }
 
@@ -135,7 +142,11 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
                 vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: THIRST_DAMAGE_PER_TICK,
-                message: Some("You're dying of thirst!".to_string()),
+                message_params: vec![VitalChangeMessageParams {
+                    entity,
+                    message: "You're dying of thirst!".to_string(),
+                    visualization_type: VitalChangeVisualizationType::Full,
+                }],
             });
         }
 
@@ -145,7 +156,7 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
             vital_type: VitalType::Satiety,
             operation: ValueChangeOperation::Subtract,
             amount: SATIETY_LOSS_PER_TICK,
-            message: None,
+            message_params: vec![],
         });
 
         changes.push(VitalChange {
@@ -153,7 +164,7 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
             vital_type: VitalType::Hydration,
             operation: ValueChangeOperation::Subtract,
             amount: HYDRATION_LOSS_PER_TICK,
-            message: None,
+            message_params: vec![],
         });
 
         if is_asleep(entity, world) {
@@ -162,7 +173,7 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
                 vital_type: VitalType::Energy,
                 operation: ValueChangeOperation::Add,
                 amount: ENERGY_GAIN_PER_TICK,
-                message: None,
+                message_params: vec![],
             });
         } else {
             changes.push(VitalChange {
@@ -170,7 +181,7 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
                 vital_type: VitalType::Energy,
                 operation: ValueChangeOperation::Subtract,
                 amount: ENERGY_LOSS_PER_TICK,
-                message: None,
+                message_params: vec![],
             });
         }
     }

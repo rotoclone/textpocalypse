@@ -3,7 +3,10 @@ use bevy_ecs::prelude::*;
 use crate::{
     action::EatAction,
     notification::Notification,
-    vital_change::{ValueChangeOperation, VitalChange, VitalType},
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalType,
+    },
     AttributeDescription,
 };
 
@@ -63,7 +66,11 @@ pub fn increase_satiety_on_eat(
                 vital_type: VitalType::Satiety,
                 operation: ValueChangeOperation::Add,
                 amount: f32::from(calories.0) * SATIETY_GAIN_PER_CALORIE,
-                message: Some("That hit the spot!".to_string()),
+                message_params: vec![VitalChangeMessageParams {
+                    entity: notification.notification_type.performing_entity,
+                    message: "That hit the spot!".to_string(),
+                    visualization_type: VitalChangeVisualizationType::Full,
+                }],
             }
             .apply(world);
         }
