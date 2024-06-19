@@ -2,7 +2,7 @@ use crate::{vital_change::VitalType, ConstrainedValue, VitalChangeDescription};
 
 /// A description of a change of a vital value, but shorter.
 ///
-/// `R` is the resolution of the change. `old_value` and `new_value` will be constrained to ranges of `0..=R``.
+/// `R` is the resolution of the change. `old_value` and `new_value` will be constrained to ranges of `0..=R`.
 /// For example, if `R` is 10, then a 10% change in the vital value would register as a difference of 1 between `old_value` and `new_value`,
 /// and if `R` is 5, then a 20% change in the vital value would register as a difference of 1 between `old_value` and `new_value`.
 #[derive(Debug, Clone, PartialEq)]

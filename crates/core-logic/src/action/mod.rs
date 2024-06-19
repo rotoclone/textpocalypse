@@ -12,8 +12,8 @@ use crate::notification::{
 };
 use crate::{
     can_receive_messages, combat_utils, send_message, BeforeActionNotification, Description,
-    InterpolationError, Invisible, MessageCategory, MessageDelay, MessageFormat, MessageTokens,
-    Pronouns, VerifyActionNotification,
+    InterpolationError, Invisible, MessageCategory, MessageDecoration, MessageDelay, MessageFormat,
+    MessageTokens, Pronouns, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -164,8 +164,8 @@ pub struct ThirdPersonMessage<T: MessageTokens> {
     /// A list of entities to not send the message to.
     pub receivers_to_exclude: HashSet<Entity>,
     /// The decorations to include alongside the message.
-    /// TODO remove this in favor of `message_params` on `VitalChange`?
-    pub decorations: Vec<Box<dyn MessageDecoration>>,
+    // TODO remove this in favor of `message_params` on `VitalChange`?
+    pub decorations: Vec<MessageDecoration>,
 }
 
 impl<T: MessageTokens> ThirdPersonMessage<T> {
@@ -304,6 +304,7 @@ impl<T: MessageTokens> ThirdPersonMessage<T> {
                 .interpolate(pov_entity, &self.message_tokens, world)?,
             category: self.category,
             delay: self.delay,
+            decorations: self.decorations,
         })
     }
 }
@@ -414,6 +415,7 @@ impl ActionResult {
                     content: message,
                     category,
                     delay: message_delay,
+                    decorations: Vec::new(),
                 }],
             )]
             .into(),
@@ -486,6 +488,7 @@ impl ActionResultBuilder {
                 content: message,
                 category,
                 delay: message_delay,
+                decorations: Vec::new(),
             },
         )
     }
@@ -565,6 +568,7 @@ impl ActionInterruptResult {
                     content: message,
                     category,
                     delay: message_delay,
+                    decorations: Vec::new(),
                 }],
             )]
             .into(),
@@ -610,6 +614,7 @@ impl ActionInterruptResultBuilder {
                 content: message,
                 category,
                 delay: message_delay,
+                decorations: Vec::new(),
             },
         )
     }

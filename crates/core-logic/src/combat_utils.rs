@@ -6,7 +6,7 @@ use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
-    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, Action,
+    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::{ValueChangeOperation, VitalChangeMessageParams}, Action,
     ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
     CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
@@ -445,6 +445,11 @@ pub fn handle_damage<T: AttackType>(
             vital_type: VitalType::Health,
             operation: ValueChangeOperation::Subtract,
             amount: hit_params.damage as f32,
+            message_paams: vec![
+                VitalChangeMessageParams {
+                    todo!() //TODO
+                }
+            ]
             message: Some(format!("Ow, your {}!", hit_params.body_part)),
         }
         .apply(w);

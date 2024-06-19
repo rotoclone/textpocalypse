@@ -78,6 +78,7 @@ pub enum GameMessage {
         content: String,
         category: MessageCategory,
         delay: MessageDelay,
+        decorations: Vec<MessageDecoration>,
     },
     Error(String),
 }
@@ -128,4 +129,11 @@ pub enum MessageDelay {
     Short,
     /// A long amount of time should be waited.
     Long,
+}
+
+/// Additional bits of information that can be included before messages.
+#[derive(Debug, Clone)]
+pub enum MessageDecoration {
+    /// A short description of a change to an entity's vitals.
+    ShortVitalChange(VitalChangeShortDescription<SHORT_VITAL_CHANGE_RESOLUTION>),
 }
