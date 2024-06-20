@@ -307,6 +307,7 @@ pub fn prevent_moving_through_closed_connections(
                                 content: message,
                                 category: MessageCategory::Internal(InternalMessageCategory::Misc),
                                 delay: MessageDelay::Short,
+                                decorations: Vec::new(),
                             },
                         );
                     }

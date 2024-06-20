@@ -131,7 +131,7 @@ pub enum MessageDelay {
     Long,
 }
 
-/// Additional bits of information that can be included before messages.
+/// Additional bits of information that can be included with messages.
 #[derive(Debug, Clone)]
 pub enum MessageDecoration {
     /// A short description of a change to an entity's vitals.

@@ -101,7 +101,7 @@ impl<T: PartialOrd<T> + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Co
     pub fn map_range(&self, new_range: Range<T>) -> ConstrainedValue<T> {
         let new_value = self
             .get()
-            .map_range(self.get_min()..self.get_max(), new_range);
+            .map_range(self.get_min()..self.get_max(), new_range.clone());
 
         ConstrainedValue::new(new_value, new_range.start, new_range.end)
     }

@@ -233,6 +233,15 @@ impl<T: MessageTokens> ThirdPersonMessage<T> {
         self
     }
 
+    /// Adds a decoration to the mesage.
+    ///
+    /// Calling this multiple times will add more decorations to the message.
+    pub fn with_decoration(mut self, decoration: MessageDecoration) -> ThirdPersonMessage<T> {
+        self.decorations.push(decoration);
+
+        self
+    }
+
     /// Sends the message(s). No messages will be sent to `source_entity` if provided.
     pub fn send(
         self,
@@ -304,7 +313,7 @@ impl<T: MessageTokens> ThirdPersonMessage<T> {
                 .interpolate(pov_entity, &self.message_tokens, world)?,
             category: self.category,
             delay: self.delay,
-            decorations: self.decorations,
+            decorations: self.decorations.clone(),
         })
     }
 }

@@ -27,7 +27,7 @@ impl<const R: u8> VitalChangeShortDescription<R> {
         let new_value = ConstrainedValue::new(f32_new_value.get().round() as u8, 0, R);
 
         VitalChangeShortDescription {
-            message: description.message,
+            message: description.message.clone(),
             vital_type: description.vital_type,
             old_value,
             new_value,
@@ -68,6 +68,40 @@ mod tests {
                 vital_type: VitalType::Health,
                 old_value: ConstrainedValue::new(4, 0, 7),
                 new_value: ConstrainedValue::new(4, 0, 7)
+            },
+            short_desc_odd_resolution
+        );
+    }
+
+    #[test]
+    fn change() {
+        let desc = VitalChangeDescription {
+            message: "oh hello".to_string(),
+            vital_type: VitalType::Health,
+            old_value: ConstrainedValue::new(50.0, 0.0, 100.0),
+            new_value: ConstrainedValue::new(35.0, 0.0, 100.0),
+        };
+
+        let short_desc_even_resolution =
+            VitalChangeShortDescription::<10>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                message: "oh hello".to_string(),
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(5, 0, 10),
+                new_value: ConstrainedValue::new(4, 0, 10)
+            },
+            short_desc_even_resolution
+        );
+
+        let short_desc_odd_resolution =
+            VitalChangeShortDescription::<7>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                message: "oh hello".to_string(),
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(4, 0, 7),
+                new_value: ConstrainedValue::new(2, 0, 7)
             },
             short_desc_odd_resolution
         );

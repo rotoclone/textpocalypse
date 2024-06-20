@@ -58,6 +58,7 @@ impl AttributeDescriber for ConnectionAttributeDescriber {
                     content: "Through it, you see:".to_string(),
                     category: MessageCategory::Internal(InternalMessageCategory::Misc),
                     delay: MessageDelay::None,
+                    decorations: Vec::new(),
                 }));
                 descriptions.push(AttributeDescription::Message(GameMessage::Room(
                     RoomDescription::from_room(

@@ -398,6 +398,7 @@ pub fn prevent_opening_locked_keyed_locks(
                         content: message,
                         category: MessageCategory::Internal(InternalMessageCategory::Misc),
                         delay: MessageDelay::Short,
+                        decorations: Vec::new(),
                     },
                 );
             }

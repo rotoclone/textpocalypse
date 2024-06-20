@@ -6,16 +6,18 @@ use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
-    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::{ValueChangeOperation, VitalChangeMessageParams}, Action,
-    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
+    is_living_entity,
+    resource::WeaponTypeStatCatalog,
+    vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
+    Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
     CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
     Description, EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
     InputParseError, IntegerExtensions, InternalMessageCategory, Location, MessageCategory,
-    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
-    ThirdPersonMessage, ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult,
-    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens,
-    WeaponMissMessageTokens, WeaponUnusableError,
+    MessageDecoration, MessageDelay, MessageFormat, Notification, Skill, Stats,
+    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
+    VerifyActionNotification, VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams,
+    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -445,12 +447,11 @@ pub fn handle_damage<T: AttackType>(
             vital_type: VitalType::Health,
             operation: ValueChangeOperation::Subtract,
             amount: hit_params.damage as f32,
-            message_paams: vec![
-                VitalChangeMessageParams {
-                    todo!() //TODO
-                }
-            ]
-            message: Some(format!("Ow, your {}!", hit_params.body_part)),
+            message_params: vec![VitalChangeMessageParams {
+                entity: hit_params.target,
+                message: format!("Ow, your {}!", hit_params.body_part),
+                visualization_type: VitalChangeVisualizationType::Full,
+            }],
         }
         .apply(w);
     }));

@@ -24,7 +24,11 @@ const MAX_WIDTH: usize = 80;
 pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
         GameMessage::Error(e) => e._capitalize(false),
-        GameMessage::Message { content, .. } => content._capitalize(false),
+        GameMessage::Message {
+            content,
+            decorations,
+            ..
+        } => message_with_decorations_to_string(content, decorations),
         GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
@@ -34,9 +38,19 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::VitalChange(change, _) => vital_change_to_string(change),
+        GameMessage::VitalChangeShort(change, _) => short_vital_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
     }
+}
+
+/// Transforms the provided message with decorations into a string for display.
+fn message_with_decorations_to_string(
+    content: String,
+    decorations: Vec<MessageDecoration>,
+) -> String {
+    //TODO include decorations
+    content._capitalize(false)
 }
 
 /// Transforms the provided room description into a string for display.
@@ -685,6 +699,11 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
         bar_title,
         constrained_float_to_string(Some(change.old_value), change.new_value, color)
     )
+}
+
+/// Transforms the provided short vital change description into a string for display.
+fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription<R>) -> String {
+    todo!() //TODO
 }
 
 /// Determines the bar title to use for a vital of the provided type.

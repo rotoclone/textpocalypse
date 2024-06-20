@@ -3,12 +3,12 @@ use bevy_ecs::prelude::*;
 use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
-    send_message, ConstrainedValue, GameMessage, MessageDelay, VitalChangeDescription,
-    VitalChangeShortDescription,
+    send_message, ConstrainedValue, GameMessage, MessageDelay, MessageTokens, ThirdPersonMessage,
+    VitalChangeDescription, VitalChangeShortDescription,
 };
 
 /// A change to a vital value.
-pub struct VitalChange {
+pub struct VitalChange<T: MessageTokens> {
     /// The entity to change the value on.
     pub entity: Entity,
     /// The type of vital to change.
@@ -18,18 +18,15 @@ pub struct VitalChange {
     /// The amount by which the value should be changed.
     pub amount: f32,
     /// The accompanying messages to send for the change.
-    /// TODO remove this in favor of `decorations` on `ThirdPersonMessage`?
-    pub message_params: Vec<VitalChangeMessageParams>,
+    pub message_params: Vec<(VitalChangeMessageParams<T>, VitalChangeVisualizationType)>,
 }
 
 /// Describes a message to send about a vital change.
-pub struct VitalChangeMessageParams {
-    /// The entity to send the message to
-    pub entity: Entity,
-    /// The text of the message
-    pub message: String,
-    /// The type of visualization to accompany the message
-    pub visualization_type: VitalChangeVisualizationType,
+pub enum VitalChangeMessageParams<T: MessageTokens> {
+    /// A message sent directly to an entity
+    Direct(Entity, String),
+    /// A third person message
+    ThirdPerson(ThirdPersonMessage<T>),
 }
 
 /// The type of visualization to accompany a vital change message.
@@ -69,13 +66,13 @@ pub struct VitalChangedNotification {
     pub vital_type: VitalType,
     /// The value before the change.
     pub old_value: ConstrainedValue<f32>,
-    /// The value after the change.
+    /// The value after the change.f
     pub new_value: ConstrainedValue<f32>,
 }
 
 impl NotificationType for VitalChangedNotification {}
 
-impl VitalChange {
+impl<T: MessageTokens> VitalChange<T> {
     /// Applies the value change.
     pub fn apply(self, world: &mut World) {
         let vitals = world.get_mut::<Vitals>(self.entity);
@@ -97,14 +94,17 @@ impl VitalChange {
 
             let new_value = value.clone();
 
-            for message_params in self.message_params {
-                let description = VitalChangeDescription {
-                    message: message_params.message,
-                    vital_type: self.vital_type,
-                    old_value: old_value.clone(),
-                    new_value: new_value.clone(),
+            for (message_params, visualization_type) in self.message_params {
+                let description = match message_params {
+                    VitalChangeMessageParams::Direct(entity, message) => VitalChangeDescription {
+                        message,
+                        vital_type: self.vital_type,
+                        old_value: old_value.clone(),
+                        new_value: new_value.clone(),
+                    },
+                    VitalChangeMessageParams::ThirdPerson(message) => todo!(),
                 };
-                let message = match message_params.visualization_type {
+                let message = match visualization_type {
                     VitalChangeVisualizationType::Full => {
                         GameMessage::VitalChange(description, MessageDelay::Short)
                     }

@@ -622,6 +622,7 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
                         content: "Action queued.".to_string(),
                         category: MessageCategory::System,
                         delay: MessageDelay::None,
+                        decorations: Vec::new(),
                     },
                 )
             }
@@ -731,6 +732,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
             content: "You crumple to the ground and gasp your last breath.".to_string(),
             category: MessageCategory::Internal(InternalMessageCategory::Misc),
             delay: MessageDelay::Long,
+            decorations: Vec::new(),
         },
     );
 
