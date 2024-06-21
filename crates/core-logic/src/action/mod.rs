@@ -164,7 +164,7 @@ pub struct ThirdPersonMessage<T: MessageTokens> {
     /// A list of entities to not send the message to.
     pub receivers_to_exclude: HashSet<Entity>,
     /// The decorations to include alongside the message.
-    // TODO remove this in favor of `message_params` on `VitalChange`?
+    // TODO remove this in favor of `message_params` on `VitalChange`
     pub decorations: Vec<MessageDecoration>,
 }
 

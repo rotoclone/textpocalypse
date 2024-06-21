@@ -124,11 +124,14 @@ impl Action for AttackAction {
                         vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message_params: vec![VitalChangeMessageParams {
-                            entity: performing_entity,
-                            message,
-                            visualization_type: VitalChangeVisualizationType::Full,
-                        }],
+                        message_params: vec![(
+                            //TODO it's silly to have to provide the generic type here
+                            VitalChangeMessageParams::<WeaponHitMessageTokens>::Direct(
+                                performing_entity,
+                                message,
+                            ),
+                            VitalChangeVisualizationType::Full,
+                        )],
                     }
                     .apply(world);
 
