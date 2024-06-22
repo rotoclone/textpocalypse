@@ -441,21 +441,6 @@ pub fn handle_damage<T: AttackType>(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    result_builder = result_builder.with_post_effect(Box::new(move |w| {
-        VitalChange {
-            entity: hit_params.target,
-            vital_type: VitalType::Health,
-            operation: ValueChangeOperation::Subtract,
-            amount: hit_params.damage as f32,
-            message_params: vec![VitalChangeMessageParams {
-                entity: hit_params.target,
-                message: format!("Ow, your {}!", hit_params.body_part),
-                visualization_type: VitalChangeVisualizationType::Full,
-            }],
-        }
-        .apply(w);
-    }));
-
     let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
 
     let target_health = world
@@ -492,17 +477,34 @@ pub fn handle_damage<T: AttackType>(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
-            Some(hit_params.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                hit_message,
-                hit_message_tokens,
-            ),
-            world,
-        )
+        .with_post_effect(Box::new(move |w| {
+            VitalChange::<WeaponHitMessageTokens> {
+                entity: hit_params.target,
+                vital_type: VitalType::Health,
+                operation: ValueChangeOperation::Subtract,
+                amount: hit_params.damage as f32,
+                message_params: vec![
+                    (
+                        VitalChangeMessageParams::ThirdPerson(ThirdPersonMessage::new(
+                            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                            MessageDelay::Short,
+                            hit_message,
+                            hit_message_tokens,
+                        )),
+                        VitalChangeVisualizationType::Abbreviated,
+                    ),
+                    (
+                        VitalChangeMessageParams::Direct(
+                            hit_params.target,
+                            format!("Ow, your {}!", hit_params.body_part),
+                            MessageCategory::Internal(InternalMessageCategory::Action),
+                        ),
+                        VitalChangeVisualizationType::Full,
+                    ),
+                ],
+            }
+            .apply(w);
+        }))
 }
 
 /// Adds messages to `result_builder` describing a missed attack.

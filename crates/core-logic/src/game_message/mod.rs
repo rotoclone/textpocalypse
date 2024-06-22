@@ -66,11 +66,6 @@ pub enum GameMessage {
     WornItems(WornItemsDescription),
     Vitals(VitalsDescription),
     Stats(StatsDescription),
-    VitalChange(VitalChangeDescription, MessageDelay),
-    VitalChangeShort(
-        VitalChangeShortDescription<SHORT_VITAL_CHANGE_RESOLUTION>,
-        MessageDelay,
-    ),
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),
@@ -134,6 +129,8 @@ pub enum MessageDelay {
 /// Additional bits of information that can be included with messages.
 #[derive(Debug, Clone)]
 pub enum MessageDecoration {
+    /// A description of a change to an entity's vitals.
+    VitalChange(VitalChangeDescription),
     /// A short description of a change to an entity's vitals.
     ShortVitalChange(VitalChangeShortDescription<SHORT_VITAL_CHANGE_RESOLUTION>),
 }

@@ -3,8 +3,6 @@ use crate::{vital_change::VitalType, ConstrainedValue};
 /// A description of a change of a vital value.
 #[derive(Debug, Clone)]
 pub struct VitalChangeDescription {
-    /// The message to include with the display of the new value.
-    pub message: String,
     /// The type of vital that changed.
     pub vital_type: VitalType,
     /// The old value.

@@ -3,8 +3,9 @@ use bevy_ecs::prelude::*;
 use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
-    send_message, ConstrainedValue, GameMessage, MessageDelay, MessageTokens, ThirdPersonMessage,
-    VitalChangeDescription, VitalChangeShortDescription,
+    send_message, ConstrainedValue, GameMessage, MessageCategory, MessageDecoration, MessageDelay,
+    MessageTokens, ThirdPersonMessage, ThirdPersonMessageLocation, VitalChangeDescription,
+    VitalChangeShortDescription,
 };
 
 /// A change to a vital value.
@@ -24,7 +25,7 @@ pub struct VitalChange<T: MessageTokens> {
 /// Describes a message to send about a vital change.
 pub enum VitalChangeMessageParams<T: MessageTokens> {
     /// A message sent directly to an entity
-    Direct(Entity, String),
+    Direct(Entity, String, MessageCategory),
     /// A third person message
     ThirdPerson(ThirdPersonMessage<T>),
 }
@@ -94,26 +95,45 @@ impl<T: MessageTokens> VitalChange<T> {
 
             let new_value = value.clone();
 
+            let description = VitalChangeDescription {
+                vital_type: self.vital_type,
+                old_value: old_value.clone(),
+                new_value: new_value.clone(),
+            };
+            let short_description =
+                VitalChangeShortDescription::from_vital_change_description(&description);
+
             for (message_params, visualization_type) in self.message_params {
-                let description = match message_params {
-                    VitalChangeMessageParams::Direct(entity, message) => VitalChangeDescription {
-                        message,
-                        vital_type: self.vital_type,
-                        old_value: old_value.clone(),
-                        new_value: new_value.clone(),
-                    },
-                    VitalChangeMessageParams::ThirdPerson(message) => todo!(),
-                };
-                let message = match visualization_type {
+                let decoration = match visualization_type {
                     VitalChangeVisualizationType::Full => {
-                        GameMessage::VitalChange(description, MessageDelay::Short)
+                        MessageDecoration::VitalChange(description)
                     }
-                    VitalChangeVisualizationType::Abbreviated => GameMessage::VitalChangeShort(
-                        VitalChangeShortDescription::from_vital_change_description(&description),
-                        MessageDelay::Short,
-                    ),
+                    VitalChangeVisualizationType::Abbreviated => {
+                        MessageDecoration::ShortVitalChange(short_description)
+                    }
                 };
-                send_message(world, message_params.entity, message);
+
+                match message_params {
+                    VitalChangeMessageParams::Direct(entity, message, category) => {
+                        send_message(
+                            world,
+                            entity,
+                            GameMessage::Message {
+                                content: message,
+                                category,
+                                delay: MessageDelay::Short,
+                                decorations: vec![decoration],
+                            },
+                        );
+                    }
+                    VitalChangeMessageParams::ThirdPerson(third_person_message) => {
+                        third_person_message.with_decoration(decoration).send(
+                            Some(self.entity),
+                            ThirdPersonMessageLocation::SourceEntity,
+                            world,
+                        );
+                    }
+                };
             }
 
             Notification::send_no_contents(
