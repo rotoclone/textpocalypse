@@ -37,8 +37,6 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::Stats(stats) => stats_to_string(stats),
-        GameMessage::VitalChange(change, _) => vital_change_to_string(change),
-        GameMessage::VitalChangeShort(change, _) => short_vital_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
     }
@@ -49,8 +47,24 @@ fn message_with_decorations_to_string(
     content: String,
     decorations: Vec<MessageDecoration>,
 ) -> String {
-    //TODO include decorations
-    content._capitalize(false)
+    let mut message = content._capitalize(false);
+    for decoration in decorations {
+        message = decorate_message(message, decoration);
+    }
+
+    message
+}
+
+/// Adds a decoration to a message.
+fn decorate_message(message: String, decoration: MessageDecoration) -> String {
+    match decoration {
+        MessageDecoration::VitalChange(change) => {
+            format!("{}\n{}", message, vital_change_to_string(change))
+        }
+        MessageDecoration::ShortVitalChange(change) => {
+            format!("{} {}", short_vital_change_to_string(change), message)
+        }
+    }
 }
 
 /// Transforms the provided room description into a string for display.
@@ -694,8 +708,7 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
     let bar_title = format!("{}: ", vital_type_to_bar_title(&change.vital_type));
     let color = vital_type_to_color(&change.vital_type);
     format!(
-        "{}\n{}{}",
-        change.message,
+        "{}{}",
         bar_title,
         constrained_float_to_string(Some(change.old_value), change.new_value, color)
     )
@@ -703,7 +716,7 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
 
 /// Transforms the provided short vital change description into a string for display.
 fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription<R>) -> String {
-    todo!() //TODO
+    "[TODO]".to_string() //TODO
 }
 
 /// Determines the bar title to use for a vital of the provided type.

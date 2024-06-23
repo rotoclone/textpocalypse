@@ -77,6 +77,15 @@ impl BasicTokens {
     }
 }
 
+/// No tokens at all.
+pub struct NoTokens;
+
+impl MessageTokens for NoTokens {
+    fn get_token_map(&self) -> HashMap<TokenName, TokenValue> {
+        HashMap::new()
+    }
+}
+
 /// An error during message interpolation.
 #[derive(Debug, PartialEq, Eq)]
 pub enum InterpolationError {

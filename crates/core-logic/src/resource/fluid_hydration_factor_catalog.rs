@@ -12,6 +12,7 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
+    InternalMessageCategory, MessageCategory, NoTokens,
 };
 
 /// The amount of hydration gain per liter of water drank.
@@ -89,16 +90,19 @@ pub fn increase_hydration_on_drink(
             .sum::<f32>();
 
         if hydration_increase > 0.0 {
-            VitalChange {
+            VitalChange::<NoTokens> {
                 entity: notification.notification_type.performing_entity,
                 vital_type: VitalType::Hydration,
                 operation: ValueChangeOperation::Add,
                 amount: hydration_increase,
-                message_params: vec![VitalChangeMessageParams {
-                    entity: notification.notification_type.performing_entity,
-                    message: "Refreshing!".to_string(),
-                    visualization_type: VitalChangeVisualizationType::Full,
-                }],
+                message_params: vec![(
+                    VitalChangeMessageParams::Direct {
+                        entity: notification.notification_type.performing_entity,
+                        message: "Refreshing!".to_string(),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    },
+                    VitalChangeVisualizationType::Full,
+                )],
             }
             .apply(world);
         }

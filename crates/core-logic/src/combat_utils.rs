@@ -10,14 +10,14 @@ use crate::{
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
-    AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
-    CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
-    Description, EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
-    InputParseError, IntegerExtensions, InternalMessageCategory, Location, MessageCategory,
-    MessageDecoration, MessageDelay, MessageFormat, Notification, Skill, Stats,
-    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VerifyActionNotification, VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams,
-    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
+    AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
+    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
+    EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon, InputParseError,
+    IntegerExtensions, InternalMessageCategory, Location, MessageCategory, MessageDelay,
+    MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory, ThirdPersonMessage,
+    ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
+    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
+    WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -494,11 +494,11 @@ pub fn handle_damage<T: AttackType>(
                         VitalChangeVisualizationType::Abbreviated,
                     ),
                     (
-                        VitalChangeMessageParams::Direct(
-                            hit_params.target,
-                            format!("Ow, your {}!", hit_params.body_part),
-                            MessageCategory::Internal(InternalMessageCategory::Action),
-                        ),
+                        VitalChangeMessageParams::Direct {
+                            entity: hit_params.target,
+                            message: format!("Ow, your {}!", hit_params.body_part),
+                            category: MessageCategory::Internal(InternalMessageCategory::Action),
+                        },
                         VitalChangeVisualizationType::Full,
                     ),
                 ],

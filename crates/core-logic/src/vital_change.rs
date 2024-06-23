@@ -25,7 +25,11 @@ pub struct VitalChange<T: MessageTokens> {
 /// Describes a message to send about a vital change.
 pub enum VitalChangeMessageParams<T: MessageTokens> {
     /// A message sent directly to an entity
-    Direct(Entity, String, MessageCategory),
+    Direct {
+        entity: Entity,
+        message: String,
+        category: MessageCategory,
+    },
     /// A third person message
     ThirdPerson(ThirdPersonMessage<T>),
 }
@@ -97,8 +101,8 @@ impl<T: MessageTokens> VitalChange<T> {
 
             let description = VitalChangeDescription {
                 vital_type: self.vital_type,
-                old_value: old_value.clone(),
-                new_value: new_value.clone(),
+                old_value,
+                new_value,
             };
             let short_description =
                 VitalChangeShortDescription::from_vital_change_description(&description);
@@ -106,15 +110,19 @@ impl<T: MessageTokens> VitalChange<T> {
             for (message_params, visualization_type) in self.message_params {
                 let decoration = match visualization_type {
                     VitalChangeVisualizationType::Full => {
-                        MessageDecoration::VitalChange(description)
+                        MessageDecoration::VitalChange(description.clone())
                     }
                     VitalChangeVisualizationType::Abbreviated => {
-                        MessageDecoration::ShortVitalChange(short_description)
+                        MessageDecoration::ShortVitalChange(short_description.clone())
                     }
                 };
 
                 match message_params {
-                    VitalChangeMessageParams::Direct(entity, message, category) => {
+                    VitalChangeMessageParams::Direct {
+                        entity,
+                        message,
+                        category,
+                    } => {
                         send_message(
                             world,
                             entity,

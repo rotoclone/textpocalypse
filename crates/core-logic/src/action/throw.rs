@@ -23,7 +23,7 @@ use crate::{
         VitalType,
     },
     ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
+    MessageCategory, MessageDelay, MessageFormat, MessageTokens, NoTokens, Pronouns,
     SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
 };
 
@@ -387,16 +387,20 @@ impl Action for ThrowAction {
             }
             let item_reference_name = Description::get_article_reference_name(item, world);
             result_builder = result_builder.with_post_effect(Box::new(move |w| {
-                VitalChange {
+                VitalChange::<NoTokens> {
                     entity: target,
                     vital_type: VitalType::Health,
                     operation: ValueChangeOperation::Subtract,
                     amount: damage,
-                    message_params: vec![VitalChangeMessageParams {
-                        entity: target,
-                        message: format!("Ow, you got hit with {item_reference_name}!"),
-                        visualization_type: VitalChangeVisualizationType::Full,
-                    }],
+                    //TODO include messages for thrower and others here instead of adding them to `result_builder` elsewhere
+                    message_params: vec![(
+                        VitalChangeMessageParams::Direct {
+                            entity: target,
+                            message: format!("Ow, you got hit with {item_reference_name}!"),
+                            category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                        },
+                        VitalChangeVisualizationType::Full,
+                    )],
                 }
                 .apply(w)
             }))

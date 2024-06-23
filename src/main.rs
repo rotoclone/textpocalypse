@@ -103,7 +103,6 @@ fn setup_local(mut game: Game) -> Result<()> {
 fn delay_for_message(message: &GameMessage) -> Duration {
     let delay = match message {
         GameMessage::Message { delay, .. } => Some(delay),
-        GameMessage::VitalChange(_, delay) => Some(delay),
         _ => None,
     };
 

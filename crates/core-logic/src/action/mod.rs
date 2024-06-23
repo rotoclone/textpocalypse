@@ -150,6 +150,8 @@ pub fn register_action_handlers(world: &mut World) {
 }
 
 /// A message caused by some other entity's action.
+///
+/// TODO rename this to something more general, like `LocationBasedMessage` or `DynamicReceiversMessage`?
 pub struct ThirdPersonMessage<T: MessageTokens> {
     /// The format of the message.
     pub message_format: MessageFormat<T>,

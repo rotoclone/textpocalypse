@@ -9,7 +9,8 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalChangedNotification, VitalType,
     },
-    ConstrainedValue, GameMessage, MessageDelay, TickNotification, VitalChangeDescription,
+    ConstrainedValue, GameMessage, InternalMessageCategory, MessageCategory, MessageDecoration,
+    MessageDelay, NoTokens, TickNotification, VitalChangeDescription,
 };
 
 use super::{is_asleep, ActionQueue};
@@ -123,16 +124,19 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
     let mut query = world.query::<(Entity, &Vitals)>();
     for (entity, vitals) in query.iter(world) {
         if vitals.satiety.get() <= 0.0 {
-            changes.push(VitalChange {
+            changes.push(VitalChange::<NoTokens> {
                 entity,
                 vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: STARVATION_DAMAGE_PER_TICK,
-                message_params: vec![VitalChangeMessageParams {
-                    entity,
-                    message: "You're starving to death!".to_string(),
-                    visualization_type: VitalChangeVisualizationType::Full,
-                }],
+                message_params: vec![(
+                    VitalChangeMessageParams::Direct {
+                        entity,
+                        message: "You're starving to death!".to_string(),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    },
+                    VitalChangeVisualizationType::Full,
+                )],
             });
         }
 
@@ -142,11 +146,14 @@ pub fn change_vitals_on_tick(_: &Notification<TickNotification, ()>, world: &mut
                 vital_type: VitalType::Health,
                 operation: ValueChangeOperation::Subtract,
                 amount: THIRST_DAMAGE_PER_TICK,
-                message_params: vec![VitalChangeMessageParams {
-                    entity,
-                    message: "You're dying of thirst!".to_string(),
-                    visualization_type: VitalChangeVisualizationType::Full,
-                }],
+                message_params: vec![(
+                    VitalChangeMessageParams::Direct {
+                        entity,
+                        message: "You're dying of thirst!".to_string(),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    },
+                    VitalChangeVisualizationType::Full,
+                )],
             });
         }
 
@@ -232,15 +239,16 @@ pub fn send_vitals_update_messages(
             send_message(
                 world,
                 entity,
-                GameMessage::VitalChange(
-                    VitalChangeDescription {
-                        message: message.message.to_string(),
+                GameMessage::Message {
+                    content: message.message.to_string(),
+                    category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    delay: MessageDelay::Short,
+                    decorations: vec![MessageDecoration::VitalChange(VitalChangeDescription {
                         vital_type,
                         old_value: old_value.clone(),
                         new_value: new_value.clone(),
-                    },
-                    MessageDelay::Short,
-                ),
+                    })],
+                },
             );
             break;
         }
