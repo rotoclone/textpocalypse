@@ -10,7 +10,8 @@ use core_logic::*;
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
 
-const BAR_LENGTH: usize = 20;
+const FULL_BAR_LENGTH: usize = 20;
+const SHORT_BAR_LENGTH: usize = 5;
 const BAR_START: &str = "[";
 const BAR_END: &str = "]";
 const BAR_FILLED: &str = "|";
@@ -645,14 +646,20 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 fn vitals_to_string(vitals: VitalsDescription) -> String {
     let health = format!(
         "Health:    {}",
-        constrained_float_to_string(None, vitals.health, vital_type_to_color(&VitalType::Health))
+        constrained_float_to_string(
+            None,
+            vitals.health,
+            vital_type_to_color(&VitalType::Health),
+            BarStyle::Full
+        )
     );
     let satiety = format!(
         "Satiety:   {}",
         constrained_float_to_string(
             None,
             vitals.satiety,
-            vital_type_to_color(&VitalType::Satiety)
+            vital_type_to_color(&VitalType::Satiety),
+            BarStyle::Full
         )
     );
     let hydration = format!(
@@ -660,12 +667,18 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.hydration,
-            vital_type_to_color(&VitalType::Hydration)
+            vital_type_to_color(&VitalType::Hydration),
+            BarStyle::Full
         )
     );
     let energy = format!(
         "Energy:    {}",
-        constrained_float_to_string(None, vitals.energy, vital_type_to_color(&VitalType::Energy))
+        constrained_float_to_string(
+            None,
+            vitals.energy,
+            vital_type_to_color(&VitalType::Energy),
+            BarStyle::Full
+        )
     );
 
     [health, satiety, hydration, energy].join("\n")
@@ -710,13 +723,34 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
     format!(
         "{}{}",
         bar_title,
-        constrained_float_to_string(Some(change.old_value), change.new_value, color)
+        constrained_float_to_string(
+            Some(change.old_value),
+            change.new_value,
+            color,
+            BarStyle::Full
+        )
     )
 }
 
 /// Transforms the provided short vital change description into a string for display.
 fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription<R>) -> String {
-    "[TODO]".to_string() //TODO
+    let color = vital_type_to_color(&change.vital_type);
+    let old_value_float = ConstrainedValue::new(
+        change.old_value.get() as f32,
+        change.old_value.get_min() as f32,
+        change.old_value.get_max() as f32,
+    );
+    let new_value_float = ConstrainedValue::new(
+        change.new_value.get() as f32,
+        change.new_value.get_min() as f32,
+        change.new_value.get_max() as f32,
+    );
+    constrained_float_to_string(
+        Some(old_value_float),
+        new_value_float,
+        color,
+        BarStyle::Short,
+    )
 }
 
 /// Determines the bar title to use for a vital of the provided type.
@@ -740,12 +774,26 @@ fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
     }
 }
 
+/// The style of a visualization of a value within a range.
+enum BarStyle {
+    /// A full-length bar with numbers
+    Full,
+    /// A short bar with no numbers
+    Short,
+}
+
 /// Transforms the provided constrained value into a string that looks like a bar for display.
 fn constrained_float_to_string(
     old_value: Option<ConstrainedValue<f32>>,
     value: ConstrainedValue<f32>,
     color: crossterm::style::Color,
+    bar_style: BarStyle,
 ) -> String {
+    let bar_length = match bar_style {
+        BarStyle::Full => FULL_BAR_LENGTH,
+        BarStyle::Short => SHORT_BAR_LENGTH,
+    };
+
     let filled_fraction = value.get() / value.get_max();
     let old_filled_fraction = if let Some(old_value) = old_value {
         old_value.get() / old_value.get_max()
@@ -753,10 +801,11 @@ fn constrained_float_to_string(
         filled_fraction
     };
 
-    let old_num_filled = (BAR_LENGTH as f32 * old_filled_fraction).round() as usize;
-    let mut num_filled = (BAR_LENGTH as f32 * filled_fraction).round() as usize;
+    let old_num_filled = (bar_length as f32 * old_filled_fraction).round() as usize;
+    let mut num_filled = (bar_length as f32 * filled_fraction).round() as usize;
     let num_changed = old_num_filled.abs_diff(num_filled);
 
+    //TODO for short bar style, use different characters depending on how big the change is, e.g. [||||#] vs [||||']
     let bar_change = if filled_fraction < old_filled_fraction {
         style(BAR_REDUCTION.repeat(num_changed)).red()
     } else {
@@ -764,7 +813,7 @@ fn constrained_float_to_string(
         style(BAR_ADDITION.repeat(num_changed)).green()
     };
 
-    let num_empty = BAR_LENGTH
+    let num_empty = bar_length
         .saturating_sub(num_filled)
         .saturating_sub(num_changed);
 
@@ -774,9 +823,14 @@ fn constrained_float_to_string(
         bar_change,
         BAR_EMPTY.repeat(num_empty)
     );
-    let values = style(format!("{:.0}/{:.0}", value.get(), value.get_max())).dark_grey();
+    let values = match bar_style {
+        BarStyle::Full => style(format!(" {:.0}/{:.0}", value.get(), value.get_max()))
+            .dark_grey()
+            .to_string(),
+        BarStyle::Short => "".to_string(),
+    };
 
-    format!("{BAR_START}{bar}{BAR_END} {values}")
+    format!("{BAR_START}{bar}{BAR_END}{values}")
 }
 
 /// Transforms the provided players description into a string for display.

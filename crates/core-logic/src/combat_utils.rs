@@ -438,7 +438,7 @@ pub fn check_for_hit(
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.
 pub fn handle_damage<T: AttackType>(
     hit_params: HitParams,
-    mut result_builder: ActionResultBuilder,
+    result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
     let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
@@ -484,6 +484,7 @@ pub fn handle_damage<T: AttackType>(
                 operation: ValueChangeOperation::Subtract,
                 amount: hit_params.damage as f32,
                 message_params: vec![
+                    //TODO this ThirdPersonMessage should be sent to the target too, but it's not, and it's getting sent to the performing entity twice due to the `with_message` call above
                     (
                         VitalChangeMessageParams::ThirdPerson(ThirdPersonMessage::new(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
