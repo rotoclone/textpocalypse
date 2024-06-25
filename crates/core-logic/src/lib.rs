@@ -436,7 +436,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .0
         .insert(player_id, player_entity);
 
-    ThirdPersonMessage::new(
+    DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
         MessageDelay::Short,
         MessageFormat::new("${player.Name} appears.").expect("message format should be valid"),
@@ -444,7 +444,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
     )
     .send(
         Some(player_entity),
-        ThirdPersonMessageLocation::SourceEntity,
+        DynamicMessageLocation::SourceEntity,
         world,
     );
 
@@ -526,18 +526,14 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
 /// Despawns the player with the provided ID.
 fn despawn_player(player_id: PlayerId, world: &mut World) {
     if let Some(entity) = find_entity_for_player(player_id, world) {
-        ThirdPersonMessage::new(
+        DynamicMessage::new_third_person(
             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
             MessageDelay::Short,
             MessageFormat::new("${player.Name} disappears.")
                 .expect("message format should be valid"),
             BasicTokens::new().with_entity("player".into(), entity),
         )
-        .send(
-            Some(entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            world,
-        );
+        .send(Some(entity), DynamicMessageLocation::SourceEntity, world);
 
         despawn_entity(entity, world);
 
@@ -739,18 +735,14 @@ fn kill_entity(entity: Entity, world: &mut World) {
         },
     );
 
-    ThirdPersonMessage::new(
+    DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::new("${player.Name} falls to the ground, dead.")
             .expect("message format should be valid"),
         BasicTokens::new().with_entity("player".into(), entity),
     )
-    .send(
-        Some(entity),
-        ThirdPersonMessageLocation::SourceEntity,
-        world,
-    );
+    .send(Some(entity), DynamicMessageLocation::SourceEntity, world);
 
     ActionQueue::clear(world, entity);
 

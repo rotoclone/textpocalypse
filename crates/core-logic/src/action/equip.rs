@@ -178,7 +178,7 @@ impl Action for EquipAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new(

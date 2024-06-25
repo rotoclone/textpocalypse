@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
-    send_message, ConstrainedValue, GameMessage, MessageCategory, MessageDecoration, MessageDelay,
-    MessageTokens, ThirdPersonMessage, ThirdPersonMessageLocation, VitalChangeDescription,
+    send_message, ConstrainedValue, DynamicMessage, DynamicMessageLocation, GameMessage,
+    MessageCategory, MessageDecoration, MessageDelay, MessageTokens, VitalChangeDescription,
     VitalChangeShortDescription,
 };
 
@@ -30,8 +30,8 @@ pub enum VitalChangeMessageParams<T: MessageTokens> {
         message: String,
         category: MessageCategory,
     },
-    /// A third person message
-    ThirdPerson(ThirdPersonMessage<T>),
+    /// A dynamic message
+    Dynamic(DynamicMessage<T>),
 }
 
 /// The type of visualization to accompany a vital change message.
@@ -134,10 +134,10 @@ impl<T: MessageTokens> VitalChange<T> {
                             },
                         );
                     }
-                    VitalChangeMessageParams::ThirdPerson(third_person_message) => {
-                        third_person_message.with_decoration(decoration).send(
+                    VitalChangeMessageParams::Dynamic(dynamic_message) => {
+                        dynamic_message.with_decoration(decoration).send(
                             Some(self.entity),
-                            ThirdPersonMessageLocation::SourceEntity,
+                            DynamicMessageLocation::SourceEntity,
                             world,
                         );
                     }

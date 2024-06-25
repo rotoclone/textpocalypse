@@ -190,7 +190,7 @@ impl Action for ChangeRangeAction {
                 .with_third_person_message(
                     Some(performing_entity),
                     ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${performing_entity.Name} tries to ${movement_phrase} ${target.name}, but can't manage to.")
@@ -240,7 +240,7 @@ impl Action for ChangeRangeAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}. ${performing_entity.They} ${performing_entity.are/is} now at ${new_range} range.")
@@ -257,7 +257,7 @@ impl Action for ChangeRangeAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}.")

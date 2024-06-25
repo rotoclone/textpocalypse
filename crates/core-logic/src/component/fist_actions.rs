@@ -9,10 +9,10 @@ use crate::{
     handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
     ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
     ActionTag, AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification,
-    BodyPart, Description, InputParseError, IntegerExtensions, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
-    SurroundingsMessageCategory, ThirdPersonMessage, ThirdPersonMessageLocation,
-    VerifyActionNotification, VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
+    BodyPart, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, VerifyActionNotification,
+    VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
@@ -331,10 +331,10 @@ impl Action for HaymakerAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessageLocation::SourceEntity,
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new(
@@ -358,10 +358,10 @@ impl Action for HaymakerAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessageLocation::SourceEntity,
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${attacker.Name} continues preparing for a haymaker.")

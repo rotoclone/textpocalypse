@@ -107,7 +107,7 @@ impl Action for SleepAction {
                 .with_third_person_message(
                     Some(performing_entity),
                     ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${entity.Name} falls asleep.")
@@ -140,7 +140,7 @@ impl Action for SleepAction {
                 .with_third_person_message(
                     Some(performing_entity),
                     ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${entity.Name} wakes up.")
@@ -168,7 +168,7 @@ impl Action for SleepAction {
             .with_third_person_message(
                 Some(performing_entity),
                 ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new("${entity.Name} jolts awake.")

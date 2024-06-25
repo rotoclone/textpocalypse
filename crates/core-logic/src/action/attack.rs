@@ -141,7 +141,7 @@ impl Action for AttackAction {
                         .with_third_person_message(
                             Some(performing_entity),
                             ThirdPersonMessageLocation::SourceEntity,
-                            ThirdPersonMessage::new(
+                            DynamicMessage::new_third_person(
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
                                 hit_message_format,

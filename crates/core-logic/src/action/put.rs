@@ -291,7 +291,7 @@ impl Action for PutAction {
             if self.source == performing_entity_location {
                 (
                     format!("You pick up {item_name}."),
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${entity.Name} picks up ${item.name}.")
@@ -306,7 +306,7 @@ impl Action for PutAction {
                     Description::get_reference_name(self.source, Some(performing_entity), world);
                 (
                     format!("You get {item_name} from {source_name}."),
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${entity.Name} gets ${item.name} from ${source.name}.")
@@ -321,7 +321,7 @@ impl Action for PutAction {
         } else if self.destination == performing_entity_location {
             (
                 format!("You drop {item_name}."),
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new("${entity.Name} drops ${item.name}.")
@@ -336,7 +336,7 @@ impl Action for PutAction {
                 Description::get_reference_name(self.destination, Some(performing_entity), world);
             (
                 format!("You put {item_name} into {destination_name}."),
-                ThirdPersonMessage::new(
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new(

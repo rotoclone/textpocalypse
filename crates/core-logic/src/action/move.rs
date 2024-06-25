@@ -109,7 +109,7 @@ impl Action for MoveAction {
                     .with_third_person_message(
                         Some(performing_entity),
                         ThirdPersonMessageLocation::Location(current_location_id),
-                        ThirdPersonMessage::new(
+                        DynamicMessage::new_third_person(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
                             MessageFormat::new("${performing_entity.Name} walks ${direction}.")
@@ -123,7 +123,7 @@ impl Action for MoveAction {
                     .with_third_person_message(
                         Some(performing_entity),
                         ThirdPersonMessageLocation::Location(new_room_id),
-                        ThirdPersonMessage::new(
+                        DynamicMessage::new_third_person(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
                             MessageFormat::new(
@@ -248,7 +248,7 @@ fn try_escape_combat(
                 .with_third_person_message(
                     Some(entity),
                     ThirdPersonMessageLocation::Location(current_location_id),
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
                         MessageFormat::new("${entity.Name} tries to escape to the ${direction}, but can't get away.")

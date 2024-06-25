@@ -7,16 +7,16 @@ use regex::Regex;
 use crate::{
     action::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
-        OpenAction, ThirdPersonMessage, ThirdPersonMessageLocation,
+        OpenAction,
     },
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -192,7 +192,7 @@ impl OpenState {
                     // send messages to entities on the other side
                     if let Some(location) = world.get::<Location>(other_side_id) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
-                        ThirdPersonMessage::new(
+                        DynamicMessage::new_third_person(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                             MessageDelay::Short,
                             MessageFormat::new("${other_side.Name} swings ${open_or_closed}.")
@@ -203,7 +203,7 @@ impl OpenState {
                         )
                         .send(
                             None,
-                            ThirdPersonMessageLocation::Location(location.id),
+                            DynamicMessageLocation::Location(location.id),
                             world,
                         );
                     }

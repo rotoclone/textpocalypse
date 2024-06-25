@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use voca_rs::Voca;
 
 use std::collections::{HashMap, HashSet};
 
@@ -24,13 +25,15 @@ pub struct DynamicMessage<T: MessageTokens> {
     pub receivers_override: Option<HashSet<Entity>>,
     /// A list of entities to not send the message to.
     pub receivers_to_exclude: HashSet<Entity>,
+    /// Whether to send the message to the entity that generated it.
+    pub send_to_source_entity: bool,
     /// The decorations to include alongside the message.
     pub decorations: Vec<MessageDecoration>,
 }
 
 impl<T: MessageTokens> DynamicMessage<T> {
-    /// Creates a message with no specific receivers set.
-    pub fn new(
+    /// Creates a message with no specific receivers set, which won't be sent to the source entity.
+    pub fn new_third_person(
         category: MessageCategory,
         delay: MessageDelay,
         message_format: MessageFormat<T>,
@@ -43,6 +46,7 @@ impl<T: MessageTokens> DynamicMessage<T> {
             delay,
             receivers_override: None,
             receivers_to_exclude: HashSet::new(),
+            send_to_source_entity: false,
             decorations: Vec::new(),
         }
     }
@@ -118,7 +122,7 @@ impl<T: MessageTokens> DynamicMessage<T> {
     }
 
     /// Builds messages for entities in `location`, excluding `source_entity` if provided.
-    fn into_game_messages(
+    pub fn into_game_messages(
         self,
         source_entity: Option<Entity>,
         message_location: DynamicMessageLocation,
@@ -141,7 +145,7 @@ impl<T: MessageTokens> DynamicMessage<T> {
                         .map(|e| Invisible::is_visible_to(e, *entity, world))
                         .unwrap_or(true);
 
-                    if Some(*entity) != source_entity
+                    if (Some(*entity) != source_entity || self.send_to_source_entity)
                         && can_see_source_entity
                         && !self.receivers_to_exclude.contains(entity)
                         && can_receive_messages(world, *entity)
@@ -178,7 +182,17 @@ impl<T: MessageTokens> DynamicMessage<T> {
     }
 }
 
+/// The location to send a dynamic message in.
+pub enum DynamicMessageLocation {
+    /// The location of the entity that caused the message to be sent.
+    SourceEntity,
+    /// A specific location.
+    Location(Entity),
+}
+
 /// A part of a third-person message.
+///
+/// TODO remove
 pub enum MessagePart {
     /// A literal string.
     String(String),
@@ -200,14 +214,6 @@ pub enum MessageToken {
     ReflexivePronoun(Entity),
     /// The form of "to be" to use with an entity's personal subject pronoun (i.e. is/are).
     ToBeForm(Entity),
-}
-
-/// The location to send a dynamic message in.
-pub enum DynamicMessageLocation {
-    /// The location of the entity that caused the message to be sent.
-    SourceEntity,
-    /// A specific location.
-    Location(Entity),
 }
 
 impl MessageToken {

@@ -557,7 +557,7 @@ fn result_builder_with_throw_extreme_fail_messages(
         .with_third_person_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
+            DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
                 MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} hurls ${item.name} wildly, and it comes nowhere close to ${target.name}.")
@@ -587,7 +587,7 @@ fn result_builder_with_throw_fail_messages(
         .with_third_person_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
+            DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
                 MessageFormat::<ThrowMessageTokens>::new(
@@ -612,7 +612,7 @@ fn result_builder_with_dodge_extreme_fail_messages(
 
     let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
 
-    let target_message = ThirdPersonMessage::new(
+    let target_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like you don't even try to move out of the way before it hits you directly in the face.")
@@ -621,7 +621,7 @@ fn result_builder_with_dodge_extreme_fail_messages(
     )
     .only_send_to(context.target);
 
-    let third_person_message = ThirdPersonMessage::new(
+    let third_person_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like ${target.name} doesn't even try to move out of the way before it hits ${target.them} directly in the face.")
@@ -663,7 +663,7 @@ fn result_builder_with_dodge_fail_messages(
 
     let message = format!("You throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} in the chest.");
 
-    let target_message = ThirdPersonMessage::new(
+    let target_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and you aren't able to get out of the way before it hits you in the chest.")
@@ -672,7 +672,7 @@ fn result_builder_with_dodge_fail_messages(
     )
     .only_send_to(context.target);
 
-    let third_person_message = ThirdPersonMessage::new(
+    let third_person_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${target.name} isn't able to get out of the way before it hits ${target.them} in the chest.")
@@ -714,7 +714,7 @@ fn result_builder_with_dodge_success_messages(
 
     let message = format!("You throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
 
-    let target_message = ThirdPersonMessage::new(
+    let target_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you move out of the way just before it hits you.")
@@ -723,7 +723,7 @@ fn result_builder_with_dodge_success_messages(
     )
     .only_send_to(context.target);
 
-    let third_person_message = ThirdPersonMessage::new(
+    let third_person_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} moves out of the way just before it hits ${target.them}.")
@@ -766,7 +766,7 @@ fn result_builder_with_dodge_extreme_success_messages(
         "You throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
     );
 
-    let target_message = ThirdPersonMessage::new(
+    let target_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you calmly shift just enough to avoid being hit.")
@@ -775,7 +775,7 @@ fn result_builder_with_dodge_extreme_success_messages(
     )
     .only_send_to(context.target);
 
-    let third_person_message = ThirdPersonMessage::new(
+    let third_person_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} calmly shifts just enough to avoid being hit.")
@@ -815,7 +815,7 @@ fn result_builder_with_throw_success_messages(
     let target_name = &context.target_name;
 
     let message = format!("You throw {item_name}, and it hits {target_name}.");
-    let third_person_message = ThirdPersonMessage::new(
+    let third_person_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
@@ -857,7 +857,7 @@ fn result_builder_with_throw_extreme_success_messages(
         .with_third_person_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
+            DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
                 MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly throws ${item.name}, and it impacts ${target.name} perfectly.")

@@ -5,17 +5,15 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{
-        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction,
-        ThirdPersonMessage, ThirdPersonMessageLocation,
-    },
+    action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction},
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    ActionTag, AttributeDescription, BasicTokens, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    ActionTag, AttributeDescription, BasicTokens, DynamicMessage, DynamicMessageLocation,
+    GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory,
 };
 
 use super::{
@@ -198,10 +196,10 @@ impl Action for LockAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     message_format,
@@ -297,7 +295,7 @@ impl KeyedLock {
                 // send messages to entities on the other side
                 if let Some(location) = world.get::<Location>(other_side_id) {
                     let open_or_closed = if should_be_locked { "closed" } else { "open" };
-                    ThirdPersonMessage::new(
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new(
@@ -310,7 +308,7 @@ impl KeyedLock {
                     )
                     .send(
                         None,
-                        ThirdPersonMessageLocation::Location(location.id),
+                        DynamicMessageLocation::Location(location.id),
                         world,
                     );
                 }
