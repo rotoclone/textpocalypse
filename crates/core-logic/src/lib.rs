@@ -82,6 +82,9 @@ use combat_utils::*;
 mod message_format;
 use message_format::*;
 
+mod dynamic_message;
+use dynamic_message::*;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
