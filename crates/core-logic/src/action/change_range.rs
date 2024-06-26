@@ -5,16 +5,15 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -187,9 +186,9 @@ impl Action for ChangeRangeAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
+                    DynamicMessageLocation::SourceEntity,
                     DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
@@ -237,9 +236,9 @@ impl Action for ChangeRangeAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
+                DynamicMessageLocation::SourceEntity,
                 DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
@@ -254,9 +253,9 @@ impl Action for ChangeRangeAction {
                 .only_send_to(target),
                 world,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
+                DynamicMessageLocation::SourceEntity,
                 DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,

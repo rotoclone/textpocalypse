@@ -16,15 +16,13 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, NoTokens, SurroundingsMessageCategory,
-    VerifyActionNotification, WeaponHitMessageTokens, WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    WeaponMessages,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
@@ -138,9 +136,9 @@ impl Action for AttackAction {
                     .apply(world);
 
                     return ActionResult::builder()
-                        .with_third_person_message(
+                        .with_dynamic_message(
                             Some(performing_entity),
-                            ThirdPersonMessageLocation::SourceEntity,
+                            DynamicMessageLocation::SourceEntity,
                             DynamicMessage::new_third_person(
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
