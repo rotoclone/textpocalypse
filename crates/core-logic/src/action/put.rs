@@ -13,15 +13,12 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -286,8 +283,8 @@ impl Action for PutAction {
             .expect("performing entity should have a location")
             .id;
 
-        let (first_person_message, third_person_message) = if self.destination == performing_entity
-        {
+        //TODO use regular `new` for all these dynamic messages and remove the need to have a separate first person message
+        let (first_person_message, dynamic_message) = if self.destination == performing_entity {
             if self.source == performing_entity_location {
                 (
                     format!("You pick up {item_name}."),
@@ -358,10 +355,10 @@ impl Action for PutAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                third_person_message,
+                DynamicMessageLocation::SourceEntity,
+                dynamic_message,
                 world,
             );
 

@@ -12,14 +12,12 @@ use crate::{
     },
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction,
-    ThirdPersonMessage, ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction};
 
 /// The fraction of energy over which an entity cannot go to sleep if it's awake, and has a chance to wake up if it's asleep.
 const WAKE_THRESHOLD: f32 = 0.75;
@@ -104,9 +102,9 @@ impl Action for SleepAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Long,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
+                    DynamicMessageLocation::SourceEntity,
                     DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
@@ -137,9 +135,9 @@ impl Action for SleepAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
+                    DynamicMessageLocation::SourceEntity,
                     DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
@@ -165,9 +163,9 @@ impl Action for SleepAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::None,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
+                DynamicMessageLocation::SourceEntity,
                 DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,

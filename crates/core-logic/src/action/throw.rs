@@ -5,13 +5,12 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    handle_enter_combat,
+    dynamic_message, handle_enter_combat,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -22,9 +21,10 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, MessageTokens, NoTokens, Pronouns,
-    SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
+    ActionTag, BeforeActionNotification, Description, DynamicMessage, DynamicMessageLocation,
+    GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    MessageTokens, NoTokens, Pronouns, SurroundingsMessageCategory, TokenName, TokenValue,
+    VerifyActionNotification, Volume,
 };
 
 use super::{
@@ -554,9 +554,10 @@ fn result_builder_with_throw_extreme_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
+            DynamicMessageLocation::SourceEntity,
+            //TODO use regular `new` without `with_message`
             DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
@@ -584,9 +585,10 @@ fn result_builder_with_throw_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
+            DynamicMessageLocation::SourceEntity,
+            //TODO use regular `new` without `with_message`
             DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
@@ -612,23 +614,14 @@ fn result_builder_with_dodge_extreme_fail_messages(
 
     let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
 
-    let target_message = DynamicMessage::new_third_person(
+    //TODO use regular `new` without `with_message`
+    let dynamic_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like you don't even try to move out of the way before it hits you directly in the face.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and it seems like ${target.name} ${target.you:don't/doesn't} even try to move out of the way before it hits ${target.them} directly in the face.")
             .expect("message format should be valid"),
         context.into(),
-    )
-    .only_send_to(context.target);
-
-    let third_person_message = DynamicMessage::new_third_person(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like ${target.name} doesn't even try to move out of the way before it hits ${target.them} directly in the face.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
+    );
 
     result_builder
         .with_message(
@@ -637,16 +630,10 @@ fn result_builder_with_dodge_extreme_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
             world,
         )
 }
@@ -688,13 +675,13 @@ fn result_builder_with_dodge_fail_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             target_message,
             world,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             third_person_message,
@@ -739,13 +726,13 @@ fn result_builder_with_dodge_success_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             target_message,
             world,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             third_person_message,
@@ -791,13 +778,13 @@ fn result_builder_with_dodge_extreme_success_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             target_message,
             world,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             third_person_message,
@@ -830,7 +817,7 @@ fn result_builder_with_throw_success_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             third_person_message,
@@ -854,7 +841,7 @@ fn result_builder_with_throw_extreme_success_messages(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(context.performing_entity),
             ThirdPersonMessageLocation::SourceEntity,
             DynamicMessage::new_third_person(

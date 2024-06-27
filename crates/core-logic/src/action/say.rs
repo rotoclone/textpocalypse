@@ -8,14 +8,12 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const SAY_VERB_NAME: &str = "say";
 const SAY_FORMAT: &str = "say <>";
@@ -73,9 +71,10 @@ impl Action for SayAction {
                 MessageCategory::Internal(InternalMessageCategory::Speech),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
+                DynamicMessageLocation::SourceEntity,
+                //TODO use regular `new` here and remove `with_message` call
                 DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,

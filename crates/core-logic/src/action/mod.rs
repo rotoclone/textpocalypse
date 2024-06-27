@@ -2,19 +2,14 @@ use bevy_ecs::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
-use voca_rs::Voca;
 
-use crate::component::{
-    ActionEndNotification, AfterActionPerformNotification, Container, Location,
-};
+use crate::component::{ActionEndNotification, AfterActionPerformNotification};
 use crate::notification::{
     Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
 };
 use crate::{
-    can_receive_messages, combat_utils, send_message, BeforeActionNotification, Description,
-    DynamicMessage, DynamicMessageLocation, InterpolationError, Invisible, MessageCategory,
-    MessageDecoration, MessageDelay, MessageFormat, MessageTokens, Pronouns,
-    VerifyActionNotification,
+    combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 
@@ -398,14 +393,14 @@ impl ActionInterruptResultBuilder {
     }
 
     /// Adds messages to be sent to entities in `message_location`, excluding `source_entity` if provided.
-    pub fn with_third_person_message<T: MessageTokens>(
+    pub fn with_dynamic_message<T: MessageTokens>(
         mut self,
         source_entity: Option<Entity>,
-        message_location: ThirdPersonMessageLocation,
-        third_person_message: ThirdPersonMessage<T>,
+        message_location: DynamicMessageLocation,
+        dynamic_message: DynamicMessage<T>,
         world: &World,
     ) -> ActionInterruptResultBuilder {
-        for (entity, message) in third_person_message
+        for (entity, message) in dynamic_message
             .into_game_messages(source_entity, message_location, world)
             .expect("message interpolation should not fail")
         {

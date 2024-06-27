@@ -13,14 +13,14 @@ use crate::{
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Direction, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
     Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    LookAction, ThirdPersonMessage, ThirdPersonMessageLocation,
+    LookAction,
 };
 
 const MOVE_FORMAT: &str = "go <>";
@@ -106,9 +106,9 @@ impl Action for MoveAction {
                         MessageCategory::Internal(InternalMessageCategory::Action),
                         MessageDelay::Long,
                     )
-                    .with_third_person_message(
+                    .with_dynamic_message(
                         Some(performing_entity),
-                        ThirdPersonMessageLocation::Location(current_location_id),
+                        DynamicMessageLocation::Location(current_location_id),
                         DynamicMessage::new_third_person(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
@@ -120,9 +120,9 @@ impl Action for MoveAction {
                         ),
                         world,
                     )
-                    .with_third_person_message(
+                    .with_dynamic_message(
                         Some(performing_entity),
-                        ThirdPersonMessageLocation::Location(new_room_id),
+                        DynamicMessageLocation::Location(new_room_id),
                         DynamicMessage::new_third_person(
                             MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                             MessageDelay::Short,
@@ -245,9 +245,9 @@ fn try_escape_combat(
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(entity),
-                    ThirdPersonMessageLocation::Location(current_location_id),
+                    DynamicMessageLocation::Location(current_location_id),
                     DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                         MessageDelay::Short,
