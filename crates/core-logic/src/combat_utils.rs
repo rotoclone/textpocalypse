@@ -476,8 +476,7 @@ pub fn handle_damage<T: AttackType>(
             amount: hit_params.damage as f32,
             message_params: vec![
                 (
-                    //TODO use regular `new` here
-                    VitalChangeMessageParams::Dynamic(DynamicMessage::new_third_person(
+                    VitalChangeMessageParams::Dynamic(DynamicMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         hit_message,
@@ -521,8 +520,7 @@ pub fn handle_miss<T: AttackType>(
     result_builder.with_dynamic_message(
         Some(performing_entity),
         DynamicMessageLocation::SourceEntity,
-        //TODO use regular `new` here
-        DynamicMessage::new_third_person(
+        DynamicMessage::new(
             MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
             MessageDelay::Short,
             miss_message,

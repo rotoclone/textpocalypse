@@ -32,6 +32,25 @@ pub struct DynamicMessage<T: MessageTokens> {
 }
 
 impl<T: MessageTokens> DynamicMessage<T> {
+    /// Creates a message with no specific receivers set, which will be sent to the source entity.
+    pub fn new(
+        category: MessageCategory,
+        delay: MessageDelay,
+        message_format: MessageFormat<T>,
+        message_tokens: T,
+    ) -> DynamicMessage<T> {
+        DynamicMessage {
+            message_format,
+            message_tokens,
+            category,
+            delay,
+            receivers_override: None,
+            receivers_to_exclude: HashSet::new(),
+            send_to_source_entity: true,
+            decorations: Vec::new(),
+        }
+    }
+
     /// Creates a message with no specific receivers set, which won't be sent to the source entity.
     pub fn new_third_person(
         category: MessageCategory,
