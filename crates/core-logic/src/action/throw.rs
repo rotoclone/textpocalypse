@@ -10,7 +10,7 @@ use crate::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    dynamic_message, handle_enter_combat,
+    handle_enter_combat,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
@@ -650,23 +650,14 @@ fn result_builder_with_dodge_fail_messages(
 
     let message = format!("You throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} in the chest.");
 
-    let target_message = DynamicMessage::new_third_person(
+    //TODO use regular `new` and not `with_message`
+    let dynamic_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and you aren't able to get out of the way before it hits you in the chest.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${target.name} ${target.you:aren't/isn't} able to get out of the way before it hits ${target.them} in the chest.")
             .expect("message format should be valid"),
         context.into(),
-    )
-    .only_send_to(context.target);
-
-    let third_person_message = DynamicMessage::new_third_person(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${target.name} isn't able to get out of the way before it hits ${target.them} in the chest.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
+    );
 
     result_builder
         .with_message(
@@ -677,14 +668,8 @@ fn result_builder_with_dodge_fail_messages(
         )
         .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_dynamic_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
             world,
         )
 }
@@ -701,23 +686,14 @@ fn result_builder_with_dodge_success_messages(
 
     let message = format!("You throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
 
-    let target_message = DynamicMessage::new_third_person(
+    //TODO use `new` and not `with_message`
+    let dynamic_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you move out of the way just before it hits you.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} ${target.you:move/moves} out of the way just before it hits ${target.them}.")
             .expect("message format should be valid"),
         context.into(),
-    )
-    .only_send_to(context.target);
-
-    let third_person_message = DynamicMessage::new_third_person(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} moves out of the way just before it hits ${target.them}.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
+    );
 
     result_builder
         .with_message(
@@ -728,14 +704,8 @@ fn result_builder_with_dodge_success_messages(
         )
         .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_dynamic_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
             world,
         )
 }
@@ -753,23 +723,14 @@ fn result_builder_with_dodge_extreme_success_messages(
         "You throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
     );
 
-    let target_message = DynamicMessage::new_third_person(
+    //TODO use `new` and not `with_message`
+    let dynamic_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you calmly shift just enough to avoid being hit.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} calmly ${target.you:shift/shifts} just enough to avoid being hit.")
             .expect("message format should be valid"),
         context.into(),
-    )
-    .only_send_to(context.target);
-
-    let third_person_message = DynamicMessage::new_third_person(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} calmly shifts just enough to avoid being hit.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
+    );
 
     result_builder
         .with_message(
@@ -780,14 +741,8 @@ fn result_builder_with_dodge_extreme_success_messages(
         )
         .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_dynamic_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
             world,
         )
 }
@@ -802,10 +757,11 @@ fn result_builder_with_throw_success_messages(
     let target_name = &context.target_name;
 
     let message = format!("You throw {item_name}, and it hits {target_name}.");
-    let third_person_message = DynamicMessage::new_third_person(
+    //TODO use `new` and not `with_message`
+    let dynamic_message = DynamicMessage::new_third_person(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
             .expect("message format should be valid"),
         context.into(),
     );
@@ -819,8 +775,8 @@ fn result_builder_with_throw_success_messages(
         )
         .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
             world,
         )
 }
@@ -843,11 +799,12 @@ fn result_builder_with_throw_extreme_success_messages(
         )
         .with_dynamic_message(
             Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
+            DynamicMessageLocation::SourceEntity,
+            //TODO use `new` and not `with_message`
             DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
-                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly throws ${item.name}, and it impacts ${target.name} perfectly.")
+                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly ${thrower.you:throw/throws} ${item.name}, and it impacts ${target.name} perfectly.")
             .expect("message format should be valid"),
         context.into(),
             ),

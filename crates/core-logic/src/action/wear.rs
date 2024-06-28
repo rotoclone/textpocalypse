@@ -14,15 +14,12 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const WEAR_VERB_NAME: &str = "wear";
 const WEAR_FORMAT: &str = "wear <>";
@@ -144,9 +141,10 @@ impl Action for WearAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
+                DynamicMessageLocation::SourceEntity,
+                //TODO use `new` and not `with_message`
                 DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
