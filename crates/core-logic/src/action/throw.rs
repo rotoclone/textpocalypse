@@ -23,8 +23,8 @@ use crate::{
     },
     ActionTag, BeforeActionNotification, Description, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    MessageTokens, Pronouns, SurroundingsMessageCategory, TokenName, TokenValue,
-    VerifyActionNotification, Volume,
+    MessageTokens, SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification,
+    Volume,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, EquipAction};
@@ -300,13 +300,10 @@ impl Action for ThrowAction {
             );
         }
 
-        let message_context = ThrowMessageContext {
-            performing_entity,
+        let tokens = ThrowMessageTokens {
+            thrower: performing_entity,
             item,
-            item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
-            target_name: Description::get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: Pronouns::get_personal_object(target, Some(performing_entity), world),
         };
 
         let hit;
@@ -314,33 +311,33 @@ impl Action for ThrowAction {
             CheckResult::ExtremeFailure => {
                 hit = false;
                 if target_is_living {
-                    build_dodge_extreme_success_message(&message_context)
+                    build_dodge_extreme_success_message(tokens)
                 } else {
-                    build_throw_extreme_fail_message(&message_context)
+                    build_throw_extreme_fail_message(tokens)
                 }
             }
             CheckResult::Failure => {
                 hit = false;
                 if target_is_living {
-                    build_dodge_success_message(&message_context)
+                    build_dodge_success_message(tokens)
                 } else {
-                    build_throw_fail_message(&message_context)
+                    build_throw_fail_message(tokens)
                 }
             }
             CheckResult::Success => {
                 hit = true;
                 if target_is_living {
-                    build_dodge_fail_message(&message_context)
+                    build_dodge_fail_message(tokens)
                 } else {
-                    build_throw_success_message(&message_context)
+                    build_throw_success_message(tokens)
                 }
             }
             CheckResult::ExtremeSuccess => {
                 hit = true;
                 if target_is_living {
-                    build_dodge_extreme_fail_message(&message_context)
+                    build_dodge_extreme_fail_message(tokens)
                 } else {
-                    build_throw_extreme_success_message(&message_context)
+                    build_throw_extreme_success_message(tokens)
                 }
             }
         };
@@ -468,23 +465,6 @@ fn get_inanimate_target_difficulty(target: Entity, world: &World) -> CheckDiffic
     CheckDifficulty::new(check_target.round() as u16)
 }
 
-/// Context for building messages about throws.
-/// TODO remove this and just use ThrowMessageTokens directly
-struct ThrowMessageContext {
-    /// The entity doing the throwing.
-    performing_entity: Entity,
-    /// The item being thrown.
-    item: Entity,
-    /// The name of the item being thrown (including "the").
-    item_name: String,
-    /// The entity being thrown at.
-    target: Entity,
-    /// The name of the entity being thrown at (including "the", if necessary).
-    target_name: String,
-    /// The personal object pronoun of the entity being thrown at (e.g. him, her, them).
-    target_pronoun: String,
-}
-
 /// Tokens for messages about throws.
 struct ThrowMessageTokens {
     /// The entity doing the throwing
@@ -506,31 +486,21 @@ impl MessageTokens for ThrowMessageTokens {
     }
 }
 
-impl From<&ThrowMessageContext> for ThrowMessageTokens {
-    fn from(context: &ThrowMessageContext) -> Self {
-        ThrowMessageTokens {
-            thrower: context.performing_entity,
-            item: context.item,
-            target: context.target,
-        }
-    }
-}
-
 /// Builds a message for when the throw was an extreme failure.
 fn build_throw_extreme_fail_message(
-    context: &ThrowMessageContext,
+    tokens: ThrowMessageTokens,
 ) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:hurl/hurls} ${item.name} wildly, and it comes nowhere close to ${target.name}.")
             .expect("message format should be valid"),
-        context.into(),
+        tokens,
     )
 }
 
 /// Builds a message for when the throw was a failure.
-fn build_throw_fail_message(context: &ThrowMessageContext) -> DynamicMessage<ThrowMessageTokens> {
+fn build_throw_fail_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
@@ -538,83 +508,79 @@ fn build_throw_fail_message(context: &ThrowMessageContext) -> DynamicMessage<Thr
             "${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.whiz/whizzes} just past ${target.name}.",
         )
         .expect("message format should be valid"),
-        context.into(),
+        tokens,
     )
 }
 
 /// Builds a message for when the dodge was an extreme failure.
 fn build_dodge_extreme_fail_message(
-    context: &ThrowMessageContext,
+    tokens: ThrowMessageTokens,
 ) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and it seems like ${target.name} ${target.you:don't/doesn't} even try to move out of the way before ${item.they} ${item.hit/hits} ${target.them} directly in the face.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
 }
 
 /// Builds a message for when the dodge was a failure.
-fn build_dodge_fail_message(context: &ThrowMessageContext) -> DynamicMessage<ThrowMessageTokens> {
+fn build_dodge_fail_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${target.name} ${target.you:aren't/isn't} able to get out of the way before ${item.they} ${item.hit/hits} ${target.them} in the chest.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
 }
 
 /// Builds a message for when the dodge was a success.
-fn build_dodge_success_message(
-    context: &ThrowMessageContext,
-) -> DynamicMessage<ThrowMessageTokens> {
+fn build_dodge_success_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} ${target.you:move/moves} out of the way just before ${item.they} ${item.hit/hits} ${target.them}.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
 }
 
 /// Builds a message for when the dodge was an extreme success.
 fn build_dodge_extreme_success_message(
-    context: &ThrowMessageContext,
+    tokens: ThrowMessageTokens,
 ) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} calmly ${target.you:shift/shifts} just enough to avoid being hit.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
 }
 
 /// Builds a message for when the throw was a success and the target didn't attempt to dodge.
-fn build_throw_success_message(
-    context: &ThrowMessageContext,
-) -> DynamicMessage<ThrowMessageTokens> {
+fn build_throw_success_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
 }
 
 /// Builds a message for when the throw was an extreme success and the target didn't attempt to dodge.
 fn build_throw_extreme_success_message(
-    context: &ThrowMessageContext,
+    tokens: ThrowMessageTokens,
 ) -> DynamicMessage<ThrowMessageTokens> {
     DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
         MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.impact/impacts} ${target.name} perfectly.")
             .expect("message format should be valid"),
-context.into(),
+            tokens,
     )
 }
 
