@@ -791,6 +791,7 @@ enum BarStyle {
 }
 
 /// Transforms the provided constrained value into a string that looks like a bar for display.
+/// TODO this method is a god damn mess
 fn constrained_float_to_string(
     old_value: Option<ConstrainedValue<f32>>,
     value: ConstrainedValue<f32>,
@@ -814,13 +815,13 @@ fn constrained_float_to_string(
     let mut num_filled = (bar_length as f32 * filled_fraction).round() as usize;
     let num_changed = old_num_filled.abs_diff(num_filled);
 
-    let raw_change_per_bar_change = value.get_max() / bar_length as f32;
-    let raw_change = value.get() - old_value.map(|v| v.get()).unwrap_or(0.0);
-
+    let original_num_filled = num_filled;
     let bar_change = if decreased {
         match bar_style {
             BarStyle::Full => style(BAR_REDUCTION.repeat(num_changed)).red(),
             BarStyle::Short => {
+                let raw_change_per_bar_change = value.get_max() / bar_length as f32;
+                let raw_change = value.get() - old_value.map(|v| v.get()).unwrap_or(0.0);
                 let num_fully_removed =
                     (raw_change.abs() / raw_change_per_bar_change).floor() as usize;
                 let num_partially_removed = (raw_change.abs() % raw_change_per_bar_change) as usize;
@@ -855,9 +856,24 @@ fn constrained_float_to_string(
         style(BAR_ADDITION.repeat(num_changed)).green()
     };
 
+    let num_replaced = original_num_filled.saturating_sub(num_filled);
+    dbg!(num_replaced); //TODO remove
+
+    //TODO sometimes num_empty can be too small:
+    /*
+    k guy
+    [*   ] You punch Some Guy in the torso.
+
+    Some Guy lurches forward as his fist sails harmlessly past you.
+
+    k guy
+    [#    ] You punch Some Guy in the head.
+     */
     let num_empty = bar_length
-        .saturating_sub(num_filled) //TODO but num_filled could be smaller now due to the removal chars mess above, which would make num_empty now too big
-        .saturating_sub(num_changed);
+        .saturating_sub(num_filled)
+        .saturating_sub(num_changed)
+        .saturating_sub(num_replaced);
+    dbg!(num_empty); //TODO remove
 
     let bar = format!(
         "{}{}{}",
