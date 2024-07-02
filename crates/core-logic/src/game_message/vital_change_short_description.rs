@@ -13,6 +13,8 @@ pub struct VitalChangeShortDescription<const R: u8> {
     pub old_value: ConstrainedValue<u8>,
     /// The new value.
     pub new_value: ConstrainedValue<u8>,
+    /// Whether the change is a decrease or not (might not be visible due to low resolution of R)
+    pub decreased: bool,
 }
 
 impl<const R: u8> VitalChangeShortDescription<R> {
@@ -28,6 +30,7 @@ impl<const R: u8> VitalChangeShortDescription<R> {
             vital_type: description.vital_type,
             old_value,
             new_value,
+            decreased: description.new_value < description.old_value,
         }
     }
 }
@@ -50,7 +53,8 @@ mod tests {
             VitalChangeShortDescription {
                 vital_type: VitalType::Health,
                 old_value: ConstrainedValue::new(5, 0, 10),
-                new_value: ConstrainedValue::new(5, 0, 10)
+                new_value: ConstrainedValue::new(5, 0, 10),
+                decreased: false
             },
             short_desc_even_resolution
         );
@@ -61,14 +65,15 @@ mod tests {
             VitalChangeShortDescription {
                 vital_type: VitalType::Health,
                 old_value: ConstrainedValue::new(4, 0, 7),
-                new_value: ConstrainedValue::new(4, 0, 7)
+                new_value: ConstrainedValue::new(4, 0, 7),
+                decreased: false
             },
             short_desc_odd_resolution
         );
     }
 
     #[test]
-    fn change() {
+    fn decrease() {
         let desc = VitalChangeDescription {
             vital_type: VitalType::Health,
             old_value: ConstrainedValue::new(50.0, 0.0, 100.0),
@@ -81,7 +86,8 @@ mod tests {
             VitalChangeShortDescription {
                 vital_type: VitalType::Health,
                 old_value: ConstrainedValue::new(5, 0, 10),
-                new_value: ConstrainedValue::new(4, 0, 10)
+                new_value: ConstrainedValue::new(4, 0, 10),
+                decreased: true
             },
             short_desc_even_resolution
         );
@@ -92,7 +98,41 @@ mod tests {
             VitalChangeShortDescription {
                 vital_type: VitalType::Health,
                 old_value: ConstrainedValue::new(4, 0, 7),
-                new_value: ConstrainedValue::new(2, 0, 7)
+                new_value: ConstrainedValue::new(2, 0, 7),
+                decreased: true
+            },
+            short_desc_odd_resolution
+        );
+    }
+
+    #[test]
+    fn increase() {
+        let desc = VitalChangeDescription {
+            vital_type: VitalType::Health,
+            old_value: ConstrainedValue::new(35.0, 0.0, 100.0),
+            new_value: ConstrainedValue::new(50.0, 0.0, 100.0),
+        };
+
+        let short_desc_even_resolution =
+            VitalChangeShortDescription::<10>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(4, 0, 10),
+                new_value: ConstrainedValue::new(5, 0, 10),
+                decreased: false
+            },
+            short_desc_even_resolution
+        );
+
+        let short_desc_odd_resolution =
+            VitalChangeShortDescription::<7>::from_vital_change_description(&desc);
+        assert_eq!(
+            VitalChangeShortDescription {
+                vital_type: VitalType::Health,
+                old_value: ConstrainedValue::new(2, 0, 7),
+                new_value: ConstrainedValue::new(4, 0, 7),
+                decreased: false
             },
             short_desc_odd_resolution
         );

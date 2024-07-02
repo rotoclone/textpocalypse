@@ -17,6 +17,9 @@ const BAR_END: &str = "]";
 const BAR_FILLED: &str = "|";
 const BAR_EMPTY: &str = " ";
 const BAR_REDUCTION: &str = "-";
+const BAR_MINOR_DECREASE: &str = "'";
+const BAR_PARTIAL_DECREASE: &str = "*";
+const BAR_FULL_DECREASE: &str = "#";
 const BAR_ADDITION: &str = "+";
 
 const MAX_WIDTH: usize = 80;
@@ -649,6 +652,7 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.health,
+            false,
             vital_type_to_color(&VitalType::Health),
             BarStyle::Full
         )
@@ -658,6 +662,7 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.satiety,
+            false,
             vital_type_to_color(&VitalType::Satiety),
             BarStyle::Full
         )
@@ -667,6 +672,7 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.hydration,
+            false,
             vital_type_to_color(&VitalType::Hydration),
             BarStyle::Full
         )
@@ -676,6 +682,7 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         constrained_float_to_string(
             None,
             vitals.energy,
+            false,
             vital_type_to_color(&VitalType::Energy),
             BarStyle::Full
         )
@@ -726,6 +733,7 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
         constrained_float_to_string(
             Some(change.old_value),
             change.new_value,
+            change.new_value < change.old_value,
             color,
             BarStyle::Full
         )
@@ -734,7 +742,6 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
 
 /// Transforms the provided short vital change description into a string for display.
 fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription<R>) -> String {
-    let color = vital_type_to_color(&change.vital_type);
     let old_value_float = ConstrainedValue::new(
         change.old_value.get() as f32,
         change.old_value.get_min() as f32,
@@ -748,7 +755,8 @@ fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription
     constrained_float_to_string(
         Some(old_value_float),
         new_value_float,
-        color,
+        change.decreased,
+        crossterm::style::Color::Grey,
         BarStyle::Short,
     )
 }
@@ -786,6 +794,7 @@ enum BarStyle {
 fn constrained_float_to_string(
     old_value: Option<ConstrainedValue<f32>>,
     value: ConstrainedValue<f32>,
+    decreased: bool,
     color: crossterm::style::Color,
     bar_style: BarStyle,
 ) -> String {
@@ -805,16 +814,49 @@ fn constrained_float_to_string(
     let mut num_filled = (bar_length as f32 * filled_fraction).round() as usize;
     let num_changed = old_num_filled.abs_diff(num_filled);
 
-    //TODO for short bar style, use different characters depending on how big the change is, e.g. [||||#] vs [||||']
-    let bar_change = if filled_fraction < old_filled_fraction {
-        style(BAR_REDUCTION.repeat(num_changed)).red()
+    let raw_change_per_bar_change = value.get_max() / bar_length as f32;
+    let raw_change = value.get() - old_value.map(|v| v.get()).unwrap_or(0.0);
+
+    let bar_change = if decreased {
+        match bar_style {
+            BarStyle::Full => style(BAR_REDUCTION.repeat(num_changed)).red(),
+            BarStyle::Short => {
+                let num_fully_removed =
+                    (raw_change.abs() / raw_change_per_bar_change).floor() as usize;
+                let num_partially_removed = (raw_change.abs() % raw_change_per_bar_change) as usize;
+                let num_removal_chars = num_fully_removed + num_partially_removed;
+                dbg!(
+                    old_num_filled,
+                    num_changed,
+                    raw_change_per_bar_change,
+                    raw_change,
+                    num_fully_removed,
+                    num_partially_removed,
+                    num_removal_chars
+                ); //TODO remove
+                if num_removal_chars > 0 {
+                    num_filled = num_filled.saturating_sub(num_partially_removed);
+                    dbg!(num_filled); //TODO remove
+                    style(format!(
+                        "{}{}",
+                        BAR_FULL_DECREASE.repeat(num_fully_removed),
+                        BAR_PARTIAL_DECREASE.repeat(num_partially_removed)
+                    ))
+                    .red()
+                } else {
+                    num_filled = num_filled.saturating_sub(1);
+                    dbg!(num_filled); //TODO remove
+                    style(BAR_MINOR_DECREASE.to_string()).red()
+                }
+            }
+        }
     } else {
         num_filled = num_filled.saturating_sub(num_changed);
         style(BAR_ADDITION.repeat(num_changed)).green()
     };
 
     let num_empty = bar_length
-        .saturating_sub(num_filled)
+        .saturating_sub(num_filled) //TODO but num_filled could be smaller now due to the removal chars mess above, which would make num_empty now too big
         .saturating_sub(num_changed);
 
     let bar = format!(
