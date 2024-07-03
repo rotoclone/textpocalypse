@@ -21,6 +21,9 @@ use core_logic::*;
 mod message_to_string;
 use message_to_string::*;
 
+mod text_bar;
+use text_bar::*;
+
 mod tcp_server;
 use tcp_server::*;
 

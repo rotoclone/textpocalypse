@@ -7,20 +7,10 @@ use voca_rs::Voca;
 
 use core_logic::*;
 
+use crate::{BarStyle, TextBar};
+
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
-
-const FULL_BAR_LENGTH: usize = 20;
-const SHORT_BAR_LENGTH: usize = 5;
-const BAR_START: &str = "[";
-const BAR_END: &str = "]";
-const BAR_FILLED: &str = "|";
-const BAR_EMPTY: &str = " ";
-const BAR_REDUCTION: &str = "-";
-const BAR_MINOR_DECREASE: &str = "'";
-const BAR_PARTIAL_DECREASE: &str = "*";
-const BAR_FULL_DECREASE: &str = "#";
-const BAR_ADDITION: &str = "+";
 
 const MAX_WIDTH: usize = 80;
 
@@ -649,43 +639,43 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 fn vitals_to_string(vitals: VitalsDescription) -> String {
     let health = format!(
         "Health:    {}",
-        constrained_float_to_string(
-            None,
-            vitals.health,
-            false,
-            vital_type_to_color(&VitalType::Health),
-            BarStyle::Full
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.health,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Health),
+            style: BarStyle::Full
+        }
     );
     let satiety = format!(
         "Satiety:   {}",
-        constrained_float_to_string(
-            None,
-            vitals.satiety,
-            false,
-            vital_type_to_color(&VitalType::Satiety),
-            BarStyle::Full
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.satiety,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Satiety),
+            style: BarStyle::Full
+        }
     );
     let hydration = format!(
         "Hydration: {}",
-        constrained_float_to_string(
-            None,
-            vitals.hydration,
-            false,
-            vital_type_to_color(&VitalType::Hydration),
-            BarStyle::Full
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.hydration,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Hydration),
+            style: BarStyle::Full
+        }
     );
     let energy = format!(
         "Energy:    {}",
-        constrained_float_to_string(
-            None,
-            vitals.energy,
-            false,
-            vital_type_to_color(&VitalType::Energy),
-            BarStyle::Full
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.energy,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Energy),
+            style: BarStyle::Full
+        }
     );
 
     [health, satiety, hydration, energy].join("\n")
@@ -730,13 +720,13 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
     format!(
         "{}{}",
         bar_title,
-        constrained_float_to_string(
-            Some(change.old_value),
-            change.new_value,
-            change.new_value < change.old_value,
+        TextBar {
+            old_value: Some(change.old_value),
+            value: change.new_value,
+            decreased: change.new_value < change.old_value,
             color,
-            BarStyle::Full
-        )
+            style: BarStyle::Full
+        }
     )
 }
 
@@ -752,13 +742,15 @@ fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription
         change.new_value.get_min() as f32,
         change.new_value.get_max() as f32,
     );
-    constrained_float_to_string(
-        Some(old_value_float),
-        new_value_float,
-        change.decreased,
-        crossterm::style::Color::Grey,
-        BarStyle::Short,
-    )
+
+    TextBar {
+        old_value: Some(old_value_float),
+        value: new_value_float,
+        decreased: change.decreased,
+        color: crossterm::style::Color::Grey,
+        style: BarStyle::Short,
+    }
+    .to_string()
 }
 
 /// Determines the bar title to use for a vital of the provided type.
@@ -780,115 +772,6 @@ fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
         VitalType::Hydration => crossterm::style::Color::Blue,
         VitalType::Energy => crossterm::style::Color::Green,
     }
-}
-
-/// The style of a visualization of a value within a range.
-enum BarStyle {
-    /// A full-length bar with numbers
-    Full,
-    /// A short bar with no numbers
-    Short,
-}
-
-/// Transforms the provided constrained value into a string that looks like a bar for display.
-/// TODO this method is a god damn mess
-fn constrained_float_to_string(
-    old_value: Option<ConstrainedValue<f32>>,
-    value: ConstrainedValue<f32>,
-    decreased: bool,
-    color: crossterm::style::Color,
-    bar_style: BarStyle,
-) -> String {
-    let bar_length = match bar_style {
-        BarStyle::Full => FULL_BAR_LENGTH,
-        BarStyle::Short => SHORT_BAR_LENGTH,
-    };
-
-    let filled_fraction = value.get() / value.get_max();
-    let old_filled_fraction = if let Some(old_value) = old_value {
-        old_value.get() / old_value.get_max()
-    } else {
-        filled_fraction
-    };
-
-    let old_num_filled = (bar_length as f32 * old_filled_fraction).round() as usize;
-    let mut num_filled = (bar_length as f32 * filled_fraction).round() as usize;
-    let num_changed = old_num_filled.abs_diff(num_filled);
-
-    let original_num_filled = num_filled;
-    let bar_change = if decreased {
-        match bar_style {
-            BarStyle::Full => style(BAR_REDUCTION.repeat(num_changed)).red(),
-            BarStyle::Short => {
-                let raw_change_per_bar_change = value.get_max() / bar_length as f32;
-                let raw_change = value.get() - old_value.map(|v| v.get()).unwrap_or(0.0);
-                let num_fully_removed =
-                    (raw_change.abs() / raw_change_per_bar_change).floor() as usize;
-                let num_partially_removed = (raw_change.abs() % raw_change_per_bar_change) as usize;
-                let num_removal_chars = num_fully_removed + num_partially_removed;
-                dbg!(
-                    old_num_filled,
-                    num_changed,
-                    raw_change_per_bar_change,
-                    raw_change,
-                    num_fully_removed,
-                    num_partially_removed,
-                    num_removal_chars
-                ); //TODO remove
-                if num_removal_chars > 0 {
-                    num_filled = num_filled.saturating_sub(num_partially_removed);
-                    dbg!(num_filled); //TODO remove
-                    style(format!(
-                        "{}{}",
-                        BAR_FULL_DECREASE.repeat(num_fully_removed),
-                        BAR_PARTIAL_DECREASE.repeat(num_partially_removed)
-                    ))
-                    .red()
-                } else {
-                    num_filled = num_filled.saturating_sub(1);
-                    dbg!(num_filled); //TODO remove
-                    style(BAR_MINOR_DECREASE.to_string()).red()
-                }
-            }
-        }
-    } else {
-        num_filled = num_filled.saturating_sub(num_changed);
-        style(BAR_ADDITION.repeat(num_changed)).green()
-    };
-
-    let num_replaced = original_num_filled.saturating_sub(num_filled);
-    dbg!(num_replaced); //TODO remove
-
-    //TODO sometimes num_empty can be too small:
-    /*
-    k guy
-    [*   ] You punch Some Guy in the torso.
-
-    Some Guy lurches forward as his fist sails harmlessly past you.
-
-    k guy
-    [#    ] You punch Some Guy in the head.
-     */
-    let num_empty = bar_length
-        .saturating_sub(num_filled)
-        .saturating_sub(num_changed)
-        .saturating_sub(num_replaced);
-    dbg!(num_empty); //TODO remove
-
-    let bar = format!(
-        "{}{}{}",
-        style(BAR_FILLED.repeat(num_filled)).with(color),
-        bar_change,
-        BAR_EMPTY.repeat(num_empty)
-    );
-    let values = match bar_style {
-        BarStyle::Full => style(format!(" {:.0}/{:.0}", value.get(), value.get_max()))
-            .dark_grey()
-            .to_string(),
-        BarStyle::Short => "".to_string(),
-    };
-
-    format!("{BAR_START}{bar}{BAR_END}{values}")
 }
 
 /// Transforms the provided players description into a string for display.
