@@ -64,15 +64,23 @@ impl Display for TextBar {
 /// Builds a string representing the middle part of the bar
 fn build_bar_contents(text_bar: &TextBar, bar_length: usize) -> String {
     let mut change_params = ChangeParams::new(text_bar, bar_length);
-    let original_num_filled = change_params.num_filled;
+    let mut num_change_segments = change_params.num_changed;
     let bar_change = if text_bar.decreased {
         match text_bar.style {
             BarStyle::Full => style(BAR_REDUCTION.repeat(change_params.num_changed)).red(),
             BarStyle::Short => {
-                if change_params.num_fully_removed + change_params.num_partially_removed > 0 {
-                    change_params.num_filled = change_params
-                        .num_filled
-                        .saturating_sub(change_params.num_partially_removed);
+                num_change_segments =
+                    change_params.num_fully_removed + change_params.num_partially_removed;
+                if num_change_segments > 0 {
+                    if num_change_segments > change_params.num_changed {
+                        /* If the number of change segments to add is more than the number of segments removed, then there must have been a decrease
+                           too small to cause a segment to be removed, so decrease the number of filled segments by 1 (there will always be 0 or 1
+                           partially removed segments) so it can be replaced with a partial removal segment
+                        */
+                        change_params.num_filled = change_params
+                            .num_filled
+                            .saturating_sub(change_params.num_partially_removed);
+                    }
                     style(format!(
                         "{}{}",
                         BAR_FULL_DECREASE.repeat(change_params.num_fully_removed),
@@ -80,7 +88,9 @@ fn build_bar_contents(text_bar: &TextBar, bar_length: usize) -> String {
                     ))
                     .red()
                 } else {
+                    // If there are no fully or partially removed segments, but it's still a decrease, replace a filled segment with a minor decrease one
                     change_params.num_filled = change_params.num_filled.saturating_sub(1);
+                    num_change_segments = 1;
                     style(BAR_MINOR_DECREASE.to_string()).red()
                 }
             }
@@ -92,23 +102,9 @@ fn build_bar_contents(text_bar: &TextBar, bar_length: usize) -> String {
         style(BAR_ADDITION.repeat(change_params.num_changed)).green()
     };
 
-    let num_replaced = original_num_filled.saturating_sub(change_params.num_filled);
-
-    //TODO sometimes num_empty can be too small:
-    /*
-    k guy
-    [*   ] You punch Some Guy in the torso.
-
-    Some Guy lurches forward as his fist sails harmlessly past you.
-
-    k guy
-    [#    ] You punch Some Guy in the head.
-     */
-    //TODO this is probably because sometimes a "partially removed" bar segment is removed enough to not be filled anymore, and sometimes it's still filled
     let num_empty = bar_length
         .saturating_sub(change_params.num_filled)
-        .saturating_sub(change_params.num_changed)
-        .saturating_sub(num_replaced);
+        .saturating_sub(num_change_segments);
 
     format!(
         "{}{}{}",
@@ -157,6 +153,10 @@ impl ChangeParams {
 mod tests {
     use super::*;
 
+    //
+    // full style
+    //
+
     #[test]
     fn full_style_min_value_no_change() {
         let bar = TextBar {
@@ -202,23 +202,469 @@ mod tests {
 
     #[test]
     fn full_style_min_value_decreased_from_max_value() {
-        //TODO
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_max(0.0, 100.0)),
+            value: ConstrainedValue::new_min(0.0, 100.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style(BAR_REDUCTION.repeat(FULL_BAR_LENGTH)).red()
+        );
+        let expected_values = style(" 0/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
     }
 
     #[test]
     fn full_style_max_value_increased_from_min_value() {
-        //TODO
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_min(0.0, 100.0)),
+            value: ConstrainedValue::new_max(0.0, 100.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION.repeat(FULL_BAR_LENGTH)).green()
+        );
+        let expected_values = style(" 100/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
     }
 
     #[test]
     fn full_style_partial_decrease() {
-        //TODO
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(80.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(54.0, 0.0, 100.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(11)).with(crossterm::style::Color::Cyan),
+            style(BAR_REDUCTION.repeat(5)).red(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 54/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn full_style_tiny_decrease_removes_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(78.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(77.0, 0.0, 100.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(15)).with(crossterm::style::Color::Cyan),
+            style(BAR_REDUCTION).red(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 77/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn full_style_tiny_decrease_does_not_remove_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(79.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(78.0, 0.0, 100.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(16)).with(crossterm::style::Color::Cyan),
+            style("").red(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 78/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
     }
 
     #[test]
     fn full_style_partial_increase() {
-        //TODO
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(54.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(80.0, 0.0, 100.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(11)).with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION.repeat(5)).green(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 80/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
     }
 
-    //TODO tests for short style
+    #[test]
+    fn full_style_tiny_increase_adds_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(77.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(78.0, 0.0, 100.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(15)).with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION).green(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 78/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn full_style_tiny_increase_does_not_add_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(78.0, 0.0, 100.0)),
+            value: ConstrainedValue::new(79.0, 0.0, 100.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Full,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(16)).with(crossterm::style::Color::Cyan),
+            style("").green(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected_values = style(" 79/100").dark_grey();
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}{expected_values}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    //
+    // short style
+    //
+
+    #[test]
+    fn short_style_min_value_no_change() {
+        let bar = TextBar {
+            old_value: None,
+            value: ConstrainedValue::new_min(0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style("").green(),
+            BAR_EMPTY.repeat(SHORT_BAR_LENGTH)
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_max_value_no_change() {
+        let bar = TextBar {
+            old_value: None,
+            value: ConstrainedValue::new_max(0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style(BAR_FILLED.repeat(SHORT_BAR_LENGTH)).with(crossterm::style::Color::Cyan),
+            style("").green(),
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_min_value_decreased_from_max_value() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_max(0.0, 10.0)),
+            value: ConstrainedValue::new_min(0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style(BAR_FULL_DECREASE.repeat(SHORT_BAR_LENGTH)).red()
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_max_value_increased_from_min_value() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_min(0.0, 10.0)),
+            value: ConstrainedValue::new_max(0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION.repeat(SHORT_BAR_LENGTH)).green()
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_max_value_no_decrease_marked_as_decrease() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_max(0.0, 10.0)),
+            value: ConstrainedValue::new_max(0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}",
+            style(BAR_FILLED.repeat(4)).with(crossterm::style::Color::Cyan),
+            style(BAR_MINOR_DECREASE).red()
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_min_value_no_decrease_marked_as_decrease() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new_min(0.0, 10.0)),
+            value: ConstrainedValue::new_min(0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style("").with(crossterm::style::Color::Cyan),
+            style(BAR_MINOR_DECREASE).red(),
+            BAR_EMPTY.repeat(4)
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_partial_decrease_with_partial_segment_removed() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(8.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(5.0, 0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(2)).with(crossterm::style::Color::Cyan),
+            style("#*").red(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_partial_decrease_with_only_full_segments_removed() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(8.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(4.0, 0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(2)).with(crossterm::style::Color::Cyan),
+            style("##").red(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_tiny_decrease_removes_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(7.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(6.0, 0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(3)).with(crossterm::style::Color::Cyan),
+            style(BAR_PARTIAL_DECREASE).red(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_tiny_decrease_does_not_remove_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(8.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(7.0, 0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(3)).with(crossterm::style::Color::Cyan),
+            style(BAR_PARTIAL_DECREASE).red(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_no_decrease_marked_as_decrease() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(8.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(8.0, 0.0, 10.0),
+            decreased: true,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(3)).with(crossterm::style::Color::Cyan),
+            style(BAR_MINOR_DECREASE).red(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_partial_increase() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(5.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(8.0, 0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(3)).with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION).green(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_tiny_increase_adds_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(6.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(7.0, 0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(3)).with(crossterm::style::Color::Cyan),
+            style(BAR_ADDITION).green(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
+
+    #[test]
+    fn short_style_tiny_increase_does_not_add_segment() {
+        let bar = TextBar {
+            old_value: Some(ConstrainedValue::new(7.0, 0.0, 10.0)),
+            value: ConstrainedValue::new(8.0, 0.0, 10.0),
+            decreased: false,
+            color: crossterm::style::Color::Cyan,
+            style: BarStyle::Short,
+        };
+
+        let expected_bar_contents = format!(
+            "{}{}{}",
+            style(BAR_FILLED.repeat(4)).with(crossterm::style::Color::Cyan),
+            style("").green(),
+            BAR_EMPTY
+        );
+        let expected = format!("{BAR_START}{expected_bar_contents}{BAR_END}");
+
+        assert_eq!(expected, bar.to_string());
+    }
 }
