@@ -1,34 +1,30 @@
 use bevy_ecs::prelude::*;
-use voca_rs::Voca;
 
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    can_receive_messages, send_message, Container, Description, GameMessage, InterpolationError,
-    Invisible, Location, MessageCategory, MessageDecoration, MessageDelay, MessageFormat,
-    MessageTokens, Pronouns,
+    can_receive_messages, send_message, Container, GameMessage, InterpolationError, Invisible,
+    Location, MessageCategory, MessageDecoration, MessageDelay, MessageFormat, MessageTokens,
 };
 
 /// A message with receivers determined dynamically.
-///
-/// TODO do these fields all need to be public?
 pub struct DynamicMessage<T: MessageTokens> {
     /// The format of the message.
-    pub message_format: MessageFormat<T>,
+    message_format: MessageFormat<T>,
     /// The tokens to use to interpolate the message.
-    pub message_tokens: T,
+    message_tokens: T,
     /// The category of the message.
-    pub category: MessageCategory,
+    category: MessageCategory,
     /// The delay of the message.
-    pub delay: MessageDelay,
+    delay: MessageDelay,
     /// A list of entities to send the message to, if it should be sent to a limited set of them.
-    pub receivers_override: Option<HashSet<Entity>>,
+    receivers_override: Option<HashSet<Entity>>,
     /// A list of entities to not send the message to.
-    pub receivers_to_exclude: HashSet<Entity>,
+    receivers_to_exclude: HashSet<Entity>,
     /// Whether to send the message to the entity that generated it.
-    pub send_to_source_entity: bool,
+    send_to_source_entity: bool,
     /// The decorations to include alongside the message.
-    pub decorations: Vec<MessageDecoration>,
+    decorations: Vec<MessageDecoration>,
 }
 
 impl<T: MessageTokens> DynamicMessage<T> {
@@ -207,61 +203,4 @@ pub enum DynamicMessageLocation {
     SourceEntity,
     /// A specific location.
     Location(Entity),
-}
-
-/// A part of a third-person message.
-///
-/// TODO remove
-pub enum MessagePart {
-    /// A literal string.
-    String(String),
-    /// A token to be interpolated for each message recipient.
-    Token(MessageToken),
-}
-
-/// A token to be interpolated for each message recipient.
-pub enum MessageToken {
-    /// The name of an entity.
-    Name(Entity),
-    /// The personal subject pronoun of an entity (e.g. he, she, they).
-    PersonalSubjectPronoun { entity: Entity, capitalized: bool },
-    /// The personal object pronoun of an entity (e.g. him, her, them).
-    PersonalObjectPronoun(Entity),
-    /// The possessive adjective pronoun of an entity (e.g. his, her, their).
-    PossessiveAdjectivePronoun(Entity),
-    /// The reflexive pronoun of an entity (e.g. himself, herself, themself).
-    ReflexivePronoun(Entity),
-    /// The form of "to be" to use with an entity's personal subject pronoun (i.e. is/are).
-    ToBeForm(Entity),
-}
-
-impl MessageToken {
-    /// Resolves the token to a string.
-    fn to_string(&self, pov_entity: Entity, world: &World) -> String {
-        match self {
-            MessageToken::Name(e) => Description::get_reference_name(*e, Some(pov_entity), world),
-            MessageToken::PersonalSubjectPronoun {
-                entity,
-                capitalized,
-            } => {
-                let pronoun = Pronouns::get_personal_subject(*entity, Some(pov_entity), world);
-
-                if *capitalized {
-                    pronoun._capitalize(false)
-                } else {
-                    pronoun
-                }
-            }
-            MessageToken::PersonalObjectPronoun(e) => {
-                Pronouns::get_personal_object(*e, Some(pov_entity), world)
-            }
-            MessageToken::PossessiveAdjectivePronoun(e) => {
-                Pronouns::get_possessive_adjective(*e, Some(pov_entity), world)
-            }
-            MessageToken::ReflexivePronoun(e) => {
-                Pronouns::get_reflexive(*e, Some(pov_entity), world)
-            }
-            MessageToken::ToBeForm(e) => Pronouns::get_to_be_form(*e, world),
-        }
-    }
 }
