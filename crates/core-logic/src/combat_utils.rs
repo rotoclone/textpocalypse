@@ -488,7 +488,7 @@ pub fn handle_damage<T: AttackType>(
                     VitalChangeMessageParams::Direct {
                         entity: hit_params.target,
                         message: format!("Ow, your {}!", hit_params.body_part),
-                        category: MessageCategory::Internal(InternalMessageCategory::Action),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
                     },
                     VitalChangeVisualizationType::Full,
                 ),

@@ -92,26 +92,26 @@ pub enum MessageCategory {
 /// A message from an entity's surroundings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum SurroundingsMessageCategory {
-    // Someone saying something.
+    /// Someone saying something.
     Speech,
-    // A non-speech sound.
+    /// A non-speech sound.
     Sound,
-    // Messages that are just for flavor, like describing wind whistling through the trees.
+    /// Messages that are just for flavor, like describing wind whistling through the trees.
     Flavor,
-    // Someone entering or leaving the room.
+    /// Someone entering or leaving the room.
     Movement,
-    // Someone performing a non-movement action.
+    /// Someone performing a non-movement action.
     Action,
 }
 
 /// A message from the entity itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum InternalMessageCategory {
-    // The entity saying something.
+    /// The entity saying something.
     Speech,
-    // A description of an action being performed.
+    /// A description of an action being performed.
     Action,
-    // A miscellaneous message, perhaps just to provide context to another message.
+    /// A miscellaneous message, perhaps just to provide context to another message.
     Misc,
 }
 

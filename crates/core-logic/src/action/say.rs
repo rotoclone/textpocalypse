@@ -65,21 +65,17 @@ impl Action for SayAction {
         let text = &self.text;
 
         ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You say, \"{text}\""),
-                MessageCategory::Internal(InternalMessageCategory::Speech),
-                MessageDelay::Short,
-            )
             .with_dynamic_message(
                 Some(performing_entity),
                 DynamicMessageLocation::SourceEntity,
-                //TODO use regular `new` here and remove `with_message` call
-                DynamicMessage::new_third_person(
+                DynamicMessage::new(
+                    // TODO somehow make this categorized as internal for the speaker?
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} says, \"${text}\"")
-                        .expect("message format should be valid"),
+                    MessageFormat::new(
+                        "${performing_entity.Name} ${performing_entity.you:say/says}, \"${text}\"",
+                    )
+                    .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("performing_entity".into(), performing_entity)
                         .with_string("text".into(), text.clone()),
