@@ -29,6 +29,8 @@ pub struct DynamicMessage<T: MessageTokens> {
 
 impl<T: MessageTokens> DynamicMessage<T> {
     /// Creates a message with no specific receivers set, which will be sent to the source entity.
+    ///
+    /// The category will be converted into in internal message category for the message sent to the source entity.
     pub fn new(
         category: MessageCategory,
         delay: MessageDelay,
@@ -171,7 +173,10 @@ impl<T: MessageTokens> DynamicMessage<T> {
                                 continue;
                             }
                         }
-                        message_map.insert(*entity, self.to_game_message_for(*entity, world)?);
+                        message_map.insert(
+                            *entity,
+                            self.to_game_message_for(*entity, source_entity, world)?,
+                        );
                     }
                 }
             }
@@ -184,13 +189,20 @@ impl<T: MessageTokens> DynamicMessage<T> {
     fn to_game_message_for(
         &self,
         pov_entity: Entity,
+        source_entity: Option<Entity>,
         world: &World,
     ) -> Result<GameMessage, InterpolationError> {
+        let category = if Some(pov_entity) == source_entity {
+            self.category.into_internal()
+        } else {
+            self.category
+        };
+
         Ok(GameMessage::Message {
             content: self
                 .message_format
                 .interpolate(pov_entity, &self.message_tokens, world)?,
-            category: self.category,
+            category,
             delay: self.delay,
             decorations: self.decorations.clone(),
         })

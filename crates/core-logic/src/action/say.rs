@@ -9,8 +9,8 @@ use crate::{
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -69,7 +69,6 @@ impl Action for SayAction {
                 Some(performing_entity),
                 DynamicMessageLocation::SourceEntity,
                 DynamicMessage::new(
-                    // TODO somehow make this categorized as internal for the speaker?
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
                     MessageFormat::new(

@@ -115,6 +115,25 @@ pub enum InternalMessageCategory {
     Misc,
 }
 
+impl MessageCategory {
+    /// Gets the internal category that corresponds to this category (internal categories return themselves)
+    pub fn into_internal(self) -> MessageCategory {
+        let category = match self {
+            MessageCategory::Surroundings(s) => match s {
+                SurroundingsMessageCategory::Speech => InternalMessageCategory::Speech,
+                SurroundingsMessageCategory::Sound => InternalMessageCategory::Misc,
+                SurroundingsMessageCategory::Flavor => InternalMessageCategory::Misc,
+                SurroundingsMessageCategory::Movement => InternalMessageCategory::Action,
+                SurroundingsMessageCategory::Action => InternalMessageCategory::Action,
+            },
+            MessageCategory::Internal(i) => i,
+            MessageCategory::System => InternalMessageCategory::Misc,
+        };
+
+        MessageCategory::Internal(category)
+    }
+}
+
 /// The amount of time to wait before any additional messages are displayed.
 #[derive(Debug, Clone, Copy)]
 pub enum MessageDelay {
