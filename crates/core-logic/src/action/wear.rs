@@ -135,20 +135,13 @@ impl Action for WearAction {
         }
 
         ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You put on {target_name}."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
             .with_dynamic_message(
                 Some(performing_entity),
                 DynamicMessageLocation::SourceEntity,
-                //TODO use `new` and not `with_message`
-                DynamicMessage::new_third_person(
+                DynamicMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} puts on ${target.name}.")
+                    MessageFormat::new("${performing_entity.Name} ${performing_entity.you:put/puts} on ${target.name}.")
                         .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("performing_entity".into(), performing_entity)
