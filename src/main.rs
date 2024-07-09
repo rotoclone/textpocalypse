@@ -21,6 +21,9 @@ use core_logic::*;
 mod message_to_string;
 use message_to_string::*;
 
+mod text_bar;
+use text_bar::*;
+
 mod tcp_server;
 use tcp_server::*;
 
@@ -103,7 +106,6 @@ fn setup_local(mut game: Game) -> Result<()> {
 fn delay_for_message(message: &GameMessage) -> Duration {
     let delay = match message {
         GameMessage::Message { delay, .. } => Some(delay),
-        GameMessage::VitalChange(_, delay) => Some(delay),
         _ => None,
     };
 

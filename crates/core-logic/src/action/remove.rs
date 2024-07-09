@@ -14,15 +14,12 @@ use crate::{
     },
     is_living_entity,
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const REMOVE_VERB_NAME: &str = "remove";
 const REMOVE_FORMAT: &str = "remove <>";
@@ -141,10 +138,10 @@ impl Action for RemoveAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessageLocation::SourceEntity,
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${performing_entity.Name} takes off ${target.name}.")
@@ -163,10 +160,10 @@ impl Action for RemoveAction {
                     MessageCategory::Internal(InternalMessageCategory::Action),
                     MessageDelay::Short,
                 )
-                .with_third_person_message(
+                .with_dynamic_message(
                     Some(performing_entity),
-                    ThirdPersonMessageLocation::SourceEntity,
-                    ThirdPersonMessage::new(
+                    DynamicMessageLocation::SourceEntity,
+                    DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
                         MessageFormat::new("${performing_entity.Name} takes ${target.name} off of ${wearing_entity.name}.")

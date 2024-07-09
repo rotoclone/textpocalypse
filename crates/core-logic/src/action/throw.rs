@@ -5,7 +5,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{ThirdPersonMessage, ThirdPersonMessageLocation},
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
@@ -18,16 +17,17 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    ActionTag, BeforeActionNotification, Description, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, MessageTokens, Pronouns,
-    SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification, Volume,
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalType,
+    },
+    ActionTag, BeforeActionNotification, Description, DynamicMessage, DynamicMessageLocation,
+    GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    MessageTokens, SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification,
+    Volume,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-    EquipAction,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, EquipAction};
 
 /// The number of kilograms an entity can throw per point of strength they have.
 const KG_CAN_THROW_PER_STRENGTH: f32 = 2.0;
@@ -300,82 +300,47 @@ impl Action for ThrowAction {
             );
         }
 
-        let message_context = ThrowMessageContext {
-            performing_entity,
+        let tokens = ThrowMessageTokens {
+            thrower: performing_entity,
             item,
-            item_name: Description::get_reference_name(item, Some(performing_entity), world),
             target,
-            target_name: Description::get_reference_name(target, Some(performing_entity), world),
-            target_pronoun: Pronouns::get_personal_object(target, Some(performing_entity), world),
         };
 
         let hit;
-        match throw_result {
+        let dynamic_message = match throw_result {
             CheckResult::ExtremeFailure => {
                 hit = false;
                 if target_is_living {
-                    result_builder = result_builder_with_dodge_extreme_success_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_dodge_extreme_success_message(tokens)
                 } else {
-                    result_builder = result_builder_with_throw_extreme_fail_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_throw_extreme_fail_message(tokens)
                 }
             }
             CheckResult::Failure => {
                 hit = false;
                 if target_is_living {
-                    result_builder = result_builder_with_dodge_success_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_dodge_success_message(tokens)
                 } else {
-                    result_builder = result_builder_with_throw_fail_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_throw_fail_message(tokens)
                 }
             }
             CheckResult::Success => {
                 hit = true;
                 if target_is_living {
-                    result_builder = result_builder_with_dodge_fail_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_dodge_fail_message(tokens)
                 } else {
-                    result_builder = result_builder_with_throw_success_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_throw_success_message(tokens)
                 }
             }
             CheckResult::ExtremeSuccess => {
                 hit = true;
                 if target_is_living {
-                    result_builder = result_builder_with_dodge_extreme_fail_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_dodge_extreme_fail_message(tokens)
                 } else {
-                    result_builder = result_builder_with_throw_extreme_success_messages(
-                        result_builder,
-                        &message_context,
-                        world,
-                    );
+                    build_throw_extreme_success_message(tokens)
                 }
             }
-        }
+        };
 
         if hit && target_is_living {
             let mut damage = get_hit_damage(item, world);
@@ -384,15 +349,35 @@ impl Action for ThrowAction {
             }
             let item_reference_name = Description::get_article_reference_name(item, world);
             result_builder = result_builder.with_post_effect(Box::new(move |w| {
-                VitalChange {
+                VitalChange::<ThrowMessageTokens> {
                     entity: target,
                     vital_type: VitalType::Health,
                     operation: ValueChangeOperation::Subtract,
                     amount: damage,
-                    message: Some(format!("Ow, you got hit with {item_reference_name}!")),
+                    message_params: vec![
+                        (
+                            VitalChangeMessageParams::Dynamic(dynamic_message),
+                            VitalChangeVisualizationType::Abbreviated,
+                        ),
+                        (
+                            VitalChangeMessageParams::Direct {
+                                entity: target,
+                                message: format!("Ow, you got hit with {item_reference_name}!"),
+                                category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                            },
+                            VitalChangeVisualizationType::Full,
+                        ),
+                    ],
                 }
                 .apply(w)
             }))
+        } else {
+            result_builder = result_builder.with_dynamic_message(
+                Some(performing_entity),
+                DynamicMessageLocation::SourceEntity,
+                dynamic_message,
+                world,
+            );
         }
 
         // unequip the item and move it to the room
@@ -480,22 +465,6 @@ fn get_inanimate_target_difficulty(target: Entity, world: &World) -> CheckDiffic
     CheckDifficulty::new(check_target.round() as u16)
 }
 
-/// Context for building messages about throws.
-struct ThrowMessageContext {
-    /// The entity doing the throwing.
-    performing_entity: Entity,
-    /// The item being thrown.
-    item: Entity,
-    /// The name of the item being thrown (including "the").
-    item_name: String,
-    /// The entity being thrown at.
-    target: Entity,
-    /// The name of the entity being thrown at (including "the", if necessary).
-    target_name: String,
-    /// The personal object pronoun of the entity being thrown at (e.g. him, her, them).
-    target_pronoun: String,
-}
-
 /// Tokens for messages about throws.
 struct ThrowMessageTokens {
     /// The entity doing the throwing
@@ -517,344 +486,102 @@ impl MessageTokens for ThrowMessageTokens {
     }
 }
 
-impl From<&ThrowMessageContext> for ThrowMessageTokens {
-    fn from(context: &ThrowMessageContext) -> Self {
-        ThrowMessageTokens {
-            thrower: context.performing_entity,
-            item: context.item,
-            target: context.target,
-        }
-    }
+/// Builds a message for when the throw was an extreme failure.
+fn build_throw_extreme_fail_message(
+    tokens: ThrowMessageTokens,
+) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:hurl/hurls} ${item.name} wildly, and it comes nowhere close to ${target.name}.")
+            .expect("message format should be valid"),
+        tokens,
+    )
 }
 
-/// Adds messages to the provided result builder for when the throw was an extreme failure.
-fn result_builder_with_throw_extreme_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            format!("You hurl {item_name} wildly, and it comes nowhere close to {target_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
+/// Builds a message for when the throw was a failure.
+fn build_throw_fail_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new(
+            "${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.whiz/whizzes} just past ${target.name}.",
         )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} hurls ${item.name} wildly, and it comes nowhere close to ${target.name}.")
-                    .expect("message format should be valid"),
-                context.into(),
-            ),
-            world,
-        )
+        .expect("message format should be valid"),
+        tokens,
+    )
 }
 
-/// Adds messages to the provided result builder for when the throw was a failure.
-fn result_builder_with_throw_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            format!("You throw {item_name}, and it whizzes just past {target_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                MessageFormat::<ThrowMessageTokens>::new(
-                    "${thrower.Name} throws ${item.name}, and it whizzes just past ${target.name}.",
-                )
-                .expect("message format should be valid"),
-                context.into(),
-            ),
-            world,
-        )
+/// Builds a message for when the dodge was an extreme failure.
+fn build_dodge_extreme_fail_message(
+    tokens: ThrowMessageTokens,
+) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
+        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+        MessageDelay::Short,
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and it seems like ${target.name} ${target.you:don't/doesn't} even try to move out of the way before ${item.they} ${item.hit/hits} ${target.them} directly in the face.")
+            .expect("message format should be valid"),
+            tokens,
+    )
 }
 
-/// Adds messages to the provided result builder for when the dodge was an extreme failure.
-fn result_builder_with_dodge_extreme_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You throw {item_name}, and it seems like {target_name} doesn't even try to move out of the way before it hits {target_pronoun} directly in the face.");
-
-    let target_message = ThirdPersonMessage::new(
+/// Builds a message for when the dodge was a failure.
+fn build_dodge_fail_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like you don't even try to move out of the way before it hits you directly in the face.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${target.name} ${target.you:aren't/isn't} able to get out of the way before ${item.they} ${item.hit/hits} ${target.them} in the chest.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
-    .only_send_to(context.target);
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and it seems like ${target.name} doesn't even try to move out of the way before it hits ${target.them} directly in the face.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
 }
 
-/// Adds messages to the provided result builder for when the dodge was a failure.
-fn result_builder_with_dodge_fail_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You throw {item_name}, and {target_name} isn't able to get out of the way before it hits {target_pronoun} in the chest.");
-
-    let target_message = ThirdPersonMessage::new(
+/// Builds a message for when the dodge was a success.
+fn build_dodge_success_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and you aren't able to get out of the way before it hits you in the chest.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} ${target.you:move/moves} out of the way just before ${item.they} ${item.hit/hits} ${target.them}.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
-    .only_send_to(context.target);
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${target.name} isn't able to get out of the way before it hits ${target.them} in the chest.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
 }
 
-/// Adds messages to the provided result builder for when the dodge was a success.
-fn result_builder_with_dodge_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-    let target_pronoun = &context.target_pronoun;
-
-    let message = format!("You throw {item_name}, but {target_name} moves out of the way just before it hits {target_pronoun}.");
-
-    let target_message = ThirdPersonMessage::new(
+/// Builds a message for when the dodge was an extreme success.
+fn build_dodge_extreme_success_message(
+    tokens: ThrowMessageTokens,
+) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you move out of the way just before it hits you.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, but ${target.name} calmly ${target.you:shift/shifts} just enough to avoid being hit.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
-    .only_send_to(context.target);
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} moves out of the way just before it hits ${target.them}.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
 }
 
-/// Adds messages to the provided result builder for when the dodge was an extreme success.
-fn result_builder_with_dodge_extreme_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    let message = format!(
-        "You throw {item_name}, but {target_name} calmly shifts just enough to avoid being hit."
-    );
-
-    let target_message = ThirdPersonMessage::new(
+/// Builds a message for when the throw was a success and the target didn't attempt to dodge.
+fn build_throw_success_message(tokens: ThrowMessageTokens) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but you calmly shift just enough to avoid being hit.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
             .expect("message format should be valid"),
-        context.into(),
+            tokens,
     )
-    .only_send_to(context.target);
-
-    let third_person_message = ThirdPersonMessage::new(
-        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-        MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, but ${target.name} calmly shifts just enough to avoid being hit.")
-            .expect("message format should be valid"),
-        context.into(),
-    )
-    .do_not_send_to(context.target);
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            target_message,
-            world,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
 }
 
-/// Adds messages to the provided result builder for when the throw was a success and the target didn't attempt to dodge.
-fn result_builder_with_throw_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    let message = format!("You throw {item_name}, and it hits {target_name}.");
-    let third_person_message = ThirdPersonMessage::new(
+/// Builds a message for when the throw was an extreme success and the target didn't attempt to dodge.
+fn build_throw_extreme_success_message(
+    tokens: ThrowMessageTokens,
+) -> DynamicMessage<ThrowMessageTokens> {
+    DynamicMessage::new(
         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
         MessageDelay::Short,
-        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} throws ${item.name}, and ${item.they} ${item.hit/hits} ${target.name}.")
+        MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly ${thrower.you:throw/throws} ${item.name}, and ${item.they} ${item.impact/impacts} ${target.name} perfectly.")
             .expect("message format should be valid"),
-        context.into(),
-    );
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            message,
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            third_person_message,
-            world,
-        )
-}
-
-/// Adds messages to the provided result builder for when the throw was an extreme success and the target didn't attempt to dodge.
-fn result_builder_with_throw_extreme_success_messages(
-    result_builder: ActionResultBuilder,
-    context: &ThrowMessageContext,
-    world: &World,
-) -> ActionResultBuilder {
-    let item_name = &context.item_name;
-    let target_name = &context.target_name;
-
-    result_builder
-        .with_message(
-            context.performing_entity,
-            format!("You deftly throw {item_name}, and it impacts {target_name} perfectly."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(context.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                MessageFormat::<ThrowMessageTokens>::new("${thrower.Name} deftly throws ${item.name}, and it impacts ${target.name} perfectly.")
-            .expect("message format should be valid"),
-        context.into(),
-            ),
-            world,
-        )
+            tokens,
+    )
 }
 
 /// Attempts to equip the item to throw automatically before an attempt is made to throw it.

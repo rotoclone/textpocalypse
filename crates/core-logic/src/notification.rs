@@ -4,6 +4,8 @@ use bevy_ecs::prelude::*;
 
 use crate::GameMessage;
 
+//TODO use bevy observers instead of all this?
+
 /// Trait for types that represent a category of notifications.
 pub trait NotificationType: Debug + Send + Sync {}
 

@@ -7,16 +7,10 @@ use voca_rs::Voca;
 
 use core_logic::*;
 
+use crate::{BarStyle, TextBar};
+
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
-
-const BAR_LENGTH: usize = 20;
-const BAR_START: &str = "[";
-const BAR_END: &str = "]";
-const BAR_FILLED: &str = "|";
-const BAR_EMPTY: &str = " ";
-const BAR_REDUCTION: &str = "-";
-const BAR_ADDITION: &str = "+";
 
 const MAX_WIDTH: usize = 80;
 
@@ -24,7 +18,11 @@ const MAX_WIDTH: usize = 80;
 pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
         GameMessage::Error(e) => e._capitalize(false),
-        GameMessage::Message { content, .. } => content._capitalize(false),
+        GameMessage::Message {
+            content,
+            decorations,
+            ..
+        } => message_with_decorations_to_string(content, decorations),
         GameMessage::Help(h) => help_to_string(h),
         GameMessage::Room(room) => room_to_string(room, time),
         GameMessage::Entity(entity) => entity_to_string(entity),
@@ -33,9 +31,33 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
         GameMessage::Stats(stats) => stats_to_string(stats),
-        GameMessage::VitalChange(change, _) => vital_change_to_string(change),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
+    }
+}
+
+/// Transforms the provided message with decorations into a string for display.
+fn message_with_decorations_to_string(
+    content: String,
+    decorations: Vec<MessageDecoration>,
+) -> String {
+    let mut message = content._capitalize(false);
+    for decoration in decorations {
+        message = decorate_message(message, decoration);
+    }
+
+    message
+}
+
+/// Adds a decoration to a message.
+fn decorate_message(message: String, decoration: MessageDecoration) -> String {
+    match decoration {
+        MessageDecoration::VitalChange(change) => {
+            format!("{}\n{}", message, vital_change_to_string(change))
+        }
+        MessageDecoration::ShortVitalChange(change) => {
+            format!("{} {}", short_vital_change_to_string(change), message)
+        }
     }
 }
 
@@ -617,27 +639,43 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 fn vitals_to_string(vitals: VitalsDescription) -> String {
     let health = format!(
         "Health:    {}",
-        constrained_float_to_string(None, vitals.health, vital_type_to_color(&VitalType::Health))
+        TextBar {
+            old_value: None,
+            value: vitals.health,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Health),
+            style: BarStyle::Full
+        }
     );
     let satiety = format!(
         "Satiety:   {}",
-        constrained_float_to_string(
-            None,
-            vitals.satiety,
-            vital_type_to_color(&VitalType::Satiety)
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.satiety,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Satiety),
+            style: BarStyle::Full
+        }
     );
     let hydration = format!(
         "Hydration: {}",
-        constrained_float_to_string(
-            None,
-            vitals.hydration,
-            vital_type_to_color(&VitalType::Hydration)
-        )
+        TextBar {
+            old_value: None,
+            value: vitals.hydration,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Hydration),
+            style: BarStyle::Full
+        }
     );
     let energy = format!(
         "Energy:    {}",
-        constrained_float_to_string(None, vitals.energy, vital_type_to_color(&VitalType::Energy))
+        TextBar {
+            old_value: None,
+            value: vitals.energy,
+            decreased: false,
+            color: vital_type_to_color(&VitalType::Energy),
+            style: BarStyle::Full
+        }
     );
 
     [health, satiety, hydration, energy].join("\n")
@@ -680,11 +718,39 @@ fn vital_change_to_string(change: VitalChangeDescription) -> String {
     let bar_title = format!("{}: ", vital_type_to_bar_title(&change.vital_type));
     let color = vital_type_to_color(&change.vital_type);
     format!(
-        "{}\n{}{}",
-        change.message,
+        "{}{}",
         bar_title,
-        constrained_float_to_string(Some(change.old_value), change.new_value, color)
+        TextBar {
+            old_value: Some(change.old_value),
+            value: change.new_value,
+            decreased: change.new_value < change.old_value,
+            color,
+            style: BarStyle::Full
+        }
     )
+}
+
+/// Transforms the provided short vital change description into a string for display.
+fn short_vital_change_to_string<const R: u8>(change: VitalChangeShortDescription<R>) -> String {
+    let old_value_float = ConstrainedValue::new(
+        change.old_value.get() as f32,
+        change.old_value.get_min() as f32,
+        change.old_value.get_max() as f32,
+    );
+    let new_value_float = ConstrainedValue::new(
+        change.new_value.get() as f32,
+        change.new_value.get_min() as f32,
+        change.new_value.get_max() as f32,
+    );
+
+    TextBar {
+        old_value: Some(old_value_float),
+        value: new_value_float,
+        decreased: change.decreased,
+        color: crossterm::style::Color::Grey,
+        style: BarStyle::Short,
+    }
+    .to_string()
 }
 
 /// Determines the bar title to use for a vital of the provided type.
@@ -706,45 +772,6 @@ fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
         VitalType::Hydration => crossterm::style::Color::Blue,
         VitalType::Energy => crossterm::style::Color::Green,
     }
-}
-
-/// Transforms the provided constrained value into a string that looks like a bar for display.
-fn constrained_float_to_string(
-    old_value: Option<ConstrainedValue<f32>>,
-    value: ConstrainedValue<f32>,
-    color: crossterm::style::Color,
-) -> String {
-    let filled_fraction = value.get() / value.get_max();
-    let old_filled_fraction = if let Some(old_value) = old_value {
-        old_value.get() / old_value.get_max()
-    } else {
-        filled_fraction
-    };
-
-    let old_num_filled = (BAR_LENGTH as f32 * old_filled_fraction).round() as usize;
-    let mut num_filled = (BAR_LENGTH as f32 * filled_fraction).round() as usize;
-    let num_changed = old_num_filled.abs_diff(num_filled);
-
-    let bar_change = if filled_fraction < old_filled_fraction {
-        style(BAR_REDUCTION.repeat(num_changed)).red()
-    } else {
-        num_filled = num_filled.saturating_sub(num_changed);
-        style(BAR_ADDITION.repeat(num_changed)).green()
-    };
-
-    let num_empty = BAR_LENGTH
-        .saturating_sub(num_filled)
-        .saturating_sub(num_changed);
-
-    let bar = format!(
-        "{}{}{}",
-        style(BAR_FILLED.repeat(num_filled)).with(color),
-        bar_change,
-        BAR_EMPTY.repeat(num_empty)
-    );
-    let values = style(format!("{:.0}/{:.0}", value.get(), value.get_max())).dark_grey();
-
-    format!("{BAR_START}{bar}{BAR_END} {values}")
 }
 
 /// Transforms the provided players description into a string for display.

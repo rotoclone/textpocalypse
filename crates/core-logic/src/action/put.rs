@@ -13,15 +13,12 @@ use crate::{
     },
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const GET_VERB_NAME: &str = "get";
 const PUT_VERB_NAME: &str = "put";
@@ -280,90 +277,67 @@ pub struct PutAction {
 
 impl Action for PutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        let item_name = Description::get_reference_name(self.item, Some(performing_entity), world);
         let performing_entity_location = world
             .get::<Location>(performing_entity)
             .expect("performing entity should have a location")
             .id;
 
-        let (first_person_message, third_person_message) = if self.destination == performing_entity
-        {
+        let dynamic_message = if self.destination == performing_entity {
             if self.source == performing_entity_location {
-                (
-                    format!("You pick up {item_name}."),
-                    ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                        MessageDelay::Short,
-                        MessageFormat::new("${entity.Name} picks up ${item.name}.")
-                            .expect("message format should be valid"),
-                        BasicTokens::new()
-                            .with_entity("entity".into(), performing_entity)
-                            .with_entity("item".into(), self.item),
-                    ),
-                )
-            } else {
-                let source_name =
-                    Description::get_reference_name(self.source, Some(performing_entity), world);
-                (
-                    format!("You get {item_name} from {source_name}."),
-                    ThirdPersonMessage::new(
-                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                        MessageDelay::Short,
-                        MessageFormat::new("${entity.Name} gets ${item.name} from ${source.name}.")
-                            .expect("message format should be valid"),
-                        BasicTokens::new()
-                            .with_entity("entity".into(), performing_entity)
-                            .with_entity("item".into(), self.item)
-                            .with_entity("source".into(), self.source),
-                    ),
-                )
-            }
-        } else if self.destination == performing_entity_location {
-            (
-                format!("You drop {item_name}."),
-                ThirdPersonMessage::new(
+                DynamicMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                    MessageFormat::new("${entity.Name} drops ${item.name}.")
+                    MessageFormat::new("${entity.Name} ${entity.you:pick/picks} up ${item.name}.")
                         .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("entity".into(), performing_entity)
                         .with_entity("item".into(), self.item),
-                ),
-            )
-        } else {
-            let destination_name =
-                Description::get_reference_name(self.destination, Some(performing_entity), world);
-            (
-                format!("You put {item_name} into {destination_name}."),
-                ThirdPersonMessage::new(
+                )
+            } else {
+                DynamicMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     MessageFormat::new(
-                        "${entity.Name} puts ${item.name} into ${destination.name}.",
+                        "${entity.Name} ${entity.you:get/gets} ${item.name} from ${source.name}.",
                     )
                     .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("entity".into(), performing_entity)
                         .with_entity("item".into(), self.item)
-                        .with_entity("destination".into(), self.destination),
-                ),
+                        .with_entity("source".into(), self.source),
+                )
+            }
+        } else if self.destination == performing_entity_location {
+            DynamicMessage::new(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                MessageDelay::Short,
+                MessageFormat::new("${entity.Name} ${entity.you:drop/drops} ${item.name}.")
+                    .expect("message format should be valid"),
+                BasicTokens::new()
+                    .with_entity("entity".into(), performing_entity)
+                    .with_entity("item".into(), self.item),
+            )
+        } else {
+            DynamicMessage::new(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                MessageDelay::Short,
+                MessageFormat::new(
+                    "${entity.Name} ${entity.you:put/puts} ${item.name} into ${destination.name}.",
+                )
+                .expect("message format should be valid"),
+                BasicTokens::new()
+                    .with_entity("entity".into(), performing_entity)
+                    .with_entity("item".into(), self.item)
+                    .with_entity("destination".into(), self.destination),
             )
         };
 
-        let result_builder = ActionResult::builder()
-            .with_message(
-                performing_entity,
-                first_person_message,
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
-                Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                third_person_message,
-                world,
-            );
+        let result_builder = ActionResult::builder().with_dynamic_message(
+            Some(performing_entity),
+            DynamicMessageLocation::SourceEntity,
+            dynamic_message,
+            world,
+        );
 
         // move the entity after third person messages are generated so they refer to the item in the place it was before it moved
         move_entity(self.item, self.destination, world);

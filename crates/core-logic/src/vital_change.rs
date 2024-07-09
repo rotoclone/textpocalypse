@@ -3,11 +3,13 @@ use bevy_ecs::prelude::*;
 use crate::{
     component::Vitals,
     notification::{Notification, NotificationType},
-    send_message, ConstrainedValue, GameMessage, MessageDelay, VitalChangeDescription,
+    send_message, ConstrainedValue, DynamicMessage, DynamicMessageLocation, GameMessage,
+    MessageCategory, MessageDecoration, MessageDelay, MessageTokens, VitalChangeDescription,
+    VitalChangeShortDescription,
 };
 
 /// A change to a vital value.
-pub struct VitalChange {
+pub struct VitalChange<T: MessageTokens> {
     /// The entity to change the value on.
     pub entity: Entity,
     /// The type of vital to change.
@@ -16,8 +18,28 @@ pub struct VitalChange {
     pub operation: ValueChangeOperation,
     /// The amount by which the value should be changed.
     pub amount: f32,
-    /// The accompanying message, if the entity should be made aware of the change.
-    pub message: Option<String>,
+    /// The accompanying messages to send for the change.
+    pub message_params: Vec<(VitalChangeMessageParams<T>, VitalChangeVisualizationType)>,
+}
+
+/// Describes a message to send about a vital change.
+pub enum VitalChangeMessageParams<T: MessageTokens> {
+    /// A message sent directly to an entity
+    Direct {
+        entity: Entity,
+        message: String,
+        category: MessageCategory,
+    },
+    /// A dynamic message
+    Dynamic(DynamicMessage<T>),
+}
+
+/// The type of visualization to accompany a vital change message.
+pub enum VitalChangeVisualizationType {
+    /// A full-size bar with the numeric value of the vital.
+    Full,
+    /// A shorter bar with no numeric value.
+    Abbreviated,
 }
 
 /// A type of change to a value.
@@ -32,7 +54,7 @@ pub enum ValueChangeOperation {
     Set,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VitalType {
     Health,
     Satiety,
@@ -49,13 +71,13 @@ pub struct VitalChangedNotification {
     pub vital_type: VitalType,
     /// The value before the change.
     pub old_value: ConstrainedValue<f32>,
-    /// The value after the change.
+    /// The value after the change.f
     pub new_value: ConstrainedValue<f32>,
 }
 
 impl NotificationType for VitalChangedNotification {}
 
-impl VitalChange {
+impl<T: MessageTokens> VitalChange<T> {
     /// Applies the value change.
     pub fn apply(self, world: &mut World) {
         let vitals = world.get_mut::<Vitals>(self.entity);
@@ -77,21 +99,51 @@ impl VitalChange {
 
             let new_value = value.clone();
 
-            if let Some(message) = self.message {
-                let message = VitalChangeDescription {
-                    message,
-                    vital_type: self.vital_type,
-                    old_value: old_value.clone(),
-                    new_value: new_value.clone(),
+            let description = VitalChangeDescription {
+                vital_type: self.vital_type,
+                old_value,
+                new_value,
+            };
+            let short_description =
+                VitalChangeShortDescription::from_vital_change_description(&description);
+
+            for (message_params, visualization_type) in self.message_params {
+                let decoration = match visualization_type {
+                    VitalChangeVisualizationType::Full => {
+                        MessageDecoration::VitalChange(description.clone())
+                    }
+                    VitalChangeVisualizationType::Abbreviated => {
+                        MessageDecoration::ShortVitalChange(short_description.clone())
+                    }
                 };
-                send_message(
-                    world,
-                    self.entity,
-                    GameMessage::VitalChange(message, MessageDelay::Short),
-                );
+
+                match message_params {
+                    VitalChangeMessageParams::Direct {
+                        entity,
+                        message,
+                        category,
+                    } => {
+                        send_message(
+                            world,
+                            entity,
+                            GameMessage::Message {
+                                content: message,
+                                category,
+                                delay: MessageDelay::Short,
+                                decorations: vec![decoration],
+                            },
+                        );
+                    }
+                    VitalChangeMessageParams::Dynamic(dynamic_message) => {
+                        dynamic_message.with_decoration(decoration).send(
+                            Some(self.entity),
+                            DynamicMessageLocation::SourceEntity,
+                            world,
+                        );
+                    }
+                };
             }
 
-            //TODO add ability to specify other entities to send notifications to
             Notification::send_no_contents(
                 VitalChangedNotification {
                     entity: self.entity,

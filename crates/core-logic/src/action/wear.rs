@@ -14,15 +14,12 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
+    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const WEAR_VERB_NAME: &str = "wear";
 const WEAR_FORMAT: &str = "wear <>";
@@ -138,19 +135,13 @@ impl Action for WearAction {
         }
 
         ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You put on {target_name}."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} puts on ${target.name}.")
+                    MessageFormat::new("${performing_entity.Name} ${performing_entity.you:put/puts} on ${target.name}.")
                         .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("performing_entity".into(), performing_entity)

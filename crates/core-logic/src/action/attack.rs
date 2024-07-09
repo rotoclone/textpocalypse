@@ -12,16 +12,17 @@ use crate::{
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
-    vital_change::{ValueChangeOperation, VitalChange, VitalType},
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification, WeaponHitMessageTokens, WeaponMessages,
+    vital_change::{
+        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
+        VitalType,
+    },
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    WeaponMessages,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
@@ -113,24 +114,32 @@ impl Action for AttackAction {
                 world,
             ) {
                 Ok(damage) => {
-                    VitalChange {
+                    let message = hit_message_format
+                        .interpolate(performing_entity, &hit_message_tokens, world)
+                        .expect("self hit message should interpolate properly");
+                    VitalChange::<NoTokens> {
                         entity: performing_entity,
                         vital_type: VitalType::Health,
                         operation: ValueChangeOperation::Subtract,
                         amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message: Some(
-                            hit_message_format
-                                .interpolate(performing_entity, &hit_message_tokens, world)
-                                .expect("self hit message should interpolate properly"),
-                        ),
+                        message_params: vec![(
+                            VitalChangeMessageParams::Direct {
+                                entity: performing_entity,
+                                message,
+                                category: MessageCategory::Internal(
+                                    InternalMessageCategory::Action,
+                                ),
+                            },
+                            VitalChangeVisualizationType::Full,
+                        )],
                     }
                     .apply(world);
 
                     return ActionResult::builder()
-                        .with_third_person_message(
+                        .with_dynamic_message(
                             Some(performing_entity),
-                            ThirdPersonMessageLocation::SourceEntity,
-                            ThirdPersonMessage::new(
+                            DynamicMessageLocation::SourceEntity,
+                            DynamicMessage::new_third_person(
                                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                                 MessageDelay::Short,
                                 hit_message_format,

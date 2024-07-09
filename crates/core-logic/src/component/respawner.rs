@@ -5,16 +5,14 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
-    action::{
-        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction,
-        ThirdPersonMessage, ThirdPersonMessageLocation,
-    },
+    action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
     find_spawn_room,
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
-    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{
@@ -69,10 +67,10 @@ impl Action for RespawnAction {
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Long,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Movement),
                     MessageDelay::Short,
                     MessageFormat::new("${entity.Name} appears.")

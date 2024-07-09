@@ -6,16 +6,18 @@ use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
-    is_living_entity, resource::WeaponTypeStatCatalog, vital_change::ValueChangeOperation, Action,
-    ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
-    AttackAction, AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers,
-    CheckResult, CombatRange, CombatState, CommandParseError, CommandTarget, Container,
-    Description, EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
-    InputParseError, IntegerExtensions, InternalMessageCategory, Location, MessageCategory,
-    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
-    ThirdPersonMessage, ThirdPersonMessageLocation, VerifyActionNotification, VerifyResult,
-    VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens,
-    WeaponMissMessageTokens, WeaponUnusableError,
+    is_living_entity,
+    resource::WeaponTypeStatCatalog,
+    vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
+    Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
+    AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
+    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
+    DynamicMessage, DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification,
+    GameMessage, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
+    Location, MessageCategory, MessageDelay, MessageFormat, Notification, Skill, Stats,
+    SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
+    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
+    WeaponUnusableError,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -284,10 +286,10 @@ pub fn handle_enter_combat(
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::Short,
             )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(attacker),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new_third_person(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                     MessageDelay::Short,
                     message_format,
@@ -333,10 +335,10 @@ pub fn handle_weapon_unusable_error(
             MessageCategory::Internal(InternalMessageCategory::Action),
             MessageDelay::Short,
         )
-        .with_third_person_message(
+        .with_dynamic_message(
             Some(entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
+            DynamicMessageLocation::SourceEntity,
+            DynamicMessage::new_third_person(
                 MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
                 MessageFormat::new("${entity.Name} flails about uselessly with ${weapon.name}.")
@@ -436,20 +438,9 @@ pub fn check_for_hit(
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.
 pub fn handle_damage<T: AttackType>(
     hit_params: HitParams,
-    mut result_builder: ActionResultBuilder,
+    result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    result_builder = result_builder.with_post_effect(Box::new(move |w| {
-        VitalChange {
-            entity: hit_params.target,
-            vital_type: VitalType::Health,
-            operation: ValueChangeOperation::Subtract,
-            amount: hit_params.damage as f32,
-            message: Some(format!("Ow, your {}!", hit_params.body_part)),
-        }
-        .apply(w);
-    }));
-
     let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
 
     let target_health = world
@@ -477,26 +468,34 @@ pub fn handle_damage<T: AttackType>(
         body_part: hit_params.body_part.to_string(),
     };
 
-    result_builder
-        .with_message(
-            hit_params.performing_entity,
-            hit_message
-                .interpolate(hit_params.performing_entity, &hit_message_tokens, world)
-                .expect("hit message interpolation should not fail"),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(hit_params.performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                hit_message,
-                hit_message_tokens,
-            ),
-            world,
-        )
+    result_builder.with_post_effect(Box::new(move |w| {
+        VitalChange::<WeaponHitMessageTokens> {
+            entity: hit_params.target,
+            vital_type: VitalType::Health,
+            operation: ValueChangeOperation::Subtract,
+            amount: hit_params.damage as f32,
+            message_params: vec![
+                (
+                    VitalChangeMessageParams::Dynamic(DynamicMessage::new(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Short,
+                        hit_message,
+                        hit_message_tokens,
+                    )),
+                    VitalChangeVisualizationType::Abbreviated,
+                ),
+                (
+                    VitalChangeMessageParams::Direct {
+                        entity: hit_params.target,
+                        message: format!("Ow, your {}!", hit_params.body_part),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                    },
+                    VitalChangeVisualizationType::Full,
+                ),
+            ],
+        }
+        .apply(w);
+    }))
 }
 
 /// Adds messages to `result_builder` describing a missed attack.
@@ -518,26 +517,17 @@ pub fn handle_miss<T: AttackType>(
         weapon: weapon_entity,
     };
 
-    result_builder
-        .with_message(
-            performing_entity,
-            miss_message
-                .interpolate(performing_entity, &miss_message_tokens, world)
-                .expect("miss message should interpolate correctly"),
-            MessageCategory::Internal(InternalMessageCategory::Action),
+    result_builder.with_dynamic_message(
+        Some(performing_entity),
+        DynamicMessageLocation::SourceEntity,
+        DynamicMessage::new(
+            MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
             MessageDelay::Short,
-        )
-        .with_third_person_message(
-            Some(performing_entity),
-            ThirdPersonMessageLocation::SourceEntity,
-            ThirdPersonMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                miss_message,
-                miss_message_tokens,
-            ),
-            world,
-        )
+            miss_message,
+            miss_message_tokens,
+        ),
+        world,
+    )
 }
 
 /// Verifies that everything is in order for an attack.

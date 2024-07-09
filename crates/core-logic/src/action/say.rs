@@ -8,14 +8,12 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
+    VerifyActionNotification, World,
 };
 
-use super::{
-    Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ThirdPersonMessage,
-    ThirdPersonMessageLocation,
-};
+use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 const SAY_VERB_NAME: &str = "say";
 const SAY_FORMAT: &str = "say <>";
@@ -67,20 +65,16 @@ impl Action for SayAction {
         let text = &self.text;
 
         ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You say, \"{text}\""),
-                MessageCategory::Internal(InternalMessageCategory::Speech),
-                MessageDelay::Short,
-            )
-            .with_third_person_message(
+            .with_dynamic_message(
                 Some(performing_entity),
-                ThirdPersonMessageLocation::SourceEntity,
-                ThirdPersonMessage::new(
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
                     MessageCategory::Surroundings(SurroundingsMessageCategory::Speech),
                     MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} says, \"${text}\"")
-                        .expect("message format should be valid"),
+                    MessageFormat::new(
+                        "${performing_entity.Name} ${performing_entity.you:say/says}, \"${text}\"",
+                    )
+                    .expect("message format should be valid"),
                     BasicTokens::new()
                         .with_entity("performing_entity".into(), performing_entity)
                         .with_string("text".into(), text.clone()),

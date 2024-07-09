@@ -33,6 +33,9 @@ pub use stats_description::StatsDescription;
 mod vital_change_description;
 pub use vital_change_description::VitalChangeDescription;
 
+mod vital_change_short_description;
+pub use vital_change_short_description::VitalChangeShortDescription;
+
 mod action_description;
 pub use action_description::ActionDescription;
 
@@ -50,6 +53,9 @@ pub use map_description::MapDescription;
 mod help_description;
 pub use help_description::HelpDescription;
 
+/// Resolution of the visualization for short vital change messages.
+const SHORT_VITAL_CHANGE_RESOLUTION: u8 = 10;
+
 /// A message from the game, such as the description of a location, a message describing the results of an action, etc.
 #[derive(Debug, Clone)]
 pub enum GameMessage {
@@ -60,7 +66,6 @@ pub enum GameMessage {
     WornItems(WornItemsDescription),
     Vitals(VitalsDescription),
     Stats(StatsDescription),
-    VitalChange(VitalChangeDescription, MessageDelay),
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),
@@ -68,6 +73,7 @@ pub enum GameMessage {
         content: String,
         category: MessageCategory,
         delay: MessageDelay,
+        decorations: Vec<MessageDecoration>,
     },
     Error(String),
 }
@@ -86,27 +92,46 @@ pub enum MessageCategory {
 /// A message from an entity's surroundings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum SurroundingsMessageCategory {
-    // Someone saying something.
+    /// Someone saying something.
     Speech,
-    // A non-speech sound.
+    /// A non-speech sound.
     Sound,
-    // Messages that are just for flavor, like describing wind whistling through the trees.
+    /// Messages that are just for flavor, like describing wind whistling through the trees.
     Flavor,
-    // Someone entering or leaving the room.
+    /// Someone entering or leaving the room.
     Movement,
-    // Someone performing a non-movement action.
+    /// Someone performing a non-movement action.
     Action,
 }
 
 /// A message from the entity itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum InternalMessageCategory {
-    // The entity saying something.
+    /// The entity saying something.
     Speech,
-    // A description of an action being performed.
+    /// A description of an action being performed.
     Action,
-    // A miscellaneous message, perhaps just to provide context to another message.
+    /// A miscellaneous message, perhaps just to provide context to another message.
     Misc,
+}
+
+impl MessageCategory {
+    /// Gets the internal category that corresponds to this category (internal categories return themselves)
+    pub fn into_internal(self) -> MessageCategory {
+        let category = match self {
+            MessageCategory::Surroundings(s) => match s {
+                SurroundingsMessageCategory::Speech => InternalMessageCategory::Speech,
+                SurroundingsMessageCategory::Sound => InternalMessageCategory::Misc,
+                SurroundingsMessageCategory::Flavor => InternalMessageCategory::Misc,
+                SurroundingsMessageCategory::Movement => InternalMessageCategory::Action,
+                SurroundingsMessageCategory::Action => InternalMessageCategory::Action,
+            },
+            MessageCategory::Internal(i) => i,
+            MessageCategory::System => InternalMessageCategory::Misc,
+        };
+
+        MessageCategory::Internal(category)
+    }
 }
 
 /// The amount of time to wait before any additional messages are displayed.
@@ -118,4 +143,13 @@ pub enum MessageDelay {
     Short,
     /// A long amount of time should be waited.
     Long,
+}
+
+/// Additional bits of information that can be included with messages.
+#[derive(Debug, Clone)]
+pub enum MessageDecoration {
+    /// A description of a change to an entity's vitals.
+    VitalChange(VitalChangeDescription),
+    /// A short description of a change to an entity's vitals.
+    ShortVitalChange(VitalChangeShortDescription<SHORT_VITAL_CHANGE_RESOLUTION>),
 }
