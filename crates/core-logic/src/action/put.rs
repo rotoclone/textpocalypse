@@ -63,6 +63,7 @@ impl InputParser for PutParser {
             }
         };
 
+        //TODO this should probably be in a verify handler instead
         let source_owned_by_other_living_entity = find_owning_entity(source_container, world)
             .map(|h| h != entity)
             .unwrap_or(false);
@@ -102,6 +103,7 @@ impl InputParser for PutParser {
 
         let item_name = Description::get_reference_name(item, Some(entity), world);
 
+        //TODO this should probably be in a verify handler instead
         if destination_target == CommandTarget::Myself {
             let inventory = world
                 .get::<Container>(entity)
@@ -114,6 +116,7 @@ impl InputParser for PutParser {
             }
         }
 
+        //TODO this should probably be in a verify handler instead
         if source_target == CommandTarget::Myself {
             let inventory = world
                 .get::<Container>(entity)
@@ -136,23 +139,6 @@ impl InputParser for PutParser {
                 });
             }
         };
-
-        //TODO this should probably be in a verify handler instead
-        let destination_owned_by_other_living_entity =
-            find_owning_entity(destination_container, world)
-                .map(|h| h != entity)
-                .unwrap_or(false);
-        if destination_owned_by_other_living_entity
-            || (destination_container != entity && is_living_entity(destination_container, world))
-        {
-            let destination_name =
-                Description::get_reference_name(destination_container, Some(entity), world);
-            let message = format!("You can't put anything in {destination_name}.");
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(message),
-            });
-        }
 
         Ok(Box::new(PutAction {
             item,
@@ -451,6 +437,31 @@ pub fn verify_item_in_source(
         performing_entity,
         GameMessage::Error(format!("{item_name} is not in {source_name}.")),
     )
+}
+
+/// Verifies that the destination is not owned by a different living entity than the one doing the action.
+pub fn verify_destination_not_owned_by_other_living_entity(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let destination = notification.contents.destination;
+
+    let destination_owned_by_other_living_entity = find_owning_entity(destination, world)
+        .map(|h| h != performing_entity)
+        .unwrap_or(false);
+    if destination_owned_by_other_living_entity
+        || (destination != performing_entity && is_living_entity(destination, world))
+    {
+        let destination_name =
+            Description::get_reference_name(destination, Some(performing_entity), world);
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("You can't put anything in {destination_name}.")),
+        );
+    }
+
+    VerifyResult::valid()
 }
 
 /// Prevents putting items inside themselves.
