@@ -63,7 +63,9 @@ impl InputParser for PutParser {
             }
         };
 
-        //TODO this should probably be in a verify handler instead
+        /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
+           other entity actually has the thing you're trying to get
+        */
         let source_owned_by_other_living_entity = find_owning_entity(source_container, world)
             .map(|h| h != entity)
             .unwrap_or(false);
@@ -100,34 +102,6 @@ impl InputParser for PutParser {
                 });
             }
         };
-
-        let item_name = Description::get_reference_name(item, Some(entity), world);
-
-        //TODO this should probably be in a verify handler instead
-        if destination_target == CommandTarget::Myself {
-            let inventory = world
-                .get::<Container>(entity)
-                .expect("entity should be a container");
-            if inventory.get_entities(entity, world).contains(&item) {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::Other(format!("You already have {item_name}.")),
-                });
-            }
-        }
-
-        //TODO this should probably be in a verify handler instead
-        if source_target == CommandTarget::Myself {
-            let inventory = world
-                .get::<Container>(entity)
-                .expect("entity should be a container");
-            if !inventory.get_entities(entity, world).contains(&item) {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::Other(format!("You don't have {item_name}.")),
-                });
-            }
-        }
 
         let destination_container = match destination_target.find_target_entity(entity, world) {
             Some(c) => c,
@@ -433,10 +407,68 @@ pub fn verify_item_in_source(
     let item_name = Description::get_reference_name(item, Some(performing_entity), world);
     let source_name = Description::get_reference_name(source, Some(performing_entity), world);
 
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("{item_name} is not in {source_name}.")),
-    )
+    let message = if source == performing_entity {
+        format!("You don't have {item_name}.")
+    } else {
+        format!("{item_name} is not in {source_name}.")
+    };
+
+    VerifyResult::invalid(performing_entity, GameMessage::Error(message))
+}
+
+/// Verifies that the item is not already in the destination container.
+pub fn verify_item_not_in_destination(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let item = notification.contents.item;
+    let destination = notification.contents.destination;
+
+    if let Some(container) = world.get::<Container>(destination) {
+        if !container
+            .get_entities(performing_entity, world)
+            .contains(&item)
+        {
+            return VerifyResult::valid();
+        }
+    }
+
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
+    let destination_name =
+        Description::get_reference_name(destination, Some(performing_entity), world);
+
+    let message = if destination == performing_entity {
+        format!("You already have {item_name}.")
+    } else {
+        format!("{item_name} is already in {destination_name}.")
+    };
+
+    VerifyResult::invalid(performing_entity, GameMessage::Error(message))
+}
+
+/// Verifies that the source is not owned by a different living entity than the one doing the action.
+pub fn verify_source_not_owned_by_other_living_entity(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let source = notification.contents.source;
+
+    let source_owned_by_other_living_entity = find_owning_entity(source, world)
+        .map(|h| h != performing_entity)
+        .unwrap_or(false);
+    if source_owned_by_other_living_entity
+        || (source != performing_entity && is_living_entity(source, world))
+    {
+        let source_name = Description::get_reference_name(source, Some(performing_entity), world);
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("You can't get anything from {source_name}.")),
+        );
+    }
+
+    VerifyResult::valid()
 }
 
 /// Verifies that the destination is not owned by a different living entity than the one doing the action.
