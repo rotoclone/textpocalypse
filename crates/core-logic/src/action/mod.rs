@@ -113,6 +113,15 @@ pub fn register_action_handlers(world: &mut World) {
         world,
     );
     VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
+    VerifyNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
+    VerifyNotificationHandlers::add_handler(
+        put::verify_source_not_owned_by_other_living_entity,
+        world,
+    );
+    VerifyNotificationHandlers::add_handler(
+        put::verify_destination_not_owned_by_other_living_entity,
+        world,
+    );
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
     VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
 
