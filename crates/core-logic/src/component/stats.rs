@@ -8,6 +8,11 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
 
+/// The amount of XP needed for an entity to earn their first skill point.
+const XP_FOR_FIRST_SKILL_POINT: Xp = Xp(100);
+/// The amount of XP needed for an entity to earn their first attribute point.
+const XP_FOR_FIRST_ATTRIBUTE_POINT: Xp = Xp(300);
+
 /// The stats of an entity.
 #[derive(Component)]
 pub struct Stats {
@@ -15,6 +20,8 @@ pub struct Stats {
     pub attributes: Attributes,
     /// The learned skills of the entity, like cooking.
     pub skills: Skills,
+    /// The entity's XP and stuff.
+    pub advancement: StatAdvancement,
 }
 
 impl Stats {
@@ -23,6 +30,7 @@ impl Stats {
         Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
+            advancement: StatAdvancement::new(),
         }
     }
 
@@ -154,6 +162,50 @@ impl Skills {
             .map(|entry| (Skill::Custom(entry.0.clone()), *entry.1));
 
         standards.chain(customs).collect()
+    }
+}
+
+/// Information about an entity's available avenues of increasing their stats.
+pub struct StatAdvancement {
+    /// The total amount of XP the entity has earned
+    total: Xp,
+    /// The skill points of the entity
+    skill_points: AdvancementPoints<Skill>,
+    /// The attribute points of the entity
+    attribute_points: AdvancementPoints<Attribute>,
+}
+
+/// An amount of experience points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Xp(u64);
+
+/// The skill or attribute points of an entity.
+pub struct AdvancementPoints<T> {
+    /// Map of stats to the number of points spent on them
+    spent: HashMap<T, u32>,
+    /// The number of unspent points
+    available: u32,
+    /// The amount of XP needed for the next point
+    xp_for_next: Xp,
+}
+
+impl<T> AdvancementPoints<T> {
+    fn new(xp_for_first: Xp) -> AdvancementPoints<T> {
+        AdvancementPoints {
+            spent: HashMap::new(),
+            available: 0,
+            xp_for_next: xp_for_first,
+        }
+    }
+}
+
+impl StatAdvancement {
+    fn new() -> StatAdvancement {
+        StatAdvancement {
+            total: Xp(0),
+            skill_points: AdvancementPoints::new(XP_FOR_FIRST_SKILL_POINT),
+            attribute_points: AdvancementPoints::new(XP_FOR_FIRST_ATTRIBUTE_POINT),
+        }
     }
 }
 
