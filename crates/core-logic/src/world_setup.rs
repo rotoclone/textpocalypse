@@ -11,8 +11,8 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, WeaponMessages,
-    AFTERLIFE_ROOM_COORDINATES,
+    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
+    WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -164,6 +164,8 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
     // npcs
     //
 
+    let npc_stats = Stats::new(8, 8);
+
     let npc_id = world
         .spawn((
             Description {
@@ -198,7 +200,8 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 hydration: ConstrainedValue::new_max(0.0, 100.0),
                 energy: ConstrainedValue::new_max(0.0, 100.0),
             },
-            Stats::new(8, 8),
+            StartingStats(npc_stats.clone()),
+            npc_stats,
             Container::new(Some(Volume(10.0)), Some(Weight(10.0))),
             WornItems::new(5),
             EquippedItems::new(2),

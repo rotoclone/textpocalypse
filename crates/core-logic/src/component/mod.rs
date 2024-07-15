@@ -91,11 +91,14 @@ pub use item::get_hands_to_equip;
 pub use item::Item;
 
 mod stats;
+pub use stats::AdvancementPoints;
 pub use stats::Attribute;
 pub use stats::Attributes;
 pub use stats::Skill;
 pub use stats::Skills;
+pub use stats::StartingStats;
 pub use stats::Stat;
+pub use stats::StatAdvancement;
 pub use stats::Stats;
 
 mod wearable;

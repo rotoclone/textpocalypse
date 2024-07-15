@@ -13,8 +13,12 @@ const XP_FOR_FIRST_SKILL_POINT: Xp = Xp(100);
 /// The amount of XP needed for an entity to earn their first attribute point.
 const XP_FOR_FIRST_ATTRIBUTE_POINT: Xp = Xp(300);
 
-/// The stats of an entity.
+/// The stats an entity started with, before spending any advancement points.
 #[derive(Component)]
+pub struct StartingStats(pub Stats);
+
+/// The stats of an entity.
+#[derive(Component, Clone)]
 pub struct Stats {
     /// The innate attributes of the entity, like strength.
     pub attributes: Attributes,
@@ -68,6 +72,7 @@ impl Stats {
 }
 
 /// The innate attributes of an entity, like strength.
+#[derive(Clone)]
 pub struct Attributes {
     standard: HashMap<Attribute, u16>,
     custom: HashMap<String, u16>,
@@ -117,6 +122,7 @@ impl Attributes {
 }
 
 /// The learned skills of an entity, like cooking.
+#[derive(Clone)]
 pub struct Skills {
     standard: HashMap<Skill, u16>,
     custom: HashMap<String, u16>,
@@ -166,13 +172,14 @@ impl Skills {
 }
 
 /// Information about an entity's available avenues of increasing their stats.
+#[derive(Clone)]
 pub struct StatAdvancement {
     /// The total amount of XP the entity has earned
     total: Xp,
     /// The skill points of the entity
-    skill_points: AdvancementPoints<Skill>,
+    skill_points: AdvancementPoints,
     /// The attribute points of the entity
-    attribute_points: AdvancementPoints<Attribute>,
+    attribute_points: AdvancementPoints,
 }
 
 /// An amount of experience points.
@@ -180,19 +187,20 @@ pub struct StatAdvancement {
 pub struct Xp(u64);
 
 /// The skill or attribute points of an entity.
-pub struct AdvancementPoints<T> {
-    /// Map of stats to the number of points spent on them
-    spent: HashMap<T, u32>,
+#[derive(Clone)]
+pub struct AdvancementPoints {
+    /// The total number of points the entity has earned
+    total_earned: u32,
     /// The number of unspent points
     available: u32,
     /// The amount of XP needed for the next point
     xp_for_next: Xp,
 }
 
-impl<T> AdvancementPoints<T> {
-    fn new(xp_for_first: Xp) -> AdvancementPoints<T> {
+impl AdvancementPoints {
+    fn new(xp_for_first: Xp) -> AdvancementPoints {
         AdvancementPoints {
-            spent: HashMap::new(),
+            total_earned: 0,
             available: 0,
             xp_for_next: xp_for_first,
         }

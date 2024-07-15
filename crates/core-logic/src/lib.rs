@@ -422,6 +422,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
             Weight(65.0),
             desc,
             vitals,
+            StartingStats(stats.clone()),
             stats,
             worn_items,
             equipped_items,
