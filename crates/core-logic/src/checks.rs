@@ -3,10 +3,19 @@ use log::debug;
 use rand::Rng;
 use rand_distr::StandardNormal;
 
-use crate::component::{Stat, Stats};
+use crate::{
+    component::{Stat, Stats},
+    Xp,
+};
 
+/// The standard deviation of rolls for checks
 const STANDARD_DEVIATION: f32 = 5.0;
 const EXTREME_THRESHOLD_FRACTION: f32 = 0.5;
+
+/// Amount to multiply base XP by when failing a check
+const FAILURE_XP_MULT: f64 = 1.0;
+/// Amount to multiply base XP by when succeeding at a check
+const SUCCESS_XP_MULT: f64 = 0.8;
 
 /// Modifications to be applied to a check.
 #[derive(Clone, Copy, Debug)]
@@ -184,22 +193,26 @@ pub struct VsCheckParams {
     pub winner_on_tie: VsParticipantType,
     /// If the results differ by more than this fraction of the second participant's result, it will be considered an extreme failure for one participant and an extreme success for the other.
     pub extreme_threshold_fraction: f32,
+    /// The base amount of XP to award to entities involved in the check.
+    pub base_xp: Xp,
 }
 
 impl VsCheckParams {
     /// Creates params with the first participant winning ties
-    pub fn first_wins_ties() -> VsCheckParams {
+    pub fn first_wins_ties(base_xp: Xp) -> VsCheckParams {
         VsCheckParams {
             winner_on_tie: VsParticipantType::First,
             extreme_threshold_fraction: EXTREME_THRESHOLD_FRACTION,
+            base_xp,
         }
     }
 
     /// Creates params with the second participant winning ties
-    pub fn second_wins_ties() -> VsCheckParams {
+    pub fn second_wins_ties(base_xp: Xp) -> VsCheckParams {
         VsCheckParams {
             winner_on_tie: VsParticipantType::Second,
             extreme_threshold_fraction: EXTREME_THRESHOLD_FRACTION,
+            base_xp,
         }
     }
 }
@@ -265,15 +278,18 @@ impl Stats {
         stat: T,
         modifiers: CheckModifiers,
         difficulty: CheckDifficulty,
-        world: &World,
+        base_xp: Xp,
+        world: &mut World,
     ) -> CheckResult {
         if let Some(stats) = world.get::<Stats>(entity) {
-            check(
+            let result = check(
                 &stat.clone().into(),
                 stat.into().get_value(stats, world),
                 modifiers,
                 difficulty,
-            )
+            );
+            award_xp(entity, result, base_xp, world);
+            result
         } else {
             // the entity doesn't have stats, so they fail all checks
             CheckResult::ExtremeFailure
@@ -288,25 +304,43 @@ impl Stats {
         participant_1: VsParticipant,
         participant_2: VsParticipant,
         params: VsCheckParams,
-        // TODO mutable so XP can be added in the future
+        //TODO provide amount of XP
         world: &mut World,
     ) -> (CheckResult, CheckResult) {
         let entity_1_stats = world.get::<Stats>(participant_1.entity);
         let entity_2_stats = world.get::<Stats>(participant_2.entity);
         match (entity_1_stats, entity_2_stats) {
-            (Some(stats_1), Some(stats_2)) => check_vs(
-                &participant_1.stat,
-                participant_1.stat.get_value(stats_1, world),
-                participant_1.modifiers,
-                &participant_2.stat,
-                participant_2.stat.get_value(stats_2, world),
-                participant_2.modifiers,
-                params,
-            ),
+            (Some(stats_1), Some(stats_2)) => {
+                let (result_1, result_2) = check_vs(
+                    &participant_1.stat,
+                    participant_1.stat.get_value(stats_1, world),
+                    participant_1.modifiers,
+                    &participant_2.stat,
+                    participant_2.stat.get_value(stats_2, world),
+                    participant_2.modifiers,
+                    params,
+                );
+                award_xp(participant_1.entity, result_1, params.base_xp, world);
+                award_xp(participant_2.entity, result_2, params.base_xp, world);
+                (result_1, result_2)
+            }
             // entities that don't have stats fail all checks
             (Some(_), None) => (CheckResult::ExtremeSuccess, CheckResult::ExtremeFailure),
             (None, Some(_)) => (CheckResult::ExtremeFailure, CheckResult::ExtremeSuccess),
             (None, None) => (CheckResult::ExtremeFailure, CheckResult::ExtremeFailure),
         }
     }
+}
+
+/// Gives an entity XP for a check with the given result.
+fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World) {
+    let xp_mult = match result {
+        CheckResult::Failure => FAILURE_XP_MULT,
+        CheckResult::Success => SUCCESS_XP_MULT,
+        _ => 0.0,
+    };
+
+    let xp = Xp((base_xp.0 as f64 * xp_mult).round() as u64);
+
+    //TODO give xp to entity
 }

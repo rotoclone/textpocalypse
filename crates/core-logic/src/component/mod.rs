@@ -100,6 +100,7 @@ pub use stats::StartingStats;
 pub use stats::Stat;
 pub use stats::StatAdvancement;
 pub use stats::Stats;
+pub use stats::Xp;
 
 mod wearable;
 pub use wearable::Wearable;

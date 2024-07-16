@@ -184,7 +184,7 @@ pub struct StatAdvancement {
 
 /// An amount of experience points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Xp(u64);
+pub struct Xp(pub u64);
 
 /// The skill or attribute points of an entity.
 #[derive(Clone)]
