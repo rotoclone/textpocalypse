@@ -5,7 +5,7 @@ use rand_distr::StandardNormal;
 
 use crate::{
     component::{Stat, Stats},
-    Xp,
+    Notification, NotificationType, Xp,
 };
 
 /// The standard deviation of rolls for checks
@@ -332,6 +332,18 @@ impl Stats {
     }
 }
 
+/// A notification that an entity is getting some XP
+/// TODO move this elsewhere
+#[derive(Debug)]
+struct XpAwardNotification {
+    /// The entity getting XP
+    entity: Entity,
+    /// The XP the entity is getting
+    xp_to_add: Xp,
+}
+
+impl NotificationType for XpAwardNotification {}
+
 /// Gives an entity XP for a check with the given result.
 fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World) {
     let xp_mult = match result {
@@ -342,5 +354,11 @@ fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World)
 
     let xp = Xp((base_xp.0 as f64 * xp_mult).round() as u64);
 
-    //TODO give xp to entity
+    Notification::send_no_contents(
+        XpAwardNotification {
+            entity,
+            xp_to_add: xp,
+        },
+        world,
+    );
 }
