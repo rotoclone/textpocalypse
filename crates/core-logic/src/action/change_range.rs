@@ -13,7 +13,7 @@ use crate::{
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -170,7 +170,7 @@ impl Action for ChangeRangeAction {
                 stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },
-            VsCheckParams::second_wins_ties(),
+            VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
             world,
         );
 

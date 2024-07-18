@@ -8,8 +8,13 @@ use crate::{
     Notification, NotificationType, Xp,
 };
 
+/// The amount of XP to award for a regular check.
+pub const STANDARD_CHECK_XP: Xp = Xp(10);
+
 /// The standard deviation of rolls for checks
 const STANDARD_DEVIATION: f32 = 5.0;
+/// The fraction of the target number that produces the bounds of non-extreme results.
+/// For example, if the target is 10, and this is 0.5, then a result of less than 5 is an extreme failure, and more than 15 is an extreme success.
 const EXTREME_THRESHOLD_FRACTION: f32 = 0.5;
 
 /// Amount to multiply base XP by when failing a check
@@ -304,13 +309,13 @@ impl Stats {
         participant_1: VsParticipant,
         participant_2: VsParticipant,
         params: VsCheckParams,
-        //TODO provide amount of XP
         world: &mut World,
     ) -> (CheckResult, CheckResult) {
         let entity_1_stats = world.get::<Stats>(participant_1.entity);
         let entity_2_stats = world.get::<Stats>(participant_2.entity);
         match (entity_1_stats, entity_2_stats) {
             (Some(stats_1), Some(stats_2)) => {
+                let base_xp = params.base_xp;
                 let (result_1, result_2) = check_vs(
                     &participant_1.stat,
                     participant_1.stat.get_value(stats_1, world),
@@ -320,8 +325,8 @@ impl Stats {
                     participant_2.modifiers,
                     params,
                 );
-                award_xp(participant_1.entity, result_1, params.base_xp, world);
-                award_xp(participant_2.entity, result_2, params.base_xp, world);
+                award_xp(participant_1.entity, result_1, base_xp, world);
+                award_xp(participant_2.entity, result_2, base_xp, world);
                 (result_1, result_2)
             }
             // entities that don't have stats fail all checks
@@ -332,7 +337,10 @@ impl Stats {
     }
 }
 
-/// A notification that an entity is getting some XP
+/// A notification that an entity is getting some XP.
+///
+/// Generally, XP should only be awarded for "risky" actions, to avoid creating easy XP-grinding sources.
+/// If an action can be done repeatedly without any risk or using up any limited resources, it probably shouldn't award XP.
 /// TODO move this elsewhere
 #[derive(Debug)]
 struct XpAwardNotification {

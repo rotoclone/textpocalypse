@@ -17,7 +17,7 @@ use crate::{
     Location, MessageCategory, MessageDelay, MessageFormat, Notification, Skill, Stats,
     SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
     Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
-    WeaponUnusableError,
+    WeaponUnusableError, STANDARD_CHECK_XP,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -403,7 +403,7 @@ pub fn check_for_hit(
             stat: Skill::Dodge.into(),
             modifiers: CheckModifiers::none(),
         },
-        VsCheckParams::second_wins_ties(),
+        VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
         world,
     );
 

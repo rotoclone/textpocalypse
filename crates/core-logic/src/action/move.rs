@@ -15,7 +15,7 @@ use crate::{
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
 };
 
 use super::{
@@ -233,7 +233,7 @@ fn try_escape_combat(
                 stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },
-            VsCheckParams::second_wins_ties(),
+            VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
             world,
         );
 
