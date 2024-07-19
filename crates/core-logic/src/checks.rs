@@ -5,7 +5,7 @@ use rand_distr::StandardNormal;
 
 use crate::{
     component::{Stat, Stats},
-    Notification, NotificationType, Xp,
+    Notification, Xp, XpAwardNotification,
 };
 
 /// The amount of XP to award for a regular check.
@@ -336,21 +336,6 @@ impl Stats {
         }
     }
 }
-
-/// A notification that an entity is getting some XP.
-///
-/// Generally, XP should only be awarded for "risky" actions, to avoid creating easy XP-grinding sources.
-/// If an action can be done repeatedly without any risk or using up any limited resources, it probably shouldn't award XP.
-/// TODO move this elsewhere
-#[derive(Debug)]
-struct XpAwardNotification {
-    /// The entity getting XP
-    entity: Entity,
-    /// The XP the entity is getting
-    xp_to_add: Xp,
-}
-
-impl NotificationType for XpAwardNotification {}
 
 /// Gives an entity XP for a check with the given result.
 fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World) {

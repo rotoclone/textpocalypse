@@ -6,12 +6,18 @@ use std::{
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
+use crate::{
+    resource::{get_attribute_name, get_base_attribute, get_skill_name},
+    MultiplyAndRound, Notification, NotificationType,
+};
 
 /// The amount of XP needed for an entity to earn their first skill point.
 const XP_FOR_FIRST_SKILL_POINT: Xp = Xp(100);
 /// The amount of XP needed for an entity to earn their first attribute point.
 const XP_FOR_FIRST_ATTRIBUTE_POINT: Xp = Xp(300);
+
+/// How much more XP each advancement point needs than the previous one.
+const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.2;
 
 /// The stats an entity started with, before spending any advancement points.
 #[derive(Component)]
@@ -171,6 +177,45 @@ impl Skills {
     }
 }
 
+/// An amount of experience points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Xp(pub u64);
+
+/// A notification that an entity is getting some XP.
+///
+/// Generally, XP should only be awarded for "risky" actions, to avoid creating easy XP-grinding sources.
+/// If an action can be done repeatedly without any risk or using up any limited resources, it probably shouldn't award XP.
+#[derive(Debug)]
+pub struct XpAwardNotification {
+    /// The entity getting XP
+    pub entity: Entity,
+    /// The XP the entity is getting
+    pub xp_to_add: Xp,
+}
+
+impl NotificationType for XpAwardNotification {}
+
+/// Increases an entity's XP total when they are given XP, and awards any advancement points that are warranted.
+/// TODO register this
+pub fn increase_xp_and_advancement_points_on_xp_awarded(
+    notification: Notification<XpAwardNotification, ()>,
+    world: &mut World,
+) {
+    if let Some(mut stats) = world.get_mut::<Stats>(notification.notification_type.entity) {
+        stats.advancement.total.0 += notification.notification_type.xp_to_add.0;
+
+        if stats.advancement.skill_points.xp_for_next <= stats.advancement.total {
+            stats.advancement.skill_points.award_one();
+            //TODO send a message to the entity
+        }
+
+        if stats.advancement.attribute_points.xp_for_next <= stats.advancement.total {
+            stats.advancement.attribute_points.award_one();
+            //TODO send a message to the entity
+        }
+    }
+}
+
 /// Information about an entity's available avenues of increasing their stats.
 #[derive(Clone)]
 pub struct StatAdvancement {
@@ -181,10 +226,6 @@ pub struct StatAdvancement {
     /// The attribute points of the entity
     attribute_points: AdvancementPoints,
 }
-
-/// An amount of experience points.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Xp(pub u64);
 
 /// The skill or attribute points of an entity.
 #[derive(Clone)]
@@ -204,6 +245,16 @@ impl AdvancementPoints {
             available: 0,
             xp_for_next: xp_for_first,
         }
+    }
+
+    /// Adds one advancement point, and updates the XP needed for the next one.
+    fn award_one(&mut self) {
+        self.total_earned += 1;
+        self.available += 1;
+        self.xp_for_next.0 += self
+            .xp_for_next
+            .0
+            .mul_and_round(ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER);
     }
 }
 
