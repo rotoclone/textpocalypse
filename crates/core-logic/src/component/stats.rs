@@ -202,14 +202,14 @@ pub fn increase_xp_and_advancement_points_on_xp_awarded(
     world: &mut World,
 ) {
     if let Some(mut stats) = world.get_mut::<Stats>(notification.notification_type.entity) {
-        stats.advancement.total.0 += notification.notification_type.xp_to_add.0;
+        stats.advancement.total_xp.0 += notification.notification_type.xp_to_add.0;
 
-        if stats.advancement.skill_points.xp_for_next <= stats.advancement.total {
+        if stats.advancement.skill_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.skill_points.award_one();
             //TODO send a message to the entity
         }
 
-        if stats.advancement.attribute_points.xp_for_next <= stats.advancement.total {
+        if stats.advancement.attribute_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.attribute_points.award_one();
             //TODO send a message to the entity
         }
@@ -220,22 +220,22 @@ pub fn increase_xp_and_advancement_points_on_xp_awarded(
 #[derive(Clone)]
 pub struct StatAdvancement {
     /// The total amount of XP the entity has earned
-    total: Xp,
+    pub total_xp: Xp,
     /// The skill points of the entity
-    skill_points: AdvancementPoints,
+    pub skill_points: AdvancementPoints,
     /// The attribute points of the entity
-    attribute_points: AdvancementPoints,
+    pub attribute_points: AdvancementPoints,
 }
 
 /// The skill or attribute points of an entity.
 #[derive(Clone)]
 pub struct AdvancementPoints {
     /// The total number of points the entity has earned
-    total_earned: u32,
+    pub total_earned: u32,
     /// The number of unspent points
-    available: u32,
+    pub available: u32,
     /// The amount of XP needed for the next point
-    xp_for_next: Xp,
+    pub xp_for_next: Xp,
 }
 
 impl AdvancementPoints {
@@ -261,7 +261,7 @@ impl AdvancementPoints {
 impl StatAdvancement {
     fn new() -> StatAdvancement {
         StatAdvancement {
-            total: Xp(0),
+            total_xp: Xp(0),
             skill_points: AdvancementPoints::new(XP_FOR_FIRST_SKILL_POINT),
             attribute_points: AdvancementPoints::new(XP_FOR_FIRST_ATTRIBUTE_POINT),
         }

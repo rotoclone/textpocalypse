@@ -683,6 +683,7 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
 
 /// Transforms the provided stats description into a string for display.
 fn stats_to_string(stats: StatsDescription) -> String {
+    //TODO include advancement information
     let mut attributes_table = new_table();
     attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
 

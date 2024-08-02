@@ -4,6 +4,7 @@ use itertools::Itertools;
 use crate::{
     component::{Attributes, Stats},
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
+    AdvancementPoints, StatAdvancement, Xp,
 };
 
 /// The description of an entity's stats.
@@ -13,6 +14,8 @@ pub struct StatsDescription {
     pub attributes: Vec<StatAttributeDescription>,
     /// The skills of the entity.
     pub skills: Vec<SkillDescription>,
+    /// The entity's XP and stuff.
+    pub advancement: AdvancementDescription,
 }
 
 impl StatsDescription {
@@ -20,6 +23,7 @@ impl StatsDescription {
         StatsDescription {
             attributes: StatAttributeDescription::from_attributes(&stats.attributes, world),
             skills: SkillDescription::from_stats(stats, world),
+            advancement: AdvancementDescription::from_advancement(&stats.advancement),
         }
     }
 }
@@ -46,10 +50,15 @@ impl StatAttributeDescription {
 
 #[derive(Debug, Clone)]
 pub struct SkillDescription {
+    /// The name of the skill
     pub name: String,
+    /// The name of the base attribute for the skill
     pub base_attribute_name: String,
+    /// The bonus the base attribute confers to the skill's value
     pub attribute_bonus: f32,
+    /// The base value of the skill
     pub base_value: u16,
+    /// The total value of the skill
     pub total: f32,
 }
 
@@ -79,5 +88,48 @@ impl SkillDescription {
                 }
             })
             .collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AdvancementDescription {
+    /// The total amount of XP the entity has earned
+    pub total_xp: Xp,
+    /// The skill points of the entity
+    pub skill_points: AdvancementPointsDescription,
+    /// The attribute points of the entity
+    pub attribute_points: AdvancementPointsDescription,
+}
+
+#[derive(Debug, Clone)]
+pub struct AdvancementPointsDescription {
+    /// The number of points available to spend
+    pub available: u32,
+    /// The amount of XP needed for the next point
+    pub xp_for_next: Xp,
+}
+
+impl AdvancementDescription {
+    fn from_advancement(advancement: &StatAdvancement) -> AdvancementDescription {
+        AdvancementDescription {
+            total_xp: advancement.total_xp,
+            skill_points: AdvancementPointsDescription::from_advancement_points(
+                &advancement.skill_points,
+            ),
+            attribute_points: AdvancementPointsDescription::from_advancement_points(
+                &advancement.attribute_points,
+            ),
+        }
+    }
+}
+
+impl AdvancementPointsDescription {
+    fn from_advancement_points(
+        advancement_points: &AdvancementPoints,
+    ) -> AdvancementPointsDescription {
+        AdvancementPointsDescription {
+            available: advancement_points.available,
+            xp_for_next: advancement_points.xp_for_next,
+        }
     }
 }
