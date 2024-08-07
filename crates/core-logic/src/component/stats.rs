@@ -8,7 +8,7 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
-    MultiplyAndRound, Notification, NotificationType,
+    IntegerExtensions, Notification, NotificationType,
 };
 
 /// The amount of XP needed for an entity to earn their first skill point.
