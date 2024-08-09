@@ -33,6 +33,9 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
+        GameMessage::AdvancementPointGained(point_type) => {
+            advancement_point_gained_to_string(point_type)
+        }
     }
 }
 
@@ -849,6 +852,14 @@ fn ranges_to_string(ranges: RangesDescription) -> String {
     }
 
     table.to_string()
+}
+
+/// Generates a string announcing that an advancement point was gained.
+fn advancement_point_gained_to_string(point_type: AdvancementPointType) -> String {
+    match point_type {
+        AdvancementPointType::Attribute => "[ You gained an attribute point! ]".cyan().to_string(),
+        AdvancementPointType::Skill => "[ You gained a skill point! ]".cyan().to_string(),
+    }
 }
 
 trait Join<T> {

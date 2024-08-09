@@ -53,6 +53,9 @@ pub use map_description::MapDescription;
 mod help_description;
 pub use help_description::HelpDescription;
 
+mod advancement_point_type;
+pub use advancement_point_type::AdvancementPointType;
+
 /// Resolution of the visualization for short vital change messages.
 const SHORT_VITAL_CHANGE_RESOLUTION: u8 = 10;
 
@@ -69,6 +72,7 @@ pub enum GameMessage {
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),
+    AdvancementPointGained(AdvancementPointType),
     Message {
         content: String,
         category: MessageCategory,

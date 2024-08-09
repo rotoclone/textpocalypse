@@ -199,6 +199,11 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(combat_state::remove_from_combat_on_death, world);
     NotificationHandlers::add_handler(combat_state::remove_from_combat_on_despawn, world);
+
+    NotificationHandlers::add_handler(
+        stats::increase_xp_and_advancement_points_on_xp_awarded,
+        world,
+    );
 }
 
 /// Removes a component from an entity when it dies.

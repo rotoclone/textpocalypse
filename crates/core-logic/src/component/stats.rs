@@ -8,7 +8,8 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
-    IntegerExtensions, Notification, NotificationType,
+    send_message, AdvancementPointType, GameMessage, IntegerExtensions, Notification,
+    NotificationType,
 };
 
 /// The amount of XP needed for an entity to earn their first skill point.
@@ -196,22 +197,36 @@ pub struct XpAwardNotification {
 impl NotificationType for XpAwardNotification {}
 
 /// Increases an entity's XP total when they are given XP, and awards any advancement points that are warranted.
-/// TODO register this
 pub fn increase_xp_and_advancement_points_on_xp_awarded(
-    notification: Notification<XpAwardNotification, ()>,
+    notification: &Notification<XpAwardNotification, ()>,
     world: &mut World,
 ) {
-    if let Some(mut stats) = world.get_mut::<Stats>(notification.notification_type.entity) {
+    let entity = notification.notification_type.entity;
+    println!(
+        "Awarding {} XP to {:?}",
+        notification.notification_type.xp_to_add.0, entity
+    ); //TODO
+    if let Some(mut stats) = world.get_mut::<Stats>(entity) {
         stats.advancement.total_xp.0 += notification.notification_type.xp_to_add.0;
+
+        let mut messages = Vec::new();
 
         if stats.advancement.skill_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.skill_points.award_one();
-            //TODO send a message to the entity
+            messages.push(GameMessage::AdvancementPointGained(
+                AdvancementPointType::Skill,
+            ));
         }
 
         if stats.advancement.attribute_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.attribute_points.award_one();
-            //TODO send a message to the entity
+            messages.push(GameMessage::AdvancementPointGained(
+                AdvancementPointType::Attribute,
+            ));
+        }
+
+        for message in messages {
+            send_message(world, entity, message);
         }
     }
 }
