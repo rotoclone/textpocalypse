@@ -686,7 +686,38 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
 
 /// Transforms the provided stats description into a string for display.
 fn stats_to_string(stats: StatsDescription) -> String {
-    //TODO include advancement information
+    let styled_attribute_points = if stats.advancement.attribute_points.available > 0 {
+        stats
+            .advancement
+            .attribute_points
+            .available
+            .to_string()
+            .cyan()
+            .to_string()
+    } else {
+        stats.advancement.attribute_points.available.to_string()
+    };
+    let styled_skill_points = if stats.advancement.skill_points.available > 0 {
+        stats
+            .advancement
+            .skill_points
+            .available
+            .to_string()
+            .cyan()
+            .to_string()
+    } else {
+        stats.advancement.skill_points.available.to_string()
+    };
+    let xp_for_next_attribute_point = stats.advancement.attribute_points.xp_for_next.0;
+    let xp_for_next_skill_point = stats.advancement.skill_points.xp_for_next.0;
+
+    let xp_info = format!("XP: {}", stats.advancement.total_xp.0);
+    let attribute_points_info = format!(
+        "Attribute points: {styled_attribute_points} ({xp_for_next_attribute_point} XP for next)"
+    );
+    let skill_points_info =
+        format!("Skill points: {styled_skill_points} ({xp_for_next_skill_point} XP for next)");
+
     let mut attributes_table = new_table();
     attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
 
@@ -714,7 +745,7 @@ fn stats_to_string(stats: StatsDescription) -> String {
         ]);
     }
 
-    format!("Attributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
+    format!("{xp_info}\n{attribute_points_info}\n{skill_points_info}\n\nAttributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
 }
 
 /// Transforms the provided vital change description into a string for display.

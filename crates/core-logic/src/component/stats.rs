@@ -224,7 +224,7 @@ pub fn increase_xp_and_advancement_points_on_xp_awarded(
             stats.advancement.attribute_points.award_one();
             attribute_points_gained += 1;
         }
-        if skill_points_gained > 0 {
+        if attribute_points_gained > 0 {
             messages.push(GameMessage::AdvancementPointsGained(
                 attribute_points_gained,
                 AdvancementPointType::Attribute,
