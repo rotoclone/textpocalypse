@@ -202,25 +202,31 @@ pub fn increase_xp_and_advancement_points_on_xp_awarded(
     world: &mut World,
 ) {
     let entity = notification.notification_type.entity;
-    println!(
-        "Awarding {} XP to {:?}",
-        notification.notification_type.xp_to_add.0, entity
-    ); //TODO
     if let Some(mut stats) = world.get_mut::<Stats>(entity) {
         stats.advancement.total_xp.0 += notification.notification_type.xp_to_add.0;
 
         let mut messages = Vec::new();
 
-        if stats.advancement.skill_points.xp_for_next <= stats.advancement.total_xp {
+        let mut skill_points_gained = 0;
+        while stats.advancement.skill_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.skill_points.award_one();
-            messages.push(GameMessage::AdvancementPointGained(
+            skill_points_gained += 1;
+        }
+        if skill_points_gained > 0 {
+            messages.push(GameMessage::AdvancementPointsGained(
+                skill_points_gained,
                 AdvancementPointType::Skill,
             ));
         }
 
-        if stats.advancement.attribute_points.xp_for_next <= stats.advancement.total_xp {
+        let mut attribute_points_gained = 0;
+        while stats.advancement.attribute_points.xp_for_next <= stats.advancement.total_xp {
             stats.advancement.attribute_points.award_one();
-            messages.push(GameMessage::AdvancementPointGained(
+            attribute_points_gained += 1;
+        }
+        if skill_points_gained > 0 {
+            messages.push(GameMessage::AdvancementPointsGained(
+                attribute_points_gained,
                 AdvancementPointType::Attribute,
             ));
         }

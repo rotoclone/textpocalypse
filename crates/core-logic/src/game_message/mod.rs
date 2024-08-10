@@ -72,7 +72,7 @@ pub enum GameMessage {
     Help(HelpDescription),
     Players(PlayersDescription),
     Ranges(RangesDescription),
-    AdvancementPointGained(AdvancementPointType),
+    AdvancementPointsGained(u32, AdvancementPointType),
     Message {
         content: String,
         category: MessageCategory,
