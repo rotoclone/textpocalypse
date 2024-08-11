@@ -153,6 +153,9 @@ use crate::DeathNotification;
 mod fist_actions;
 pub use fist_actions::FistActions;
 
+mod check_history;
+pub use check_history::CheckHistory;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(open_state::auto_open_connections, world);

@@ -5,7 +5,7 @@ use rand_distr::StandardNormal;
 
 use crate::{
     component::{Stat, Stats},
-    Notification, Xp, XpAwardNotification,
+    CheckHistory, IntegerExtensions, Notification, Xp, XpAwardNotification,
 };
 
 /// The amount of XP to award for a regular check.
@@ -18,9 +18,12 @@ const STANDARD_DEVIATION: f32 = 5.0;
 const EXTREME_THRESHOLD_FRACTION: f32 = 0.5;
 
 /// Amount to multiply base XP by when failing a check
-const FAILURE_XP_MULT: f64 = 1.0;
+const FAILURE_XP_MULT: f32 = 1.0;
 /// Amount to multiply base XP by when succeeding at a check
-const SUCCESS_XP_MULT: f64 = 0.8;
+const SUCCESS_XP_MULT: f32 = 0.8;
+
+/// Amount to multiply base XP by when similar checks are performed multiple times in a row.
+const REPEATED_CHECK_XP_MULTIPLIER: f32 = 0.9;
 
 /// Modifications to be applied to a check.
 #[derive(Clone, Copy, Debug)]
@@ -289,11 +292,11 @@ impl Stats {
         if let Some(stats) = world.get::<Stats>(entity) {
             let result = check(
                 &stat.clone().into(),
-                stat.into().get_value(stats, world),
+                stat.clone().into().get_value(stats, world),
                 modifiers,
                 difficulty,
             );
-            award_xp(entity, result, base_xp, world);
+            award_xp(entity, &stat.into(), result, base_xp, world);
             result
         } else {
             // the entity doesn't have stats, so they fail all checks
@@ -325,8 +328,20 @@ impl Stats {
                     participant_2.modifiers,
                     params,
                 );
-                award_xp(participant_1.entity, result_1, base_xp, world);
-                award_xp(participant_2.entity, result_2, base_xp, world);
+                award_xp(
+                    participant_1.entity,
+                    &participant_1.stat,
+                    result_1,
+                    base_xp,
+                    world,
+                );
+                award_xp(
+                    participant_2.entity,
+                    &participant_2.stat,
+                    result_2,
+                    base_xp,
+                    world,
+                );
                 (result_1, result_2)
             }
             // entities that don't have stats fail all checks
@@ -338,14 +353,16 @@ impl Stats {
 }
 
 /// Gives an entity XP for a check with the given result.
-fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World) {
+fn award_xp(entity: Entity, stat: &Stat, result: CheckResult, base_xp: Xp, world: &mut World) {
+    let repeat_mult =
+        REPEATED_CHECK_XP_MULTIPLIER.powf(CheckHistory::get_count(stat, entity, world) as f32);
     let xp_mult = match result {
         CheckResult::Failure => FAILURE_XP_MULT,
         CheckResult::Success => SUCCESS_XP_MULT,
         _ => 0.0,
     };
 
-    let xp = Xp((base_xp.0 as f64 * xp_mult).round() as u64);
+    let xp = Xp(base_xp.0.mul_and_round(xp_mult * repeat_mult));
 
     Notification::send_no_contents(
         XpAwardNotification {
@@ -354,4 +371,6 @@ fn award_xp(entity: Entity, result: CheckResult, base_xp: Xp, world: &mut World)
         },
         world,
     );
+
+    CheckHistory::log(stat, entity, world);
 }
