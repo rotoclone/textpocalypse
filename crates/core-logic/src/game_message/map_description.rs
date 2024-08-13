@@ -1,7 +1,6 @@
-use std::array;
+use std::{array, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 
 use crate::{
     component::{Location, Room},
@@ -9,12 +8,10 @@ use crate::{
     Color, MapIcon,
 };
 
-lazy_static! {
-    static ref BLANK_ICON: MapIcon =
-        MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.']);
-    static ref PLAYER_MAP_ICON: MapIcon =
-        MapIcon::new_uniform(Color::Black, Color::Cyan, ['(', ')']);
-}
+static BLANK_ICON: LazyLock<MapIcon> =
+    LazyLock::new(|| MapIcon::new_uniform(Color::Black, Color::DarkGray, ['.', '.']));
+static PLAYER_MAP_ICON: LazyLock<MapIcon> =
+    LazyLock::new(|| MapIcon::new_uniform(Color::Black, Color::Cyan, ['(', ')']));
 
 /// A collection of tiles around an entity.
 /// `S` is the length and width of the map, in tiles.

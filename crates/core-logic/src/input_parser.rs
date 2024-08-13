@@ -1,7 +1,6 @@
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
 
@@ -11,10 +10,9 @@ use crate::{
     Direction, StandardInputParsers,
 };
 
-lazy_static! {
-    static ref SELF_TARGET_PATTERN: Regex = Regex::new("^(me|myself|self)$").unwrap();
-    static ref HERE_TARGET_PATTERN: Regex = Regex::new("^(here)$").unwrap();
-}
+static SELF_TARGET_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(me|myself|self)$").unwrap());
+static HERE_TARGET_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(here)$").unwrap());
 
 /// Parses the provided string to an `Action`.
 pub fn parse_input(

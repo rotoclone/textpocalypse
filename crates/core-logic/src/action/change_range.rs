@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -24,16 +23,16 @@ const DECREASE_RANGE_FORMAT: &str = "approach <>";
 const INCREASE_RANGE_FORMAT: &str = "move away from <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref DECREASE_RANGE_PATTERN: Regex = Regex::new(
-        "^(advance|advance toward|decrease range to|dr|move toward|approach)( (?P<name>.*))?"
+static DECREASE_RANGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        "^(advance|advance toward|decrease range to|dr|move toward|approach)( (?P<name>.*))?",
     )
-    .unwrap();
-    static ref INCREASE_RANGE_PATTERN: Regex = Regex::new(
-        "^(fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?"
-    )
-    .unwrap();
-}
+    .unwrap()
+});
+static INCREASE_RANGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?")
+        .unwrap()
+});
 
 pub struct ChangeRangeParser;
 

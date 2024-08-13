@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -29,12 +28,10 @@ const LOOK_FORMAT: &str = "look <>";
 const DETAILED_LOOK_FORMAT: &str = "examine <>";
 const LOOK_TARGET_CAPTURE: &str = "target";
 
-lazy_static! {
-    static ref LOOK_PATTERN: Regex =
-        Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap();
-    static ref DETAILED_LOOK_PATTERN: Regex =
-        Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap();
-}
+static LOOK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap());
+static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
 
 pub struct LookParser;
 

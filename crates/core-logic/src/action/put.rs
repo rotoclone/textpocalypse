@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -32,15 +31,16 @@ const DROP_FORMAT: &str = "drop <>";
 const ITEM_CAPTURE: &str = "item";
 const CONTAINER_CAPTURE: &str = "container";
 
-lazy_static! {
-    static ref GET_PATTERN: Regex = Regex::new("^(get|take|pick up) (the )?(?P<item>.*)").unwrap();
-    static ref GET_FROM_PATTERN: Regex =
-        Regex::new("^(get|take) (the )?(?P<item>.*) (from|out of) (the )?(?P<container>.*)")
-            .unwrap();
-    static ref PUT_PATTERN: Regex =
-        Regex::new("^put (the )?(?P<item>.*) (in|into) (the )?(?P<container>.*)").unwrap();
-    static ref DROP_PATTERN: Regex = Regex::new("^drop (the )?(?P<item>.*)").unwrap();
-}
+static GET_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(get|take|pick up) (the )?(?P<item>.*)").unwrap());
+static GET_FROM_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(get|take) (the )?(?P<item>.*) (from|out of) (the )?(?P<container>.*)").unwrap()
+});
+static PUT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^put (the )?(?P<item>.*) (in|into) (the )?(?P<container>.*)").unwrap()
+});
+static DROP_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^drop (the )?(?P<item>.*)").unwrap());
 
 pub struct PutParser;
 

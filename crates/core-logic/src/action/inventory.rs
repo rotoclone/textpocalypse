@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,8 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const INVENTORY_FORMAT: &str = "inventory";
 
-lazy_static! {
-    static ref INVENTORY_PATTERN: Regex = Regex::new("^(i|inv|inventory)$").unwrap();
-}
+static INVENTORY_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(i|inv|inventory)$").unwrap());
 
 pub struct InventoryParser;
 

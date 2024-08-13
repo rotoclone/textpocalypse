@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -28,10 +27,10 @@ const UNLOCK_FORMAT: &str = "unlock <>";
 const LOCK_FORMAT: &str = "lock <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref UNLOCK_PATTERN: Regex = Regex::new("^unlock (the )?(?P<name>.*)").unwrap();
-    static ref LOCK_PATTERN: Regex = Regex::new("^lock (the )?(?P<name>.*)").unwrap();
-}
+static UNLOCK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^unlock (the )?(?P<name>.*)").unwrap());
+static LOCK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^lock (the )?(?P<name>.*)").unwrap());
 
 pub struct LockParser;
 

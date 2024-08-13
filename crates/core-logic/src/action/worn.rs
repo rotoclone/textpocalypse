@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,8 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const WORN_FORMAT: &str = "worn";
 
-lazy_static! {
-    static ref WORN_PATTERN: Regex = Regex::new("^(worn|wearing|clothes|clothing)$").unwrap();
-}
+static WORN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(worn|wearing|clothes|clothing)$").unwrap());
 
 pub struct WornParser;
 

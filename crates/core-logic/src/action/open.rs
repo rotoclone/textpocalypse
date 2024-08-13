@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -24,10 +23,10 @@ const OPEN_FORMAT: &str = "open <>";
 const CLOSE_FORMAT: &str = "close <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref OPEN_PATTERN: Regex = Regex::new("^open (the )?(?P<name>.*)").unwrap();
-    static ref CLOSE_PATTERN: Regex = Regex::new("^close (the )?(?P<name>.*)").unwrap();
-}
+static OPEN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^open (the )?(?P<name>.*)").unwrap());
+static CLOSE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^close (the )?(?P<name>.*)").unwrap());
 
 pub struct OpenParser;
 

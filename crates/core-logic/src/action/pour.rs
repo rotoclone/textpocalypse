@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
 
@@ -33,19 +35,19 @@ const SOURCE_CAPTURE: &str = "source";
 const TARGET_CAPTURE: &str = "target";
 const AMOUNT_CAPTURE: &str = "amount";
 
-lazy_static! {
-    static ref FILL_PATTERN: Regex =
-        Regex::new("^fill (the )?(?P<target>.*) from (the )?(?P<source>.*)").unwrap();
-    static ref POUR_PATTERN: Regex =
-        Regex::new("^pour (?P<amount>.*) from (the )?(?P<source>.*) into (the )?(?P<target>.*)")
-            .unwrap();
-    static ref POUR_ALL_PATTERN: Regex =
-        Regex::new("^pour( all( of)?)? (the )?(?P<source>.*) into (the )?(?P<target>.*)").unwrap();
-    static ref ALL_PATTERN: Regex = Regex::new("^all$").unwrap();
-    static ref AMOUNT_WITH_LITERS_PATTERN: Regex =
-        Regex::new("^(?P<amount>[^ ]*)(L| L| liter| liters)$").unwrap();
-    static ref AMOUNT_PATTERN: Regex = Regex::new("^(?P<amount>.*)").unwrap();
-}
+static FILL_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^fill (the )?(?P<target>.*) from (the )?(?P<source>.*)").unwrap());
+static POUR_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^pour (?P<amount>.*) from (the )?(?P<source>.*) into (the )?(?P<target>.*)")
+        .unwrap()
+});
+static POUR_ALL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^pour( all( of)?)? (the )?(?P<source>.*) into (the )?(?P<target>.*)").unwrap()
+});
+static ALL_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^all$").unwrap());
+static AMOUNT_WITH_LITERS_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L| liter| liters)$").unwrap());
+static AMOUNT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(?P<amount>.*)").unwrap());
 
 pub struct PourParser;
 

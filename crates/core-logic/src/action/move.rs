@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -26,10 +25,8 @@ use super::{
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
 
-lazy_static! {
-    static ref MOVE_PATTERN: Regex =
-        Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap();
-}
+static MOVE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap());
 
 pub struct MoveParser;
 

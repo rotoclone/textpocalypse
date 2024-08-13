@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -61,11 +60,11 @@ const UPPERCUT_FORMAT: &str = "uppercut <>";
 const NAME_CAPTURE: &str = "name";
 const WEAPON_CAPTURE: &str = "weapon";
 
-lazy_static! {
-    static ref UPPERCUT_PATTERN: Regex = Regex::new("^(uppercut)( (?P<name>.*))?").unwrap();
-    static ref UPPERCUT_PATTERN_WITH_WEAPON: Regex =
-        Regex::new("^(uppercut)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
-}
+static UPPERCUT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(uppercut)( (?P<name>.*))?").unwrap());
+static UPPERCUT_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(uppercut)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
+});
 
 struct UppercutParser;
 
@@ -258,11 +257,11 @@ const HAYMAKER_CHARGE_TICKS: u16 = 1;
 const HAYMAKER_VERB_NAME: &str = "haymaker";
 const HAYMAKER_FORMAT: &str = "haymaker <>";
 
-lazy_static! {
-    static ref HAYMAKER_PATTERN: Regex = Regex::new("^(haymaker)( (?P<name>.*))?").unwrap();
-    static ref HAYMAKER_PATTERN_WITH_WEAPON: Regex =
-        Regex::new("^(haymaker)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
-}
+static HAYMAKER_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(haymaker)( (?P<name>.*))?").unwrap());
+static HAYMAKER_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(haymaker)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
+});
 
 struct HaymakerParser;
 

@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -58,10 +60,8 @@ const THROW_FORMAT: &str = "throw <> at <>";
 const NAME_CAPTURE: &str = "name";
 const TARGET_CAPTURE: &str = "target";
 
-lazy_static! {
-    static ref THROW_PATTERN: Regex =
-        Regex::new("^throw (the )?(?P<name>.*) at (the )?(?P<target>.*)").unwrap();
-}
+static THROW_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^throw (the )?(?P<name>.*) at (the )?(?P<target>.*)").unwrap());
 
 pub struct ThrowParser;
 
