@@ -8,8 +8,7 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
-    send_message, AdvancementPointType, GameMessage, IntegerExtensions, Notification,
-    NotificationType,
+    send_message, GameMessage, IntegerExtensions, Notification, NotificationType,
 };
 
 /// The amount of XP needed for an entity to earn their first skill point.
@@ -154,7 +153,7 @@ impl Skills {
     }
 
     /// Gets the base value of the provided skill.
-    fn get_base(&self, skill: &Skill) -> u16 {
+    pub fn get_base(&self, skill: &Skill) -> u16 {
         *match skill {
             Skill::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -257,6 +256,15 @@ pub struct AdvancementPoints {
     pub available: u32,
     /// The amount of XP needed for the next point
     pub xp_for_next: Xp,
+}
+
+/// A type of advancement point.
+#[derive(Debug, Clone)]
+pub enum AdvancementPointType {
+    /// A skill point
+    Skill,
+    /// An attribute point
+    Attribute,
 }
 
 impl AdvancementPoints {

@@ -14,6 +14,7 @@ mod action;
 use action::*;
 
 mod component;
+pub use component::AdvancementPointType;
 pub use component::AttributeDescription;
 pub use component::AttributeType;
 pub use component::Pronouns;

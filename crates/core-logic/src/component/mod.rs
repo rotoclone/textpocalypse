@@ -91,6 +91,7 @@ pub use item::get_hands_to_equip;
 pub use item::Item;
 
 mod stats;
+pub use stats::AdvancementPointType;
 pub use stats::AdvancementPoints;
 pub use stats::Attribute;
 pub use stats::Attributes;

@@ -21,6 +21,34 @@ impl SkillNameCatalog {
         }
     }
 
+    /// Gets the name of the provided skill.
+    pub fn get_name(skill: &Skill, world: &World) -> String {
+        world.resource::<SkillNameCatalog>().get(skill)
+    }
+
+    /// Gets the skill with the provided name, if there is one.
+    /// If multiple skills have the provided name, the first one found will be returned.
+    pub fn get_skill(skill_name: &str, world: &World) -> Option<Skill> {
+        let catalog = world.resource::<SkillNameCatalog>();
+        if let Some((skill, _)) = catalog
+            .standard
+            .iter()
+            .find(|(_, name)| name.as_str() == skill_name)
+        {
+            return Some(skill.clone());
+        }
+
+        if let Some((custom_skill, _)) = catalog
+            .custom
+            .iter()
+            .find(|(_, name)| name.as_str() == skill_name)
+        {
+            return Some(Skill::Custom(custom_skill.clone()));
+        }
+
+        None
+    }
+
     /// Sets the name of the provided skill.
     pub fn set(&mut self, skill: &Skill, name: String) {
         match skill {

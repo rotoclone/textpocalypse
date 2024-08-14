@@ -53,8 +53,7 @@ pub use map_description::MapDescription;
 mod help_description;
 pub use help_description::HelpDescription;
 
-mod advancement_point_type;
-pub use advancement_point_type::AdvancementPointType;
+use crate::AdvancementPointType;
 
 /// Resolution of the visualization for short vital change messages.
 const SHORT_VITAL_CHANGE_RESOLUTION: u8 = 10;

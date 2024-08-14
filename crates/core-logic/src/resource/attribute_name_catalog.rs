@@ -40,6 +40,11 @@ impl AttributeNameCatalog {
         }
     }
 
+    /// Gets the name of the provided attribute.
+    pub fn get_name(attribute: &Attribute, world: &World) -> AttributeName {
+        world.resource::<AttributeNameCatalog>().get(attribute)
+    }
+
     /// Sets the name of the provided attribute.
     pub fn set(&mut self, attribute: &Attribute, name: AttributeName) {
         match attribute {
