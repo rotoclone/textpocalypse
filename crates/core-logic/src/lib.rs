@@ -148,6 +148,7 @@ impl StandardInputParsers {
                 Box::new(RangesParser),
                 Box::new(StopParser),
                 Box::new(PlayersParser),
+                Box::new(SpendAdvancementPointParser),
                 Box::new(HelpParser),
             ],
         }
@@ -783,6 +784,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
     }
 
     if let Some(player) = world.entity_mut(entity).take::<Player>() {
+        // TODO copy player's stats into the new entity
         let new_entity = spawn_player(name, player, find_afterlife_room(world), world);
 
         // players shouldn't have vitals until they actually respawn

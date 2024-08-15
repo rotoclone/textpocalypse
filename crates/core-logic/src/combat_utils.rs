@@ -633,6 +633,25 @@ pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
 ) {
+    /* TODO queueing wielding a weapon and attacking with it means this will auto-unequip the weapon
+
+    wield bat
+    Action queued.
+
+    k player 1
+    Action queued.
+
+    Player 1 attacks you!
+
+    [||||'] Player 1's fist glances off of your torso.
+
+    Ow, your torso!
+    Health: [||||||||||||||||||  ] 88/100
+
+    You take out your baseball bat.
+
+    You put away your baseball bat.
+     */
     let performing_entity = notification.notification_type.performing_entity;
     let weapon_entity = notification.contents.get_weapon();
 

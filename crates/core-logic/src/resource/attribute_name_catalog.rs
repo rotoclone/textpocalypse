@@ -45,6 +45,30 @@ impl AttributeNameCatalog {
         world.resource::<AttributeNameCatalog>().get(attribute)
     }
 
+    /// Gets the attribute with the provided name, ignoring case, if there is one.
+    /// If multiple attributes have the provided name, the first one found will be returned.
+    pub fn get_attribute(attribute_name: &str, world: &World) -> Option<Attribute> {
+        // TODO keep a reversed map so this doesn't have to search?
+        let catalog = world.resource::<AttributeNameCatalog>();
+        if let Some((attribute, _)) = catalog
+            .standard
+            .iter()
+            .find(|(_, name)| name.full.eq_ignore_ascii_case(attribute_name))
+        {
+            return Some(attribute.clone());
+        }
+
+        if let Some((custom_attribute, _)) = catalog
+            .custom
+            .iter()
+            .find(|(_, name)| name.full.eq_ignore_ascii_case(attribute_name))
+        {
+            return Some(Attribute::Custom(custom_attribute.clone()));
+        }
+
+        None
+    }
+
     /// Sets the name of the provided attribute.
     pub fn set(&mut self, attribute: &Attribute, name: AttributeName) {
         match attribute {

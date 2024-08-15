@@ -32,7 +32,7 @@ impl InputParser for SpendAdvancementPointParser {
     fn parse(
         &self,
         input: &str,
-        source_entity: Entity,
+        _: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         if let Some(captures) = SPEND_SKILL_POINT_PATTERN.captures(input) {

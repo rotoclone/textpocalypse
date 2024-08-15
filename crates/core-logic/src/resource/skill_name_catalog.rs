@@ -26,14 +26,15 @@ impl SkillNameCatalog {
         world.resource::<SkillNameCatalog>().get(skill)
     }
 
-    /// Gets the skill with the provided name, if there is one.
+    /// Gets the skill with the provided name, ignoring case, if there is one.
     /// If multiple skills have the provided name, the first one found will be returned.
     pub fn get_skill(skill_name: &str, world: &World) -> Option<Skill> {
+        // TODO keep a reversed map so this doesn't have to search?
         let catalog = world.resource::<SkillNameCatalog>();
         if let Some((skill, _)) = catalog
             .standard
             .iter()
-            .find(|(_, name)| name.as_str() == skill_name)
+            .find(|(_, name)| name.eq_ignore_ascii_case(skill_name))
         {
             return Some(skill.clone());
         }
@@ -41,7 +42,7 @@ impl SkillNameCatalog {
         if let Some((custom_skill, _)) = catalog
             .custom
             .iter()
-            .find(|(_, name)| name.as_str() == skill_name)
+            .find(|(_, name)| name.eq_ignore_ascii_case(skill_name))
         {
             return Some(Skill::Custom(custom_skill.clone()));
         }
