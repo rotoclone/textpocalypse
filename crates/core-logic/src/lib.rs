@@ -784,8 +784,15 @@ fn kill_entity(entity: Entity, world: &mut World) {
     }
 
     if let Some(player) = world.entity_mut(entity).take::<Player>() {
-        // TODO copy player's stats into the new entity
         let new_entity = spawn_player(name, player, find_afterlife_room(world), world);
+
+        // copy stats to new entity
+        if let Some(stats) = world.entity_mut(entity).take::<Stats>() {
+            world.entity_mut(new_entity).insert(stats);
+        }
+        if let Some(starting_stats) = world.entity_mut(entity).take::<StartingStats>() {
+            world.entity_mut(new_entity).insert(starting_stats);
+        }
 
         // players shouldn't have vitals until they actually respawn
         world.entity_mut(new_entity).remove::<Vitals>();
