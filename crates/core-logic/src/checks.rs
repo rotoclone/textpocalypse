@@ -355,7 +355,7 @@ impl Stats {
 /// Gives an entity XP for a check with the given result.
 fn award_xp(entity: Entity, stat: &Stat, result: CheckResult, base_xp: Xp, world: &mut World) {
     let repeat_mult =
-        REPEATED_CHECK_XP_MULTIPLIER.powf(CheckHistory::get_count(stat, entity, world) as f32);
+        REPEATED_CHECK_XP_MULTIPLIER.powf(CheckHistory::get_repetition_factor(stat, entity, world));
     let xp_mult = match result {
         CheckResult::Failure => FAILURE_XP_MULT,
         CheckResult::Success => SUCCESS_XP_MULT,
