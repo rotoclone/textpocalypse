@@ -10,14 +10,21 @@ use crate::{component::Skill, swap_tuple::swapped};
 pub struct SkillNameCatalog {
     standard: HashMap<Skill, String>,
     custom: HashMap<String, String>,
+    name_to_skill: HashMap<String, Skill>,
 }
 
 impl SkillNameCatalog {
     /// Creates the default catalog of names.
     pub fn new() -> SkillNameCatalog {
+        let standard_names = build_standard_names();
+        let name_to_skill = standard_names
+            .iter()
+            .map(|(skill, name)| (name.to_lowercase(), skill.clone()))
+            .collect();
         SkillNameCatalog {
-            standard: build_standard_names(),
+            standard: standard_names,
             custom: HashMap::new(),
+            name_to_skill,
         }
     }
 
@@ -27,31 +34,19 @@ impl SkillNameCatalog {
     }
 
     /// Gets the skill with the provided name, ignoring case, if there is one.
-    /// If multiple skills have the provided name, the first one found will be returned.
     pub fn get_skill(skill_name: &str, world: &World) -> Option<Skill> {
-        // TODO keep a reversed map so this doesn't have to search?
         let catalog = world.resource::<SkillNameCatalog>();
-        if let Some((skill, _)) = catalog
-            .standard
-            .iter()
-            .find(|(_, name)| name.eq_ignore_ascii_case(skill_name))
-        {
-            return Some(skill.clone());
-        }
-
-        if let Some((custom_skill, _)) = catalog
-            .custom
-            .iter()
-            .find(|(_, name)| name.eq_ignore_ascii_case(skill_name))
-        {
-            return Some(Skill::Custom(custom_skill.clone()));
-        }
-
-        None
+        catalog
+            .name_to_skill
+            .get(&skill_name.to_lowercase())
+            .cloned()
     }
 
     /// Sets the name of the provided skill.
     pub fn set(&mut self, skill: &Skill, name: String) {
+        self.name_to_skill
+            .insert(name.to_lowercase(), skill.clone());
+
         match skill {
             Skill::Custom(id) => self.custom.insert(id.clone(), name),
             _ => self.standard.insert(skill.clone(), name),
@@ -72,31 +67,31 @@ impl SkillNameCatalog {
 /// Builds the default display names of standard skills.
 fn build_standard_names() -> HashMap<Skill, String> {
     Skill::iter()
-        .map(|skill| swapped(get_default_name(&skill), skill))
+        .filter_map(|skill| get_default_name(&skill).map(|name| (skill, name)))
         .collect()
 }
 
 /// Gets the default display name of a skill.
-fn get_default_name(skill: &Skill) -> String {
+fn get_default_name(skill: &Skill) -> Option<String> {
     match skill {
-        Skill::Firearms => "Firearms",
-        Skill::Bows => "Bows",
-        Skill::Blades => "Blades",
-        Skill::Bludgeons => "Bludgeons",
-        Skill::Fists => "Fists",
-        Skill::Construction => "Construction",
-        Skill::Craft => "Craft",
-        Skill::Scavenge => "Scavenge",
-        Skill::Stealth => "Stealth",
-        Skill::Medicine => "Medicine",
-        Skill::Cook => "Cook",
-        Skill::Dodge => "Dodge",
-        Skill::Climb => "Climb",
-        Skill::Lockpick => "Lockpick",
-        Skill::Butchery => "Butchery",
-        Skill::Custom(_) => "_CUSTOM_",
+        Skill::Firearms => Some("Firearms"),
+        Skill::Bows => Some("Bows"),
+        Skill::Blades => Some("Blades"),
+        Skill::Bludgeons => Some("Bludgeons"),
+        Skill::Fists => Some("Fists"),
+        Skill::Construction => Some("Construction"),
+        Skill::Craft => Some("Craft"),
+        Skill::Scavenge => Some("Scavenge"),
+        Skill::Stealth => Some("Stealth"),
+        Skill::Medicine => Some("Medicine"),
+        Skill::Cook => Some("Cook"),
+        Skill::Dodge => Some("Dodge"),
+        Skill::Climb => Some("Climb"),
+        Skill::Lockpick => Some("Lockpick"),
+        Skill::Butchery => Some("Butchery"),
+        Skill::Custom(_) => None,
     }
-    .to_string()
+    .map(|s| s.to_string())
 }
 
 /// Gets the name of the provided skill.
