@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use strum::IntoEnumIterator;
 
-use crate::{component::Skill, swap_tuple::swapped};
+use crate::component::Skill;
 
 /// Map of skills to their display names.
 #[derive(Resource)]
