@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,8 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const RANGES_FORMAT: &str = "ranges";
 
-lazy_static! {
-    static ref RANGES_PATTERN: Regex = Regex::new("^(range|ranges|combat|com)$").unwrap();
-}
+static RANGES_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(range|ranges|combat|com)$").unwrap());
 
 pub struct RangesParser;
 

@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -23,14 +22,15 @@ const WAIT_VERB_NAME: &str = "wait";
 const WAIT_FORMAT: &str = "wait <>";
 const WAIT_TIME_CAPTURE: &str = "time";
 
-lazy_static! {
-    static ref WAIT_PATTERN: Regex = Regex::new("^wait( (?P<time>.*))?$").unwrap();
-    static ref MINUTES_PATTERN: Regex =
-        Regex::new("^(\\d+)( )?(m|min|mins|minute|minutes)$").unwrap();
-    static ref HOURS_PATTERN: Regex = Regex::new("^(\\d+)( )?(h|hr|hrs|hour|hours)$").unwrap();
-    static ref DAYS_PATTERN: Regex = Regex::new("^(\\d+)( )?(d|day|days)$").unwrap();
-    //TODO add some way to wait until the only queued actions across all players are wait actions
-}
+static WAIT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^wait( (?P<time>.*))?$").unwrap());
+static MINUTES_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(\\d+)( )?(m|min|mins|minute|minutes)$").unwrap());
+static HOURS_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(\\d+)( )?(h|hr|hrs|hour|hours)$").unwrap());
+static DAYS_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(\\d+)( )?(d|day|days)$").unwrap());
+//TODO add some way to wait until the only queued actions across all players are wait actions
 
 pub struct WaitParser;
 

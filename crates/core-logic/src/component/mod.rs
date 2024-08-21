@@ -91,12 +91,18 @@ pub use item::get_hands_to_equip;
 pub use item::Item;
 
 mod stats;
+pub use stats::AdvancementPointType;
+pub use stats::AdvancementPoints;
 pub use stats::Attribute;
 pub use stats::Attributes;
 pub use stats::Skill;
 pub use stats::Skills;
+pub use stats::StartingStats;
 pub use stats::Stat;
+pub use stats::StatAdvancement;
 pub use stats::Stats;
+pub use stats::Xp;
+pub use stats::XpAwardNotification;
 
 mod wearable;
 pub use wearable::Wearable;
@@ -148,6 +154,9 @@ use crate::DeathNotification;
 mod fist_actions;
 pub use fist_actions::FistActions;
 
+mod check_history;
+pub use check_history::CheckHistory;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(open_state::auto_open_connections, world);
@@ -194,6 +203,11 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(combat_state::remove_from_combat_on_death, world);
     NotificationHandlers::add_handler(combat_state::remove_from_combat_on_despawn, world);
+
+    NotificationHandlers::add_handler(
+        stats::increase_xp_and_advancement_points_on_xp_awarded,
+        world,
+    );
 }
 
 /// Removes a component from an entity when it dies.

@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -19,9 +18,8 @@ const SAY_VERB_NAME: &str = "say";
 const SAY_FORMAT: &str = "say <>";
 const TEXT_CAPTURE: &str = "text";
 
-lazy_static! {
-    static ref SAY_PATTERN: Regex = Regex::new("^(\"|say )(?P<text>.*)").unwrap();
-}
+static SAY_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(\"|say )(?P<text>.*)").unwrap());
 
 pub struct SayParser;
 

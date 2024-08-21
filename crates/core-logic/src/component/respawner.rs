@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -21,9 +20,7 @@ use super::{
 
 const RESPAWN_FORMAT: &str = "respawn";
 
-lazy_static! {
-    static ref RESPAWN_PATTERN: Regex = Regex::new("^(respawn|live)$").unwrap();
-}
+static RESPAWN_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(respawn|live)$").unwrap());
 
 struct RespawnParser;
 

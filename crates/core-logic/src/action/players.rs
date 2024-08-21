@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const PLAYERS_FORMAT: &str = "players";
 
-lazy_static! {
-    static ref PLAYERS_PATTERN: Regex = Regex::new("^(pl|players)$").unwrap();
-}
+static PLAYERS_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(pl|players)$").unwrap());
 
 pub struct PlayersParser;
 

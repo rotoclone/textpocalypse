@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -24,7 +26,7 @@ use crate::{
     ActionTag, BeforeActionNotification, Description, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     MessageTokens, SurroundingsMessageCategory, TokenName, TokenValue, VerifyActionNotification,
-    Volume,
+    Volume, Xp, STANDARD_CHECK_XP,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, EquipAction};
@@ -58,10 +60,8 @@ const THROW_FORMAT: &str = "throw <> at <>";
 const NAME_CAPTURE: &str = "name";
 const TARGET_CAPTURE: &str = "target";
 
-lazy_static! {
-    static ref THROW_PATTERN: Regex =
-        Regex::new("^throw (the )?(?P<name>.*) at (the )?(?P<target>.*)").unwrap();
-}
+static THROW_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^throw (the )?(?P<name>.*) at (the )?(?P<target>.*)").unwrap());
 
 pub struct ThrowParser;
 
@@ -285,7 +285,7 @@ impl Action for ThrowAction {
                     stat: Skill::Dodge.into(),
                     modifiers: CheckModifiers::none(),
                 },
-                VsCheckParams::second_wins_ties(),
+                VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
                 world,
             );
         } else {
@@ -296,6 +296,7 @@ impl Action for ThrowAction {
                 Attribute::Strength,
                 CheckModifiers::modify_value(-throw_penalty),
                 difficulty,
+                Xp(0), // you don't get XP for just throwing stuff at inanimate objects
                 world,
             );
         }

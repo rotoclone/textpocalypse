@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -25,10 +24,8 @@ const REMOVE_VERB_NAME: &str = "remove";
 const REMOVE_FORMAT: &str = "remove <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref REMOVE_PATTERN: Regex =
-        Regex::new("^(remove|take off) (the )?(?P<name>.*)").unwrap();
-}
+static REMOVE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(remove|take off) (the )?(?P<name>.*)").unwrap());
 
 pub struct RemoveParser;
 

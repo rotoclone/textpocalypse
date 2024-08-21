@@ -6,15 +6,32 @@ use std::{
 use bevy_ecs::prelude::*;
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::resource::{get_attribute_name, get_base_attribute, get_skill_name};
+use crate::{
+    resource::{get_attribute_name, get_base_attribute, get_skill_name},
+    send_message, GameMessage, IntegerExtensions, Notification, NotificationType,
+};
+
+/// The amount of XP needed for an entity to earn their first skill point.
+const XP_FOR_FIRST_SKILL_POINT: Xp = Xp(100);
+/// The amount of XP needed for an entity to earn their first attribute point.
+const XP_FOR_FIRST_ATTRIBUTE_POINT: Xp = Xp(300);
+
+/// How much more XP each advancement point needs than the previous one.
+const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.25;
+
+/// The stats an entity started with, before spending any advancement points.
+#[derive(Component)]
+pub struct StartingStats(pub Stats);
 
 /// The stats of an entity.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Stats {
     /// The innate attributes of the entity, like strength.
     pub attributes: Attributes,
     /// The learned skills of the entity, like cooking.
     pub skills: Skills,
+    /// The entity's XP and stuff.
+    pub advancement: StatAdvancement,
 }
 
 impl Stats {
@@ -23,6 +40,7 @@ impl Stats {
         Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
+            advancement: StatAdvancement::new(),
         }
     }
 
@@ -60,6 +78,7 @@ impl Stats {
 }
 
 /// The innate attributes of an entity, like strength.
+#[derive(Clone)]
 pub struct Attributes {
     standard: HashMap<Attribute, u16>,
     custom: HashMap<String, u16>,
@@ -109,6 +128,7 @@ impl Attributes {
 }
 
 /// The learned skills of an entity, like cooking.
+#[derive(Clone)]
 pub struct Skills {
     standard: HashMap<Skill, u16>,
     custom: HashMap<String, u16>,
@@ -133,7 +153,7 @@ impl Skills {
     }
 
     /// Gets the base value of the provided skill.
-    fn get_base(&self, skill: &Skill) -> u16 {
+    pub fn get_base(&self, skill: &Skill) -> u16 {
         *match skill {
             Skill::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -154,6 +174,126 @@ impl Skills {
             .map(|entry| (Skill::Custom(entry.0.clone()), *entry.1));
 
         standards.chain(customs).collect()
+    }
+}
+
+/// An amount of experience points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Xp(pub u64);
+
+/// A notification that an entity is getting some XP.
+///
+/// Generally, XP should only be awarded for "risky" actions, to avoid creating easy XP-grinding sources.
+/// If an action can be done repeatedly without any risk or using up any limited resources, it probably shouldn't award XP.
+#[derive(Debug)]
+pub struct XpAwardNotification {
+    /// The entity getting XP
+    pub entity: Entity,
+    /// The XP the entity is getting
+    pub xp_to_add: Xp,
+}
+
+impl NotificationType for XpAwardNotification {}
+
+/// Increases an entity's XP total when they are given XP, and awards any advancement points that are warranted.
+pub fn increase_xp_and_advancement_points_on_xp_awarded(
+    notification: &Notification<XpAwardNotification, ()>,
+    world: &mut World,
+) {
+    let entity = notification.notification_type.entity;
+    if let Some(mut stats) = world.get_mut::<Stats>(entity) {
+        stats.advancement.total_xp.0 += notification.notification_type.xp_to_add.0;
+
+        let mut messages = Vec::new();
+
+        let mut skill_points_gained = 0;
+        while stats.advancement.skill_points.xp_for_next <= stats.advancement.total_xp {
+            stats.advancement.skill_points.award_one();
+            skill_points_gained += 1;
+        }
+        if skill_points_gained > 0 {
+            messages.push(GameMessage::AdvancementPointsGained(
+                skill_points_gained,
+                AdvancementPointType::Skill,
+            ));
+        }
+
+        let mut attribute_points_gained = 0;
+        while stats.advancement.attribute_points.xp_for_next <= stats.advancement.total_xp {
+            stats.advancement.attribute_points.award_one();
+            attribute_points_gained += 1;
+        }
+        if attribute_points_gained > 0 {
+            messages.push(GameMessage::AdvancementPointsGained(
+                attribute_points_gained,
+                AdvancementPointType::Attribute,
+            ));
+        }
+
+        for message in messages {
+            send_message(world, entity, message);
+        }
+    }
+}
+
+/// Information about an entity's available avenues of increasing their stats.
+#[derive(Clone)]
+pub struct StatAdvancement {
+    /// The total amount of XP the entity has earned
+    pub total_xp: Xp,
+    /// The skill points of the entity
+    pub skill_points: AdvancementPoints,
+    /// The attribute points of the entity
+    pub attribute_points: AdvancementPoints,
+}
+
+/// The skill or attribute points of an entity.
+#[derive(Clone)]
+pub struct AdvancementPoints {
+    /// The total number of points the entity has earned
+    pub total_earned: u32,
+    /// The number of unspent points
+    pub available: u32,
+    /// The amount of XP needed for the next point
+    pub xp_for_next: Xp,
+}
+
+/// A type of advancement point.
+#[derive(Debug, Clone)]
+pub enum AdvancementPointType {
+    /// A skill point
+    Skill,
+    /// An attribute point
+    Attribute,
+}
+
+impl AdvancementPoints {
+    fn new(xp_for_first: Xp) -> AdvancementPoints {
+        AdvancementPoints {
+            total_earned: 0,
+            available: 0,
+            xp_for_next: xp_for_first,
+        }
+    }
+
+    /// Adds one advancement point, and updates the XP needed for the next one.
+    fn award_one(&mut self) {
+        self.total_earned += 1;
+        self.available += 1;
+        self.xp_for_next.0 += self
+            .xp_for_next
+            .0
+            .mul_and_round(ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER);
+    }
+}
+
+impl StatAdvancement {
+    fn new() -> StatAdvancement {
+        StatAdvancement {
+            total_xp: Xp(0),
+            skill_points: AdvancementPoints::new(XP_FOR_FIRST_SKILL_POINT),
+            attribute_points: AdvancementPoints::new(XP_FOR_FIRST_ATTRIBUTE_POINT),
+        }
     }
 }
 

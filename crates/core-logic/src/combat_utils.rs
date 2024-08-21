@@ -17,7 +17,7 @@ use crate::{
     Location, MessageCategory, MessageDelay, MessageFormat, Notification, Skill, Stats,
     SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
     Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
-    WeaponUnusableError,
+    WeaponUnusableError, STANDARD_CHECK_XP,
 };
 
 /// Multiplier applied to damage done to the head.
@@ -403,7 +403,7 @@ pub fn check_for_hit(
             stat: Skill::Dodge.into(),
             modifiers: CheckModifiers::none(),
         },
-        VsCheckParams::second_wins_ties(),
+        VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
         world,
     );
 
@@ -633,6 +633,25 @@ pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
 ) {
+    /* TODO queueing wielding a weapon and attacking with it means this will auto-unequip the weapon
+
+    wield bat
+    Action queued.
+
+    k player 1
+    Action queued.
+
+    Player 1 attacks you!
+
+    [||||'] Player 1's fist glances off of your torso.
+
+    Ow, your torso!
+    Health: [||||||||||||||||||  ] 88/100
+
+    You take out your baseball bat.
+
+    You put away your baseball bat.
+     */
     let performing_entity = notification.notification_type.performing_entity;
     let weapon_entity = notification.contents.get_weapon();
 

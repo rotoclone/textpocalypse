@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const VITALS_FORMAT: &str = "vitals";
 
-lazy_static! {
-    static ref VITALS_PATTERN: Regex = Regex::new("^(v|vi|vitals)$").unwrap();
-}
+static VITALS_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(v|vi|vitals)$").unwrap());
 
 pub struct VitalsParser;
 

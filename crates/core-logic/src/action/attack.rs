@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use rand::seq::SliceRandom;
 use regex::Regex;
 
@@ -32,11 +31,11 @@ const ATTACK_FORMAT: &str = "attack <>";
 const NAME_CAPTURE: &str = "name";
 const WEAPON_CAPTURE: &str = "weapon";
 
-lazy_static! {
-    static ref ATTACK_PATTERN: Regex = Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap();
-    static ref ATTACK_PATTERN_WITH_WEAPON: Regex =
-        Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap();
-}
+static ATTACK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap());
+static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
+});
 
 pub struct AttackParser;
 

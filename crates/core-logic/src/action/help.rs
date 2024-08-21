@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const HELP_FORMAT: &str = "help";
 
-lazy_static! {
-    static ref HELP_PATTERN: Regex = Regex::new("^help$").unwrap();
-}
+static HELP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^help$").unwrap());
 
 pub struct HelpParser;
 

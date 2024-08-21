@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use rand::Rng;
 use regex::Regex;
 
@@ -28,9 +27,7 @@ const WAKE_CHANCE_PER_TICK: f32 = 0.003;
 const SLEEP_FORMAT: &str = "sleep";
 const SLEEP_VERB_NAME: &str = "sleep";
 
-lazy_static! {
-    static ref SLEEP_PATTERN: Regex = Regex::new("^sleep$").unwrap();
-}
+static SLEEP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^sleep$").unwrap());
 
 pub struct SleepParser;
 

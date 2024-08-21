@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -27,9 +29,8 @@ const DRINK_VERB_NAME: &str = "drink";
 const DRINK_FORMAT: &str = "drink <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref DRINK_PATTERN: Regex = Regex::new("^drink (from )?(the )?(?P<name>.*)").unwrap();
-}
+static DRINK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^drink (from )?(the )?(?P<name>.*)").unwrap());
 
 pub struct DrinkParser;
 

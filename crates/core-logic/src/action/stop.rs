@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -16,9 +15,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 
 const STOP_FORMAT: &str = "stop";
 
-lazy_static! {
-    static ref STOP_PATTERN: Regex = Regex::new("^(stop|cancel)$").unwrap();
-}
+static STOP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(stop|cancel)$").unwrap());
 
 pub struct StopParser;
 

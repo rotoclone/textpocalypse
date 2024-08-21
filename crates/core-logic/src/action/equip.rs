@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -28,12 +27,12 @@ const EQUIP_FORMAT: &str = "equip <>";
 const UNEQUIP_FORMAT: &str = "unequip <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref EQUIP_PATTERN: Regex =
-        Regex::new("^(hold|equip|wield|unholster|take out) (the )?(?P<name>.*)").unwrap();
-    static ref UNEQUIP_PATTERN: Regex =
-        Regex::new("^(unhold|unequip|unwield|holster|stow|put away) (the )?(?P<name>.*)").unwrap();
-}
+static EQUIP_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(hold|equip|wield|unholster|take out) (the )?(?P<name>.*)").unwrap()
+});
+static UNEQUIP_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(unhold|unequip|unwield|holster|stow|put away) (the )?(?P<name>.*)").unwrap()
+});
 
 pub struct EquipParser;
 

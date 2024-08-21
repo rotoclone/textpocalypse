@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -25,9 +24,8 @@ const WEAR_VERB_NAME: &str = "wear";
 const WEAR_FORMAT: &str = "wear <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref WEAR_PATTERN: Regex = Regex::new("^(wear|put on) (the )?(?P<name>.*)").unwrap();
-}
+static WEAR_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(wear|put on) (the )?(?P<name>.*)").unwrap());
 
 pub struct WearParser;
 

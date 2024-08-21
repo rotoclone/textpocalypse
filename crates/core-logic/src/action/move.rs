@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification,
+    SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
 };
 
 use super::{
@@ -26,10 +25,8 @@ use super::{
 const MOVE_FORMAT: &str = "go <>";
 const MOVE_DIRECTION_CAPTURE: &str = "direction";
 
-lazy_static! {
-    static ref MOVE_PATTERN: Regex =
-        Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap();
-}
+static MOVE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap());
 
 pub struct MoveParser;
 
@@ -233,7 +230,7 @@ fn try_escape_combat(
                 stat: Attribute::Agility.into(),
                 modifiers: CheckModifiers::none(),
             },
-            VsCheckParams::second_wins_ties(),
+            VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
             world,
         );
 

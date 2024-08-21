@@ -1,7 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::{
@@ -29,9 +28,8 @@ const SLAM_VERB_NAME: &str = "slam";
 const SLAM_FORMAT: &str = "slam <>";
 const NAME_CAPTURE: &str = "name";
 
-lazy_static! {
-    static ref SLAM_PATTERN: Regex = Regex::new("^slam (the )?(?P<name>.*)").unwrap();
-}
+static SLAM_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^slam (the )?(?P<name>.*)").unwrap());
 
 struct SlamParser;
 
