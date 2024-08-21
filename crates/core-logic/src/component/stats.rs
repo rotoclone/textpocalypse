@@ -17,7 +17,7 @@ const XP_FOR_FIRST_SKILL_POINT: Xp = Xp(100);
 const XP_FOR_FIRST_ATTRIBUTE_POINT: Xp = Xp(300);
 
 /// How much more XP each advancement point needs than the previous one.
-const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.2;
+const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.25;
 
 /// The stats an entity started with, before spending any advancement points.
 #[derive(Component)]
