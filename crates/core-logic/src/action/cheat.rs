@@ -36,7 +36,7 @@ impl InputParser for CheatParser {
                         .map(|args_match| {
                             args_match
                                 .as_str()
-                                .split(" ")
+                                .split(",")
                                 .map(|s| s.to_string())
                                 .collect::<Vec<String>>()
                         })
@@ -75,7 +75,34 @@ impl Action for CheatAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         match self.command.as_str() {
             "give_xp" => give_xp(performing_entity, &self.args, world),
-            "set_hp" => set_hp(performing_entity, &self.args, world),
+            "set_hp" => set_vital(
+                performing_entity,
+                &self.args,
+                VitalType::Health,
+                "set_hp",
+                world,
+            ),
+            "set_satiety" => set_vital(
+                performing_entity,
+                &self.args,
+                VitalType::Satiety,
+                "set_satiety",
+                world,
+            ),
+            "set_hydration" => set_vital(
+                performing_entity,
+                &self.args,
+                VitalType::Hydration,
+                "set_hydration",
+                world,
+            ),
+            "set_energy" => set_vital(
+                performing_entity,
+                &self.args,
+                VitalType::Energy,
+                "set_energy",
+                world,
+            ),
             x => ActionResult::error(performing_entity, format!("Unknown cheat command: {x}")),
         }
     }
@@ -152,12 +179,18 @@ fn give_xp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
     }
 }
 
-fn set_hp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
+fn set_vital(
+    entity: Entity,
+    args: &[String],
+    vital_type: VitalType,
+    command_name: &str,
+    world: &mut World,
+) -> ActionResult {
     let target;
-    let new_hp;
+    let new_amount;
     if args.len() == 1 {
         target = entity;
-        new_hp = &args[0];
+        new_amount = &args[0];
     } else if args.len() == 2 {
         let target_name = &args[0];
         if let Some(t) = CommandTarget::parse(target_name).find_target_entity(entity, world) {
@@ -165,38 +198,51 @@ fn set_hp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
         } else {
             return ActionResult::error(entity, format!("Invalid target name: {target_name}",));
         }
-        new_hp = &args[1];
+        new_amount = &args[1];
     } else {
         return ActionResult::error(
             entity,
-            "set_hp requires 1 number or 1 target name and 1 number".to_string(),
+            format!("{command_name} requires 1 number, or 1 target name and 1 number"),
         );
     };
 
-    match new_hp.parse() {
+    match new_amount.parse() {
         Ok(amount) => {
-            VitalChange::<NoTokens> {
-                entity: target,
-                vital_type: VitalType::Health,
-                operation: ValueChangeOperation::Set,
-                amount,
-                message_params: vec![(
+            let mut message_params = vec![(
+                VitalChangeMessageParams::Direct {
+                    entity,
+                    message: "Zorp, magic".to_string(),
+                    category: MessageCategory::System,
+                },
+                VitalChangeVisualizationType::Full,
+            )];
+
+            if entity != target {
+                message_params.push((
                     VitalChangeMessageParams::Direct {
-                        entity,
-                        message: "Zorp, HP magic".to_string(),
+                        entity: target,
+                        message: "Zorp, magic".to_string(),
                         category: MessageCategory::System,
                     },
                     VitalChangeVisualizationType::Full,
-                )],
+                ));
+            }
+            VitalChange::<NoTokens> {
+                entity: target,
+                vital_type,
+                operation: ValueChangeOperation::Set,
+                amount,
+                message_params,
             }
             .apply(world);
 
-            let message = MessageFormat::new("Set ${target.name's} HP to ${amount}.")
+            let message = MessageFormat::new("Set ${target.name's} ${vital} to ${amount}.")
                 .expect("message format should be valid")
                 .interpolate(
                     entity,
                     &BasicTokens::new()
                         .with_entity("target".into(), target)
+                        .with_string("vital".into(), vital_type.to_string())
                         .with_string("amount".into(), amount.to_string()),
                     world,
                 )
