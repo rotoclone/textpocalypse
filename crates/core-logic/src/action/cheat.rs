@@ -7,10 +7,11 @@ use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     notification::VerifyResult,
+    resource::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     ActionTag, BasicTokens, BeforeActionNotification, CommandTarget, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, Notification, VerifyActionNotification, VitalChange, VitalType, World,
-    Xp, XpAwardNotification,
+    MessageFormat, NoTokens, Notification, Stat, Stats, VerifyActionNotification, VitalChange,
+    VitalType, World, Xp, XpAwardNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -103,6 +104,7 @@ impl Action for CheatAction {
                 "set_energy",
                 world,
             ),
+            "set_stat" => set_stat(performing_entity, &self.args, world),
             x => ActionResult::error(performing_entity, format!("Unknown cheat command: {x}")),
         }
     }
@@ -255,6 +257,83 @@ fn set_vital(
                 MessageDelay::None,
                 false,
             )
+        }
+        Err(e) => ActionResult::error(entity, format!("Error: {e}")),
+    }
+}
+
+fn set_stat(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
+    let target;
+    let stat_name;
+    let new_base_value;
+    if args.len() == 2 {
+        target = entity;
+        stat_name = &args[0];
+        new_base_value = &args[1];
+    } else if args.len() == 3 {
+        let target_name = &args[0];
+        if let Some(t) = CommandTarget::parse(target_name).find_target_entity(entity, world) {
+            target = t;
+        } else {
+            return ActionResult::error(entity, format!("Invalid target name: {target_name}",));
+        }
+        stat_name = &args[1];
+        new_base_value = &args[2];
+    } else {
+        return ActionResult::error(
+            entity,
+            "set_stat requires 1 stat name and 1 number, or 1 target name and 1 stat name and 1 number".to_string(),
+        );
+    }
+
+    let stat;
+    if let Some(attribute) = AttributeNameCatalog::get_attribute(stat_name, world) {
+        stat = Stat::Attribute(attribute);
+    } else if let Some(skill) = SkillNameCatalog::get_skill(stat_name, world) {
+        stat = Stat::Skill(skill);
+    } else {
+        return ActionResult::error(entity, format!("Invalid stat name: {stat_name}"));
+    }
+
+    match new_base_value.parse() {
+        Ok(base_value) => {
+            if let Some(mut stats) = world.get_mut::<Stats>(target) {
+                match &stat {
+                    Stat::Attribute(a) => stats.set_attribute(a, base_value),
+                    Stat::Skill(s) => stats.set_skill(s, base_value),
+                }
+
+                let message =
+                    MessageFormat::new("Set ${target.name's} base ${stat} to ${base_value}.")
+                        .expect("message format should be valid")
+                        .interpolate(
+                            entity,
+                            &BasicTokens::new()
+                                .with_entity("target".into(), target)
+                                .with_string("stat".into(), stat.to_string())
+                                .with_string("base_value".into(), base_value.to_string()),
+                            world,
+                        )
+                        .expect("message should interpolate correctly");
+
+                ActionResult::message(
+                    entity,
+                    message,
+                    MessageCategory::System,
+                    MessageDelay::None,
+                    false,
+                )
+            } else {
+                let message = MessageFormat::new("${target.Name} ${target.you:have/has} no stats.")
+                    .expect("message format should be valid")
+                    .interpolate(
+                        entity,
+                        &BasicTokens::new().with_entity("target".into(), target),
+                        world,
+                    )
+                    .expect("message should interpolate correctly");
+                ActionResult::error(entity, message)
+            }
         }
         Err(e) => ActionResult::error(entity, format!("Error: {e}")),
     }
