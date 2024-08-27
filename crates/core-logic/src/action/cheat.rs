@@ -9,9 +9,9 @@ use crate::{
     notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
-    ActionTag, BasicTokens, BeforeActionNotification, CommandTarget, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, Notification, Stat, Stats, VerifyActionNotification, VitalChange,
-    VitalType, World, Xp, XpAwardNotification,
+    ActionTag, BasicTokens, BeforeActionNotification, CommandTarget, Description, MessageCategory,
+    MessageDelay, MessageFormat, NoTokens, Notification, Stat, Stats, VerifyActionNotification,
+    VitalChange, VitalType, World, Xp, XpAwardNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -155,29 +155,47 @@ impl Action for CheatAction {
 }
 
 fn give_xp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
+    let target;
+    let xp;
     if args.len() == 1 {
-        match args[0].parse() {
-            Ok(amount) => {
-                Notification::send_no_contents(
-                    XpAwardNotification {
-                        entity,
-                        xp_to_add: Xp(amount),
-                    },
-                    world,
-                );
-
-                ActionResult::message(
-                    entity,
-                    format!("Awarded you {amount} XP."),
-                    MessageCategory::System,
-                    MessageDelay::None,
-                    false,
-                )
-            }
-            Err(e) => ActionResult::error(entity, format!("Error: {e}")),
+        target = entity;
+        xp = &args[0];
+    } else if args.len() == 2 {
+        let target_name = &args[0];
+        if let Some(t) = CommandTarget::parse(target_name).find_target_entity(entity, world) {
+            target = t;
+        } else {
+            return ActionResult::error(entity, format!("Invalid target name: {target_name}",));
         }
+        xp = &args[1];
     } else {
-        ActionResult::error(entity, "give_xp requires 1 number".to_string())
+        return ActionResult::error(
+            entity,
+            "give_xp requires 1 number, or 1 target name and 1 number".to_string(),
+        );
+    };
+
+    match xp.parse() {
+        Ok(amount) => {
+            Notification::send_no_contents(
+                XpAwardNotification {
+                    entity,
+                    xp_to_add: Xp(amount),
+                },
+                world,
+            );
+
+            let target_name = Description::get_reference_name(target, Some(entity), world);
+
+            ActionResult::message(
+                entity,
+                format!("Awarded {target_name} {amount} XP."),
+                MessageCategory::System,
+                MessageDelay::None,
+                false,
+            )
+        }
+        Err(e) => ActionResult::error(entity, format!("Error: {e}")),
     }
 }
 
