@@ -86,6 +86,8 @@ use message_format::*;
 mod dynamic_message;
 use dynamic_message::*;
 
+const CHEATS_ENABLED: bool = true;
+
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
     x: 0,
     y: 0,
@@ -123,35 +125,39 @@ struct StandardInputParsers {
 
 impl StandardInputParsers {
     pub fn new() -> StandardInputParsers {
-        StandardInputParsers {
-            parsers: vec![
-                Box::new(MoveParser),
-                Box::new(LookParser),
-                Box::new(OpenParser),
-                Box::new(InventoryParser),
-                Box::new(WornParser),
-                Box::new(PutParser),
-                Box::new(ThrowParser),
-                Box::new(PourParser),
-                Box::new(WearParser),
-                Box::new(RemoveParser),
-                Box::new(EquipParser),
-                Box::new(SayParser),
-                Box::new(VitalsParser),
-                Box::new(StatsParser),
-                Box::new(EatParser),
-                Box::new(DrinkParser),
-                Box::new(SleepParser),
-                Box::new(WaitParser),
-                Box::new(AttackParser),
-                Box::new(ChangeRangeParser),
-                Box::new(RangesParser),
-                Box::new(StopParser),
-                Box::new(PlayersParser),
-                Box::new(SpendAdvancementPointParser),
-                Box::new(HelpParser),
-            ],
+        let mut parsers: Vec<Box<dyn InputParser>> = vec![
+            Box::new(MoveParser),
+            Box::new(LookParser),
+            Box::new(OpenParser),
+            Box::new(InventoryParser),
+            Box::new(WornParser),
+            Box::new(PutParser),
+            Box::new(ThrowParser),
+            Box::new(PourParser),
+            Box::new(WearParser),
+            Box::new(RemoveParser),
+            Box::new(EquipParser),
+            Box::new(SayParser),
+            Box::new(VitalsParser),
+            Box::new(StatsParser),
+            Box::new(EatParser),
+            Box::new(DrinkParser),
+            Box::new(SleepParser),
+            Box::new(WaitParser),
+            Box::new(AttackParser),
+            Box::new(ChangeRangeParser),
+            Box::new(RangesParser),
+            Box::new(StopParser),
+            Box::new(PlayersParser),
+            Box::new(SpendAdvancementPointParser),
+            Box::new(HelpParser),
+        ];
+
+        if CHEATS_ENABLED {
+            parsers.push(Box::new(CheatParser));
         }
+
+        StandardInputParsers { parsers }
     }
 }
 

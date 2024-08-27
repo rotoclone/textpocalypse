@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bevy_ecs::prelude::*;
 
 use crate::{
@@ -60,6 +62,19 @@ pub enum VitalType {
     Satiety,
     Hydration,
     Energy,
+}
+
+impl Display for VitalType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            VitalType::Health => "health",
+            VitalType::Satiety => "satiety",
+            VitalType::Hydration => "hydration",
+            VitalType::Energy => "energy",
+        };
+
+        string.fmt(f)
+    }
 }
 
 /// A notification for after a vital value has been changed.

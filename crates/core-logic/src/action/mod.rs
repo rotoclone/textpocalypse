@@ -111,6 +111,9 @@ pub use spend_advacement_point::SpendAdvancementPointParser;
 pub use spend_advacement_point::SpendAttributePointAction;
 pub use spend_advacement_point::SpendSkillPointAction;
 
+mod cheat;
+pub use cheat::CheatParser;
+
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
     VerifyNotificationHandlers::add_handler(
