@@ -20,10 +20,14 @@ const SPEND_ATTRIBUTE_POINT_FORMAT: &str = "spend attribute point on <>";
 const TARGET_CAPTURE: &str = "target";
 
 static SPEND_SKILL_POINT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(spend skill point on|assign skill point to) (?P<target>.*)").unwrap()
+    Regex::new("^(spend skill point on|assign skill point to|increase skill) (?P<target>.*)")
+        .unwrap()
 });
 static SPEND_ATTRIBUTE_POINT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(spend attribute point on|assign attribute point to) (?P<target>.*)").unwrap()
+    Regex::new(
+        "^(spend attribute point on|assign attribute point to|increase attribute) (?P<target>.*)",
+    )
+    .unwrap()
 });
 
 pub struct SpendAdvancementPointParser;
