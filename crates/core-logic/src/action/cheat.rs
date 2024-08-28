@@ -179,7 +179,7 @@ fn give_xp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {
         Ok(amount) => {
             Notification::send_no_contents(
                 XpAwardNotification {
-                    entity,
+                    entity: target,
                     xp_to_add: Xp(amount),
                 },
                 world,
