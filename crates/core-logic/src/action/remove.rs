@@ -163,7 +163,7 @@ impl Action for RemoveAction {
                     DynamicMessage::new_third_person(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                        MessageFormat::new("${performing_entity.Name} takes ${target.name} off of ${wearing_entity.name}.")
+                        MessageFormat::new("${performing_entity.Name} strips ${target.name} off of ${wearing_entity.name}.")
                             .expect("message format should be valid"),
                             BasicTokens::new()
                             .with_entity("performing_entity".into(), performing_entity)
@@ -192,7 +192,7 @@ impl Action for RemoveAction {
             );
             ActionInterruptResult::message(
                 performing_entity,
-                format!("You stop taking things off of {wearing_entity_name}."),
+                format!("You stop stripping things off of {wearing_entity_name}."),
                 MessageCategory::Internal(InternalMessageCategory::Action),
                 MessageDelay::None,
             )
