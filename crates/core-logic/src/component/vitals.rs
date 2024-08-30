@@ -245,8 +245,8 @@ pub fn send_vitals_update_messages(
                     delay: MessageDelay::Short,
                     decorations: vec![MessageDecoration::VitalChange(VitalChangeDescription {
                         vital_type,
-                        old_value: old_value.clone(),
-                        new_value: new_value.clone(),
+                        old_value: *old_value,
+                        new_value: *new_value,
                     })],
                 },
             );

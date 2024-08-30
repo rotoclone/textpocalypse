@@ -17,10 +17,10 @@ impl VitalsDescription {
     /// Creates a vitals description for the provided vitals.
     pub fn from_vitals(vitals: &Vitals) -> VitalsDescription {
         VitalsDescription {
-            health: vitals.health.clone(),
-            satiety: vitals.satiety.clone(),
-            hydration: vitals.hydration.clone(),
-            energy: vitals.energy.clone(),
+            health: vitals.health,
+            satiety: vitals.satiety,
+            hydration: vitals.hydration,
+            energy: vitals.energy,
         }
     }
 }

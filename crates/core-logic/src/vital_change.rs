@@ -103,7 +103,7 @@ impl<T: MessageTokens> VitalChange<T> {
                 VitalType::Hydration => &mut vitals.hydration,
                 VitalType::Energy => &mut vitals.energy,
             };
-            let old_value = value.clone();
+            let old_value = *value;
 
             match self.operation {
                 ValueChangeOperation::Add => value.add(self.amount),
@@ -112,7 +112,7 @@ impl<T: MessageTokens> VitalChange<T> {
                 ValueChangeOperation::Set => value.set(self.amount),
             }
 
-            let new_value = value.clone();
+            let new_value = *value;
 
             let description = VitalChangeDescription {
                 vital_type: self.vital_type,
