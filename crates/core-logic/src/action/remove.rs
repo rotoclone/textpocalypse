@@ -129,19 +129,13 @@ impl Action for RemoveAction {
 
         if wearing_entity == performing_entity {
             result_builder = result_builder
-                .with_message(
-                    performing_entity,
-                    format!("You take off {target_name}."),
-                    MessageCategory::Internal(InternalMessageCategory::Action),
-                    MessageDelay::Short,
-                )
                 .with_dynamic_message(
                     Some(performing_entity),
                     DynamicMessageLocation::SourceEntity,
-                    DynamicMessage::new_third_person(
+                    DynamicMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                        MessageFormat::new("${performing_entity.Name} takes off ${target.name}.")
+                        MessageFormat::new("${performing_entity.Name} ${performing_entity.you:take/takes} off ${target.name}.")
                             .expect("message format should be valid"),
                         BasicTokens::new()
                             .with_entity("performing_entity".into(), performing_entity)
@@ -151,19 +145,13 @@ impl Action for RemoveAction {
                 );
         } else {
             result_builder = result_builder
-                .with_message(
-                    performing_entity,
-                    format!("You take {target_name} off of {wearing_entity_name}."),
-                    MessageCategory::Internal(InternalMessageCategory::Action),
-                    MessageDelay::Short,
-                )
                 .with_dynamic_message(
                     Some(performing_entity),
                     DynamicMessageLocation::SourceEntity,
-                    DynamicMessage::new_third_person(
+                    DynamicMessage::new(
                         MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                         MessageDelay::Short,
-                        MessageFormat::new("${performing_entity.Name} strips ${target.name} off of ${wearing_entity.name}.")
+                        MessageFormat::new("${performing_entity.Name} ${performing_entity.you:strip/strips} ${target.name} off of ${wearing_entity.name}.")
                             .expect("message format should be valid"),
                             BasicTokens::new()
                             .with_entity("performing_entity".into(), performing_entity)
