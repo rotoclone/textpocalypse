@@ -530,6 +530,7 @@ fn action_descriptions_to_string(
 
 /// Transforms the provided container description into a string for display.
 fn container_to_string(container: ContainerDescription) -> String {
+    //TODO take into account categories
     let contents = container
         .items
         .iter()
