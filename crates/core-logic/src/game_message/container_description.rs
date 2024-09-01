@@ -86,7 +86,7 @@ impl ContainerEntityDescription {
 }
 
 /// The category of an entity in a container
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContainerEntityCategory {
     /// Something that's mainly a weapon
     Weapon,

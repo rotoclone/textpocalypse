@@ -16,6 +16,7 @@ pub use ranges_description::WeaponRangeJudgementReason;
 
 mod container_description;
 pub use container_description::ContainerDescription;
+pub use container_description::ContainerEntityCategory;
 pub use container_description::ContainerEntityDescription;
 
 mod worn_items_description;

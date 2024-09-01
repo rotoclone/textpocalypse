@@ -1,7 +1,7 @@
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
-use std::{cmp::Ordering, collections::HashMap, hash::Hash};
+use std::{cmp::Ordering, collections::HashMap, fmt::Display, hash::Hash};
 use strum::IntoEnumIterator;
 use voca_rs::Voca;
 
@@ -528,13 +528,128 @@ fn action_descriptions_to_string(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum ContainerCategory {
+    Equipped,
+    Worn,
+    EntityCategory(ContainerEntityCategory),
+}
+
+impl ContainerCategory {
+    /// Determines which category an item should be displayed in.
+    fn from_container_entity_description(item: &ContainerEntityDescription) -> ContainerCategory {
+        if item.is_equipped {
+            ContainerCategory::Equipped
+        } else if item.is_being_worn {
+            ContainerCategory::Worn
+        } else {
+            ContainerCategory::EntityCategory(item.category)
+        }
+    }
+}
+
+impl PartialOrd for ContainerCategory {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ContainerCategory {
+    fn cmp(&self, other: &Self) -> Ordering {
+        category_order_num(self).cmp(&category_order_num(other))
+    }
+}
+
+/// Returns a number used for ordering displayed categories (smaller numbered categories will be displayed first).
+fn category_order_num(category: &ContainerCategory) -> u32 {
+    match category {
+        ContainerCategory::Equipped => 0,
+        ContainerCategory::Worn => 1,
+        ContainerCategory::EntityCategory(c) => match c {
+            ContainerEntityCategory::Weapon => 2,
+            ContainerEntityCategory::Wearable => 3,
+            ContainerEntityCategory::Consumable => 4,
+            ContainerEntityCategory::Container => 5,
+            ContainerEntityCategory::Other => 6,
+        },
+    }
+}
+
+impl Display for ContainerCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ContainerCategory::Equipped => "Equipped".fmt(f),
+            ContainerCategory::Worn => "Worn".fmt(f),
+            ContainerCategory::EntityCategory(c) => container_entity_category_label(c).fmt(f),
+        }
+    }
+}
+
+/// Gets the label to use for the provided container entity category when printing a container's contents.
+fn container_entity_category_label(category: &ContainerEntityCategory) -> String {
+    let string = match category {
+        ContainerEntityCategory::Weapon => "Weapons",
+        ContainerEntityCategory::Wearable => "Clothing",
+        ContainerEntityCategory::Consumable => "Consumables",
+        ContainerEntityCategory::Container => "Containers",
+        ContainerEntityCategory::Other => "Other",
+    };
+
+    string.to_string()
+}
+
 /// Transforms the provided container description into a string for display.
 fn container_to_string(container: ContainerDescription) -> String {
-    //TODO take into account categories
-    let contents = container
+    let category_to_items = container
         .items
+        .into_iter()
+        .map(|item| {
+            (
+                ContainerCategory::from_container_entity_description(&item),
+                item,
+            )
+        })
+        .into_group_map();
+
+    let equipped = if let Some(equipped_items) = category_to_items.get(&ContainerCategory::Equipped)
+    {
+        format!(
+            "{}\n",
+            build_container_category_string(ContainerCategory::Equipped, equipped_items)
+        )
+    } else {
+        "".to_string()
+    };
+
+    let worn = if let Some(worn_items) = category_to_items.get(&ContainerCategory::Worn) {
+        format!(
+            "{}\n",
+            build_container_category_string(ContainerCategory::Worn, worn_items)
+        )
+    } else {
+        "".to_string()
+    };
+
+    let equipped_and_worn = if equipped.is_empty() && worn.is_empty() {
+        "".to_string()
+    } else {
+        format!("{equipped}{worn}\n")
+    };
+
+    let other_categories = category_to_items
         .iter()
-        .map(|item| format!("{INDENT}{}", container_entity_to_string(item)))
+        .sorted_by_key(|(c, _)| *c)
+        .filter_map(|(category, items)| {
+            match category {
+                // equipped and worn items are handled separately above
+                ContainerCategory::Equipped => None,
+                ContainerCategory::Worn => None,
+                ContainerCategory::EntityCategory(c) => Some(build_container_category_string(
+                    ContainerCategory::EntityCategory(*c),
+                    items,
+                )),
+            }
+        })
         .join("\n");
 
     let max_volume = container
@@ -550,24 +665,30 @@ fn container_to_string(container: ContainerDescription) -> String {
         container.used_volume, max_volume, container.used_weight, max_weight
     );
 
-    format!("Contents:\n{contents}\n\nTotal: {usage}")
+    format!("Contents:\n{equipped_and_worn}{other_categories}\n\nTotal: {usage}")
+}
+
+/// Builds a string describing the items in a category in a container.
+fn build_container_category_string(
+    category: ContainerCategory,
+    items: &[ContainerEntityDescription],
+) -> String {
+    let label = format!("{INDENT}{category}:\n");
+    let items_string = items
+        .iter()
+        .map(|item| format!("{INDENT}{INDENT}{}", container_entity_to_string(item)))
+        .join("\n");
+
+    format!("{label}{items_string}")
 }
 
 /// Transforms the provided container entity description into a string for display.
 fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
     let volume_and_weight = format!("[{:.2}L] [{:.2}kg]", entity.volume, entity.weight);
-    let worn_tag = if entity.is_being_worn { " (worn)" } else { "" };
-    let equipped_tag = if entity.is_equipped {
-        " (equipped)"
-    } else {
-        ""
-    };
 
     format!(
-        "{}{}{} {}",
+        "{} {}",
         style(entity.name.clone()).bold(),
-        worn_tag,
-        equipped_tag,
         style(volume_and_weight).dark_grey(),
     )
 }
