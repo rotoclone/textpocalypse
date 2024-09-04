@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{Container, Description, Volume, Weight},
-    find_wearing_entity, find_wielding_entity,
+    find_wearing_entity, find_wielding_entity, Edible, FluidContainer, Weapon, Wearable,
 };
 
 /// The description of a container.
@@ -49,6 +49,8 @@ impl ContainerDescription {
 /// The description of an item in a container.
 #[derive(Debug, Clone)]
 pub struct ContainerEntityDescription {
+    /// The category of the item.
+    pub category: ContainerEntityCategory,
     /// The name of the item.
     pub name: String,
     /// The volume of the item.
@@ -73,11 +75,46 @@ impl ContainerEntityDescription {
         let is_equipped = find_wielding_entity(entity, world).is_some();
 
         Some(ContainerEntityDescription {
+            category: ContainerEntityCategory::from_entity(entity, world),
             name: desc.name.clone(),
             volume,
             weight,
             is_being_worn,
             is_equipped,
         })
+    }
+}
+
+/// The category of an entity in a container
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ContainerEntityCategory {
+    /// Something that's mainly a weapon
+    Weapon,
+    /// Something that can be worn
+    Wearable,
+    /// Something that can be eaten or otherwise consumed
+    Consumable,
+    /// Something that can hold other things
+    Container,
+    /// Something that doesn't fit into the other categories
+    Other,
+}
+
+impl ContainerEntityCategory {
+    /// Determines which category a given entity is in
+    fn from_entity(entity: Entity, world: &World) -> ContainerEntityCategory {
+        if world.get::<Weapon>(entity).is_some() {
+            ContainerEntityCategory::Weapon
+        } else if world.get::<Wearable>(entity).is_some() {
+            ContainerEntityCategory::Wearable
+        } else if world.get::<Edible>(entity).is_some()
+            || world.get::<FluidContainer>(entity).is_some()
+        {
+            ContainerEntityCategory::Consumable
+        } else if world.get::<Container>(entity).is_some() {
+            ContainerEntityCategory::Container
+        } else {
+            ContainerEntityCategory::Other
+        }
     }
 }
