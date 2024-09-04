@@ -261,8 +261,8 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
         }
 
         // non-players with actions
-        for (entity, mut action_queue, _) in world
-            .query::<(Entity, &mut ActionQueue, Without<Player>)>()
+        for (entity, mut action_queue) in world
+            .query_filtered::<(Entity, &mut ActionQueue), Without<Player>>()
             .iter_mut(world)
         {
             action_queue.update_queue();
