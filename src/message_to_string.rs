@@ -393,18 +393,22 @@ fn entity_attributes_to_string(
     let mut has_descriptions = Vec::new();
     let mut wears_descriptions = Vec::new();
     let mut wields_descriptions = Vec::new();
+    let mut sections = Vec::new();
     let mut messages = Vec::new();
     for attribute in attributes {
         match attribute {
-            AttributeDescription::Basic(basic_attribute) => {
-                let description = basic_attribute.description.clone();
-                match basic_attribute.attribute_type {
-                    AttributeType::Is => is_descriptions.push(description),
-                    AttributeType::Does => does_descriptions.push(description),
-                    AttributeType::Has => has_descriptions.push(description),
-                    AttributeType::Wears => wears_descriptions.push(description),
-                    AttributeType::Wields => wields_descriptions.push(description),
+            AttributeDescription::NonSection(non_section_attribute) => {
+                let description = non_section_attribute.description.clone();
+                match non_section_attribute.attribute_type {
+                    NonSectionAttributeType::Is => is_descriptions.push(description),
+                    NonSectionAttributeType::Does => does_descriptions.push(description),
+                    NonSectionAttributeType::Has => has_descriptions.push(description),
+                    NonSectionAttributeType::Wears => wears_descriptions.push(description),
+                    NonSectionAttributeType::Wields => wields_descriptions.push(description),
                 }
+            }
+            AttributeDescription::Section(section) => {
+                sections.push(attribute_section_to_string(section));
             }
             AttributeDescription::Message(m) => messages.push(m),
         }
@@ -470,6 +474,12 @@ fn entity_attributes_to_string(
         ))
     };
 
+    let sections_description = if sections.is_empty() {
+        None
+    } else {
+        Some(sections.join("\n\n"))
+    };
+
     let messages_description = if messages.is_empty() {
         None
     } else {
@@ -489,10 +499,21 @@ fn entity_attributes_to_string(
             has_description,
             wears_description,
             wields_description,
+            sections_description,
             messages_description,
         ]
         .join("\n\n"),
     )
+}
+
+/// Transforms the provided attribute section into a string for display as part of an entity's description.
+fn attribute_section_to_string(section: AttributeSection) -> String {
+    let mut attributes = section
+        .attributes
+        .iter()
+        .map(|attribute| format!("{}: {}", attribute.name, attribute.description));
+
+    format!("--- {} ---\n{}", section.name, attributes.join("\n"))
 }
 
 /// Transforms the provided detailed entity description into a string for display.

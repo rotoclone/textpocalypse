@@ -63,6 +63,7 @@ impl EntityDescription {
             article: desc.article.clone(),
             pronouns,
             description: desc.description.clone(),
+            //TODO combine sections with the same name
             attributes: desc
                 .attribute_describers
                 .iter()

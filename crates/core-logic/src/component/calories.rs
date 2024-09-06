@@ -21,37 +21,6 @@ const SATIETY_GAIN_PER_CALORIE: f32 = 0.01;
 #[derive(Component)]
 pub struct Calories(pub u16);
 
-/// Describes the number of calories of an entity.
-#[derive(Debug)]
-struct CaloriesAttributeDescriber;
-
-impl AttributeDescriber for CaloriesAttributeDescriber {
-    fn describe(
-        &self,
-        _: Entity,
-        entity: Entity,
-        detail_level: AttributeDetailLevel,
-        world: &World,
-    ) -> Vec<AttributeDescription> {
-        if detail_level >= AttributeDetailLevel::Advanced {
-            if let Some(calories) = world.get::<Calories>(entity) {
-                return vec![AttributeDescription::does(format!(
-                    "contains {} calories",
-                    calories.0
-                ))];
-            }
-        }
-
-        Vec::new()
-    }
-}
-
-impl DescribeAttributes for Calories {
-    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
-        Box::new(CaloriesAttributeDescriber)
-    }
-}
-
 /// Increases satiety when an entity is eaten based on its calories.
 pub fn increase_satiety_on_eat(
     notification: &Notification<AfterActionPerformNotification, EatAction>,
