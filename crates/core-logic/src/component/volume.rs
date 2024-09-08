@@ -7,7 +7,9 @@ use std::{
 use bevy_ecs::prelude::*;
 use float_cmp::approx_eq;
 
-use crate::AttributeDescription;
+use crate::{
+    AttributeDescription, AttributeSection, AttributeSectionName, SectionAttributeDescription,
+};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
@@ -87,18 +89,18 @@ impl AttributeDescriber for VolumeAttributeDescriber {
         &self,
         _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        if detail_level >= AttributeDetailLevel::Advanced {
-            let volume = Volume::get(entity, world);
+        let volume = Volume::get(entity, world);
 
-            vec![AttributeDescription::does(format!(
-                "takes up {volume:.2} L of space"
-            ))]
-        } else {
-            Vec::new()
-        }
+        vec![AttributeDescription::Section(AttributeSection {
+            name: AttributeSectionName::Item,
+            attributes: vec![SectionAttributeDescription {
+                name: "Volume".to_string(),
+                description: format!("{volume:.2} L"),
+            }],
+        })]
     }
 }
 

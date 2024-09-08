@@ -392,9 +392,18 @@ pub enum NonSectionAttributeType {
 #[derive(Debug, Clone)]
 pub struct AttributeSection {
     /// The name of the section
-    pub name: String,
+    pub name: AttributeSectionName,
     /// The attributes in the section
     pub attributes: Vec<SectionAttributeDescription>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AttributeSectionName {
+    Wearable,
+    Edible,
+    Item,
+    Weapon,
+    Other(String),
 }
 
 #[derive(Debug, Clone)]

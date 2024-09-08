@@ -411,7 +411,6 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Item::get_attribute_describer(),
                     Edible::get_attribute_describer(),
-                    Calories::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],

@@ -7,7 +7,10 @@ use std::{
 use bevy_ecs::prelude::*;
 use float_cmp::approx_eq;
 
-use crate::{AttributeDescription, Container, Density, FluidContainer, Volume};
+use crate::{
+    AttributeDescription, AttributeSection, AttributeSectionName, Container, Density,
+    FluidContainer, SectionAttributeDescription, Volume,
+};
 
 use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
 
@@ -132,16 +135,18 @@ impl AttributeDescriber for WeightAttributeDescriber {
         &self,
         _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        if detail_level >= AttributeDetailLevel::Advanced {
-            let weight = Weight::get(entity, world);
+        let weight = Weight::get(entity, world);
 
-            vec![AttributeDescription::does(format!("weighs {weight:.2} kg"))]
-        } else {
-            Vec::new()
-        }
+        vec![AttributeDescription::Section(AttributeSection {
+            name: AttributeSectionName::Item,
+            attributes: vec![SectionAttributeDescription {
+                name: "Weight".to_string(),
+                description: format!("{weight:.2} kg"),
+            }],
+        })]
     }
 }
 

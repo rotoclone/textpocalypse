@@ -4,7 +4,10 @@ use bevy_ecs::prelude::*;
 
 use crate::AttributeDescription;
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
+    DescribeAttributes, SectionAttributeDescription,
+};
 
 /// Marks an entity as able to be picked up.
 #[derive(Component)]
@@ -41,30 +44,24 @@ pub fn get_hands_to_equip(entity: Entity, world: &World) -> Option<NonZeroU8> {
 
 /// Describes the number of hands needed to equip an entity.
 #[derive(Debug)]
-struct HandsNeededAttributeDescriber;
+struct ItemAttributeDescriber;
 
-impl AttributeDescriber for HandsNeededAttributeDescriber {
+impl AttributeDescriber for ItemAttributeDescriber {
     fn describe(
         &self,
         _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        if detail_level >= AttributeDetailLevel::Advanced {
-            if let Some(item) = world.get::<Item>(entity) {
-                let hand_or_hands = if item.hands_to_equip.get() > 1 {
-                    "hands"
-                } else {
-                    "hand"
-                };
-
-                return vec![AttributeDescription::does(format!(
-                    "requires {} {} to equip",
-                    item.hands_to_equip.get(),
-                    hand_or_hands,
-                ))];
-            }
+        if let Some(item) = world.get::<Item>(entity) {
+            return vec![AttributeDescription::Section(AttributeSection {
+                name: AttributeSectionName::Item,
+                attributes: vec![SectionAttributeDescription {
+                    name: "Hands to equip".to_string(),
+                    description: item.hands_to_equip.to_string(),
+                }],
+            })];
         }
 
         Vec::new()
@@ -73,6 +70,6 @@ impl AttributeDescriber for HandsNeededAttributeDescriber {
 
 impl DescribeAttributes for Item {
     fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
-        Box::new(HandsNeededAttributeDescriber)
+        Box::new(ItemAttributeDescriber)
     }
 }

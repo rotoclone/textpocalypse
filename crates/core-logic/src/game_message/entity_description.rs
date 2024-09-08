@@ -57,18 +57,40 @@ impl EntityDescription {
             desc.pronouns.clone()
         };
 
+        let raw_attributes = desc
+            .attribute_describers
+            .iter()
+            .flat_map(|d| d.describe(pov_entity, entity, detail_level, world))
+            .collect::<Vec<AttributeDescription>>();
+
+        let mut raw_sections = Vec::new();
+        let mut attributes = Vec::new();
+        for attribute_description in raw_attributes {
+            if let AttributeDescription::Section(s) = attribute_description {
+                raw_sections.push(s);
+            } else {
+                attributes.push(attribute_description);
+            }
+        }
+
+        // combine sections with the same name
+        raw_sections
+            .into_iter()
+            .into_grouping_map_by(|s| s.name.clone())
+            .reduce(|mut acc, _, v| {
+                acc.attributes.extend(v.attributes);
+                acc
+            })
+            .into_values()
+            .for_each(|s| attributes.push(AttributeDescription::Section(s)));
+
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
             article: desc.article.clone(),
             pronouns,
             description: desc.description.clone(),
-            //TODO combine sections with the same name
-            attributes: desc
-                .attribute_describers
-                .iter()
-                .flat_map(|d| d.describe(pov_entity, entity, detail_level, world))
-                .collect(),
+            attributes,
         }
     }
 }

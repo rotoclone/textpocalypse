@@ -513,7 +513,23 @@ fn attribute_section_to_string(section: AttributeSection) -> String {
         .iter()
         .map(|attribute| format!("{}: {}", attribute.name, attribute.description));
 
-    format!("--- {} ---\n{}", section.name, attributes.join("\n"))
+    format!(
+        "--- {} ---\n{}",
+        section_name_to_string(&section.name),
+        attributes.join("\n")
+    )
+}
+
+/// Gets the string version of the provided section name.
+fn section_name_to_string(section_name: &AttributeSectionName) -> String {
+    match section_name {
+        AttributeSectionName::Wearable => "Wearable",
+        AttributeSectionName::Edible => "Edible",
+        AttributeSectionName::Item => "Item",
+        AttributeSectionName::Weapon => "Weapon",
+        AttributeSectionName::Other(s) => s,
+    }
+    .to_string()
 }
 
 /// Transforms the provided detailed entity description into a string for display.

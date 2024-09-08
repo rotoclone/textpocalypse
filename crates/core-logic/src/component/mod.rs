@@ -5,6 +5,7 @@ pub use description::AttributeDescriber;
 pub use description::AttributeDescription;
 pub use description::AttributeDetailLevel;
 pub use description::AttributeSection;
+pub use description::AttributeSectionName;
 pub use description::DescribeAttributes;
 pub use description::Description;
 pub use description::NonSectionAttributeType;
