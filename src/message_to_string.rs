@@ -477,6 +477,7 @@ fn entity_attributes_to_string(
     let sections_description = if sections.is_empty() {
         None
     } else {
+        //TODO sort sections
         Some(sections.join("\n\n"))
     };
 
