@@ -528,6 +528,7 @@ fn section_name_to_string(section_name: &AttributeSectionName) -> String {
         AttributeSectionName::Edible => "Edible",
         AttributeSectionName::Item => "Item",
         AttributeSectionName::Weapon => "Weapon",
+        AttributeSectionName::FluidContainer => "Fluid Container",
         AttributeSectionName::Other(s) => s,
     }
     .to_string()

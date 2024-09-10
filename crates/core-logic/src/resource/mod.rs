@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::notification::NotificationHandlers;
+use crate::Stat;
 
 mod game_options;
 pub use game_options::GameOptions;
@@ -32,6 +33,9 @@ mod weapon_type_stat_catalog;
 pub use weapon_type_stat_catalog::WeaponTypeStatCatalog;
 pub use weapon_type_stat_catalog::WeaponTypeStats;
 
+mod weapon_type_name_catalog;
+pub use weapon_type_name_catalog::WeaponTypeNameCatalog;
+
 mod body_part_weights;
 pub use body_part_weights::BodyPartWeights;
 
@@ -53,4 +57,12 @@ pub fn register_resource_handlers(world: &mut World) {
         fluid_hydration_factor_catalog::increase_hydration_on_drink,
         world,
     );
+}
+
+/// Gets the name of a stat. If it's an attribute, the full name will be returned.
+pub fn get_stat_name(stat: &Stat, world: &World) -> String {
+    match stat {
+        Stat::Attribute(attribute) => AttributeNameCatalog::get_name(&attribute, world).full,
+        Stat::Skill(skill) => SkillNameCatalog::get_name(&skill, world),
+    }
 }

@@ -403,6 +403,7 @@ pub enum AttributeSectionName {
     Edible,
     Item,
     Weapon,
+    FluidContainer,
     Other(String),
 }
 
