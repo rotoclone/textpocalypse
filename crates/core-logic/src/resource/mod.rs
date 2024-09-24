@@ -48,6 +48,7 @@ pub fn insert_resources(world: &mut World) {
     world.insert_resource(SkillNameCatalog::new());
     world.insert_resource(SkillBaseAttributeCatalog::new());
     world.insert_resource(WeaponTypeStatCatalog::new());
+    world.insert_resource(WeaponTypeNameCatalog::new());
     world.insert_resource(BodyPartWeights::new());
 }
 
@@ -62,7 +63,7 @@ pub fn register_resource_handlers(world: &mut World) {
 /// Gets the name of a stat. If it's an attribute, the full name will be returned.
 pub fn get_stat_name(stat: &Stat, world: &World) -> String {
     match stat {
-        Stat::Attribute(attribute) => AttributeNameCatalog::get_name(&attribute, world).full,
-        Stat::Skill(skill) => SkillNameCatalog::get_name(&skill, world),
+        Stat::Attribute(attribute) => AttributeNameCatalog::get_name(attribute, world).full,
+        Stat::Skill(skill) => SkillNameCatalog::get_name(skill, world),
     }
 }

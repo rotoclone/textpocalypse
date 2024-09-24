@@ -8,10 +8,7 @@ use crate::{
     component::EquippedItems,
     format_list,
     range_extensions::RangeExtensions,
-    resource::{
-        get_stat_name, AttributeNameCatalog, SkillNameCatalog, WeaponTypeNameCatalog,
-        WeaponTypeStatCatalog,
-    },
+    resource::{get_stat_name, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
     AttributeSection, AttributeSectionName, MessageFormat, MessageTokens,
     SectionAttributeDescription, TokenName, TokenValue,
 };
@@ -164,7 +161,7 @@ struct WeaponAttributeDescriber;
 impl AttributeDescriber for WeaponAttributeDescriber {
     fn describe(
         &self,
-        _: Entity,
+        pov_entity: Entity,
         entity: Entity,
         _: AttributeDetailLevel,
         world: &World,
@@ -192,7 +189,7 @@ impl AttributeDescriber for WeaponAttributeDescriber {
 
             if let Some(to_hit_bonus_stat) = weapon_type_stats.to_hit_bonus {
                 attributes.push(SectionAttributeDescription {
-                    name: "To hit bonus stat".to_string(),
+                    name: "Accuracy bonus stat".to_string(),
                     description: get_stat_name(&to_hit_bonus_stat, world),
                 });
             }
@@ -202,14 +199,14 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                     .stat_requirements
                     .iter()
                     .map(|req| {
-                        let below_min_behavior = match req.below_min_behavior {
+                        let below_min_behavior = match &req.below_min_behavior {
                             WeaponStatRequirementNotMetBehavior::Unusable => "unusable".to_string(),
                             WeaponStatRequirementNotMetBehavior::FlatAdjustments(adjustments) => {
-                                describe_weapon_performance_reduction(&adjustments)
+                                describe_weapon_performance_reduction(adjustments)
                             }
                             WeaponStatRequirementNotMetBehavior::AdjustmentsPerPointBelowMin(
                                 adjustments,
-                            ) => describe_weapon_performance_reduction(&adjustments),
+                            ) => describe_weapon_performance_reduction(adjustments),
                         };
 
                         format!(
@@ -233,6 +230,12 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                 weapon.base_damage_range.end()
             );
 
+            let effective_damage_description =
+                match weapon.get_effective_damage_range(pov_entity, world) {
+                    Ok(range) => format!("{}-{}", range.start(), range.end()),
+                    Err(_) => "[unusable]".to_string(),
+                };
+
             attributes.extend_from_slice(&[
                 SectionAttributeDescription {
                     name: "Base damage".to_string(),
@@ -244,11 +247,11 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                 },
                 SectionAttributeDescription {
                     name: "Usable range".to_string(),
-                    description: usable_range_description,
+                    description: describe_range(&weapon.ranges.usable),
                 },
                 SectionAttributeDescription {
                     name: "Optimal range".to_string(),
-                    description: optimal_range_description,
+                    description: describe_range(&weapon.ranges.optimal),
                 },
             ]);
 
@@ -270,13 +273,21 @@ fn describe_weapon_performance_reduction(adjustments: &[WeaponPerformanceAdjustm
         .any(|adj| matches!(adj, WeaponPerformanceAdjustment::ToHit(_)));
 
     if damage_adjustment && to_hit_adjustment {
-        "reduced damage and to-hit".to_string()
+        "reduced damage and accuracy".to_string()
     } else if damage_adjustment {
         "reduced damage".to_string()
     } else if to_hit_adjustment {
-        "reduced to-hit".to_string()
+        "reduced accuracy".to_string()
     } else {
         "no penalty".to_string()
+    }
+}
+
+fn describe_range(range: &RangeInclusive<CombatRange>) -> String {
+    if range.start() == range.end() {
+        range.start().to_string()
+    } else {
+        format!("{}-{}", range.start(), range.end())
     }
 }
 

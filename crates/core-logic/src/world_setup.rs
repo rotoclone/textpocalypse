@@ -732,6 +732,7 @@ pub fn spawn_start_building(
                     Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Weapon::get_attribute_describer(),
                 ],
             },
             Item::new_two_handed(),
