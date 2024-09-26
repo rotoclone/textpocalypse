@@ -11,6 +11,7 @@ use crate::{BarStyle, TextBar};
 
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
+const ATTRIBUTE_SECTION_NAME_DECORATOR: &str = "---";
 
 const MAX_WIDTH: usize = 80;
 
@@ -408,11 +409,13 @@ fn entity_attributes_to_string(
                 }
             }
             AttributeDescription::Section(section) => {
-                sections.push(attribute_section_to_string(section));
+                sections.push(section);
             }
             AttributeDescription::Message(m) => messages.push(m),
         }
     }
+
+    sections.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     let capitalized_personal_subj_pronoun = pronouns.personal_subject._capitalize(false);
 
@@ -477,8 +480,12 @@ fn entity_attributes_to_string(
     let sections_description = if sections.is_empty() {
         None
     } else {
-        //TODO sort sections
-        Some(sections.join("\n\n"))
+        Some(
+            sections
+                .iter()
+                .map(attribute_section_to_string)
+                .join("\n\n"),
+        )
     };
 
     let messages_description = if messages.is_empty() {
@@ -508,15 +515,17 @@ fn entity_attributes_to_string(
 }
 
 /// Transforms the provided attribute section into a string for display as part of an entity's description.
-fn attribute_section_to_string(section: AttributeSection) -> String {
+fn attribute_section_to_string(section: &AttributeSection) -> String {
     let mut attributes = section
         .attributes
         .iter()
         .map(|attribute| format!("{}: {}", attribute.name, attribute.description));
 
     format!(
-        "--- {} ---\n{}",
+        "{} {} {}\n{}",
+        ATTRIBUTE_SECTION_NAME_DECORATOR.dark_grey(),
         section_name_to_string(&section.name),
+        ATTRIBUTE_SECTION_NAME_DECORATOR.dark_grey(),
         attributes.join("\n")
     )
 }
@@ -524,9 +533,9 @@ fn attribute_section_to_string(section: AttributeSection) -> String {
 /// Gets the string version of the provided section name.
 fn section_name_to_string(section_name: &AttributeSectionName) -> String {
     match section_name {
-        AttributeSectionName::Wearable => "Wearable",
-        AttributeSectionName::Edible => "Edible",
         AttributeSectionName::Item => "Item",
+        AttributeSectionName::Edible => "Edible",
+        AttributeSectionName::Wearable => "Wearable",
         AttributeSectionName::Weapon => "Weapon",
         AttributeSectionName::FluidContainer => "Fluid Container",
         AttributeSectionName::Other(s) => s,

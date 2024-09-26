@@ -397,11 +397,11 @@ pub struct AttributeSection {
     pub attributes: Vec<SectionAttributeDescription>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum AttributeSectionName {
-    Wearable,
-    Edible,
     Item,
+    Edible,
+    Wearable,
     Weapon,
     FluidContainer,
     Other(String),
