@@ -11,7 +11,7 @@ use crate::{BarStyle, TextBar};
 
 const INDENT: &str = "  ";
 const FIRST_PM_HOUR: u8 = 12;
-const ATTRIBUTE_SECTION_NAME_DECORATOR: &str = "---";
+const ATTRIBUTE_SECTION_NAME_DECORATOR: &str = "-";
 
 const MAX_WIDTH: usize = 80;
 
