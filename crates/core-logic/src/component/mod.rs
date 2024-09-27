@@ -4,10 +4,13 @@ mod description;
 pub use description::AttributeDescriber;
 pub use description::AttributeDescription;
 pub use description::AttributeDetailLevel;
-pub use description::AttributeType;
+pub use description::AttributeSection;
+pub use description::AttributeSectionName;
 pub use description::DescribeAttributes;
 pub use description::Description;
+pub use description::NonSectionAttributeType;
 pub use description::Pronouns;
+pub use description::SectionAttributeDescription;
 
 mod location;
 pub use location::Location;

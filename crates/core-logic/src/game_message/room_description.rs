@@ -139,6 +139,7 @@ impl ExitDescription {
                     .expect("Destination entity should be a room");
                 ExitDescription {
                     direction: connection.direction,
+                    //TODO if pov_entity can't see into the destination (e.g. if it's behind a closed door), use the name of the connection entity instead of the name of the destination room
                     description: destination_room.name.clone(),
                 }
             })

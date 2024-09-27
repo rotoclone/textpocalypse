@@ -2,7 +2,10 @@ use bevy_ecs::prelude::*;
 
 use crate::AttributeDescription;
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName, Calories,
+    DescribeAttributes, SectionAttributeDescription,
+};
 
 /// Marks an entity as edible.
 #[derive(Component)]
@@ -21,7 +24,17 @@ impl AttributeDescriber for EdibleAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if world.get::<Edible>(entity).is_some() {
-            return vec![AttributeDescription::is("edible".to_string())];
+            if let Some(calories) = world.get::<Calories>(entity) {
+                return vec![AttributeDescription::Section(AttributeSection {
+                    name: AttributeSectionName::Edible,
+                    attributes: vec![SectionAttributeDescription {
+                        name: "Calories".to_string(),
+                        description: calories.0.to_string(),
+                    }],
+                })];
+            } else {
+                return vec![AttributeDescription::is("edible".to_string())];
+            }
         }
 
         Vec::new()

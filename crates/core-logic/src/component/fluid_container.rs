@@ -11,8 +11,9 @@ use crate::{
 };
 
 use super::{
-    AttributeDescriber, AttributeDetailLevel, DescribeAttributes, Fluid, OpenState,
-    VerifyActionNotification, Volume,
+    AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
+    DescribeAttributes, Fluid, OpenState, SectionAttributeDescription, VerifyActionNotification,
+    Volume,
 };
 
 /// Fluid contents of an entity.
@@ -81,31 +82,18 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
 
             let used_volume = container.contents.get_total_volume();
 
-            let mut descriptions = Vec::new();
-
-            let is_full;
-            if let Some(volume) = container.volume {
-                descriptions.push(AttributeDescription::does(format!(
-                    "can hold {volume:.2} L of fluid"
-                )));
-
-                is_full = volume == used_volume;
+            let size_description = if let Some(volume) = container.volume {
+                format!("{volume:.2} L")
             } else {
-                is_full = false;
-            }
+                "infinite".to_string()
+            };
 
-            if fluid_names_to_volumes.is_empty() {
-                descriptions.push(AttributeDescription::is("empty".to_string()));
+            let contents_description = if fluid_names_to_volumes.is_empty() {
+                "nothing".to_string()
             } else if fluid_names_to_volumes.len() == 1 {
                 // unwrap is safe because we've checked that there's at least one element
                 let (fluid_name, fluid_volume) = fluid_names_to_volumes.iter().next().unwrap();
-                if is_full {
-                    descriptions.push(AttributeDescription::is(format!("full of {fluid_name}")));
-                } else {
-                    descriptions.push(AttributeDescription::does(format!(
-                        "contains {fluid_volume:.2} L of {fluid_name}"
-                    )));
-                }
+                format!("{fluid_volume:.2} L of {fluid_name}")
             } else {
                 let fluid_names_to_fractions = fluid_names_to_volumes
                     .into_iter()
@@ -118,18 +106,22 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
                     .map(|(name, fraction)| format!("{:.0}% {}", fraction * 100.0, name))
                     .join(", ");
 
-                if is_full {
-                    descriptions.push(AttributeDescription::is(format!(
-                        "full of a combination of {fluid_description}"
-                    )));
-                } else {
-                    descriptions.push(AttributeDescription::does(format!(
-                        "contains {used_volume:.2} L of a combination of {fluid_description}"
-                    )));
-                }
-            }
+                format!("{used_volume:.2} L of a combination of {fluid_description}")
+            };
 
-            return descriptions;
+            return vec![AttributeDescription::Section(AttributeSection {
+                name: AttributeSectionName::FluidContainer,
+                attributes: vec![
+                    SectionAttributeDescription {
+                        name: "Size".to_string(),
+                        description: size_description,
+                    },
+                    SectionAttributeDescription {
+                        name: "Contents".to_string(),
+                        description: contents_description,
+                    },
+                ],
+            })];
         }
 
         Vec::new()

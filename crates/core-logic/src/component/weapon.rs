@@ -5,11 +5,18 @@ use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
 use crate::{
-    component::EquippedItems, range_extensions::RangeExtensions, resource::WeaponTypeStatCatalog,
-    MessageFormat, MessageTokens, TokenName, TokenValue,
+    component::EquippedItems,
+    format_list,
+    range_extensions::RangeExtensions,
+    resource::{get_stat_name, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
+    AttributeSection, AttributeSectionName, MessageFormat, MessageTokens,
+    SectionAttributeDescription, TokenName, TokenValue,
 };
 
-use super::{combat_state::CombatRange, InnateWeapon, Stat};
+use super::{
+    combat_state::CombatRange, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
+    DescribeAttributes, InnateWeapon, Stat,
+};
 
 /// An entity that can deal damage.
 #[derive(Component)]
@@ -145,6 +152,149 @@ pub struct WeaponStatBonuses {
     pub to_hit_bonus_stat_range: RangeInclusive<f32>,
     /// The to-hit bonus per point in the weapon's to-hit bonus stat above the start and up to the end of the to-hit bonus stat range.
     pub to_hit_bonus_per_stat_point: f32,
+}
+
+/// Describes a weapon.
+#[derive(Debug)]
+struct WeaponAttributeDescriber;
+
+impl AttributeDescriber for WeaponAttributeDescriber {
+    fn describe(
+        &self,
+        pov_entity: Entity,
+        entity: Entity,
+        _: AttributeDetailLevel,
+        world: &World,
+    ) -> Vec<AttributeDescription> {
+        if let Some(weapon) = world.get::<Weapon>(entity) {
+            let weapon_type_stats = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world);
+
+            let mut attributes = vec![
+                SectionAttributeDescription {
+                    name: "Type".to_string(),
+                    description: WeaponTypeNameCatalog::get_name(&weapon.weapon_type, world),
+                },
+                SectionAttributeDescription {
+                    name: "Primary stat".to_string(),
+                    description: get_stat_name(&weapon_type_stats.primary, world),
+                },
+            ];
+
+            if let Some(damage_bonus_stat) = weapon_type_stats.damage_bonus {
+                attributes.push(SectionAttributeDescription {
+                    name: "Damage bonus stat".to_string(),
+                    description: get_stat_name(&damage_bonus_stat, world),
+                });
+            }
+
+            if let Some(to_hit_bonus_stat) = weapon_type_stats.to_hit_bonus {
+                attributes.push(SectionAttributeDescription {
+                    name: "Accuracy bonus stat".to_string(),
+                    description: get_stat_name(&to_hit_bonus_stat, world),
+                });
+            }
+
+            if !weapon.stat_requirements.is_empty() {
+                let requirement_descriptions = weapon
+                    .stat_requirements
+                    .iter()
+                    .map(|req| {
+                        let below_min_behavior = match &req.below_min_behavior {
+                            WeaponStatRequirementNotMetBehavior::Unusable => "unusable".to_string(),
+                            WeaponStatRequirementNotMetBehavior::FlatAdjustments(adjustments) => {
+                                describe_weapon_performance_reduction(adjustments)
+                            }
+                            WeaponStatRequirementNotMetBehavior::AdjustmentsPerPointBelowMin(
+                                adjustments,
+                            ) => describe_weapon_performance_reduction(adjustments),
+                        };
+
+                        format!(
+                            "{} below {:.1} {}",
+                            below_min_behavior,
+                            req.min,
+                            get_stat_name(&req.stat, world)
+                        )
+                    })
+                    .collect::<Vec<String>>();
+
+                attributes.push(SectionAttributeDescription {
+                    name: "Stat requirements".to_string(),
+                    description: format_list(&requirement_descriptions),
+                });
+            }
+
+            let base_damage_description = format!(
+                "{}-{}",
+                weapon.base_damage_range.start(),
+                weapon.base_damage_range.end()
+            );
+
+            let effective_damage_description =
+                match weapon.get_effective_damage_range(pov_entity, world) {
+                    Ok(range) => format!("{}-{}", range.start(), range.end()),
+                    Err(_) => "[unusable]".to_string(),
+                };
+
+            attributes.extend_from_slice(&[
+                SectionAttributeDescription {
+                    name: "Base damage".to_string(),
+                    description: base_damage_description,
+                },
+                SectionAttributeDescription {
+                    name: "Effective damage".to_string(),
+                    description: effective_damage_description,
+                },
+                SectionAttributeDescription {
+                    name: "Usable range".to_string(),
+                    description: describe_range(&weapon.ranges.usable),
+                },
+                SectionAttributeDescription {
+                    name: "Optimal range".to_string(),
+                    description: describe_range(&weapon.ranges.optimal),
+                },
+            ]);
+
+            return vec![AttributeDescription::Section(AttributeSection {
+                name: AttributeSectionName::Weapon,
+                attributes,
+            })];
+        }
+        Vec::new()
+    }
+}
+
+fn describe_weapon_performance_reduction(adjustments: &[WeaponPerformanceAdjustment]) -> String {
+    let damage_adjustment = adjustments
+        .iter()
+        .any(|adj| matches!(adj, WeaponPerformanceAdjustment::Damage(_)));
+    let to_hit_adjustment = adjustments
+        .iter()
+        .any(|adj| matches!(adj, WeaponPerformanceAdjustment::ToHit(_)));
+
+    if damage_adjustment && to_hit_adjustment {
+        "reduced damage and accuracy".to_string()
+    } else if damage_adjustment {
+        "reduced damage".to_string()
+    } else if to_hit_adjustment {
+        "reduced accuracy".to_string()
+    } else {
+        "no penalty".to_string()
+    }
+}
+
+fn describe_range(range: &RangeInclusive<CombatRange>) -> String {
+    if range.start() == range.end() {
+        range.start().to_string()
+    } else {
+        format!("{}-{}", range.start(), range.end())
+    }
+}
+
+impl DescribeAttributes for Weapon {
+    fn get_attribute_describer() -> Box<dyn super::AttributeDescriber> {
+        Box::new(WeaponAttributeDescriber)
+    }
 }
 
 /// Describes the messages to send when a weapon is used.

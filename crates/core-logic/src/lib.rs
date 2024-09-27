@@ -16,7 +16,9 @@ use action::*;
 mod component;
 pub use component::AdvancementPointType;
 pub use component::AttributeDescription;
-pub use component::AttributeType;
+pub use component::AttributeSection;
+pub use component::AttributeSectionName;
+pub use component::NonSectionAttributeType;
 pub use component::Pronouns;
 use component::*;
 

@@ -411,7 +411,6 @@ pub fn spawn_start_building(
                 attribute_describers: vec![
                     Item::get_attribute_describer(),
                     Edible::get_attribute_describer(),
-                    Calories::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                 ],
@@ -733,6 +732,7 @@ pub fn spawn_start_building(
                     Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
+                    Weapon::get_attribute_describer(),
                 ],
             },
             Item::new_two_handed(),

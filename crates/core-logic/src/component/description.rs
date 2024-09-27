@@ -316,8 +316,10 @@ pub enum AttributeDetailLevel {
 /// A description of a single attribute of an entity.
 #[derive(Debug, Clone)]
 pub enum AttributeDescription {
-    /// A basic attribute, like the fact that an entity is closed.
-    Basic(BasicAttributeDescription),
+    /// An attribute that should be described as a regular sentence, like the fact that an entity is closed.
+    NonSection(NonSectionAttributeDescription),
+    /// An attribute or set of attributes that should be described in a formatted section, like weapon stats.
+    Section(AttributeSection),
     /// A description in the form of a game message, like the contents of an entity.
     Message(GameMessage),
 }
@@ -325,56 +327,56 @@ pub enum AttributeDescription {
 impl AttributeDescription {
     /// Creates a description of something an entity is, like "closed" or "broken".
     pub fn is(description: String) -> AttributeDescription {
-        AttributeDescription::Basic(BasicAttributeDescription {
-            attribute_type: AttributeType::Is,
+        AttributeDescription::NonSection(NonSectionAttributeDescription {
+            attribute_type: NonSectionAttributeType::Is,
             description,
         })
     }
 
     /// Creates a description of something an entity does, like "glows" or "makes you feel uneasy".
     pub fn does(description: String) -> AttributeDescription {
-        AttributeDescription::Basic(BasicAttributeDescription {
-            attribute_type: AttributeType::Does,
+        AttributeDescription::NonSection(NonSectionAttributeDescription {
+            attribute_type: NonSectionAttributeType::Does,
             description,
         })
     }
 
     /// Creates a description of something an entity has, like "3 uses left" or "some bites taken out of it".
     pub fn has(description: String) -> AttributeDescription {
-        AttributeDescription::Basic(BasicAttributeDescription {
-            attribute_type: AttributeType::Has,
+        AttributeDescription::NonSection(NonSectionAttributeDescription {
+            attribute_type: NonSectionAttributeType::Has,
             description,
         })
     }
 
     /// Creates a description of something an entity is wearing, like "pants".
     pub fn wears(description: String) -> AttributeDescription {
-        AttributeDescription::Basic(BasicAttributeDescription {
-            attribute_type: AttributeType::Wears,
+        AttributeDescription::NonSection(NonSectionAttributeDescription {
+            attribute_type: NonSectionAttributeType::Wears,
             description,
         })
     }
 
     /// Creates a description of something an entity is wielding, like "a rock".
     pub fn wields(description: String) -> AttributeDescription {
-        AttributeDescription::Basic(BasicAttributeDescription {
-            attribute_type: AttributeType::Wields,
+        AttributeDescription::NonSection(NonSectionAttributeDescription {
+            attribute_type: NonSectionAttributeType::Wields,
             description,
         })
     }
 }
 
-/// A basic description of a single attribute of an entity.
+/// A description of a single attribute of an entity that shouldn't be part of a description section.
 #[derive(Debug, Clone)]
-pub struct BasicAttributeDescription {
+pub struct NonSectionAttributeDescription {
     /// The type of attribute.
-    pub attribute_type: AttributeType,
+    pub attribute_type: NonSectionAttributeType,
     /// The descrption of the attribute.
     pub description: String,
 }
 
 #[derive(Debug, Clone)]
-pub enum AttributeType {
+pub enum NonSectionAttributeType {
     /// Something the entity is, like "closed" or "broken".
     Is,
     /// Something the entity does, like "glows" or "makes you feel uneasy".
@@ -385,6 +387,32 @@ pub enum AttributeType {
     Wears,
     /// Something the entity is wielding, like "a rock".
     Wields,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttributeSection {
+    /// The name of the section
+    pub name: AttributeSectionName,
+    /// The attributes in the section
+    pub attributes: Vec<SectionAttributeDescription>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum AttributeSectionName {
+    Item,
+    Edible,
+    Wearable,
+    Weapon,
+    FluidContainer,
+    Other(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct SectionAttributeDescription {
+    /// The name of the attribute, e.g. "Weight"
+    pub name: String,
+    /// The description of the attribute, e.g. "10 kg"
+    pub description: String,
 }
 
 /// Trait for components that have describable attributes.

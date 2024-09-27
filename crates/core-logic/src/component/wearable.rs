@@ -5,7 +5,10 @@ use itertools::Itertools;
 
 use crate::{format_list, AttributeDescription, BodyPart};
 
-use super::{AttributeDescriber, AttributeDetailLevel, DescribeAttributes};
+use super::{
+    AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
+    DescribeAttributes, SectionAttributeDescription,
+};
 
 /// An entity that can be worn.
 #[derive(Component)]
@@ -25,10 +28,9 @@ impl AttributeDescriber for WearableAttributeDescriber {
         &self,
         _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
-        let mut descs = Vec::new();
         if let Some(wearable) = world.get::<Wearable>(entity) {
             let body_parts = wearable
                 .body_parts
@@ -36,20 +38,23 @@ impl AttributeDescriber for WearableAttributeDescriber {
                 .map(|part| part.to_string())
                 .sorted()
                 .collect::<Vec<String>>();
-            descs.push(AttributeDescription::does(format!(
-                "covers the {}",
-                format_list(&body_parts)
-            )));
 
-            if detail_level >= AttributeDetailLevel::Advanced {
-                descs.push(AttributeDescription::has(format!(
-                    "a thickness of {}",
-                    wearable.thickness
-                )));
-            }
+            return vec![AttributeDescription::Section(AttributeSection {
+                name: AttributeSectionName::Wearable,
+                attributes: vec![
+                    SectionAttributeDescription {
+                        name: "Body parts".to_string(),
+                        description: format_list(&body_parts),
+                    },
+                    SectionAttributeDescription {
+                        name: "Thickness".to_string(),
+                        description: wearable.thickness.to_string(),
+                    },
+                ],
+            })];
         }
 
-        descs
+        Vec::new()
     }
 }
 
