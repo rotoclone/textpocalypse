@@ -7,12 +7,10 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    AttributeDescription, InternalMessageCategory, MessageCategory, NoTokens,
+    InternalMessageCategory, MessageCategory, NoTokens,
 };
 
-use super::{
-    AfterActionPerformNotification, AttributeDescriber, AttributeDetailLevel, DescribeAttributes,
-};
+use super::AfterActionPerformNotification;
 
 /// The amount of satiety gained per calorie eaten.
 const SATIETY_GAIN_PER_CALORIE: f32 = 0.01;
