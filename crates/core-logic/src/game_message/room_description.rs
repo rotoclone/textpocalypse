@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::{
     component::{Connection, Container, Description, Room},
     game_map::Coordinates,
-    is_living_entity, Direction, MapDescription,
+    is_living_entity, Direction, MapDescription, OpenState,
 };
 
 #[derive(Debug, Clone)]
@@ -133,14 +133,24 @@ impl ExitDescription {
             .get_connections(pov_entity, world)
             .iter()
             .sorted_by(|a, b| a.1.direction.cmp(&b.1.direction))
-            .map(|(_, connection)| {
+            .map(|(connection_entity, connection)| {
                 let destination_room = world
                     .get::<Room>(connection.destination)
                     .expect("Destination entity should be a room");
+                let can_see_through = world
+                    .get::<OpenState>(*connection_entity)
+                    .map(|state| state.is_open)
+                    .unwrap_or(true);
+
+                let description = if can_see_through {
+                    destination_room.name.clone()
+                } else {
+                    Description::get_name(*connection_entity, world).unwrap_or_default()
+                };
+
                 ExitDescription {
                     direction: connection.direction,
-                    //TODO if pov_entity can't see into the destination (e.g. if it's behind a closed door), use the name of the connection entity instead of the name of the destination room
-                    description: destination_room.name.clone(),
+                    description,
                 }
             })
             .collect()
