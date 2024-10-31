@@ -5,6 +5,7 @@ use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
 use crate::{
+    choose_weapon,
     component::EquippedItems,
     format_list,
     range_extensions::RangeExtensions,
@@ -66,7 +67,29 @@ pub trait AttackType {
     fn get_target(&self) -> Entity;
 
     /// Gets the weapon used in the attack.
-    fn get_weapon(&self) -> Entity;
+    fn get_weapon(&self) -> ChosenWeapon;
+}
+
+/// Represents the weapon chosen for an attack.
+pub enum ChosenWeapon {
+    /// A specific weapon
+    Entity(Entity),
+    /// Whatever weapon the entity happens to be holding at the time
+    Unspecified,
+}
+
+impl ChosenWeapon {
+    /// Finds the entity for the chosen weapon to be used by `attacking_entity`, if one can be found.
+    pub fn get_entity<A: AttackType>(
+        &self,
+        attacking_entity: Entity,
+        world: &World,
+    ) -> Option<Entity> {
+        match self {
+            ChosenWeapon::Entity(e) => Some(*e),
+            ChosenWeapon::Unspecified => choose_weapon::<A>(attacking_entity, world),
+        }
+    }
 }
 
 /// Describes the ranges at which a weapon can be used.
