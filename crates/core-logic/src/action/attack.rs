@@ -15,7 +15,7 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, DynamicMessage,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
     WeaponMessages,
@@ -82,15 +82,30 @@ impl InputParser for AttackParser {
 #[derive(Debug)]
 pub struct AttackAction {
     pub target: Entity,
-    pub weapon: Entity,
+    pub weapon: ChosenWeapon,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let weapon_entity = self.weapon;
         let result_builder = ActionResult::builder();
+
+        let weapon_entity;
+        if let Some(e) = self
+            .weapon
+            .get_entity::<AttackAction>(performing_entity, world)
+        {
+            weapon_entity = e;
+        } else {
+            // weapon wasn't found
+            return result_builder
+                .with_error(
+                    performing_entity,
+                    "You have no weapon to attack with.".to_string(),
+                )
+                .build_complete_no_tick(false);
+        }
 
         if target == performing_entity {
             let weapon = world
@@ -134,7 +149,7 @@ impl Action for AttackAction {
                     }
                     .apply(world);
 
-                    return ActionResult::builder()
+                    return result_builder
                         .with_dynamic_message(
                             Some(performing_entity),
                             DynamicMessageLocation::SourceEntity,
@@ -216,7 +231,7 @@ impl Action for AttackAction {
             );
         }
 
-        result_builder.build_complete_should_tick(true)
+        return result_builder.build_complete_should_tick(true);
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
@@ -284,7 +299,7 @@ impl AttackType for AttackAction {
         self.target
     }
 
-    fn get_weapon(&self) -> Entity {
+    fn get_weapon(&self) -> ChosenWeapon {
         self.weapon
     }
 }

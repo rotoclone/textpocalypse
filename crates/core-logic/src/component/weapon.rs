@@ -10,7 +10,7 @@ use crate::{
     format_list,
     range_extensions::RangeExtensions,
     resource::{get_stat_name, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
-    AttributeSection, AttributeSectionName, MessageFormat, MessageTokens,
+    AttributeSection, AttributeSectionName, ChosenWeapon, MessageFormat, MessageTokens,
     SectionAttributeDescription, TokenName, TokenValue,
 };
 
@@ -68,28 +68,6 @@ pub trait AttackType {
 
     /// Gets the weapon used in the attack.
     fn get_weapon(&self) -> ChosenWeapon;
-}
-
-/// Represents the weapon chosen for an attack.
-pub enum ChosenWeapon {
-    /// A specific weapon
-    Entity(Entity),
-    /// Whatever weapon the entity happens to be holding at the time
-    Unspecified,
-}
-
-impl ChosenWeapon {
-    /// Finds the entity for the chosen weapon to be used by `attacking_entity`, if one can be found.
-    pub fn get_entity<A: AttackType>(
-        &self,
-        attacking_entity: Entity,
-        world: &World,
-    ) -> Option<Entity> {
-        match self {
-            ChosenWeapon::Entity(e) => Some(*e),
-            ChosenWeapon::Unspecified => choose_weapon::<A>(attacking_entity, world),
-        }
-    }
 }
 
 /// Describes the ranges at which a weapon can be used.

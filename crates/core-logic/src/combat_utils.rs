@@ -40,7 +40,30 @@ pub struct ParsedAttack {
     /// The target of the attack.
     pub target: Entity,
     /// The weapon to use for the attack.
-    pub weapon: Entity,
+    pub weapon: ChosenWeapon,
+}
+
+/// Represents the weapon chosen for an attack.
+#[derive(Debug, Clone, Copy)]
+pub enum ChosenWeapon {
+    /// A specific weapon
+    Entity(Entity),
+    /// Whatever weapon the entity happens to be holding at the time
+    Unspecified,
+}
+
+impl ChosenWeapon {
+    /// Finds the entity for the chosen weapon to be used by `attacking_entity`, if one can be found.
+    pub fn get_entity<A: AttackType>(
+        &self,
+        attacking_entity: Entity,
+        world: &World,
+    ) -> Option<Entity> {
+        match self {
+            ChosenWeapon::Entity(e) => Some(*e),
+            ChosenWeapon::Unspecified => choose_weapon::<A>(attacking_entity, world),
+        }
+    }
 }
 
 /// Parses input from `source_entity` as an attack command.
@@ -97,7 +120,7 @@ fn parse_attack_input_captures<A: AttackType>(
         verb_name,
         world,
     )?;
-    let weapon_entity = parse_attack_weapon::<A>(
+    let chosen_weapon = parse_attack_weapon::<A>(
         captures,
         weapon_capture_name,
         source_entity,
@@ -107,7 +130,7 @@ fn parse_attack_input_captures<A: AttackType>(
 
     Ok(ParsedAttack {
         target: target_entity,
-        weapon: weapon_entity,
+        weapon: chosen_weapon,
     })
 }
 
@@ -162,7 +185,7 @@ fn parse_attack_weapon<A: AttackType>(
     source_entity: Entity,
     verb_name: &str,
     world: &World,
-) -> Result<Entity, InputParseError> {
+) -> Result<ChosenWeapon, InputParseError> {
     if let Some(target_match) = captures.name(weapon_capture_name) {
         let weapon = CommandTarget::parse(target_match.as_str());
         if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
@@ -170,7 +193,7 @@ fn parse_attack_weapon<A: AttackType>(
                 && A::can_perform_with(weapon_entity, world)
             {
                 // weapon exists and is the correct type of weapon
-                return Ok(weapon_entity);
+                return Ok(ChosenWeapon::Entity(weapon_entity));
             }
             let weapon_name =
                 Description::get_reference_name(weapon_entity, Some(source_entity), world);
@@ -186,15 +209,7 @@ fn parse_attack_weapon<A: AttackType>(
     }
 
     // no weapon provided
-    if let Some(weapon_entity) = choose_weapon::<A>(source_entity, world) {
-        return Ok(weapon_entity);
-    }
-
-    // couldn't find a matching weapon
-    Err(InputParseError::CommandParseError {
-        verb: verb_name.to_string(),
-        error: CommandParseError::MissingTarget,
-    })
+    Ok(ChosenWeapon::Unspecified)
 }
 
 /// Chooses a weapon for the provided entity to attack with.
@@ -612,30 +627,37 @@ fn verify_attacker_wielding_weapon<A: AttackType>(
     world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
-    let weapon_entity = notification.contents.get_weapon();
+    if let Some(weapon_entity) = notification
+        .contents
+        .get_weapon()
+        .get_entity::<A>(performing_entity, world)
+    {
+        if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+            return VerifyResult::valid();
+        }
 
-    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
-        return VerifyResult::valid();
-    }
-
-    // if at least one hand is empty, treat it as being an innate weapon
-    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-        if equipped_items.get_num_hands_free(world) > 0 {
-            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
-                if weapon_entity == innate_weapon_entity {
-                    return VerifyResult::valid();
+        // if at least one hand is empty, treat it as being an innate weapon
+        if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+            if equipped_items.get_num_hands_free(world) > 0 {
+                if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world)
+                {
+                    if weapon_entity == innate_weapon_entity {
+                        return VerifyResult::valid();
+                    }
                 }
             }
         }
+
+        let weapon_name =
+            Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
+        );
     }
 
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
-    )
+    VerifyResult::valid()
 }
 
 /// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
