@@ -6,7 +6,7 @@ use crate::{
         Action, ActionNotificationSender, AttackAction, ChangeRangeAction, RangeChangeDirection,
     },
     notification::Notification,
-    TickNotification,
+    ChosenWeapon, TickNotification,
 };
 
 use super::{ActionQueue, CombatRange, CombatState, Weapon};
@@ -38,7 +38,7 @@ pub fn attack_on_tick(_: &Notification<TickNotification, ()>, world: &mut World)
                 // found someone in range
                 let action: Box<dyn Action> = Box::new(AttackAction {
                     target: **target,
-                    weapon: weapon_entity,
+                    weapon: ChosenWeapon::Entity(weapon_entity),
                     notification_sender: ActionNotificationSender::new(),
                 });
                 actions.push((entity, action));

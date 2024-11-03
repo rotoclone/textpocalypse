@@ -7,7 +7,7 @@ use regex::Regex;
 use crate::{
     check_for_hit,
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
-    handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
+    find_weapon, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
@@ -89,23 +89,12 @@ pub struct AttackAction {
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let result_builder = ActionResult::builder();
-
-        let weapon_entity;
-        if let Some(e) = self
-            .weapon
-            .get_entity::<AttackAction>(performing_entity, world)
+        let weapon_entity = match find_weapon::<AttackAction>(performing_entity, self.weapon, world)
         {
-            weapon_entity = e;
-        } else {
-            // weapon wasn't found
-            return result_builder
-                .with_error(
-                    performing_entity,
-                    "You have no weapon to attack with.".to_string(),
-                )
-                .build_complete_no_tick(false);
-        }
+            Ok(e) => e,
+            Err(r) => return r,
+        };
+        let result_builder = ActionResult::builder();
 
         if target == performing_entity {
             let weapon = world

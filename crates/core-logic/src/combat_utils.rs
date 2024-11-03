@@ -66,6 +66,44 @@ impl ChosenWeapon {
     }
 }
 
+/// Chooses a weapon for the provided entity to attack with.
+fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Option<Entity> {
+    // prioritize the primary weapon
+    if let Some((_, weapon_entity)) = Weapon::get_primary(attacking_entity, world) {
+        if A::can_perform_with(weapon_entity, world) {
+            return Some(weapon_entity);
+        }
+    }
+
+    // primary weapon didn't match, so fall back to other equipped weapons
+    if let Some(equipped_items) = world.get::<EquippedItems>(attacking_entity) {
+        for item in equipped_items.get_items() {
+            if world.get::<Weapon>(*item).is_some() && A::can_perform_with(*item, world) {
+                return Some(*item);
+            }
+        }
+    }
+
+    // no equipped weapons matched, try innate weapon
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(attacking_entity, world) {
+        if A::can_perform_with(innate_weapon_entity, world) {
+            return Some(innate_weapon_entity);
+        }
+    }
+
+    // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
+    if let Some(container) = world.get::<Container>(attacking_entity) {
+        for item in container.get_entities(attacking_entity, world) {
+            if world.get::<Weapon>(item).is_some() && A::can_perform_with(item, world) {
+                return Some(item);
+            }
+        }
+    }
+
+    // couldn't find a matching weapon
+    None
+}
+
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
 ///
@@ -212,42 +250,23 @@ fn parse_attack_weapon<A: AttackType>(
     Ok(ChosenWeapon::Unspecified)
 }
 
-/// Chooses a weapon for the provided entity to attack with.
-pub fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Option<Entity> {
-    // prioritize the primary weapon
-    if let Some((_, weapon_entity)) = Weapon::get_primary(attacking_entity, world) {
-        if A::can_perform_with(weapon_entity, world) {
-            return Some(weapon_entity);
-        }
+/// Finds the weapon for the provided entity to use in an attack. Returns an `Err(ActionResult)` with an error message if no weapon can be found.
+pub fn find_weapon<A: AttackType>(
+    performing_entity: Entity,
+    chosen_weapon: ChosenWeapon,
+    world: &World,
+) -> Result<Entity, ActionResult> {
+    if let Some(e) = chosen_weapon.get_entity::<A>(performing_entity, world) {
+        return Ok(e);
     }
 
-    // primary weapon didn't match, so fall back to other equipped weapons
-    if let Some(equipped_items) = world.get::<EquippedItems>(attacking_entity) {
-        for item in equipped_items.get_items() {
-            if world.get::<Weapon>(*item).is_some() && A::can_perform_with(*item, world) {
-                return Some(*item);
-            }
-        }
-    }
-
-    // no equipped weapons matched, try innate weapon
-    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(attacking_entity, world) {
-        if A::can_perform_with(innate_weapon_entity, world) {
-            return Some(innate_weapon_entity);
-        }
-    }
-
-    // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
-    if let Some(container) = world.get::<Container>(attacking_entity) {
-        for item in container.get_entities(attacking_entity, world) {
-            if world.get::<Weapon>(item).is_some() && A::can_perform_with(item, world) {
-                return Some(item);
-            }
-        }
-    }
-
-    // couldn't find a matching weapon
-    None
+    // weapon wasn't found
+    Err(ActionResult::builder()
+        .with_error(
+            performing_entity,
+            "You don't have a suitable weapon to make that attack with.".to_string(),
+        )
+        .build_complete_no_tick(false))
 }
 
 /// Makes the provided entities enter combat with each other, if they're not already in combat.
@@ -665,25 +684,6 @@ pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
 ) {
-    /* TODO queueing wielding a weapon and attacking with it means this will auto-unequip the weapon
-
-    wield bat
-    Action queued.
-
-    k player 1
-    Action queued.
-
-    Player 1 attacks you!
-
-    [||||'] Player 1's fist glances off of your torso.
-
-    Ow, your torso!
-    Health: [||||||||||||||||||  ] 88/100
-
-    You take out your baseball bat.
-
-    You put away your baseball bat.
-     */
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(weapon_entity) = notification
         .contents

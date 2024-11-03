@@ -5,7 +5,6 @@ use rand::{thread_rng, Rng};
 use strum::EnumIter;
 
 use crate::{
-    choose_weapon,
     component::EquippedItems,
     format_list,
     range_extensions::RangeExtensions,

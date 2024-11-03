@@ -4,11 +4,11 @@ use bevy_ecs::prelude::*;
 use regex::Regex;
 
 use crate::{
-    check_for_hit, combat_utils, handle_begin_attack, handle_damage, handle_miss,
+    check_for_hit, combat_utils, find_weapon, handle_begin_attack, handle_damage, handle_miss,
     handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
     ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
     ActionTag, AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification,
-    BodyPart, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
+    BodyPart, ChosenWeapon, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
     IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, VerifyActionNotification,
     VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
@@ -105,14 +105,18 @@ impl InputParser for UppercutParser {
 #[derive(Debug)]
 pub struct UppercutAction {
     target: Entity,
-    weapon: Entity,
+    weapon: ChosenWeapon,
     notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for UppercutAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let weapon_entity = self.weapon;
+        let weapon_entity =
+            match find_weapon::<UppercutAction>(performing_entity, self.weapon, world) {
+                Ok(e) => e,
+                Err(r) => return r,
+            };
         let result_builder = ActionResult::builder();
 
         let (mut result_builder, range) =
@@ -240,7 +244,7 @@ impl AttackType for UppercutAction {
         self.target
     }
 
-    fn get_weapon(&self) -> Entity {
+    fn get_weapon(&self) -> ChosenWeapon {
         self.weapon
     }
 }
@@ -303,7 +307,7 @@ impl InputParser for HaymakerParser {
 #[derive(Debug)]
 pub struct HaymakerAction {
     target: Entity,
-    weapon: Entity,
+    weapon: ChosenWeapon,
     charge_ticks_remaining: u16,
     notification_sender: ActionNotificationSender<Self>,
 }
@@ -311,7 +315,11 @@ pub struct HaymakerAction {
 impl Action for HaymakerAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let weapon_entity = self.weapon;
+        let weapon_entity =
+            match find_weapon::<HaymakerAction>(performing_entity, self.weapon, world) {
+                Ok(e) => e,
+                Err(r) => return r,
+            };
         let result_builder = ActionResult::builder();
 
         let (mut result_builder, range) =
@@ -493,7 +501,7 @@ impl AttackType for HaymakerAction {
         self.target
     }
 
-    fn get_weapon(&self) -> Entity {
+    fn get_weapon(&self) -> ChosenWeapon {
         self.weapon
     }
 }
