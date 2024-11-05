@@ -55,7 +55,7 @@ pub enum WeaponType {
 }
 
 /// Trait for structs describing a type of attack.
-pub trait AttackType {
+pub trait AttackType: std::fmt::Debug {
     /// Determines whether the provided weapon entity can perform this attack.
     fn can_perform_with(weapon_entity: Entity, world: &World) -> bool;
 

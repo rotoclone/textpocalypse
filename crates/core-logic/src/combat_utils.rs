@@ -670,23 +670,6 @@ fn verify_attacker_wielding_weapon<A: AttackType>(
         let weapon_name =
             Description::get_reference_name(weapon_entity, Some(performing_entity), world);
 
-        /* TODO doing an attack that causes something to be auto-unexquipped wastes an extra tick with this error
-        k guy
-        You attack Some Guy!
-
-        You swing your baseball bat wide of Some Guy. Strike!
-
-        haymaker
-        You put away your baseball bat.
-
-        Some Guy tries to escape to the north, but can't get away.
-
-        You don't have your baseball bat equipped.
-
-        Some Guy lurches forward as his fist sails harmlessly past you.
-
-        You face Some Guy and wind up for a haymaker.
-         */
         return VerifyResult::invalid(
             performing_entity,
             GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
