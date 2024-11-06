@@ -680,10 +680,12 @@ fn verify_attacker_wielding_weapon<A: AttackType>(
 }
 
 /// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
+/// TODO for some reason this function is getting called twice sometimes, causing duplicate unequip actions to be queued
 pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
 ) {
+    dbg!("equip_before_attack", notification); //TODO
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(weapon_entity) = notification
         .contents
@@ -701,6 +703,7 @@ pub fn equip_before_attack<A: AttackType>(
                 let items_to_unequip =
                     EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
                 for item in items_to_unequip {
+                    dbg!("unequipping", item); //TODO
                     ActionQueue::queue_first(
                         world,
                         performing_entity,
