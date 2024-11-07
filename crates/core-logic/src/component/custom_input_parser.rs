@@ -19,6 +19,7 @@ pub trait ParseCustomInput {
                 .insert(Self::new_custom_input_parser());
         }
 
+        //TODO this will be called multiple times if the parser is registered for multiple entities (like if 2 entities have fists to have custom inputs for)
         Self::register_handlers(world);
     }
 

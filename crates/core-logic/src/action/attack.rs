@@ -88,6 +88,7 @@ pub struct AttackAction {
 
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        dbg!("attack happening"); //TODO
         let target = self.target;
         let weapon_entity = match find_weapon::<AttackAction>(performing_entity, self.weapon, world)
         {

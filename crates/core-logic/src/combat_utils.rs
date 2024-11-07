@@ -680,7 +680,7 @@ fn verify_attacker_wielding_weapon<A: AttackType>(
 }
 
 /// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
-/// TODO for some reason this function is getting called twice sometimes, causing duplicate unequip actions to be queued
+/// TODO for some reason this function is getting called twice when non-basic attacks are made, causing duplicate unequip actions to be queued
 pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
