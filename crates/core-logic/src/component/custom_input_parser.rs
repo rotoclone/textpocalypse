@@ -18,9 +18,6 @@ pub trait ParseCustomInput {
                 .entity_mut(entity)
                 .insert(Self::new_custom_input_parser());
         }
-
-        //TODO this will be called multiple times if the parser is registered for multiple entities (like if 2 entities have fists to have custom inputs for)
-        Self::register_handlers(world);
     }
 
     /// Creates a `CustomInputParser` with the parser for this component.
@@ -32,7 +29,4 @@ pub trait ParseCustomInput {
 
     /// Returns the `InputParser` for this component.
     fn get_parsers() -> Vec<Box<dyn InputParser>>;
-
-    /// Registers any notification handlers needed for this component.
-    fn register_handlers(_world: &mut World) {}
 }

@@ -148,23 +148,6 @@ impl Action for EquipAction {
             match EquippedItems::unequip(performing_entity, target, world) {
                 Ok(()) => (),
                 Err(UnequipError::NotEquipped) => {
-                    /* TODO doing an attack that causes something to be auto-unequipped wastes an extra tick with this error
-                    k guy
-                    You attack Some Guy!
-
-                    You swing your baseball bat wide of Some Guy. Strike!
-
-                    haymaker
-                    You put away your baseball bat.
-
-                    Some Guy tries to escape to the north, but can't get away.
-
-                    You don't have your baseball bat equipped.
-
-                    Some Guy lurches forward as his fist sails harmlessly past you.
-
-                    You face Some Guy and wind up for a haymaker.
-                     */
                     return ActionResult::builder()
                         .with_error(
                             performing_entity,

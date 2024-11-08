@@ -27,8 +27,11 @@ impl ParseCustomInput for FistActions {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
         vec![Box::new(UppercutParser), Box::new(HaymakerParser)]
     }
+}
 
-    fn register_handlers(world: &mut World) {
+impl FistActions {
+    /// Registers handlers for special fist attacks.
+    pub fn register_handlers(world: &mut World) {
         VerifyNotificationHandlers::add_handler(
             combat_utils::verify_combat_action_valid::<UppercutAction>,
             world,

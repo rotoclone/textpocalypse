@@ -88,7 +88,6 @@ pub struct AttackAction {
 
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        dbg!("attack happening"); //TODO
         let target = self.target;
         let weapon_entity = match find_weapon::<AttackAction>(performing_entity, self.weapon, world)
         {
@@ -221,7 +220,7 @@ impl Action for AttackAction {
             );
         }
 
-        return result_builder.build_complete_should_tick(true);
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {

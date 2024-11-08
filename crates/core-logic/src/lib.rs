@@ -183,6 +183,7 @@ impl Game {
         register_action_handlers(&mut world);
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
+        FistActions::register_handlers(&mut world);
 
         let game = Game {
             world: Arc::new(RwLock::new(world)),
