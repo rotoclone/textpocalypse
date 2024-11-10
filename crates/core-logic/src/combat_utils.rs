@@ -40,14 +40,75 @@ pub struct ParsedAttack {
     /// The target of the attack.
     pub target: Entity,
     /// The weapon to use for the attack.
-    pub weapon: Entity,
+    pub weapon: ChosenWeapon,
+}
+
+/// Represents the weapon chosen for an attack.
+#[derive(Debug, Clone, Copy)]
+pub enum ChosenWeapon {
+    /// A specific weapon
+    Entity(Entity),
+    /// Whatever weapon the entity happens to be holding at the time
+    Unspecified,
+}
+
+impl ChosenWeapon {
+    /// Finds the entity for the chosen weapon to be used by `attacking_entity`, if one can be found.
+    pub fn get_entity<A: AttackType>(
+        &self,
+        attacking_entity: Entity,
+        world: &World,
+    ) -> Option<Entity> {
+        match self {
+            ChosenWeapon::Entity(e) => Some(*e),
+            ChosenWeapon::Unspecified => choose_weapon::<A>(attacking_entity, world),
+        }
+    }
+}
+
+/// Chooses a weapon for the provided entity to attack with.
+fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Option<Entity> {
+    // prioritize the primary weapon
+    if let Some((_, weapon_entity)) = Weapon::get_primary(attacking_entity, world) {
+        if A::can_perform_with(weapon_entity, world) {
+            return Some(weapon_entity);
+        }
+    }
+
+    // primary weapon didn't match, so fall back to other equipped weapons
+    if let Some(equipped_items) = world.get::<EquippedItems>(attacking_entity) {
+        for item in equipped_items.get_items() {
+            if world.get::<Weapon>(*item).is_some() && A::can_perform_with(*item, world) {
+                return Some(*item);
+            }
+        }
+    }
+
+    // no equipped weapons matched, try innate weapon
+    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(attacking_entity, world) {
+        if A::can_perform_with(innate_weapon_entity, world) {
+            return Some(innate_weapon_entity);
+        }
+    }
+
+    // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
+    if let Some(container) = world.get::<Container>(attacking_entity) {
+        for item in container.get_entities(attacking_entity, world) {
+            if world.get::<Weapon>(item).is_some() && A::can_perform_with(item, world) {
+                return Some(item);
+            }
+        }
+    }
+
+    // couldn't find a matching weapon
+    None
 }
 
 /// Parses input from `source_entity` as an attack command.
 /// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
 ///
 /// Returns `Ok` with the target entity, or `Err` if the input is invalid.
-pub fn parse_attack_input<T: AttackType>(
+pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
     pattern: &Regex,
@@ -58,7 +119,7 @@ pub fn parse_attack_input<T: AttackType>(
     world: &World,
 ) -> Result<ParsedAttack, InputParseError> {
     if let Some(captures) = pattern_with_weapon.captures(input) {
-        return parse_attack_input_captures::<T>(
+        return parse_attack_input_captures::<A>(
             &captures,
             source_entity,
             target_capture_name,
@@ -69,7 +130,7 @@ pub fn parse_attack_input<T: AttackType>(
     }
 
     if let Some(captures) = pattern.captures(input) {
-        return parse_attack_input_captures::<T>(
+        return parse_attack_input_captures::<A>(
             &captures,
             source_entity,
             target_capture_name,
@@ -82,7 +143,7 @@ pub fn parse_attack_input<T: AttackType>(
     Err(InputParseError::UnknownCommand)
 }
 
-fn parse_attack_input_captures<T: AttackType>(
+fn parse_attack_input_captures<A: AttackType>(
     captures: &Captures,
     source_entity: Entity,
     target_capture_name: &str,
@@ -97,7 +158,7 @@ fn parse_attack_input_captures<T: AttackType>(
         verb_name,
         world,
     )?;
-    let weapon_entity = parse_attack_weapon::<T>(
+    let chosen_weapon = parse_attack_weapon::<A>(
         captures,
         weapon_capture_name,
         source_entity,
@@ -107,7 +168,7 @@ fn parse_attack_input_captures<T: AttackType>(
 
     Ok(ParsedAttack {
         target: target_entity,
-        weapon: weapon_entity,
+        weapon: chosen_weapon,
     })
 }
 
@@ -156,21 +217,21 @@ fn parse_attack_target(
 }
 
 /// Finds the weapon entity to use in an attack.
-fn parse_attack_weapon<T: AttackType>(
+fn parse_attack_weapon<A: AttackType>(
     captures: &Captures,
     weapon_capture_name: &str,
     source_entity: Entity,
     verb_name: &str,
     world: &World,
-) -> Result<Entity, InputParseError> {
+) -> Result<ChosenWeapon, InputParseError> {
     if let Some(target_match) = captures.name(weapon_capture_name) {
         let weapon = CommandTarget::parse(target_match.as_str());
         if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
             if world.get::<Weapon>(weapon_entity).is_some()
-                && T::can_perform_with(weapon_entity, world)
+                && A::can_perform_with(weapon_entity, world)
             {
                 // weapon exists and is the correct type of weapon
-                return Ok(weapon_entity);
+                return Ok(ChosenWeapon::Entity(weapon_entity));
             }
             let weapon_name =
                 Description::get_reference_name(weapon_entity, Some(source_entity), world);
@@ -186,43 +247,26 @@ fn parse_attack_weapon<T: AttackType>(
     }
 
     // no weapon provided
-    // prioritize the primary weapon
-    if let Some((_, weapon_entity)) = Weapon::get_primary(source_entity, world) {
-        if T::can_perform_with(weapon_entity, world) {
-            return Ok(weapon_entity);
-        }
+    Ok(ChosenWeapon::Unspecified)
+}
+
+/// Finds the weapon for the provided entity to use in an attack. Returns an `Err(ActionResult)` with an error message if no weapon can be found.
+pub fn find_weapon<A: AttackType>(
+    performing_entity: Entity,
+    chosen_weapon: ChosenWeapon,
+    world: &World,
+) -> Result<Entity, ActionResult> {
+    if let Some(e) = chosen_weapon.get_entity::<A>(performing_entity, world) {
+        return Ok(e);
     }
 
-    // primary weapon didn't match, so fall back to other equipped weapons
-    if let Some(equipped_items) = world.get::<EquippedItems>(source_entity) {
-        for item in equipped_items.get_items() {
-            if world.get::<Weapon>(*item).is_some() && T::can_perform_with(*item, world) {
-                return Ok(*item);
-            }
-        }
-    }
-
-    // no equipped weapons matched, try innate weapon
-    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(source_entity, world) {
-        if T::can_perform_with(innate_weapon_entity, world) {
-            return Ok(innate_weapon_entity);
-        }
-    }
-
-    // no equipped weapons or innate weapon matched, fall back to non-equipped weapons
-    if let Some(container) = world.get::<Container>(source_entity) {
-        for item in container.get_entities(source_entity, world) {
-            if world.get::<Weapon>(item).is_some() && T::can_perform_with(item, world) {
-                return Ok(item);
-            }
-        }
-    }
-
-    // couldn't find a matching weapon
-    Err(InputParseError::CommandParseError {
-        verb: verb_name.to_string(),
-        error: CommandParseError::MissingTarget,
-    })
+    // weapon wasn't found
+    Err(ActionResult::builder()
+        .with_error(
+            performing_entity,
+            "You don't have a suitable weapon to make that attack with.".to_string(),
+        )
+        .build_complete_no_tick(false))
 }
 
 /// Makes the provided entities enter combat with each other, if they're not already in combat.
@@ -436,12 +480,12 @@ pub fn check_for_hit(
 }
 
 /// Does damage based on `hit_params` and adds messages to `result_builder` describing the hit.
-pub fn handle_damage<T: AttackType>(
+pub fn handle_damage<A: AttackType>(
     hit_params: HitParams,
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let weapon_messages = T::get_messages(hit_params.weapon_entity, world);
+    let weapon_messages = A::get_messages(hit_params.weapon_entity, world);
 
     let target_health = world
         .get::<Vitals>(hit_params.target)
@@ -499,14 +543,14 @@ pub fn handle_damage<T: AttackType>(
 }
 
 /// Adds messages to `result_builder` describing a missed attack.
-pub fn handle_miss<T: AttackType>(
+pub fn handle_miss<A: AttackType>(
     performing_entity: Entity,
     target: Entity,
     weapon_entity: Entity,
     result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
-    let miss_message = T::get_messages(weapon_entity, world)
+    let miss_message = A::get_messages(weapon_entity, world)
         .map(|m| &m.miss)
         .and_then(|m| m.choose(&mut rand::thread_rng())).cloned()
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:fail/fails} to hit ${target.name} with ${weapon.name}.").expect("message format should be valid"));
@@ -602,30 +646,37 @@ fn verify_attacker_wielding_weapon<A: AttackType>(
     world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
-    let weapon_entity = notification.contents.get_weapon();
+    if let Some(weapon_entity) = notification
+        .contents
+        .get_weapon()
+        .get_entity::<A>(performing_entity, world)
+    {
+        if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+            return VerifyResult::valid();
+        }
 
-    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
-        return VerifyResult::valid();
-    }
-
-    // if at least one hand is empty, treat it as being an innate weapon
-    if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
-        if equipped_items.get_num_hands_free(world) > 0 {
-            if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
-                if weapon_entity == innate_weapon_entity {
-                    return VerifyResult::valid();
+        // if at least one hand is empty, treat it as being an innate weapon
+        if let Some(equipped_items) = world.get::<EquippedItems>(performing_entity) {
+            if equipped_items.get_num_hands_free(world) > 0 {
+                if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world)
+                {
+                    if weapon_entity == innate_weapon_entity {
+                        return VerifyResult::valid();
+                    }
                 }
             }
         }
+
+        let weapon_name =
+            Description::get_reference_name(weapon_entity, Some(performing_entity), world);
+
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
+        );
     }
 
-    let weapon_name =
-        Description::get_reference_name(weapon_entity, Some(performing_entity), world);
-
-    VerifyResult::invalid(
-        performing_entity,
-        GameMessage::Error(format!("You don't have {weapon_name} equipped.")),
-    )
+    VerifyResult::valid()
 }
 
 /// Queues an action to equip the weapon the attacker is trying to attack with, if they don't already have it equipped.
@@ -633,63 +684,48 @@ pub fn equip_before_attack<A: AttackType>(
     notification: &Notification<BeforeActionNotification, A>,
     world: &mut World,
 ) {
-    /* TODO queueing wielding a weapon and attacking with it means this will auto-unequip the weapon
-
-    wield bat
-    Action queued.
-
-    k player 1
-    Action queued.
-
-    Player 1 attacks you!
-
-    [||||'] Player 1's fist glances off of your torso.
-
-    Ow, your torso!
-    Health: [||||||||||||||||||  ] 88/100
-
-    You take out your baseball bat.
-
-    You put away your baseball bat.
-     */
     let performing_entity = notification.notification_type.performing_entity;
-    let weapon_entity = notification.contents.get_weapon();
-
-    if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
-        // the weapon is already equipped, no need to do anything
-        return;
-    }
-
-    // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
-    if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
-        if weapon_entity == innate_weapon_entity {
-            let items_to_unequip =
-                EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
-            for item in items_to_unequip {
-                ActionQueue::queue_first(
-                    world,
-                    performing_entity,
-                    Box::new(EquipAction {
-                        target: item,
-                        should_be_equipped: false,
-                        notification_sender: ActionNotificationSender::new(),
-                    }),
-                );
-            }
+    if let Some(weapon_entity) = notification
+        .contents
+        .get_weapon()
+        .get_entity::<A>(performing_entity, world)
+    {
+        if EquippedItems::is_equipped(performing_entity, weapon_entity, world) {
+            // the weapon is already equipped, no need to do anything
             return;
         }
-    }
 
-    // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
-    ActionQueue::queue_first(
-        world,
-        performing_entity,
-        Box::new(EquipAction {
-            target: weapon_entity,
-            should_be_equipped: true,
-            notification_sender: ActionNotificationSender::new(),
-        }),
-    );
+        // if the weapon is an innate weapon, and the attacker has no free hands, unequip something
+        if let Some((_, innate_weapon_entity)) = InnateWeapon::get(performing_entity, world) {
+            if weapon_entity == innate_weapon_entity {
+                let items_to_unequip =
+                    EquippedItems::get_items_to_unequip_to_free_hands(performing_entity, 1, world);
+                for item in items_to_unequip {
+                    ActionQueue::queue_first(
+                        world,
+                        performing_entity,
+                        Box::new(EquipAction {
+                            target: item,
+                            should_be_equipped: false,
+                            notification_sender: ActionNotificationSender::new(),
+                        }),
+                    );
+                }
+                return;
+            }
+        }
+
+        // the weapon isn't an innate weapon, and it's not equipped, so try to equip it
+        ActionQueue::queue_first(
+            world,
+            performing_entity,
+            Box::new(EquipAction {
+                target: weapon_entity,
+                should_be_equipped: true,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
+    }
 }
 
 /// Cancels any queued attacks when combat ends.

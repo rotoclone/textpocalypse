@@ -7,7 +7,7 @@ use regex::Regex;
 use crate::{
     check_for_hit,
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
-    handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
+    find_weapon, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
@@ -15,7 +15,7 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, DynamicMessage,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
     WeaponMessages,
@@ -82,14 +82,18 @@ impl InputParser for AttackParser {
 #[derive(Debug)]
 pub struct AttackAction {
     pub target: Entity,
-    pub weapon: Entity,
+    pub weapon: ChosenWeapon,
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for AttackAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let weapon_entity = self.weapon;
+        let weapon_entity = match find_weapon::<AttackAction>(performing_entity, self.weapon, world)
+        {
+            Ok(e) => e,
+            Err(r) => return r,
+        };
         let result_builder = ActionResult::builder();
 
         if target == performing_entity {
@@ -134,7 +138,7 @@ impl Action for AttackAction {
                     }
                     .apply(world);
 
-                    return ActionResult::builder()
+                    return result_builder
                         .with_dynamic_message(
                             Some(performing_entity),
                             DynamicMessageLocation::SourceEntity,
@@ -284,7 +288,7 @@ impl AttackType for AttackAction {
         self.target
     }
 
-    fn get_weapon(&self) -> Entity {
+    fn get_weapon(&self) -> ChosenWeapon {
         self.weapon
     }
 }

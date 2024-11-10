@@ -9,7 +9,7 @@ use crate::{
     format_list,
     range_extensions::RangeExtensions,
     resource::{get_stat_name, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
-    AttributeSection, AttributeSectionName, MessageFormat, MessageTokens,
+    AttributeSection, AttributeSectionName, ChosenWeapon, MessageFormat, MessageTokens,
     SectionAttributeDescription, TokenName, TokenValue,
 };
 
@@ -55,7 +55,7 @@ pub enum WeaponType {
 }
 
 /// Trait for structs describing a type of attack.
-pub trait AttackType {
+pub trait AttackType: std::fmt::Debug {
     /// Determines whether the provided weapon entity can perform this attack.
     fn can_perform_with(weapon_entity: Entity, world: &World) -> bool;
 
@@ -66,7 +66,7 @@ pub trait AttackType {
     fn get_target(&self) -> Entity;
 
     /// Gets the weapon used in the attack.
-    fn get_weapon(&self) -> Entity;
+    fn get_weapon(&self) -> ChosenWeapon;
 }
 
 /// Describes the ranges at which a weapon can be used.

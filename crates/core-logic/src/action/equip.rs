@@ -153,7 +153,7 @@ impl Action for EquipAction {
                             performing_entity,
                             format!("You don't have {target_name} equipped."),
                         )
-                        .build_complete_no_tick(false)
+                        .build_complete_no_tick(false);
                 }
             }
         }
