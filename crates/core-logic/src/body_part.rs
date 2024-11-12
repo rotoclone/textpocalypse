@@ -6,7 +6,14 @@ use strum::EnumIter;
 
 use crate::resource::BodyPartWeights;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+/// The body parts an entity has.
+#[derive(Component)]
+pub struct BodyParts(pub Vec<BodyPart>);
+
+/// A body part an entity can have.
+/// TODO going with this pattern makes giving an entity a special unique one-off body part real annoying
+/// TODO but it makes adding new functionality to body parts easier, since each one can be uniquely identified
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum BodyPart {
     Head,
     Torso,
@@ -18,6 +25,7 @@ pub enum BodyPart {
     RightLeg,
     LeftFoot,
     RightFoot,
+    Custom(String),
 }
 
 impl Display for BodyPart {
