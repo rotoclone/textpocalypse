@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use strum::IntoEnumIterator;
 
-use crate::component::WeaponType;
+use crate::BodyPart;
 
 /// Map of body parts to their display names.
 #[derive(Resource)]
@@ -47,21 +47,26 @@ impl BodyPartNameCatalog {
 }
 
 /// Builds the default display names of standard body parts.
-fn build_standard_names() -> HashMap<WeaponType, String> {
-    WeaponType::iter()
-        .filter_map(|weapon_type| get_default_name(&weapon_type).map(|name| (weapon_type, name)))
+fn build_standard_names() -> HashMap<BodyPart, String> {
+    BodyPart::iter()
+        .filter_map(|body_part| get_default_name(&body_part).map(|name| (body_part, name)))
         .collect()
 }
 
-/// Gets the default display name of a weapon type.
-fn get_default_name(weapon_type: &WeaponType) -> Option<String> {
-    match weapon_type {
-        WeaponType::Firearm => Some("firearm"),
-        WeaponType::Bow => Some("bow"),
-        WeaponType::Blade => Some("blade"),
-        WeaponType::Bludgeon => Some("bludgeon"),
-        WeaponType::Fists => Some("fists"),
-        WeaponType::Custom(_) => None,
+/// Gets the default display name of a body part.
+fn get_default_name(body_part: &BodyPart) -> Option<String> {
+    match body_part {
+        BodyPart::Head => Some("head"),
+        BodyPart::Torso => Some("torso"),
+        BodyPart::LeftArm => Some("left arm"),
+        BodyPart::RightArm => Some("right arm"),
+        BodyPart::LeftHand => Some("left hand"),
+        BodyPart::RightHand => Some("right hand"),
+        BodyPart::LeftLeg => Some("left leg"),
+        BodyPart::RightLeg => Some("right leg"),
+        BodyPart::LeftFoot => Some("left foot"),
+        BodyPart::RightFoot => Some("right foot"),
+        BodyPart::Custom(_) => todo!(),
     }
     .map(|s| s.to_string())
 }

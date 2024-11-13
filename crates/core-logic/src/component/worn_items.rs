@@ -114,7 +114,7 @@ impl WornItems {
                         .sum::<u32>();
                     if total_thickness + wearable.thickness > self.max_thickness {
                         return Err(WearError::TooThick(
-                            *body_part,
+                            body_part.clone(),
                             // unwrap is safe because we've already checked if `already_worn` is empty
                             *already_worn.last().unwrap(),
                         ));
@@ -124,7 +124,10 @@ impl WornItems {
         }
 
         for body_part in &wearable.body_parts {
-            self.items.entry(*body_part).or_default().push(entity);
+            self.items
+                .entry(body_part.clone())
+                .or_default()
+                .push(entity);
         }
 
         Ok(())
