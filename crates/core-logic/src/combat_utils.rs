@@ -7,7 +7,7 @@ use regex::{Captures, Regex};
 
 use crate::{
     is_living_entity,
-    resource::WeaponTypeStatCatalog,
+    resource::{BodyPartNameCatalog, WeaponTypeStatCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
@@ -395,7 +395,8 @@ pub fn handle_weapon_unusable_error(
 }
 
 /// Applies a multiplier to the provided damage based on the provided body part.
-pub fn apply_body_part_damage_multiplier(base_damage: u32, body_part: BodyPart) -> u32 {
+pub fn apply_body_part_damage_multiplier(base_damage: u32, body_part: &BodyPart) -> u32 {
+    //TODO make a catalog for this
     let mult = match body_part {
         BodyPart::Head => HEAD_DAMAGE_MULT,
         BodyPart::Torso => TORSO_DAMAGE_MULT,
@@ -461,7 +462,7 @@ pub fn check_for_hit(
         let critical = to_hit_result == CheckResult::ExtremeSuccess;
         match weapon.calculate_damage(attacker, range, critical, world) {
             Ok(x) => {
-                let damage = apply_body_part_damage_multiplier(x, body_part);
+                let damage = apply_body_part_damage_multiplier(x, &body_part);
                 Ok(Some(HitParams {
                     performing_entity: attacker,
                     target,
@@ -505,11 +506,12 @@ pub fn handle_damage<A: AttackType>(
         .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
 
+    let body_part_name = BodyPartNameCatalog::get_name(&hit_params.body_part, &world);
     let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
         target: hit_params.target,
         weapon: hit_params.weapon_entity,
-        body_part: hit_params.body_part.to_string(),
+        body_part: body_part_name.clone(),
     };
 
     result_builder.with_post_effect(Box::new(move |w| {
@@ -531,7 +533,7 @@ pub fn handle_damage<A: AttackType>(
                 (
                     VitalChangeMessageParams::Direct {
                         entity: hit_params.target,
-                        message: format!("Ow, your {}!", hit_params.body_part),
+                        message: format!("Ow, your {body_part_name}!"),
                         category: MessageCategory::Internal(InternalMessageCategory::Misc),
                     },
                     VitalChangeVisualizationType::Full,
