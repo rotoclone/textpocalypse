@@ -394,20 +394,8 @@ pub fn handle_weapon_unusable_error(
         .build_complete_should_tick(false)
 }
 
-/// Applies a multiplier to the provided damage based on the provided body part.
-pub fn apply_body_part_damage_multiplier(base_damage: u32, body_part: &BodyPart) -> u32 {
-    //TODO make a catalog for this
-    let mult = match body_part {
-        BodyPart::Head => HEAD_DAMAGE_MULT,
-        BodyPart::Torso => TORSO_DAMAGE_MULT,
-        _ => APPENDAGE_DAMAGE_MULT,
-    };
-
-    base_damage.mul_and_round(mult)
-}
-
 /// Describes a hit.
-pub struct HitParams {
+pub struct HitParams<'b> {
     /// The entity doing the hitting
     pub performing_entity: Entity,
     /// The entity getting hit
@@ -419,7 +407,7 @@ pub struct HitParams {
     /// Whether the hit is a critical hit or not
     pub is_crit: bool,
     /// The body part hit
-    pub body_part: BodyPart,
+    pub body_part: Option<&'b BodyPart>,
 }
 
 /// Performs a check to see if `attacker` hits `target` with `weapon`.
@@ -457,12 +445,13 @@ pub fn check_for_hit(
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    let body_part = BodyPart::random_weighted(world);
+    let body_part = BodyPart::random_weighted(target, world);
     if to_hit_result.succeeded() {
         let critical = to_hit_result == CheckResult::ExtremeSuccess;
         match weapon.calculate_damage(attacker, range, critical, world) {
-            Ok(x) => {
-                let damage = apply_body_part_damage_multiplier(x, &body_part);
+            Ok(base_damage) => {
+                let damage_mult = body_part.map(|b| b.damage_multiplier).unwrap_or(1.0);
+                let damage = base_damage.mul_and_round(damage_mult);
                 Ok(Some(HitParams {
                     performing_entity: attacker,
                     target,
@@ -506,12 +495,15 @@ pub fn handle_damage<A: AttackType>(
         .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
         .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
 
-    let body_part_name = BodyPartNameCatalog::get_name(&hit_params.body_part, &world);
+    let body_part_name = hit_params
+        .body_part
+        .map(|b| b.name.clone())
+        .unwrap_or_else(|| "body".to_string());
     let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
         target: hit_params.target,
         weapon: hit_params.weapon_entity,
-        body_part: body_part_name.clone(),
+        body_part: body_part_name.to_string(),
     };
 
     result_builder.with_post_effect(Box::new(move |w| {

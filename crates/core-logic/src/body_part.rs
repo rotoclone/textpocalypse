@@ -1,9 +1,7 @@
 use bevy_ecs::prelude::*;
-use rand_distr::Distribution;
+use rand::seq::SliceRandom;
 
 use strum::EnumIter;
-
-use crate::resource::BodyPartWeights;
 
 /// The body parts an entity has.
 #[derive(Component)]
@@ -12,9 +10,11 @@ pub struct BodyParts(pub Vec<BodyPart>);
 /// A single body part of an entity.
 pub struct BodyPart {
     /// The display name of the body part.
-    name: String,
+    pub name: String,
     /// The type of body part this is.
-    body_part_type: BodyPartType,
+    pub body_part_type: BodyPartType,
+    /// Amount to multiply damage by for attacks that hit this body part.
+    pub damage_multiplier: f32,
 }
 
 /// Defines the different types of body part.
@@ -34,13 +34,13 @@ pub enum BodyPartType {
 }
 
 impl BodyPart {
-    /// Gets a random body part from the provided entity, weighted by the weights defined in the provided world.
-    pub fn random_weighted(entity: Entity, world: &World) -> BodyPart {
-        if let Some(default_weights) = world.get_resource::<BodyPartWeights>() {
-            let mut rng = rand::thread_rng();
-            default_weights.body_parts[default_weights.dist.sample(&mut rng)]
-        } else {
-            BodyPart::Torso
-        }
+    /// Gets a random body part from the provided entity, if it has any body parts.
+    pub fn random_weighted(entity: Entity, world: &World) -> Option<&BodyPart> {
+        let mut rng = rand::thread_rng();
+        world
+            .get::<BodyParts>(entity)
+            //TODO allow different weights
+            .map(|b| b.0.choose(&mut rng))
+            .unwrap_or_default()
     }
 }
