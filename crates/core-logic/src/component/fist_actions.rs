@@ -167,7 +167,7 @@ impl Action for UppercutAction {
 
         if let Some(mut hit_params) = hit_params {
             hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
-            hit_params.body_part = BodyPart::Head;
+            hit_params.body_part = BodyPart::Head; //TODO it seems silly to have to duplicate the name unwrap_or_else here, maybe HitParams should just take a clone of the body part? Or body parts should be full on entities?
             result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
         } else {
             result_builder = handle_miss::<UppercutAction>(

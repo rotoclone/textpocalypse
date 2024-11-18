@@ -5,12 +5,14 @@ use rand::seq::SliceRandom;
 use regex::Regex;
 
 use crate::{
+    body_part::BodyPartType,
     check_for_hit,
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
+    resource::BodyPartTypeNameCatalog,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
@@ -100,6 +102,10 @@ impl Action for AttackAction {
             let weapon = world
                 .get::<Weapon>(weapon_entity)
                 .expect("weapon should be a weapon");
+            let body_part_name = BodyPart::get(&BodyPartType::Head, target, world)
+                .first()
+                .map(|b| b.name.clone())
+                .unwrap_or_else(|| BodyPartTypeNameCatalog::get_name(&BodyPartType::Head, world));
             let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
             .cloned()
             .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} with ${weapon.name}.").expect("message format should be valid"));
@@ -107,7 +113,7 @@ impl Action for AttackAction {
                 attacker: performing_entity,
                 target,
                 weapon: weapon_entity,
-                body_part: BodyPart::Head.to_string(),
+                body_part: body_part_name,
             };
 
             match weapon.calculate_damage(
