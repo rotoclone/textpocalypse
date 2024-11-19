@@ -22,12 +22,14 @@ impl BodyParts {
 }
 
 /// A single body part of an entity.
+#[derive(Debug, Clone)]
 pub struct BodyPart {
     /// The display name of the body part.
     pub name: String,
     /// The type of body part this is.
     pub body_part_type: BodyPartType,
     /// Amount to multiply damage by for attacks that hit this body part.
+    /// TODO should this be stored somewhere else?
     pub damage_multiplier: f32,
 }
 

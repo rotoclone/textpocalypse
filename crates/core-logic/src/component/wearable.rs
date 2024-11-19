@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
-use crate::{format_list, AttributeDescription, BodyPart};
+use crate::{format_list, resource::BodyPartTypeNameCatalog, AttributeDescription, BodyPart};
 
 use super::{
     AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
@@ -32,10 +32,10 @@ impl AttributeDescriber for WearableAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if let Some(wearable) = world.get::<Wearable>(entity) {
-            let body_parts = wearable
+            let body_part_names = wearable
                 .body_parts
                 .iter()
-                .map(|part| part.to_string())
+                .map(|part| BodyPartTypeNameCatalog::get_name(&part.body_part_type, world))
                 .sorted()
                 .collect::<Vec<String>>();
 
@@ -44,7 +44,7 @@ impl AttributeDescriber for WearableAttributeDescriber {
                 attributes: vec![
                     SectionAttributeDescription {
                         name: "Body parts".to_string(),
-                        description: format_list(&body_parts),
+                        description: format_list(&body_part_names),
                     },
                     SectionAttributeDescription {
                         name: "Thickness".to_string(),

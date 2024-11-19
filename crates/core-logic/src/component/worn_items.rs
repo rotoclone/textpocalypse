@@ -24,6 +24,7 @@ pub struct WornItems {
     /// (This is only relevant when trying to wear something on top of something else; a single wearable item can always be worn regardless of its thickness.)
     pub max_thickness: u32,
     /// The items being worn.
+    /// TODO BodyPart can't be the key in a map since it contains an f32 for the damage multiplier
     items: HashMap<BodyPart, Vec<Entity>>,
 }
 
