@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
@@ -8,29 +8,15 @@ use strum::EnumIter;
 
 /// The body parts an entity has.
 #[derive(Component)]
-pub struct BodyParts(HashMap<BodyPartType, Vec<BodyPart>>);
-
-impl BodyParts {
-    /// Creates a set of the provided body parts.
-    pub fn new(body_parts: Vec<BodyPart>) -> BodyParts {
-        BodyParts(
-            body_parts
-                .into_iter()
-                .into_group_map_by(|body_part| body_part.body_part_type.clone()),
-        )
-    }
-}
+pub struct BodyParts(pub HashSet<Entity>);
 
 /// A single body part of an entity.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct BodyPart {
     /// The display name of the body part.
     pub name: String,
     /// The type of body part this is.
     pub body_part_type: BodyPartType,
-    /// Amount to multiply damage by for attacks that hit this body part.
-    /// TODO should this be stored somewhere else?
-    pub damage_multiplier: f32,
 }
 
 /// Defines the different types of body part.
@@ -49,6 +35,10 @@ pub enum BodyPartType {
     Custom(String),
 }
 
+/// Amount to multiply damage by for attacks that hit this body part.
+#[derive(Component, Debug)]
+pub struct BodyPartDamageMultiplier(pub f32);
+
 impl BodyPart {
     /// Gets all the body parts of a type from the provided entity.
     pub fn get<'w>(
@@ -60,18 +50,24 @@ impl BodyPart {
     }
 
     /// Gets a random body part from the provided entity, if it has any body parts.
-    pub fn random_weighted(entity: Entity, world: &World) -> Option<&BodyPart> {
+    pub fn random_weighted(entity: Entity, world: &World) -> Option<(Entity, &BodyPart)> {
         let mut rng = rand::thread_rng();
         world
             .get::<BodyParts>(entity)
             //TODO allow different weights
             .map(|b| {
-                b.0.values()
-                    .flatten()
-                    .collect::<Vec<&BodyPart>>()
+                b.0.iter()
+                    .map(|e| {
+                        (
+                            *e,
+                            world
+                                .get::<BodyPart>(*e)
+                                .expect("body part should be a body part"),
+                        )
+                    })
+                    .collect::<Vec<(Entity, &BodyPart)>>()
                     .choose(&mut rng)
-                    // convert &&BodyPart to &BodyPart
-                    .map(|body_part| *body_part)
+                    .map(|tuple| *tuple)
             })
             .unwrap_or_default()
     }
