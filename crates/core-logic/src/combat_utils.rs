@@ -6,6 +6,7 @@ use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
+    body_part::BodyPartDamageMultiplier,
     is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
@@ -406,8 +407,8 @@ pub struct HitParams {
     pub damage: u32,
     /// Whether the hit is a critical hit or not
     pub is_crit: bool,
-    /// The name of the body part hit
-    pub body_part_name: String,
+    /// The body part hit on the entity getting hit
+    pub body_part: Entity,
 }
 
 /// Performs a check to see if `attacker` hits `target` with `weapon`.
@@ -445,29 +446,34 @@ pub fn check_for_hit(
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    let body_part = BodyPart::random_weighted(target, world);
-    if to_hit_result.succeeded() {
-        let critical = to_hit_result == CheckResult::ExtremeSuccess;
-        match weapon.calculate_damage(attacker, range, critical, world) {
-            Ok(base_damage) => {
-                let damage_mult = body_part.map(|b| b.damage_multiplier).unwrap_or(1.0);
-                let damage = base_damage.mul_and_round(damage_mult);
-                Ok(Some(HitParams {
-                    performing_entity: attacker,
-                    target,
-                    weapon_entity,
-                    damage,
-                    is_crit: critical,
-                    body_part_name: body_part
-                        .map(|b| b.name.clone())
-                        .unwrap_or_else(|| "body".to_string()),
-                }))
+    if let Some((body_part_entity, _)) = BodyPart::random_weighted(target, world) {
+        if to_hit_result.succeeded() {
+            let critical = to_hit_result == CheckResult::ExtremeSuccess;
+            match weapon.calculate_damage(attacker, range, critical, world) {
+                Ok(base_damage) => {
+                    let damage_mult = world
+                        .get::<BodyPartDamageMultiplier>(body_part_entity)
+                        .map(|m| m.0)
+                        .unwrap_or(1.0);
+                    let damage = base_damage.mul_and_round(damage_mult);
+                    Ok(Some(HitParams {
+                        performing_entity: attacker,
+                        target,
+                        weapon_entity,
+                        damage,
+                        is_crit: critical,
+                        body_part: body_part_entity,
+                    }))
+                }
+                Err(e) => Err(e),
             }
-            Err(e) => Err(e),
+        } else {
+            // miss
+            Ok(None)
         }
     } else {
-        // miss
-        Ok(None)
+        // target has no body parts
+        Ok(None) //TODO this should probably be some kind of error
     }
 }
 
@@ -495,13 +501,13 @@ pub fn handle_damage<A: AttackType>(
 
     let hit_message = hit_messages_to_choose_from
         .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
-        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid"));
 
     let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
         target: hit_params.target,
         weapon: hit_params.weapon_entity,
-        body_part: hit_params.body_part_name.clone(),
+        body_part: hit_params.body_part,
     };
 
     result_builder.with_post_effect(Box::new(move |w| {
@@ -523,7 +529,14 @@ pub fn handle_damage<A: AttackType>(
                 (
                     VitalChangeMessageParams::Direct {
                         entity: hit_params.target,
-                        message: format!("Ow, your {}!", hit_params.body_part_name),
+                        message: format!(
+                            "Ow, {}!",
+                            Description::get_reference_name(
+                                hit_params.body_part,
+                                Some(hit_params.target),
+                                w
+                            )
+                        ),
                         category: MessageCategory::Internal(InternalMessageCategory::Misc),
                     },
                     VitalChangeVisualizationType::Full,

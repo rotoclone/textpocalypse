@@ -857,6 +857,7 @@ fn is_living_entity(entity: Entity, world: &World) -> bool {
 
 /// Finds the living entity that currently controls the provided entity (i.e. it contains it or contains a container that contains it)
 fn find_owning_entity(entity: Entity, world: &World) -> Option<Entity> {
+    //TODO body parts should also count as owned
     if let Some(location) = world.get::<Location>(entity) {
         if is_living_entity(location.id, world) {
             return Some(location.id);

@@ -318,8 +318,8 @@ pub struct WeaponHitMessageTokens {
     pub target: Entity,
     /// THe weapon used in the attack
     pub weapon: Entity,
-    /// The name of the body part hit in the attack
-    pub body_part: String,
+    /// The body part hit in the attack
+    pub body_part: Entity,
 }
 
 /// Tokens used in weapon messages for misses.
@@ -339,10 +339,7 @@ impl MessageTokens for WeaponHitMessageTokens {
             ("attacker".into(), TokenValue::Entity(self.attacker)),
             ("target".into(), TokenValue::Entity(self.target)),
             ("weapon".into(), TokenValue::Entity(self.weapon)),
-            (
-                "body_part".into(),
-                TokenValue::String(self.body_part.clone()),
-            ),
+            ("body_part".into(), TokenValue::Entity(self.body_part)),
         ]
         .into()
     }

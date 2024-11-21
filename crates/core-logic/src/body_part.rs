@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 
 use rand::seq::SliceRandom;
 use strum::EnumIter;
@@ -13,10 +12,8 @@ pub struct BodyParts(pub HashSet<Entity>);
 /// A single body part of an entity.
 #[derive(Debug, Clone, Component)]
 pub struct BodyPart {
-    /// The display name of the body part.
-    pub name: String,
     /// The type of body part this is.
-    pub body_part_type: BodyPartType,
+    pub part_type: BodyPartType,
 }
 
 /// Defines the different types of body part.
