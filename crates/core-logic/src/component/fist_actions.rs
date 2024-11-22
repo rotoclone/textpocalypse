@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use rand::{seq::SliceRandom, thread_rng};
 use regex::Regex;
 
 use crate::{
@@ -168,7 +169,7 @@ impl Action for UppercutAction {
 
         if let Some(mut hit_params) = hit_params {
             if let Some((body_part_entity, _)) =
-                BodyPart::get(&BodyPartType::Head, target, world).first()
+                BodyPart::get(&BodyPartType::Head, target, world).choose(&mut thread_rng())
             {
                 hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
                 hit_params.body_part = *body_part_entity;
