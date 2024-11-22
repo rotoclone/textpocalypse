@@ -17,10 +17,10 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
-    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
-    WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, Description,
+    DynamicMessage, DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, NoTokens, SurroundingsMessageCategory, VerifyActionNotification,
+    WeaponHitMessageTokens, WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -99,74 +99,76 @@ impl Action for AttackAction {
         let result_builder = ActionResult::builder();
 
         if target == performing_entity {
-            let weapon = world
-                .get::<Weapon>(weapon_entity)
-                .expect("weapon should be a weapon");
-            let body_part_name = BodyPart::get(&BodyPartType::Head, target, world)
-                .first()
-                .map(|b| b.name.clone())
-                .unwrap_or_else(|| BodyPartTypeNameCatalog::get_name(&BodyPartType::Head, world));
-            let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
-            .cloned()
-            .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} with ${weapon.name}.").expect("message format should be valid"));
-            let hit_message_tokens = WeaponHitMessageTokens {
-                attacker: performing_entity,
-                target,
-                weapon: weapon_entity,
-                body_part: body_part_name,
-            };
+            if let Some((body_part_entity, _)) =
+                BodyPart::get(&BodyPartType::Head, target, world).first()
+            {
+                let weapon = world
+                    .get::<Weapon>(weapon_entity)
+                    .expect("weapon should be a weapon");
+                let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
+                    .cloned()
+                    .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid"));
+                let hit_message_tokens = WeaponHitMessageTokens {
+                    attacker: performing_entity,
+                    target,
+                    weapon: weapon_entity,
+                    body_part: *body_part_entity,
+                };
 
-            match weapon.calculate_damage(
-                performing_entity,
-                *weapon.ranges.optimal.start(),
-                true,
-                world,
-            ) {
-                Ok(damage) => {
-                    let message = hit_message_format
-                        .interpolate(performing_entity, &hit_message_tokens, world)
-                        .expect("self hit message should interpolate properly");
-                    VitalChange::<NoTokens> {
-                        entity: performing_entity,
-                        vital_type: VitalType::Health,
-                        operation: ValueChangeOperation::Subtract,
-                        amount: damage as f32 * SELF_DAMAGE_MULT,
-                        message_params: vec![(
-                            VitalChangeMessageParams::Direct {
-                                entity: performing_entity,
-                                message,
-                                category: MessageCategory::Internal(
-                                    InternalMessageCategory::Action,
+                match weapon.calculate_damage(
+                    performing_entity,
+                    *weapon.ranges.optimal.start(),
+                    true,
+                    world,
+                ) {
+                    Ok(damage) => {
+                        let message = hit_message_format
+                            .interpolate(performing_entity, &hit_message_tokens, world)
+                            .expect("self hit message should interpolate properly");
+                        VitalChange::<NoTokens> {
+                            entity: performing_entity,
+                            vital_type: VitalType::Health,
+                            operation: ValueChangeOperation::Subtract,
+                            amount: damage as f32 * SELF_DAMAGE_MULT,
+                            message_params: vec![(
+                                VitalChangeMessageParams::Direct {
+                                    entity: performing_entity,
+                                    message,
+                                    category: MessageCategory::Internal(
+                                        InternalMessageCategory::Action,
+                                    ),
+                                },
+                                VitalChangeVisualizationType::Full,
+                            )],
+                        }
+                        .apply(world);
+
+                        return result_builder
+                            .with_dynamic_message(
+                                Some(performing_entity),
+                                DynamicMessageLocation::SourceEntity,
+                                DynamicMessage::new_third_person(
+                                    MessageCategory::Surroundings(
+                                        SurroundingsMessageCategory::Action,
+                                    ),
+                                    MessageDelay::Short,
+                                    hit_message_format,
+                                    hit_message_tokens,
                                 ),
-                            },
-                            VitalChangeVisualizationType::Full,
-                        )],
+                                world,
+                            )
+                            .build_complete_should_tick(true);
                     }
-                    .apply(world);
-
-                    return result_builder
-                        .with_dynamic_message(
-                            Some(performing_entity),
-                            DynamicMessageLocation::SourceEntity,
-                            DynamicMessage::new_third_person(
-                                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                                MessageDelay::Short,
-                                hit_message_format,
-                                hit_message_tokens,
-                            ),
+                    Err(e) => {
+                        return handle_weapon_unusable_error(
+                            performing_entity,
+                            target,
+                            weapon_entity,
+                            e,
+                            result_builder,
                             world,
                         )
-                        .build_complete_should_tick(true);
-                }
-                Err(e) => {
-                    return handle_weapon_unusable_error(
-                        performing_entity,
-                        target,
-                        weapon_entity,
-                        e,
-                        result_builder,
-                        world,
-                    )
+                    }
                 }
             }
         }

@@ -42,7 +42,7 @@ impl BodyPart {
         body_part_type: &BodyPartType,
         entity: Entity,
         world: &'w World,
-    ) -> Vec<&'w BodyPart> {
+    ) -> Vec<(Entity, &'w BodyPart)> {
         todo!() //TODO
     }
 

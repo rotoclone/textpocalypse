@@ -23,9 +23,8 @@ pub struct WornItems {
     /// The maximum total thickness of items allowed on a single body part.
     /// (This is only relevant when trying to wear something on top of something else; a single wearable item can always be worn regardless of its thickness.)
     pub max_thickness: u32,
-    /// The items being worn.
-    /// TODO BodyPart can't be the key in a map since it contains an f32 for the damage multiplier
-    items: HashMap<BodyPart, Vec<Entity>>,
+    /// Map of body parts to the items being worn on them.
+    items: HashMap<Entity, Vec<Entity>>,
 }
 
 /// An error when trying to wear something.
@@ -50,12 +49,9 @@ pub enum RemoveError {
 impl WornItems {
     /// Creates an empty set of worn items.
     pub fn new(max_thickness: u32) -> WornItems {
-        let items = BodyPart::iter()
-            .map(|body_part| (body_part, Vec::new()))
-            .collect();
         WornItems {
             max_thickness,
-            items,
+            items: HashMap::new(),
         }
     }
 

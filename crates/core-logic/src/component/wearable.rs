@@ -3,7 +3,9 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
-use crate::{format_list, resource::BodyPartTypeNameCatalog, AttributeDescription, BodyPart};
+use crate::{
+    body_part::BodyPartType, format_list, resource::BodyPartTypeNameCatalog, AttributeDescription,
+};
 
 use super::{
     AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
@@ -16,7 +18,7 @@ pub struct Wearable {
     /// The thickness of the entity.
     pub thickness: u32,
     /// The body parts the entity covers when worn.
-    pub body_parts: HashSet<BodyPart>,
+    pub body_parts: HashSet<BodyPartType>,
 }
 
 /// Describes the wearability of an entity.
@@ -35,7 +37,7 @@ impl AttributeDescriber for WearableAttributeDescriber {
             let body_part_names = wearable
                 .body_parts
                 .iter()
-                .map(|part| BodyPartTypeNameCatalog::get_name(&part.body_part_type, world))
+                .map(|part_type| BodyPartTypeNameCatalog::get_name(part_type, world))
                 .sorted()
                 .collect::<Vec<String>>();
 
