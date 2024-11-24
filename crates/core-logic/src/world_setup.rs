@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     add_human_innate_weapon,
+    body_part::BodyPartType,
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
@@ -11,7 +12,7 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
+    move_entity, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
     WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
 };
 
@@ -166,6 +167,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
 
     let npc_stats = Stats::new(8, 8);
 
+    //TODO give the npc body parts
     let npc_id = world
         .spawn((
             Description {
@@ -232,7 +234,12 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -594,7 +601,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -622,7 +634,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -650,7 +667,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -679,13 +701,13 @@ pub fn spawn_start_building(
             Wearable {
                 thickness: 3,
                 body_parts: [
-                    BodyPart::Torso,
-                    BodyPart::LeftArm,
-                    BodyPart::RightArm,
-                    BodyPart::LeftLeg,
-                    BodyPart::RightLeg,
-                    BodyPart::LeftFoot,
-                    BodyPart::RightFoot,
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                    BodyPartType::LeftLeg,
+                    BodyPartType::RightLeg,
+                    BodyPartType::LeftFoot,
+                    BodyPartType::RightFoot,
                 ]
                 .into(),
             },

@@ -7,6 +7,8 @@ use crate::{
     BodyPart, Description,
 };
 
+use super::EntityDescription;
+
 /// The description of the items an entity is wearing.
 #[derive(Debug, Clone)]
 pub struct WornItemsDescription {
@@ -23,7 +25,7 @@ impl WornItemsDescription {
             .get_all_items()
             .iter()
             .map(|entity| {
-                WornItemDescription::from_entity(*entity, world)
+                WornItemDescription::from_entity(*entity, worn_items, world)
                     .unwrap_or_else(|| panic!("entity {entity:?} should be wearable"))
             })
             .collect();
@@ -41,20 +43,30 @@ pub struct WornItemDescription {
     pub name: String,
     /// The thickness of the item.
     pub thickness: u32,
-    /// The body parts the item is covering.
-    pub body_parts: HashSet<BodyPart>,
+    /// Names of the body parts the item is covering.
+    pub body_part_names: Vec<String>,
 }
 
 impl WornItemDescription {
     /// Creates a worn item description for the provided item.
     /// Returns `None` if the entity isn't wearable.
-    pub fn from_entity(entity: Entity, world: &World) -> Option<WornItemDescription> {
+    pub fn from_entity(
+        entity: Entity,
+        worn_items: &WornItems,
+        world: &World,
+    ) -> Option<WornItemDescription> {
         world
             .get::<Wearable>(entity)
             .map(|wearable| WornItemDescription {
                 name: Description::get_name(entity, world).unwrap_or("???".to_string()),
                 thickness: wearable.thickness,
-                body_parts: wearable.body_parts.clone(),
+                body_part_names: worn_items
+                    .get_body_parts_item_is_worn_on(entity)
+                    .iter()
+                    .map(|body_part| {
+                        Description::get_name(*body_part, world).unwrap_or("???".to_string())
+                    })
+                    .collect(),
             })
     }
 }

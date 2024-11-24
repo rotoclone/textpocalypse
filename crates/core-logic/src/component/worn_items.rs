@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
-use strum::IntoEnumIterator;
 
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
@@ -39,7 +38,7 @@ pub enum WearError {
     /// The item is too thick for a body part due to another item on it.
     TooThick {
         body_part: Entity,
-        worn_item: Entity,
+        other_item: Entity,
     },
 }
 
@@ -64,6 +63,20 @@ impl WornItems {
             .values()
             .flatten()
             .cloned()
+            .collect()
+    }
+
+    /// Gets all the body parts the provided entity is being worn on, if any.
+    pub fn get_body_parts_item_is_worn_on(&self, item: Entity) -> HashSet<Entity> {
+        self.body_part_to_items
+            .iter()
+            .filter_map(|(body_part, items)| {
+                if items.contains(&item) {
+                    Some(*body_part)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -129,7 +142,7 @@ impl WornItems {
                             return Err(WearError::TooThick {
                                 body_part: *body_part_entity,
                                 // unwrap is safe because we've already checked if `already_worn` is empty
-                                worn_item: *already_worn.last().unwrap(),
+                                other_item: *already_worn.last().unwrap(),
                             });
                         }
                     }

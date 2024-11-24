@@ -120,7 +120,7 @@ impl Action for WearAction {
                     )
                     .build_complete_no_tick(false)
             }
-            Err(WearError::TooThick(_, other_item)) => {
+            Err(WearError::TooThick { other_item, .. }) => {
                 let other_item_name =
                     Description::get_reference_name(other_item, Some(performing_entity), world);
                 return ActionResult::builder()

@@ -405,6 +405,7 @@ fn find_entity_for_player(player_id: PlayerId, world: &World) -> Option<Entity> 
 
 /// Spawns a new player.
 fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut World) -> Entity {
+    //TODO give player body parts
     let player_id = player.id;
     let desc = Description {
         name: name.clone(),
