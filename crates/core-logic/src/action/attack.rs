@@ -12,15 +12,14 @@ use crate::{
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
-    resource::BodyPartTypeNameCatalog,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, Description,
-    DynamicMessage, DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, SurroundingsMessageCategory, VerifyActionNotification,
-    WeaponHitMessageTokens, WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -99,7 +98,7 @@ impl Action for AttackAction {
         let result_builder = ActionResult::builder();
 
         if target == performing_entity {
-            if let Some((body_part_entity, _)) =
+            if let Some(body_part_entity) =
                 BodyPart::get(&BodyPartType::Head, target, world).first()
             {
                 let weapon = world

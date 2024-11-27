@@ -124,8 +124,7 @@ impl WornItems {
         for body_part_type in &wearable.body_parts {
             let body_parts = BodyPart::get(body_part_type, entity, world);
             let mut peekable_body_parts = body_parts.iter().peekable();
-            'body_parts_of_type: while let Some((body_part_entity, _)) = peekable_body_parts.next()
-            {
+            'body_parts_of_type: while let Some(body_part_entity) = peekable_body_parts.next() {
                 if let Some(already_worn) = self.body_part_to_items.get(body_part_entity) {
                     // check total thickness, but only if there's already at least one thing on this body part
                     if !already_worn.is_empty() {

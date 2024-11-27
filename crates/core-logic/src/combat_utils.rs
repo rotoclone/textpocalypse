@@ -446,7 +446,7 @@ pub fn check_for_hit(
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    if let Some((body_part_entity, _)) = BodyPart::random_weighted(target, world) {
+    if let Some(body_part_entity) = BodyPart::random_weighted(target, world) {
         if to_hit_result.succeeded() {
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
             match weapon.calculate_damage(attacker, range, critical, world) {

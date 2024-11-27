@@ -168,7 +168,7 @@ impl Action for UppercutAction {
         };
 
         if let Some(mut hit_params) = hit_params {
-            if let Some((body_part_entity, _)) =
+            if let Some(body_part_entity) =
                 BodyPart::get(&BodyPartType::Head, target, world).choose(&mut thread_rng())
             {
                 hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
