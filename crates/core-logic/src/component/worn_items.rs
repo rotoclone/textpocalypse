@@ -5,6 +5,7 @@ use itertools::Itertools;
 
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
+    body_part::BodyPartType,
     component::Description,
     find_wearing_entity,
     notification::{Notification, VerifyResult},
@@ -40,6 +41,8 @@ pub enum WearError {
         body_part: Entity,
         other_item: Entity,
     },
+    /// The item is worn on a body part that the entity doesn't have.
+    IncompatibleBodyParts(BodyPartType),
 }
 
 /// An error when trying to take something off.
@@ -123,6 +126,9 @@ impl WornItems {
         let mut body_parts_to_wear_on = HashSet::new();
         for body_part_type in &wearable.body_parts {
             let body_parts = BodyPart::get(body_part_type, entity, world);
+            if body_parts.is_empty() {
+                return Err(WearError::IncompatibleBodyParts(body_part_type.clone()));
+            }
             let mut peekable_body_parts = body_parts.iter().peekable();
             'body_parts_of_type: while let Some(body_part_entity) = peekable_body_parts.next() {
                 if let Some(already_worn) = self.body_part_to_items.get(body_part_entity) {

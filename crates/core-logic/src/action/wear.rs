@@ -13,6 +13,7 @@ use crate::{
         InputParser,
     },
     notification::{Notification, VerifyResult},
+    resource::BodyPartTypeNameCatalog,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
@@ -127,6 +128,16 @@ impl Action for WearAction {
                     .with_error(
                         performing_entity,
                         format!("You can't fit {target_name} over {other_item_name}."),
+                    )
+                    .build_complete_no_tick(false);
+            }
+            Err(WearError::IncompatibleBodyParts(part_type)) => {
+                let part_type_name_with_article =
+                    BodyPartTypeNameCatalog::get_name(&part_type, world);
+                return ActionResult::builder()
+                    .with_error(
+                        performing_entity,
+                        format!("You don't have {part_type_name_with_article} to wear {target_name} on."),
                     )
                     .build_complete_no_tick(false);
             }

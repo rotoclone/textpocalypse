@@ -88,6 +88,9 @@ use message_format::*;
 mod dynamic_message;
 use dynamic_message::*;
 
+mod name_with_article;
+use name_with_article::*;
+
 const CHEATS_ENABLED: bool = true;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {

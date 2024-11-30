@@ -37,7 +37,7 @@ impl AttributeDescriber for WearableAttributeDescriber {
             let body_part_names = wearable
                 .body_parts
                 .iter()
-                .map(|part_type| BodyPartTypeNameCatalog::get_name(part_type, world))
+                .map(|part_type| BodyPartTypeNameCatalog::get_name(part_type, world).name)
                 .sorted()
                 .collect::<Vec<String>>();
 
