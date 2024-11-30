@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
 
-use rand::seq::SliceRandom;
 use rand_distr::{Distribution, WeightedError, WeightedIndex};
 use strum::EnumIter;
 
@@ -13,6 +12,13 @@ pub struct BodyParts {
     type_to_entities: HashMap<BodyPartType, Vec<Entity>>,
     /// Weights to use when randomly choosing a body part.
     weights: BodyPartWeights,
+}
+
+impl BodyParts {
+    /// Gets all the body parts.
+    pub fn get_all(&self) -> Vec<Entity> {
+        self.type_to_entities.values().flatten().cloned().collect()
+    }
 }
 
 /// An error building an instance of `BodyParts`.
