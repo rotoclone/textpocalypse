@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    add_human_innate_weapon,
+    add_human_body_parts, add_human_innate_weapon,
     body_part::BodyPartType,
     color::Color,
     component::{
@@ -167,7 +167,6 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
 
     let npc_stats = Stats::new(8, 8);
 
-    //TODO give the npc body parts
     let npc_id = world
         .spawn((
             Description {
@@ -211,6 +210,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
         .id();
     move_entity(npc_id, street_2_id, world);
     add_human_innate_weapon(npc_id, world);
+    add_human_body_parts(npc_id, world);
 
     let npc_shirt_id = world
         .spawn((

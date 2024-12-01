@@ -22,6 +22,7 @@ impl BodyParts {
 }
 
 /// An error building an instance of `BodyParts`.
+#[derive(Debug)]
 pub enum BodyPartsConstructorError {
     /// No body parts were provided
     NoBodyParts,

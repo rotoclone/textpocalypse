@@ -105,7 +105,7 @@ impl WornItems {
             None => return Err(WearError::CannotWear),
         };
 
-        let result = worn_items.wear_internal(to_wear, world);
+        let result = worn_items.wear_internal(to_wear, wearing_entity, world);
 
         world.entity_mut(wearing_entity).insert(worn_items);
 
@@ -113,7 +113,12 @@ impl WornItems {
     }
 
     /// Puts on the provided entity, if possible.
-    fn wear_internal(&mut self, entity: Entity, world: &World) -> Result<(), WearError> {
+    fn wear_internal(
+        &mut self,
+        entity: Entity,
+        wearing_entity: Entity,
+        world: &World,
+    ) -> Result<(), WearError> {
         let wearable = match world.get::<Wearable>(entity) {
             Some(w) => w,
             None => return Err(WearError::NotWearable),
@@ -125,7 +130,7 @@ impl WornItems {
 
         let mut body_parts_to_wear_on = HashSet::new();
         for body_part_type in &wearable.body_parts {
-            let body_parts = BodyPart::get(body_part_type, entity, world);
+            let body_parts = BodyPart::get(body_part_type, wearing_entity, world);
             if body_parts.is_empty() {
                 return Err(WearError::IncompatibleBodyParts(body_part_type.clone()));
             }

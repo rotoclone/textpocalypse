@@ -1,8 +1,9 @@
 use bevy_ecs::prelude::*;
+use body_part::{BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::{debug, warn};
-use resource::{insert_resources, register_resource_handlers};
+use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -408,7 +409,6 @@ fn find_entity_for_player(player_id: PlayerId, world: &World) -> Option<Entity> 
 
 /// Spawns a new player.
 fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut World) -> Entity {
-    //TODO give player body parts
     let player_id = player.id;
     let desc = Description {
         name: name.clone(),
@@ -446,6 +446,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .id();
     move_entity(player_entity, spawn_room, world);
     add_human_innate_weapon(player_entity, world);
+    add_human_body_parts(player_entity, world);
 
     world
         .resource_mut::<PlayerIdMapping>()
@@ -537,6 +538,101 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
         .id();
     FistActions::register_custom_input_parser(entity, world);
     move_entity(weapon, entity, world);
+}
+
+/// Adds standard human body parts to an entity.
+fn add_human_body_parts(entity: Entity, world: &mut World) {
+    let head = spawn_body_part_entity(BodyPartType::Head, "heads", "A human head.", world);
+    let torso = spawn_body_part_entity(BodyPartType::Torso, "torsos", "A human torso.", world);
+    let left_arm = spawn_body_part_entity(
+        BodyPartType::LeftArm,
+        "left arms",
+        "A human left arm.",
+        world,
+    );
+    let right_arm = spawn_body_part_entity(
+        BodyPartType::RightArm,
+        "right arms",
+        "A human right arm.",
+        world,
+    );
+    let left_hand = spawn_body_part_entity(
+        BodyPartType::LeftHand,
+        "left hands",
+        "A human left hand.",
+        world,
+    );
+    let right_hand = spawn_body_part_entity(
+        BodyPartType::RightHand,
+        "right hands",
+        "A human right hand.",
+        world,
+    );
+    let left_leg = spawn_body_part_entity(
+        BodyPartType::LeftLeg,
+        "left_legs",
+        "A human left leg.",
+        world,
+    );
+    let right_leg = spawn_body_part_entity(
+        BodyPartType::RightLeg,
+        "right legs",
+        "A human right leg.",
+        world,
+    );
+    let left_foot = spawn_body_part_entity(
+        BodyPartType::LeftFoot,
+        "left feet",
+        "A human left foot.",
+        world,
+    );
+    let right_foot = spawn_body_part_entity(
+        BodyPartType::RightFoot,
+        "right feet",
+        "A human right foot.",
+        world,
+    );
+
+    let part_to_weight = HashMap::from([
+        (head, 0.15),
+        (torso, 0.53),
+        (left_arm, 0.05),
+        (right_arm, 0.05),
+        (left_hand, 0.03),
+        (right_hand, 0.03),
+        (left_leg, 0.05),
+        (right_leg, 0.05),
+        (left_foot, 0.03),
+        (right_foot, 0.03),
+    ]);
+    let body_parts = BodyParts::new(part_to_weight, world).expect("body parts should be valid");
+
+    world.entity_mut(entity).insert(body_parts);
+}
+
+/// Spawns an entity representing a body part.
+fn spawn_body_part_entity<T: Into<String>>(
+    part_type: BodyPartType,
+    plural_name: T,
+    description: T,
+    world: &mut World,
+) -> Entity {
+    let name_with_article = BodyPartTypeNameCatalog::get_name(&part_type, world);
+    world
+        .spawn((
+            BodyPart { part_type },
+            Description {
+                name: name_with_article.name.clone(),
+                room_name: name_with_article.name,
+                plural_name: plural_name.into(),
+                article: Some(name_with_article.article.to_string()),
+                pronouns: Pronouns::it(),
+                aliases: Vec::new(),
+                description: description.into(),
+                attribute_describers: Vec::new(),
+            },
+        ))
+        .id()
 }
 
 /// Despawns the player with the provided ID.
