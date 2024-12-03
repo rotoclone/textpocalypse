@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 
 use crate::{
     body_part::{BodyPartType, BodyParts},
@@ -11,7 +12,7 @@ use crate::{
 pub struct WornItemsDescription {
     /// The items being worn.
     pub items: Vec<WornItemDescription>,
-    /// The names of all the body parts the wearing entity has.
+    /// The names of all the body parts the wearing entity has, sorted by type and then name.
     pub all_body_parts: Vec<BodyPartDescription>,
     /// The maximum total thickness of items allowed on a single body part.
     pub max_thickness: u32,
@@ -38,6 +39,7 @@ impl WornItemsDescription {
                         .get_all()
                         .into_iter()
                         .flat_map(|body_part| BodyPartDescription::from_entity(body_part, world))
+                        .sorted()
                         .collect()
                 })
                 .unwrap_or_default();
@@ -54,15 +56,17 @@ impl WornItemsDescription {
 }
 
 /// The description of a single body part.
-#[derive(Debug, Clone)]
+///
+/// Note: declared field order is important for the `PartialOrd` and `Ord` derives
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BodyPartDescription {
+    /// The type of the body part.
+    pub body_part_type: BodyPartType,
+    /// The name of the body part.
+    pub name: String,
     /// A unique ID to differentiate between different body parts with the same name and type.
     /// This ID may differ between runs, so it should only be used to compare body part descriptions returned together at the same time.
     pub id: u64,
-    /// The name of the body part.
-    pub name: String,
-    /// The type of the body part.
-    pub body_part_type: BodyPartType,
 }
 
 impl BodyPartDescription {
@@ -86,7 +90,7 @@ pub struct WornItemDescription {
     pub name: String,
     /// The thickness of the item.
     pub thickness: u32,
-    /// Descriptions of the body parts the item is covering.
+    /// Descriptions of the body parts the item is covering, sorted by type and then name.
     pub body_parts: Vec<BodyPartDescription>,
 }
 
@@ -107,6 +111,7 @@ impl WornItemDescription {
                     .get_body_parts_item_is_worn_on(entity)
                     .iter()
                     .flat_map(|body_part| BodyPartDescription::from_entity(*body_part, world))
+                    .sorted()
                     .collect(),
             })
     }

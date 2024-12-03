@@ -758,7 +758,6 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
         for item in &worn_items.items {
             let item_name_cell = Cell::new(item.name._capitalize(false));
             let thickness_cell = Cell::new(item.thickness);
-            //TODO sort body parts by type then name
             let body_part_names = item
                 .body_parts
                 .iter()
@@ -787,7 +786,6 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 
     let max_thickness = worn_items.max_thickness;
 
-    //TODO sort body parts by type then name
     for body_part in worn_items.all_body_parts {
         let body_part_name_cell = Cell::new(body_part.name._capitalize(false));
         let mut total_thickness = 0;
