@@ -347,7 +347,46 @@ pub fn handle_enter_combat(
     result_builder
 }
 
-/// Builds an `ActionResult` with messages about how `entity` can't use a weapon.
+/// Builds an `ActionResult` with messages about how `entity` can't hit `target` with `weapon_entity`.
+pub fn handle_hit_error(
+    entity: Entity,
+    target: Entity,
+    weapon_entity: Entity,
+    error: HitError,
+    result_builder: ActionResultBuilder,
+    world: &World,
+) -> ActionResult {
+    match error {
+        HitError::WeaponUnusable(weapon_unusable_error) => handle_weapon_unusable_error(
+            entity,
+            target,
+            weapon_entity,
+            weapon_unusable_error,
+            result_builder,
+            world,
+        ),
+        HitError::TargetHasNoBodyParts => result_builder
+            .with_dynamic_message(
+                Some(entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                    MessageFormat::new(
+                        "${entity.Name} can't seem to figure out how to hit ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("entity".into(), entity)
+                        .with_entity("target".into(), target),
+                ),
+                world,
+            )
+            .build_complete_should_tick(false),
+    }
+}
+
+/// Builds an `ActionResult` with messages about how `entity` can't use `weapon_entity`.
 pub fn handle_weapon_unusable_error(
     entity: Entity,
     target: Entity,
@@ -411,8 +450,16 @@ pub struct HitParams {
     pub body_part: Entity,
 }
 
+/// An error generated when checking for a hit during an attack
+pub enum HitError {
+    /// The weapon trying to be used in the attack is unusable
+    WeaponUnusable(WeaponUnusableError),
+    /// The target entity has no body parts to hit
+    TargetHasNoBodyParts,
+}
+
 /// Performs a check to see if `attacker` hits `target` with `weapon`.
-/// Returns `Some` if it was a hit, `Ok(None)` if it was a miss, and `Err` if the weapon is unusable.
+/// Returns `Some` if it was a hit, `Ok(None)` if it was a miss, and `Err` if the weapon is unusable or the target has no body parts.
 pub fn check_for_hit(
     attacker: Entity,
     target: Entity,
@@ -420,7 +467,7 @@ pub fn check_for_hit(
     range: CombatRange,
     to_hit_modification: f32,
     world: &mut World,
-) -> Result<Option<HitParams>, WeaponUnusableError> {
+) -> Result<Option<HitParams>, HitError> {
     let weapon = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
@@ -465,15 +512,14 @@ pub fn check_for_hit(
                         body_part: body_part_entity,
                     }))
                 }
-                Err(e) => Err(e),
+                Err(e) => Err(HitError::WeaponUnusable(e)),
             }
         } else {
             // miss
             Ok(None)
         }
     } else {
-        // target has no body parts
-        Ok(None) //TODO this should probably be some kind of error
+        Err(HitError::TargetHasNoBodyParts)
     }
 }
 

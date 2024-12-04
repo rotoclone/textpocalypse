@@ -6,14 +6,14 @@ use regex::Regex;
 
 use crate::{
     body_part::BodyPartType, check_for_hit, combat_utils, find_weapon, handle_begin_attack,
-    handle_damage, handle_miss, handle_weapon_unusable_error, input_parser::InputParser,
-    parse_attack_input, Action, ActionEndNotification, ActionInterruptResult,
-    ActionNotificationSender, ActionResult, ActionTag, AfterActionPerformNotification, AttackType,
-    BasicTokens, BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
-    DynamicMessageLocation, InputParseError, IntegerExtensions, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
-    SurroundingsMessageCategory, VerifyActionNotification, VerifyNotificationHandlers,
-    VerifyResult, Weapon, WeaponMessages,
+    handle_damage, handle_hit_error, handle_miss, handle_weapon_unusable_error,
+    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
+    ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag,
+    AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification, BodyPart,
+    ChosenWeapon, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, VerifyActionNotification,
+    VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
@@ -156,7 +156,7 @@ impl Action for UppercutAction {
         ) {
             Ok(x) => x,
             Err(e) => {
-                return handle_weapon_unusable_error(
+                return handle_hit_error(
                     performing_entity,
                     target,
                     weapon_entity,
@@ -428,7 +428,7 @@ impl Action for HaymakerAction {
         ) {
             Ok(x) => x,
             Err(e) => {
-                return handle_weapon_unusable_error(
+                return handle_hit_error(
                     performing_entity,
                     target,
                     weapon_entity,

@@ -104,7 +104,7 @@ pub struct BodyPart {
 }
 
 /// Defines the different types of body part.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, PartialOrd, Ord)] //TODO remove EnumIter?
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, PartialOrd, Ord)]
 pub enum BodyPartType {
     Head,
     Torso,

@@ -8,7 +8,8 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
-    find_weapon, handle_begin_attack, handle_damage, handle_miss, handle_weapon_unusable_error,
+    find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
+    handle_weapon_unusable_error,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
@@ -204,7 +205,7 @@ impl Action for AttackAction {
         ) {
             Ok(x) => x,
             Err(e) => {
-                return handle_weapon_unusable_error(
+                return handle_hit_error(
                     performing_entity,
                     target,
                     weapon_entity,
