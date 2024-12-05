@@ -1,8 +1,9 @@
 use bevy_ecs::prelude::*;
+use body_part::{BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::{debug, warn};
-use resource::{insert_resources, register_resource_handlers};
+use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -87,6 +88,9 @@ use message_format::*;
 
 mod dynamic_message;
 use dynamic_message::*;
+
+mod name_with_article;
+use name_with_article::*;
 
 const CHEATS_ENABLED: bool = true;
 
@@ -442,6 +446,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         .id();
     move_entity(player_entity, spawn_room, world);
     add_human_innate_weapon(player_entity, world);
+    add_human_body_parts(player_entity, world);
 
     world
         .resource_mut::<PlayerIdMapping>()
@@ -498,9 +503,9 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 },
                 default_attack_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lurch/lurches} forward as ${weapon.name} sails harmlessly past ${target.name}.").expect("message format should be valid")],
-                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.glance/glances} off of ${target.name's} ${body_part}.").expect("message format should be valid")],
-                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part}.").expect("message format should be valid")],
-                    major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.glance/glances} off of ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part.plain_name}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part.plain_name} with a crunch.").expect("message format should be valid")],
                 },
             },
             InnateWeapon,
@@ -518,21 +523,134 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
             FistActions {
                 uppercut_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:jut/juts} ${weapon.name} upward near where ${target.name} ${target.you:were/was} moments ago.").expect("message format should be valid")],
-                    minor_hit: vec![MessageFormat::new("${attacker.Name} barely ${attacker.you:catch/catches} ${target.name's} ${body_part} with an uppercut.").expect("message format should be valid")],
-                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part} with a solid uppercut.").expect("message format should be valid")],
-                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part} with a crunch.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} barely ${attacker.you:catch/catches} ${target.name's} ${body_part.plain_name} with an uppercut.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part.plain_name} with a solid uppercut.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part.plain_name} with a crunch.").expect("message format should be valid")],
                 },
                 haymaker_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:stumble/stumbles} as ${target.name} dodges out of the way of what looks like would have been a painful hit from ${weapon.name}.").expect("message format should be valid")],
-                    minor_hit: vec![MessageFormat::new("${attacker.Name's} haymaker barely catches ${target.name's} ${body_part}.").expect("message format should be valid")],
-                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:land/lands} a powerful punch to ${target.name's} ${body_part}.").expect("message format should be valid")],
-                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part} with a sickening crunch.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name's} haymaker barely catches ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:land/lands} a powerful punch to ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part.plain_name} with a sickening crunch.").expect("message format should be valid")],
                 },
             },
         ))
         .id();
     FistActions::register_custom_input_parser(entity, world);
     move_entity(weapon, entity, world);
+}
+
+/// Adds standard human body parts to an entity.
+fn add_human_body_parts(entity: Entity, world: &mut World) {
+    let head = spawn_body_part_entity(BodyPartType::Head, entity, "heads", "A human head.", world);
+    let torso = spawn_body_part_entity(
+        BodyPartType::Torso,
+        entity,
+        "torsos",
+        "A human torso.",
+        world,
+    );
+    let left_arm = spawn_body_part_entity(
+        BodyPartType::LeftArm,
+        entity,
+        "left arms",
+        "A human left arm.",
+        world,
+    );
+    let right_arm = spawn_body_part_entity(
+        BodyPartType::RightArm,
+        entity,
+        "right arms",
+        "A human right arm.",
+        world,
+    );
+    let left_hand = spawn_body_part_entity(
+        BodyPartType::LeftHand,
+        entity,
+        "left hands",
+        "A human left hand.",
+        world,
+    );
+    let right_hand = spawn_body_part_entity(
+        BodyPartType::RightHand,
+        entity,
+        "right hands",
+        "A human right hand.",
+        world,
+    );
+    let left_leg = spawn_body_part_entity(
+        BodyPartType::LeftLeg,
+        entity,
+        "left_legs",
+        "A human left leg.",
+        world,
+    );
+    let right_leg = spawn_body_part_entity(
+        BodyPartType::RightLeg,
+        entity,
+        "right legs",
+        "A human right leg.",
+        world,
+    );
+    let left_foot = spawn_body_part_entity(
+        BodyPartType::LeftFoot,
+        entity,
+        "left feet",
+        "A human left foot.",
+        world,
+    );
+    let right_foot = spawn_body_part_entity(
+        BodyPartType::RightFoot,
+        entity,
+        "right feet",
+        "A human right foot.",
+        world,
+    );
+
+    let part_to_weight = HashMap::from([
+        (head, 0.15),
+        (torso, 0.53),
+        (left_arm, 0.05),
+        (right_arm, 0.05),
+        (left_hand, 0.03),
+        (right_hand, 0.03),
+        (left_leg, 0.05),
+        (right_leg, 0.05),
+        (left_foot, 0.03),
+        (right_foot, 0.03),
+    ]);
+    let body_parts = BodyParts::new(part_to_weight, world).expect("body parts should be valid");
+
+    world.entity_mut(entity).insert(body_parts);
+}
+
+/// Spawns an entity representing a body part.
+fn spawn_body_part_entity<T: Into<String>>(
+    part_type: BodyPartType,
+    attached_to: Entity,
+    plural_name: T,
+    description: T,
+    world: &mut World,
+) -> Entity {
+    let name_with_article = BodyPartTypeNameCatalog::get_name(&part_type, world);
+    world
+        .spawn((
+            BodyPart {
+                part_type,
+                attached_to: Some(attached_to),
+            },
+            Description {
+                name: name_with_article.name.clone(),
+                room_name: name_with_article.name,
+                plural_name: plural_name.into(),
+                article: Some(name_with_article.article.to_string()),
+                pronouns: Pronouns::it(),
+                aliases: Vec::new(),
+                description: description.into(),
+                attribute_describers: Vec::new(),
+            },
+        ))
+        .id()
 }
 
 /// Despawns the player with the provided ID.
@@ -855,7 +973,7 @@ fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()
 }
 
-/// Finds the living entity that currently controls the provided entity (i.e. it contains it or contains a container that contains it)
+/// Finds the living entity that currently controls the provided entity (i.e. contains it or contains a container that contains it)
 fn find_owning_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {
         if is_living_entity(location.id, world) {
@@ -863,6 +981,12 @@ fn find_owning_entity(entity: Entity, world: &World) -> Option<Entity> {
         }
 
         return find_owning_entity(location.id, world);
+    }
+
+    if let Some(body_part) = world.get::<BodyPart>(entity) {
+        if let Some(attached_entity) = body_part.attached_to {
+            return Some(attached_entity);
+        }
     }
 
     None

@@ -6,6 +6,7 @@ use rand::seq::SliceRandom;
 use regex::{Captures, Regex};
 
 use crate::{
+    body_part::BodyPartDamageMultiplier,
     is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
@@ -346,7 +347,46 @@ pub fn handle_enter_combat(
     result_builder
 }
 
-/// Builds an `ActionResult` with messages about how `entity` can't use a weapon.
+/// Builds an `ActionResult` with messages about how `entity` can't hit `target` with `weapon_entity`.
+pub fn handle_hit_error(
+    entity: Entity,
+    target: Entity,
+    weapon_entity: Entity,
+    error: HitError,
+    result_builder: ActionResultBuilder,
+    world: &World,
+) -> ActionResult {
+    match error {
+        HitError::WeaponUnusable(weapon_unusable_error) => handle_weapon_unusable_error(
+            entity,
+            target,
+            weapon_entity,
+            weapon_unusable_error,
+            result_builder,
+            world,
+        ),
+        HitError::TargetHasNoBodyParts => result_builder
+            .with_dynamic_message(
+                Some(entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Short,
+                    MessageFormat::new(
+                        "${entity.Name} can't seem to figure out how to hit ${target.name}.",
+                    )
+                    .expect("message format should be valid"),
+                    BasicTokens::new()
+                        .with_entity("entity".into(), entity)
+                        .with_entity("target".into(), target),
+                ),
+                world,
+            )
+            .build_complete_should_tick(false),
+    }
+}
+
+/// Builds an `ActionResult` with messages about how `entity` can't use `weapon_entity`.
 pub fn handle_weapon_unusable_error(
     entity: Entity,
     target: Entity,
@@ -394,17 +434,6 @@ pub fn handle_weapon_unusable_error(
         .build_complete_should_tick(false)
 }
 
-/// Applies a multiplier to the provided damage based on the provided body part.
-pub fn apply_body_part_damage_multiplier(base_damage: u32, body_part: BodyPart) -> u32 {
-    let mult = match body_part {
-        BodyPart::Head => HEAD_DAMAGE_MULT,
-        BodyPart::Torso => TORSO_DAMAGE_MULT,
-        _ => APPENDAGE_DAMAGE_MULT,
-    };
-
-    base_damage.mul_and_round(mult)
-}
-
 /// Describes a hit.
 pub struct HitParams {
     /// The entity doing the hitting
@@ -417,12 +446,20 @@ pub struct HitParams {
     pub damage: u32,
     /// Whether the hit is a critical hit or not
     pub is_crit: bool,
-    /// The body part hit
-    pub body_part: BodyPart,
+    /// The body part hit on the entity getting hit
+    pub body_part: Entity,
+}
+
+/// An error generated when checking for a hit during an attack
+pub enum HitError {
+    /// The weapon trying to be used in the attack is unusable
+    WeaponUnusable(WeaponUnusableError),
+    /// The target entity has no body parts to hit
+    TargetHasNoBodyParts,
 }
 
 /// Performs a check to see if `attacker` hits `target` with `weapon`.
-/// Returns `Some` if it was a hit, `Ok(None)` if it was a miss, and `Err` if the weapon is unusable.
+/// Returns `Some` if it was a hit, `Ok(None)` if it was a miss, and `Err` if the weapon is unusable or the target has no body parts.
 pub fn check_for_hit(
     attacker: Entity,
     target: Entity,
@@ -430,7 +467,7 @@ pub fn check_for_hit(
     range: CombatRange,
     to_hit_modification: f32,
     world: &mut World,
-) -> Result<Option<HitParams>, WeaponUnusableError> {
+) -> Result<Option<HitParams>, HitError> {
     let weapon = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
@@ -456,26 +493,33 @@ pub fn check_for_hit(
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    let body_part = BodyPart::random_weighted(world);
-    if to_hit_result.succeeded() {
-        let critical = to_hit_result == CheckResult::ExtremeSuccess;
-        match weapon.calculate_damage(attacker, range, critical, world) {
-            Ok(x) => {
-                let damage = apply_body_part_damage_multiplier(x, body_part);
-                Ok(Some(HitParams {
-                    performing_entity: attacker,
-                    target,
-                    weapon_entity,
-                    damage,
-                    is_crit: critical,
-                    body_part,
-                }))
+    if let Some(body_part_entity) = BodyPart::random_weighted(target, world) {
+        if to_hit_result.succeeded() {
+            let critical = to_hit_result == CheckResult::ExtremeSuccess;
+            match weapon.calculate_damage(attacker, range, critical, world) {
+                Ok(base_damage) => {
+                    let damage_mult = world
+                        .get::<BodyPartDamageMultiplier>(body_part_entity)
+                        .map(|m| m.0)
+                        .unwrap_or(1.0);
+                    let damage = base_damage.mul_and_round(damage_mult);
+                    Ok(Some(HitParams {
+                        performing_entity: attacker,
+                        target,
+                        weapon_entity,
+                        damage,
+                        is_crit: critical,
+                        body_part: body_part_entity,
+                    }))
+                }
+                Err(e) => Err(HitError::WeaponUnusable(e)),
             }
-            Err(e) => Err(e),
+        } else {
+            // miss
+            Ok(None)
         }
     } else {
-        // miss
-        Ok(None)
+        Err(HitError::TargetHasNoBodyParts)
     }
 }
 
@@ -503,13 +547,13 @@ pub fn handle_damage<A: AttackType>(
 
     let hit_message = hit_messages_to_choose_from
         .and_then(|m| m.choose(&mut rand::thread_rng()).cloned())
-        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part} with ${weapon.name}.").expect("message format should be valid"));
+        .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.name's} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid"));
 
     let hit_message_tokens = WeaponHitMessageTokens {
         attacker: hit_params.performing_entity,
         target: hit_params.target,
         weapon: hit_params.weapon_entity,
-        body_part: hit_params.body_part.to_string(),
+        body_part: hit_params.body_part,
     };
 
     result_builder.with_post_effect(Box::new(move |w| {
@@ -531,7 +575,14 @@ pub fn handle_damage<A: AttackType>(
                 (
                     VitalChangeMessageParams::Direct {
                         entity: hit_params.target,
-                        message: format!("Ow, your {}!", hit_params.body_part),
+                        message: format!(
+                            "Ow, {}!",
+                            Description::get_reference_name(
+                                hit_params.body_part,
+                                Some(hit_params.target),
+                                w
+                            )
+                        ),
                         category: MessageCategory::Internal(InternalMessageCategory::Misc),
                     },
                     VitalChangeVisualizationType::Full,

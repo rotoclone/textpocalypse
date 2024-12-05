@@ -48,12 +48,9 @@ pub struct WornAction {
 
 impl Action for WornAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        if let Some(worn_items) = world.get::<WornItems>(performing_entity) {
-            let message =
-                GameMessage::WornItems(WornItemsDescription::from_worn_items(worn_items, world));
-
+        if let Some(desc) = WornItemsDescription::from_entity(performing_entity, world) {
             ActionResult::builder()
-                .with_game_message(performing_entity, message)
+                .with_game_message(performing_entity, GameMessage::WornItems(desc))
                 .build_complete_no_tick(true)
         } else {
             ActionResult::error(performing_entity, "You have no worn items.".to_string())

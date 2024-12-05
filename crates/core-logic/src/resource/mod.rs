@@ -36,8 +36,8 @@ pub use weapon_type_stat_catalog::WeaponTypeStats;
 mod weapon_type_name_catalog;
 pub use weapon_type_name_catalog::WeaponTypeNameCatalog;
 
-mod body_part_weights;
-pub use body_part_weights::BodyPartWeights;
+mod body_part_type_name_catalog;
+pub use body_part_type_name_catalog::BodyPartTypeNameCatalog;
 
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
@@ -49,7 +49,7 @@ pub fn insert_resources(world: &mut World) {
     world.insert_resource(SkillBaseAttributeCatalog::new());
     world.insert_resource(WeaponTypeStatCatalog::new());
     world.insert_resource(WeaponTypeNameCatalog::new());
-    world.insert_resource(BodyPartWeights::new());
+    world.insert_resource(BodyPartTypeNameCatalog::new());
 }
 
 /// Registers notification handlers related to resources.

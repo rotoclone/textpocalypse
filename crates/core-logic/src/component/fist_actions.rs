@@ -1,14 +1,16 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use rand::{seq::SliceRandom, thread_rng};
 use regex::Regex;
 
 use crate::{
-    check_for_hit, combat_utils, find_weapon, handle_begin_attack, handle_damage, handle_miss,
-    handle_weapon_unusable_error, input_parser::InputParser, parse_attack_input, Action,
-    ActionEndNotification, ActionInterruptResult, ActionNotificationSender, ActionResult,
-    ActionTag, AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification,
-    BodyPart, ChosenWeapon, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
+    body_part::BodyPartType, check_for_hit, combat_utils, find_weapon, handle_begin_attack,
+    handle_damage, handle_hit_error, handle_miss, handle_weapon_unusable_error,
+    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
+    ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag,
+    AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification, BodyPart,
+    ChosenWeapon, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
     IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, VerifyActionNotification,
     VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
@@ -154,7 +156,7 @@ impl Action for UppercutAction {
         ) {
             Ok(x) => x,
             Err(e) => {
-                return handle_weapon_unusable_error(
+                return handle_hit_error(
                     performing_entity,
                     target,
                     weapon_entity,
@@ -166,10 +168,24 @@ impl Action for UppercutAction {
         };
 
         if let Some(mut hit_params) = hit_params {
-            hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
-            hit_params.body_part = BodyPart::Head;
-            result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
+            if let Some(body_part_entity) =
+                BodyPart::get(&BodyPartType::Head, target, world).choose(&mut thread_rng())
+            {
+                hit_params.damage = hit_params.damage.mul_and_round(UPPERCUT_DAMAGE_MULTIPLIER);
+                hit_params.body_part = *body_part_entity;
+                result_builder = handle_damage::<UppercutAction>(hit_params, result_builder, world);
+            } else {
+                // target doesn't have a head
+                result_builder = handle_miss::<UppercutAction>(
+                    performing_entity,
+                    target,
+                    weapon_entity,
+                    result_builder,
+                    world,
+                );
+            }
         } else {
+            // missed
             result_builder = handle_miss::<UppercutAction>(
                 performing_entity,
                 target,
@@ -412,7 +428,7 @@ impl Action for HaymakerAction {
         ) {
             Ok(x) => x,
             Err(e) => {
-                return handle_weapon_unusable_error(
+                return handle_hit_error(
                     performing_entity,
                     target,
                     weapon_entity,

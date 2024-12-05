@@ -743,7 +743,7 @@ fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
 
 /// Transforms the provided worn items description into a string for display.
 fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
-    let mut items_by_body_part: HashMap<BodyPart, Vec<&WornItemDescription>> = HashMap::new();
+    let mut items_by_body_part_id: HashMap<u64, Vec<&WornItemDescription>> = HashMap::new();
 
     let by_item_string = if worn_items.items.is_empty() {
         "".to_string()
@@ -761,13 +761,16 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
             let body_part_names = item
                 .body_parts
                 .iter()
-                .map(|body_part| body_part.to_string())
+                .map(|body_part| body_part.name.clone())
                 .join(", ");
             let worn_on_cell = Cell::new(body_part_names);
             by_item_table.add_row(vec![item_name_cell, thickness_cell, worn_on_cell]);
 
             for body_part in &item.body_parts {
-                items_by_body_part.entry(*body_part).or_default().push(item);
+                items_by_body_part_id
+                    .entry(body_part.id)
+                    .or_default()
+                    .push(item);
             }
         }
 
@@ -783,12 +786,12 @@ fn worn_items_to_string(worn_items: WornItemsDescription) -> String {
 
     let max_thickness = worn_items.max_thickness;
 
-    for body_part in BodyPart::iter() {
-        let body_part_name_cell = Cell::new(body_part.to_string()._capitalize(false));
+    for body_part in worn_items.all_body_parts {
+        let body_part_name_cell = Cell::new(body_part.name._capitalize(false));
         let mut total_thickness = 0;
         let mut item_names = Vec::new();
 
-        if let Some(items) = items_by_body_part.get(&body_part) {
+        if let Some(items) = items_by_body_part_id.get(&body_part.id) {
             for item in items {
                 total_thickness += item.thickness;
                 item_names.push(item.name.clone());

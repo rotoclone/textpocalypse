@@ -102,7 +102,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     /// Tokens can be in the following formats:
     /// * `${token_name.type}`, where `token_name` is the name of the token, and `type` is one of the following types:
     ///   * `name`: the entity's name, including an article like "your" or "the"
-    ///   * `plain_name`: just entity entity's name, with no article
+    ///   * `plain_name`: just the entity's name, with no article
     ///   * `name's`: the possessive version of the entity's name, which will be either "your", or the entity's name followed by "'s", depending on if the entity is the POV entity, including an article like "your" or "the"
     ///   * `plain_name's`: the possessive version of the entity's name, as above, but with no article
     ///   * `they`: the entity's personal subject pronoun

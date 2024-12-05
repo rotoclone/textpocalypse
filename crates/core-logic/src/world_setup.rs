@@ -1,7 +1,8 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    add_human_innate_weapon,
+    add_human_body_parts, add_human_innate_weapon,
+    body_part::BodyPartType,
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
@@ -11,7 +12,7 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, BodyPart, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
+    move_entity, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
     WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
 };
 
@@ -209,6 +210,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
         .id();
     move_entity(npc_id, street_2_id, world);
     add_human_innate_weapon(npc_id, world);
+    add_human_body_parts(npc_id, world);
 
     let npc_shirt_id = world
         .spawn((
@@ -232,7 +234,12 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -594,7 +601,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -622,7 +634,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -650,7 +667,12 @@ pub fn spawn_start_building(
             Weight(0.5),
             Wearable {
                 thickness: 1,
-                body_parts: [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm].into(),
+                body_parts: [
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                ]
+                .into(),
             },
         ))
         .id();
@@ -679,13 +701,13 @@ pub fn spawn_start_building(
             Wearable {
                 thickness: 3,
                 body_parts: [
-                    BodyPart::Torso,
-                    BodyPart::LeftArm,
-                    BodyPart::RightArm,
-                    BodyPart::LeftLeg,
-                    BodyPart::RightLeg,
-                    BodyPart::LeftFoot,
-                    BodyPart::RightFoot,
+                    BodyPartType::Torso,
+                    BodyPartType::LeftArm,
+                    BodyPartType::RightArm,
+                    BodyPartType::LeftLeg,
+                    BodyPartType::RightLeg,
+                    BodyPartType::LeftFoot,
+                    BodyPartType::RightFoot,
                 ]
                 .into(),
             },
@@ -755,11 +777,11 @@ pub fn spawn_start_building(
                 },
                 default_attack_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wide of ${target.name}. Strike!").expect("message format should be valid")],
-                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wildly, and ${attacker.you:manage/manages} to deal a glancing blow to ${target.name's} ${body_part}.").expect("message format should be valid")],
-                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bonk/bonks} ${target.name} on the ${body_part} with ${weapon.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wildly, and ${attacker.you:manage/manages} to deal a glancing blow to ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bonk/bonks} ${target.name} on the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")],
                     major_hit: vec![
-                        MessageFormat::new("${attacker.Name} ${attacker.you:wind/winds} up with ${weapon.name} and ${attacker.you:connect/connects} with ${target.name's} ${body_part} with a loud crack.").expect("message format should be valid"),
-                        MessageFormat::new("${target.Name} ${target.you:scream/screams} as ${attacker.name} ${attacker.you:bash/bashes} ${target.their} ${body_part} with ${weapon.name}.").expect("message format should be valid")
+                        MessageFormat::new("${attacker.Name} ${attacker.you:wind/winds} up with ${weapon.name} and ${attacker.you:connect/connects} with ${target.name's} ${body_part.plain_name} with a loud crack.").expect("message format should be valid"),
+                        MessageFormat::new("${target.Name} ${target.you:scream/screams} as ${attacker.name} ${attacker.you:bash/bashes} ${target.their} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")
                     ],
                 },
             },

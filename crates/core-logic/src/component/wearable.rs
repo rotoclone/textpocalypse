@@ -3,7 +3,9 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
-use crate::{format_list, AttributeDescription, BodyPart};
+use crate::{
+    body_part::BodyPartType, format_list, resource::BodyPartTypeNameCatalog, AttributeDescription,
+};
 
 use super::{
     AttributeDescriber, AttributeDetailLevel, AttributeSection, AttributeSectionName,
@@ -16,7 +18,7 @@ pub struct Wearable {
     /// The thickness of the entity.
     pub thickness: u32,
     /// The body parts the entity covers when worn.
-    pub body_parts: HashSet<BodyPart>,
+    pub body_parts: HashSet<BodyPartType>,
 }
 
 /// Describes the wearability of an entity.
@@ -32,11 +34,18 @@ impl AttributeDescriber for WearableAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if let Some(wearable) = world.get::<Wearable>(entity) {
-            let body_parts = wearable
+            let body_part_names = wearable
                 .body_parts
                 .iter()
-                .map(|part| part.to_string())
+                .map(|part_type| {
+                    (
+                        // include type for sorting purposes
+                        part_type,
+                        BodyPartTypeNameCatalog::get_name(part_type, world).name,
+                    )
+                })
                 .sorted()
+                .map(|(_, name)| name)
                 .collect::<Vec<String>>();
 
             return vec![AttributeDescription::Section(AttributeSection {
@@ -44,7 +53,7 @@ impl AttributeDescriber for WearableAttributeDescriber {
                 attributes: vec![
                     SectionAttributeDescription {
                         name: "Body parts".to_string(),
-                        description: format_list(&body_parts),
+                        description: format_list(&body_part_names),
                     },
                     SectionAttributeDescription {
                         name: "Thickness".to_string(),
