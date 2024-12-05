@@ -101,6 +101,8 @@ impl BodyPartWeights {
 pub struct BodyPart {
     /// The type of body part this is.
     pub part_type: BodyPartType,
+    /// The entity this body part is attached to, if any.
+    pub attached_to: Option<Entity>,
 }
 
 /// Defines the different types of body part.
