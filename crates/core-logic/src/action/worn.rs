@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use regex::Regex;
 
 use crate::{
-    component::{ActionEndNotification, AfterActionPerformNotification, WornItems},
+    component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, VerifyActionNotification, World,

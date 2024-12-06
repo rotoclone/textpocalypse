@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use body_part::{BodyPartType, BodyParts};
+use body_part::{BodyPartDamageMultiplier, BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::{debug, warn};
@@ -540,14 +540,31 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
     move_entity(weapon, entity, world);
 }
 
+/// Multiplier applied to damage done to the head.
+const HEAD_DAMAGE_MULT: BodyPartDamageMultiplier = BodyPartDamageMultiplier(1.2);
+
+/// Multiplier applied to damage done to the torso.
+const TORSO_DAMAGE_MULT: BodyPartDamageMultiplier = BodyPartDamageMultiplier(1.0);
+
+/// Multiplier applied to damage done to non-head and non-torso body parts.
+const APPENDAGE_DAMAGE_MULT: BodyPartDamageMultiplier = BodyPartDamageMultiplier(0.8);
+
 /// Adds standard human body parts to an entity.
 fn add_human_body_parts(entity: Entity, world: &mut World) {
-    let head = spawn_body_part_entity(BodyPartType::Head, entity, "heads", "A human head.", world);
+    let head = spawn_body_part_entity(
+        BodyPartType::Head,
+        entity,
+        "heads",
+        "A human head.",
+        HEAD_DAMAGE_MULT,
+        world,
+    );
     let torso = spawn_body_part_entity(
         BodyPartType::Torso,
         entity,
         "torsos",
         "A human torso.",
+        TORSO_DAMAGE_MULT,
         world,
     );
     let left_arm = spawn_body_part_entity(
@@ -555,6 +572,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "left arms",
         "A human left arm.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let right_arm = spawn_body_part_entity(
@@ -562,6 +580,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "right arms",
         "A human right arm.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let left_hand = spawn_body_part_entity(
@@ -569,6 +588,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "left hands",
         "A human left hand.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let right_hand = spawn_body_part_entity(
@@ -576,6 +596,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "right hands",
         "A human right hand.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let left_leg = spawn_body_part_entity(
@@ -583,6 +604,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "left_legs",
         "A human left leg.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let right_leg = spawn_body_part_entity(
@@ -590,6 +612,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "right legs",
         "A human right leg.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let left_foot = spawn_body_part_entity(
@@ -597,6 +620,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "left feet",
         "A human left foot.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
     let right_foot = spawn_body_part_entity(
@@ -604,6 +628,7 @@ fn add_human_body_parts(entity: Entity, world: &mut World) {
         entity,
         "right feet",
         "A human right foot.",
+        APPENDAGE_DAMAGE_MULT,
         world,
     );
 
@@ -630,6 +655,7 @@ fn spawn_body_part_entity<T: Into<String>>(
     attached_to: Entity,
     plural_name: T,
     description: T,
+    damage_multiplier: BodyPartDamageMultiplier,
     world: &mut World,
 ) -> Entity {
     let name_with_article = BodyPartTypeNameCatalog::get_name(&part_type, world);
@@ -649,6 +675,7 @@ fn spawn_body_part_entity<T: Into<String>>(
                 description: description.into(),
                 attribute_describers: Vec::new(),
             },
+            damage_multiplier,
         ))
         .id()
 }

@@ -2,7 +2,6 @@ use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
 use std::{cmp::Ordering, collections::HashMap, fmt::Display, hash::Hash};
-use strum::IntoEnumIterator;
 use voca_rs::Voca;
 
 use core_logic::*;

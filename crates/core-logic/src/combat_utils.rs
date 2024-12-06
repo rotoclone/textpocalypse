@@ -21,15 +21,6 @@ use crate::{
     WeaponUnusableError, STANDARD_CHECK_XP,
 };
 
-/// Multiplier applied to damage done to the head.
-const HEAD_DAMAGE_MULT: f32 = 1.2;
-
-/// Multiplier applied to damage done to the torso.
-const TORSO_DAMAGE_MULT: f32 = 1.0;
-
-/// Multiplier applied to damage done to non-head and non-torso body parts.
-const APPENDAGE_DAMAGE_MULT: f32 = 0.8;
-
 /// The fraction of a target's health that counts as a high amount of damage.
 const HIGH_DAMAGE_THRESHOLD: f32 = 0.4;
 
