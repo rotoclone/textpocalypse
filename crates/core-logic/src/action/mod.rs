@@ -39,6 +39,7 @@ pub use put::PutAction;
 pub use put::PutParser;
 
 mod throw;
+#[expect(unused)]
 pub use throw::ThrowAction;
 pub use throw::ThrowParser;
 
@@ -82,14 +83,17 @@ pub use say::SayAction;
 pub use say::SayParser;
 
 mod stop;
+#[expect(unused)]
 pub use stop::StopAction;
 pub use stop::StopParser;
 
 mod players;
+#[expect(unused)]
 pub use players::PlayersAction;
 pub use players::PlayersParser;
 
 mod worn;
+#[expect(unused)]
 pub use worn::WornAction;
 pub use worn::WornParser;
 
@@ -103,12 +107,15 @@ pub use change_range::ChangeRangeParser;
 pub use change_range::RangeChangeDirection;
 
 mod ranges;
+#[expect(unused)]
 pub use ranges::RangesAction;
 pub use ranges::RangesParser;
 
 mod spend_advacement_point;
 pub use spend_advacement_point::SpendAdvancementPointParser;
+#[expect(unused)]
 pub use spend_advacement_point::SpendAttributePointAction;
+#[expect(unused)]
 pub use spend_advacement_point::SpendSkillPointAction;
 
 mod cheat;
@@ -366,6 +373,7 @@ impl ActionInterruptResult {
     }
 
     /// Creates an action interrupt result with a single error message for an entity.
+    #[expect(unused)]
     pub fn error(entity_id: Entity, message: String) -> ActionInterruptResult {
         ActionInterruptResult {
             messages: [(entity_id, vec![GameMessage::Error(message)])].into(),
@@ -428,6 +436,7 @@ impl ActionInterruptResultBuilder {
     }
 
     /// Adds an error message to be sent to an entity.
+    #[expect(unused)]
     pub fn with_error(self, entity_id: Entity, message: String) -> ActionInterruptResultBuilder {
         self.with_game_message(entity_id, GameMessage::Error(message))
     }
@@ -454,6 +463,7 @@ pub enum ActionTag {
     /// For actions that have to do with combat.
     Combat,
     /// A non-standard tag.
+    #[expect(unused)]
     Custom(String),
 }
 
