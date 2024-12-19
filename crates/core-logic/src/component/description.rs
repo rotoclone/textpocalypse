@@ -321,7 +321,8 @@ pub enum AttributeDescription {
     /// An attribute or set of attributes that should be described in a formatted section, like weapon stats.
     Section(AttributeSection),
     /// A description in the form of a game message, like the contents of an entity.
-    Message(GameMessage),
+    /// Boxed to reduce overall size of the enum, since this variant should be comparatively rare.
+    Message(Box<GameMessage>),
 }
 
 impl AttributeDescription {
@@ -418,6 +419,7 @@ pub struct SectionAttributeDescription {
 /// Trait for components that have describable attributes.
 pub trait DescribeAttributes {
     /// Registers the attribute describer for this component on the provided entity.
+    #[expect(unused)]
     fn register_attribute_describer(entity: Entity, world: &mut World) {
         if let Some(mut description) = world.get_mut::<Description>(entity) {
             description

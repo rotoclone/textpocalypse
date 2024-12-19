@@ -27,6 +27,7 @@ pub struct FluidContainer {
 
 impl FluidContainer {
     /// Creates an empty fluid container that can hold an infinite amount of fluid.
+    #[expect(unused)]
     pub fn new_infinite() -> FluidContainer {
         FluidContainer {
             contents: Fluid::new(),
@@ -35,6 +36,7 @@ impl FluidContainer {
     }
 
     /// Creates an empty fluid container.
+    #[expect(unused)]
     pub fn new(volume: Volume) -> FluidContainer {
         FluidContainer {
             contents: Fluid::new(),

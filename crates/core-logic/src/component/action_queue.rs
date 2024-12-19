@@ -48,6 +48,7 @@ pub struct ActionEndNotification {
     /// The entity that performed the action.
     pub performing_entity: Entity,
     /// Whether the action was interrupted.
+    #[expect(unused)]
     pub action_interrupted: bool,
 }
 

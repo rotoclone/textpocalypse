@@ -29,8 +29,10 @@ pub enum CombatRange {
 #[derive(Debug)]
 pub struct EnterCombatNotification {
     /// One of the entities entering combat.
+    #[expect(unused)]
     pub entity_1: Entity,
     /// The other entity entering combat.
+    #[expect(unused)]
     pub entity_2: Entity,
 }
 

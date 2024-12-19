@@ -18,6 +18,7 @@ pub struct Item {
 
 impl Item {
     /// Creates an `Item` that requires the provided number of hands to equip.
+    #[expect(unused)]
     pub fn new(hands_to_equip: NonZeroU8) -> Item {
         Item { hands_to_equip }
     }

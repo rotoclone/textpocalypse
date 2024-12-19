@@ -13,6 +13,7 @@ pub struct CheckHistory(HashMap<Stat, f32>);
 
 impl CheckHistory {
     /// Creates an empty check history
+    #[expect(unused)]
     pub fn new() -> CheckHistory {
         CheckHistory(HashMap::new())
     }

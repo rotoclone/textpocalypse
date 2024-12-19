@@ -47,16 +47,19 @@ impl Invisible {
     }
 
     /// Makes an entity invisible to all other entities.
+    #[expect(unused)]
     pub fn make_invisible_to_all(entity: Entity, world: &mut World) {
         world.entity_mut(entity).insert(Invisible::to_all());
     }
 
     /// Makes an entity visible to all other entities.
+    #[expect(unused)]
     pub fn make_visible_to_all(entity: Entity, world: &mut World) {
         world.entity_mut(entity).remove::<Invisible>();
     }
 
     /// Makes `entity` invisible to `pov_entity`.
+    #[expect(unused)]
     pub fn make_invisible_to(entity: Entity, pov_entity: Entity, world: &mut World) {
         if let Some(mut invisible) = world.get_mut::<Invisible>(entity) {
             match invisible.scope {
@@ -76,6 +79,7 @@ impl Invisible {
     }
 
     /// Makes `entity` visible to `pov_entity`.
+    #[expect(unused)]
     pub fn make_visible_to(entity: Entity, pov_entity: Entity, world: &mut World) {
         if let Some(mut invisible) = world.get_mut::<Invisible>(entity) {
             match invisible.scope {

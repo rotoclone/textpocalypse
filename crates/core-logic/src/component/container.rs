@@ -225,7 +225,7 @@ impl AttributeDescriber for ContainerAttributeDescriber {
             let message = GameMessage::Container(ContainerDescription::from_container(
                 container, pov_entity, world,
             ));
-            return vec![AttributeDescription::Message(message)];
+            return vec![AttributeDescription::Message(Box::new(message))];
         }
 
         Vec::new()
