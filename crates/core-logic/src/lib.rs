@@ -728,14 +728,7 @@ fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(player) = world.get::<Player>(entity_id) {
         let time = world.resource::<Time>().clone();
-        send_message_to_player(player, message, time);
-    }
-}
-
-/// Sends a message to the provided player.
-fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
-    if let Err(e) = player.send_message(message, time) {
-        warn!("Error sending message to player {:?}: {}", player.id, e);
+        player.send_message(message, time);
     }
 }
 
