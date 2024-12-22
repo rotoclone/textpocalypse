@@ -51,6 +51,7 @@ impl WeaponTypeStatCatalog {
     }
 
     /// Sets the associated stats for the provided weapon type.
+    #[expect(unused)]
     pub fn set(&mut self, weapon_type: &WeaponType, stats: WeaponTypeStats) {
         match weapon_type {
             WeaponType::Custom(id) => self.custom.insert(id.clone(), stats),

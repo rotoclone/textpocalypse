@@ -63,6 +63,7 @@ impl AttributeNameCatalog {
     }
 
     /// Sets the name of the provided attribute.
+    #[expect(unused)]
     pub fn set(&mut self, attribute: &Attribute, name: AttributeName) {
         self.full_name_to_attribute
             .insert(name.full.to_lowercase(), attribute.clone());

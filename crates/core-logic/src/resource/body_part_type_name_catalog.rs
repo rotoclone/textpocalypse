@@ -30,6 +30,7 @@ impl BodyPartTypeNameCatalog {
     }
 
     /// Sets the name of the provided body part type.
+    #[expect(unused)]
     pub fn set(&mut self, body_part_type: &BodyPartType, name: NameWithArticle) {
         match body_part_type {
             BodyPartType::Custom(id) => self.custom.insert(id.clone(), name),

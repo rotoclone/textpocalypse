@@ -43,6 +43,7 @@ impl SkillNameCatalog {
     }
 
     /// Sets the name of the provided skill.
+    #[expect(unused)]
     pub fn set(&mut self, skill: &Skill, name: String) {
         self.name_to_skill
             .insert(name.to_lowercase(), skill.clone());

@@ -35,6 +35,7 @@ impl FluidHydrationFactorCatalog {
     }
 
     /// Sets the hydration factor of the provided fluid type.
+    #[expect(unused)]
     pub fn set(&mut self, fluid_type: &FluidType, factor: f32) {
         match fluid_type {
             FluidType::Custom(id) => self.custom.insert(id.clone(), factor),

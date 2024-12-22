@@ -96,37 +96,47 @@ fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Opti
     None
 }
 
+/// Information about the regular expressions used to parse an attack command.
+pub struct AttackRegexes {
+    /// The pattern for an attack with no weapon specified.
+    /// Should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
+    pub pattern: &'static Regex,
+    /// The pattern for an attack with a weapon specified.
+    /// Should have capture groups with the names provided in `target_capture_name` and `weapon_capture_name`. Any other capture groups will be ignored.
+    pub pattern_with_weapon: &'static Regex,
+    /// The name of the capture group for the target of the attack.
+    pub target_capture_name: &'static str,
+    /// The name of the capture group for the weapon to attack with.
+    pub weapon_capture_name: &'static str,
+}
+
 /// Parses input from `source_entity` as an attack command.
-/// `pattern` should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
 ///
 /// Returns `Ok` with the target entity, or `Err` if the input is invalid.
 pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
-    pattern: &Regex,
-    pattern_with_weapon: &Regex,
-    target_capture_name: &str,
-    weapon_capture_name: &str,
+    regexes: AttackRegexes,
     verb_name: &str,
     world: &World,
 ) -> Result<ParsedAttack, InputParseError> {
-    if let Some(captures) = pattern_with_weapon.captures(input) {
+    if let Some(captures) = regexes.pattern_with_weapon.captures(input) {
         return parse_attack_input_captures::<A>(
             &captures,
             source_entity,
-            target_capture_name,
-            weapon_capture_name,
+            regexes.target_capture_name,
+            regexes.weapon_capture_name,
             verb_name,
             world,
         );
     }
 
-    if let Some(captures) = pattern.captures(input) {
+    if let Some(captures) = regexes.pattern.captures(input) {
         return parse_attack_input_captures::<A>(
             &captures,
             source_entity,
-            target_capture_name,
-            weapon_capture_name,
+            regexes.target_capture_name,
+            regexes.weapon_capture_name,
             verb_name,
             world,
         );
@@ -436,6 +446,7 @@ pub struct HitParams {
     /// The damage done
     pub damage: u32,
     /// Whether the hit is a critical hit or not
+    #[expect(unused)]
     pub is_crit: bool,
     /// The body part hit on the entity getting hit
     pub body_part: Entity,

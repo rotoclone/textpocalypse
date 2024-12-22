@@ -25,6 +25,7 @@ impl FluidDensityCatalog {
     }
 
     /// Sets the density of the provided fluid type.
+    #[expect(unused)]
     pub fn set(&mut self, fluid_type: &FluidType, density: Density) {
         match fluid_type {
             FluidType::Custom(id) => self.custom.insert(id.clone(), density),

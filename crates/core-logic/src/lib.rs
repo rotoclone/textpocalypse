@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use body_part::{BodyPartDamageMultiplier, BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
-use log::{debug, warn};
+use log::debug;
 use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
 use std::{
     collections::{HashMap, HashSet},
@@ -71,11 +71,7 @@ pub use formatting::*;
 mod checks;
 use checks::*;
 
-mod verb_forms;
-use verb_forms::*;
-
 mod range_extensions;
-use range_extensions::*;
 
 mod integer_extensions;
 use integer_extensions::*;

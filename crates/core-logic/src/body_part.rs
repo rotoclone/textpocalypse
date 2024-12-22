@@ -27,9 +27,9 @@ pub enum BodyPartsConstructorError {
     /// No body parts were provided
     NoBodyParts,
     /// An entity is not a body part
-    NotABodyPart(Entity),
+    NotABodyPart(#[expect(unused)] Entity),
     /// The provided weights are invalid
-    InvalidWeights(WeightedError),
+    InvalidWeights(#[expect(unused)] WeightedError),
 }
 
 impl From<WeightedError> for BodyPartsConstructorError {
