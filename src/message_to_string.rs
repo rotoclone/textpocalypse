@@ -493,7 +493,7 @@ fn entity_attributes_to_string(
         Some(
             messages
                 .into_iter()
-                .map(|message| message_to_string(message, None))
+                .map(|message| message_to_string(*message, None))
                 .collect::<Vec<String>>()
                 .join("\n\n"),
         )

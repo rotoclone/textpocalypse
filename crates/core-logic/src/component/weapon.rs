@@ -98,8 +98,10 @@ pub enum WeaponStatRequirementNotMetBehavior {
     /// The weapon cannot be used at all.
     Unusable,
     /// Adjustments are applied once if the stat requirement is not met, regardless of how much the stat requirement is not met by.
+    #[expect(unused)]
     FlatAdjustments(Vec<WeaponPerformanceAdjustment>),
     /// Adjustments are applied once for each point the using entity is below the stat requirement.
+    #[expect(unused)]
     AdjustmentsPerPointBelowMin(Vec<WeaponPerformanceAdjustment>),
 }
 
@@ -107,8 +109,10 @@ pub enum WeaponStatRequirementNotMetBehavior {
 #[derive(Clone)]
 pub enum WeaponPerformanceAdjustment {
     /// Change the damage done by the weapon.
+    #[expect(unused)]
     Damage(WeaponDamageAdjustment),
     /// Change the likelihood of hitting with the weapon.
+    #[expect(unused)]
     ToHit(WeaponToHitAdjustment),
 }
 
@@ -116,16 +120,21 @@ pub enum WeaponPerformanceAdjustment {
 #[derive(Clone)]
 pub enum WeaponDamageAdjustment {
     /// Roll for damage from a different range.
+    #[expect(unused)]
     NewRange(RangeInclusive<u32>),
     /// Instead of rolling for damage, do a specific amount of damage.
+    #[expect(unused)]
     Set(u32),
     /// Add some amount to the damage done.
+    #[expect(unused)]
     Add(i32),
     /// Multiply the damage done by some amount.
     Multiply(f32),
     /// Instead of rolling for damage, choose the lowest damage in the range.
+    #[expect(unused)]
     Min,
     /// Instead of rolling for damage, choose the highest damage in the range.
+    #[expect(unused)]
     Max,
 }
 
@@ -133,8 +142,10 @@ pub enum WeaponDamageAdjustment {
 #[derive(Clone)]
 pub enum WeaponToHitAdjustment {
     /// Add some amount to the stat value for the to-hit roll.
+    #[expect(unused)]
     Add(i32),
     /// Multiply the stat value for the to-hit roll by some amount.
+    #[expect(unused)]
     Multiply(f32),
 }
 

@@ -12,8 +12,9 @@ use crate::{
         WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
-    move_entity, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
-    WeaponMessages, AFTERLIFE_ROOM_COORDINATES,
+    move_entity, Attribute, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
+    Stat, WeaponMessages, WeaponStatRequirement, WeaponStatRequirementNotMetBehavior,
+    AFTERLIFE_ROOM_COORDINATES,
 };
 
 pub fn set_up_world(world: &mut World) -> Coordinates {
@@ -790,6 +791,65 @@ pub fn spawn_start_building(
         ))
         .id();
     move_entity(bat_id, middle_room_id, world);
+
+    let sledgehammer_id = world
+        .spawn((
+            Description {
+                name: "sledgehammer".to_string(),
+                room_name: "sledgehammer".to_string(),
+                plural_name: "sledgehammers".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["hammer".to_string()],
+                description:
+                    "A long piece of wood with a heavy metal head at the end. It's very heavy. You feel like you could hit some sledge with it."
+                        .to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    Weapon::get_attribute_describer(),
+                ],
+            },
+            Item::new_two_handed(),
+            Weapon {
+                weapon_type: WeaponType::Bludgeon,
+                base_damage_range: 20..=30,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Shortest..=CombatRange::Short,
+                    optimal: CombatRange::Short..=CombatRange::Short,
+                    to_hit_penalty: 1,
+                    damage_penalty: 4,
+                },
+                stat_requirements: vec![
+                    WeaponStatRequirement {
+                        stat: Stat::Attribute(Attribute::Strength),
+                        min: 10.0,
+                        below_min_behavior: WeaponStatRequirementNotMetBehavior::Unusable,
+                    }
+                ],
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 15.0..=25.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 15.0..=25.0,
+                    to_hit_bonus_per_stat_point: 1.0,
+                },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:stumble/stumbles} as ${weapon.name} swings wide of ${target.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lurch/lurches} forward as ${weapon.name's} weight pulls ${attacker.them}, dealing a glancing blow to ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:smack/smacks} ${target.name} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")],
+                    major_hit: vec![
+                        MessageFormat::new("${attacker.Name} ${attacker.you:heave/heaves} ${weapon.name} into ${target.name's} ${body_part.plain_name} with a loud thunk.").expect("message format should be valid"),
+                        MessageFormat::new("${target.Name} nearly ${target.you:fall/falls} over as ${attacker.name} ${attacker.you:smash/smashes} ${target.their} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")
+                    ],
+                },
+            },
+            Volume(0.5),
+            Weight(5.0),
+        ))
+        .id();
+    move_entity(sledgehammer_id, middle_room_id, world);
 
     let hidden_thing_id = world
         .spawn((

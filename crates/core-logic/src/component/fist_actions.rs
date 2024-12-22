@@ -9,11 +9,12 @@ use crate::{
     handle_damage, handle_hit_error, handle_miss, handle_weapon_unusable_error,
     input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
     ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag,
-    AfterActionPerformNotification, AttackType, BasicTokens, BeforeActionNotification, BodyPart,
-    ChosenWeapon, Description, DynamicMessage, DynamicMessageLocation, InputParseError,
-    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    NotificationHandlers, ParseCustomInput, SurroundingsMessageCategory, VerifyActionNotification,
-    VerifyNotificationHandlers, VerifyResult, Weapon, WeaponMessages,
+    AfterActionPerformNotification, AttackRegexes, AttackType, BasicTokens,
+    BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
+    DynamicMessageLocation, InputParseError, IntegerExtensions, InternalMessageCategory,
+    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
+    SurroundingsMessageCategory, VerifyActionNotification, VerifyNotificationHandlers,
+    VerifyResult, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
@@ -83,10 +84,12 @@ impl InputParser for UppercutParser {
         let attack = parse_attack_input::<UppercutAction>(
             input,
             source_entity,
-            &UPPERCUT_PATTERN,
-            &UPPERCUT_PATTERN_WITH_WEAPON,
-            NAME_CAPTURE,
-            WEAPON_CAPTURE,
+            AttackRegexes {
+                pattern: &UPPERCUT_PATTERN,
+                pattern_with_weapon: &UPPERCUT_PATTERN_WITH_WEAPON,
+                target_capture_name: NAME_CAPTURE,
+                weapon_capture_name: WEAPON_CAPTURE,
+            },
             UPPERCUT_VERB_NAME,
             world,
         )?;
@@ -298,10 +301,12 @@ impl InputParser for HaymakerParser {
         let attack = parse_attack_input::<HaymakerAction>(
             input,
             source_entity,
-            &HAYMAKER_PATTERN,
-            &HAYMAKER_PATTERN_WITH_WEAPON,
-            NAME_CAPTURE,
-            WEAPON_CAPTURE,
+            AttackRegexes {
+                pattern: &HAYMAKER_PATTERN,
+                pattern_with_weapon: &HAYMAKER_PATTERN_WITH_WEAPON,
+                target_capture_name: NAME_CAPTURE,
+                weapon_capture_name: WEAPON_CAPTURE,
+            },
             HAYMAKER_VERB_NAME,
             world,
         )?;

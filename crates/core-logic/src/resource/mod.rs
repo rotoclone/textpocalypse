@@ -14,6 +14,7 @@ pub use fluid_name_catalog::get_fluid_name;
 pub use fluid_name_catalog::FluidNameCatalog;
 
 mod fluid_density_catalog;
+#[expect(unused)]
 pub use fluid_density_catalog::get_fluid_density;
 pub use fluid_density_catalog::FluidDensityCatalog;
 
@@ -31,6 +32,7 @@ pub use skill_base_attribute_catalog::SkillBaseAttributeCatalog;
 
 mod weapon_type_stat_catalog;
 pub use weapon_type_stat_catalog::WeaponTypeStatCatalog;
+#[expect(unused)]
 pub use weapon_type_stat_catalog::WeaponTypeStats;
 
 mod weapon_type_name_catalog;

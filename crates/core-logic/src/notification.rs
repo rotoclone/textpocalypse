@@ -18,7 +18,7 @@ pub struct Notification<'c, T: NotificationType, Contents> {
     pub contents: &'c Contents,
 }
 
-impl<'c, T: NotificationType + 'static> Notification<'c, T, ()> {
+impl<T: NotificationType + 'static> Notification<'_, T, ()> {
     /// Sends a notification with the provided type and no contents.
     pub fn send_no_contents(notification_type: T, world: &mut World) {
         Notification {
@@ -29,7 +29,7 @@ impl<'c, T: NotificationType + 'static> Notification<'c, T, ()> {
     }
 }
 
-impl<'c, T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'c, T, C> {
+impl<T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'_, T, C> {
     /// Sends this notification to all the handlers registered for it.
     pub fn send(&self, world: &mut World) {
         if let Some(handlers) = world.get_resource::<NotificationHandlers<T, C>>() {
@@ -167,6 +167,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Removes the handler with the provided ID.
+    #[expect(unused)]
     pub fn remove_handler(id: HandlerId<T, C>, world: &mut World) {
         let mut remove_resource = false;
         if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
@@ -264,6 +265,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotification
     }
 
     /// Removes the handler with the provided ID.
+    #[expect(unused)]
     pub fn remove_handler(id: VerifyHandlerId<T, C>, world: &mut World) {
         let mut remove_resource = false;
         if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<T, C>>() {

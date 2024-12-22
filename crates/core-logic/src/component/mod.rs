@@ -74,6 +74,7 @@ pub use calories::Calories;
 mod fluid;
 pub use fluid::Fluid;
 pub use fluid::FluidType;
+#[expect(unused)]
 pub use fluid::FluidTypeAmount;
 
 mod sleep_state;
@@ -99,6 +100,7 @@ pub use stats::AdvancementPoints;
 pub use stats::Attribute;
 pub use stats::Attributes;
 pub use stats::Skill;
+#[expect(unused)]
 pub use stats::Skills;
 pub use stats::StartingStats;
 pub use stats::Stat;
@@ -127,11 +129,13 @@ pub use weapon::WeaponDamageAdjustment;
 pub use weapon::WeaponHitMessageTokens;
 pub use weapon::WeaponMessages;
 pub use weapon::WeaponMissMessageTokens;
+#[expect(unused)]
 pub use weapon::WeaponPerformanceAdjustment;
 pub use weapon::WeaponRanges;
 pub use weapon::WeaponStatBonuses;
 pub use weapon::WeaponStatRequirement;
 pub use weapon::WeaponStatRequirementNotMetBehavior;
+#[expect(unused)]
 pub use weapon::WeaponToHitAdjustment;
 pub use weapon::WeaponType;
 pub use weapon::WeaponUnusableError;
@@ -142,10 +146,12 @@ pub use innate_weapon::InnateWeapon;
 mod combat_state;
 pub use combat_state::CombatRange;
 pub use combat_state::CombatState;
+#[expect(unused)]
 pub use combat_state::EnterCombatNotification;
 pub use combat_state::ExitCombatNotification;
 
 mod invisible;
+#[expect(unused)]
 pub use invisible::InvisibilityScope;
 pub use invisible::Invisible;
 

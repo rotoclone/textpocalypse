@@ -17,10 +17,10 @@ use crate::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
-    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
-    WeaponMessages,
+    ActionTag, AttackRegexes, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon,
+    DynamicMessage, DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, NoTokens, SurroundingsMessageCategory, VerifyActionNotification,
+    WeaponHitMessageTokens, WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -51,10 +51,12 @@ impl InputParser for AttackParser {
         let attack = parse_attack_input::<AttackAction>(
             input,
             source_entity,
-            &ATTACK_PATTERN,
-            &ATTACK_PATTERN_WITH_WEAPON,
-            NAME_CAPTURE,
-            WEAPON_CAPTURE,
+            AttackRegexes {
+                pattern: &ATTACK_PATTERN,
+                pattern_with_weapon: &ATTACK_PATTERN_WITH_WEAPON,
+                target_capture_name: NAME_CAPTURE,
+                weapon_capture_name: WEAPON_CAPTURE,
+            },
             ATTACK_VERB_NAME,
             world,
         )?;

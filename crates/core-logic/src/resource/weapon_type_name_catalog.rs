@@ -28,6 +28,7 @@ impl WeaponTypeNameCatalog {
     }
 
     /// Sets the name of the provided weapon type.
+    #[expect(unused)]
     pub fn set(&mut self, weapon_type: &WeaponType, name: String) {
         match weapon_type {
             WeaponType::Custom(id) => self.custom.insert(id.clone(), name),

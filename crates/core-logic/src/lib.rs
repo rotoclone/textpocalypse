@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use body_part::{BodyPartDamageMultiplier, BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
-use log::{debug, warn};
+use log::debug;
 use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
 use std::{
     collections::{HashMap, HashSet},
@@ -71,11 +71,7 @@ pub use formatting::*;
 mod checks;
 use checks::*;
 
-mod verb_forms;
-use verb_forms::*;
-
 mod range_extensions;
-use range_extensions::*;
 
 mod integer_extensions;
 use integer_extensions::*;
@@ -728,14 +724,7 @@ fn can_receive_messages(world: &World, entity_id: Entity) -> bool {
 fn send_message(world: &World, entity_id: Entity, message: GameMessage) {
     if let Some(player) = world.get::<Player>(entity_id) {
         let time = world.resource::<Time>().clone();
-        send_message_to_player(player, message, time);
-    }
-}
-
-/// Sends a message to the provided player.
-fn send_message_to_player(player: &Player, message: GameMessage, time: Time) {
-    if let Err(e) = player.send_message(message, time) {
-        warn!("Error sending message to player {:?}: {}", player.id, e);
+        player.send_message(message, time);
     }
 }
 

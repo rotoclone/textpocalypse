@@ -27,6 +27,7 @@ impl SkillBaseAttributeCatalog {
     }
 
     /// Sets the base attribute of the provided skill.
+    #[expect(unused)]
     pub fn set(&mut self, skill: &Skill, base_attribute: Attribute) {
         match skill {
             Skill::Custom(id) => self.custom.insert(id.clone(), base_attribute),

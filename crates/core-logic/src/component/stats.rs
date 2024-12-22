@@ -21,7 +21,7 @@ const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.15;
 
 /// The stats an entity started with, before spending any advancement points.
 #[derive(Component)]
-pub struct StartingStats(pub Stats);
+pub struct StartingStats(#[expect(unused)] pub Stats);
 
 /// The stats of an entity.
 #[derive(Component, Clone)]

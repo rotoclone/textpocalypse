@@ -22,6 +22,7 @@ impl FluidNameCatalog {
     }
 
     /// Sets the name of the provided fluid type.
+    #[expect(unused)]
     pub fn set(&mut self, fluid_type: &FluidType, name: String) {
         match fluid_type {
             FluidType::Custom(id) => self.custom.insert(id.clone(), name),

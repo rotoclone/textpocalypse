@@ -98,6 +98,7 @@ impl Fluid {
 /// An amount of a single type of fluid.
 pub struct FluidTypeAmount {
     /// The volume of the fluid.
+    #[expect(unused)]
     pub volume: Volume,
     /// The fraction of the total fluid in the container this fluid represents.
     pub fraction: f32,

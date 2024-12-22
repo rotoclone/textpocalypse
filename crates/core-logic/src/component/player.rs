@@ -4,7 +4,8 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
-use flume::{SendError, Sender};
+use flume::Sender;
+use log::warn;
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -45,17 +46,13 @@ impl Player {
         }
     }
 
-    /// Sends a message to this player. Returns any errors from the message sender.
-    pub fn send_message(
-        &self,
-        message: GameMessage,
-        time: Time,
-    ) -> Result<(), SendError<(GameMessage, Time)>> {
+    /// Sends a message to this player. Logs and ignores any errors from the message sender.
+    pub fn send_message(&self, message: GameMessage, time: Time) {
         if self.message_filter.accept(&message) {
-            self.sender.send((message, time))?;
+            if let Err(e) = self.sender.send((message, time)) {
+                warn!("Error sending message to player {:?}: {}", self.id, e);
+            }
         }
-
-        Ok(())
     }
 
     /// Determines whether this player is AFK.
@@ -86,6 +83,7 @@ impl MessageFilter {
     }
 
     /// Adds filters for all `MessageCategory::Internal` messages.
+    #[expect(unused)]
     pub fn filter_all_internal(&mut self) -> &mut Self {
         for category in InternalMessageCategory::iter() {
             self.filter(MessageCategory::Internal(category));
@@ -95,6 +93,7 @@ impl MessageFilter {
     }
 
     /// Removes filters for all `MessageCategory::Internal` messages.
+    #[expect(unused)]
     pub fn unfilter_all_internal(&mut self) -> &mut Self {
         for category in InternalMessageCategory::iter() {
             self.unfilter(MessageCategory::Internal(category));

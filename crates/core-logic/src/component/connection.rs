@@ -54,13 +54,15 @@ impl AttributeDescriber for ConnectionAttributeDescriber {
                 let destination_coords = world
                     .get::<Coordinates>(connection.destination)
                     .expect("connecting room should have coordinates");
-                descriptions.push(AttributeDescription::Message(GameMessage::Message {
-                    content: "Through it, you see:".to_string(),
-                    category: MessageCategory::Internal(InternalMessageCategory::Misc),
-                    delay: MessageDelay::None,
-                    decorations: Vec::new(),
-                }));
-                descriptions.push(AttributeDescription::Message(GameMessage::Room(
+                descriptions.push(AttributeDescription::Message(Box::new(
+                    GameMessage::Message {
+                        content: "Through it, you see:".to_string(),
+                        category: MessageCategory::Internal(InternalMessageCategory::Misc),
+                        delay: MessageDelay::None,
+                        decorations: Vec::new(),
+                    },
+                )));
+                descriptions.push(AttributeDescription::Message(Box::new(GameMessage::Room(
                     RoomDescription::from_room(
                         destination_room,
                         destination_container,
@@ -68,7 +70,7 @@ impl AttributeDescriber for ConnectionAttributeDescriber {
                         pov_entity,
                         world,
                     ),
-                )));
+                ))));
             }
         }
 
