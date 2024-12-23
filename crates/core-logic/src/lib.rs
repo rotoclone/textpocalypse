@@ -82,6 +82,9 @@ use combat_utils::*;
 mod message_format;
 use message_format::*;
 
+mod command_format;
+use command_format::*;
+
 mod dynamic_message;
 use dynamic_message::*;
 
