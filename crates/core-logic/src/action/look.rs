@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use nonempty::nonempty;
 use regex::Regex;
 
 use crate::{
@@ -14,10 +15,11 @@ use crate::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
+    literal_part,
     notification::VerifyResult,
-    ActionTag, BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, RoomDescription,
-    VerifyActionNotification, World,
+    ActionTag, BeforeActionNotification, CommandFormat, CommandFormatPart, CommandPartId,
+    DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -32,6 +34,16 @@ static LOOK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap());
 static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
+
+static TARGET_PART_ID: LazyLock<CommandPartId> = LazyLock::new(|| CommandPartId::new("target"));
+static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new_with_one_of(
+        CommandPartId::new("verb"),
+        nonempty![literal_part("look"), literal_part("l"),],
+    )
+    //TODO optional "at" and "the"
+    .then_entity(TARGET_PART_ID.clone(), "what", None)
+});
 
 pub struct LookParser;
 
