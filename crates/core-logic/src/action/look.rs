@@ -17,9 +17,9 @@ use crate::{
     },
     literal_part,
     notification::VerifyResult,
-    ActionTag, BeforeActionNotification, CommandFormat, CommandFormatPart, CommandPartId,
-    DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
+    ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
+    EntityDescription, EntityPartType, GameMessage, InternalMessageCategory, MessageCategory,
+    MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -35,13 +35,16 @@ static LOOK_PATTERN: LazyLock<Regex> =
 static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
 
-static TARGET_PART_ID: LazyLock<CommandPartId> = LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: LazyLock<CommandPartId<EntityPartType>> =
+    LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new_with_one_of(
         CommandPartId::new("verb"),
         nonempty![literal_part("look"), literal_part("l"),],
     )
-    //TODO optional "at" and "the"
+    .then_literal(" ")
+    .then_maybe(CommandPartId::new("atPart"), literal_part("at "))
+    .then_maybe(CommandPartId::new("thePart"), literal_part("the "))
     .then_entity(TARGET_PART_ID.clone(), "what", None)
 });
 

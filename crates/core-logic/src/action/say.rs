@@ -1,15 +1,17 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use nonempty::nonempty;
 use regex::Regex;
 
 use crate::{
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
+    literal_part,
     notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification, World,
+    ActionTag, AnyTextPartType, BasicTokens, BeforeActionNotification, CommandFormat,
+    CommandPartId, DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -20,6 +22,16 @@ const TEXT_CAPTURE: &str = "text";
 
 static SAY_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(\"|say )(?P<text>.*)").unwrap());
+
+static TEXT_PART_ID: LazyLock<CommandPartId<AnyTextPartType>> =
+    LazyLock::new(|| CommandPartId::new("text"));
+static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new_with_one_of(
+        CommandPartId::new("verb"),
+        nonempty![literal_part("say "), literal_part("\"")],
+    )
+    .then_any_text(TEXT_PART_ID.clone())
+});
 
 pub struct SayParser;
 

@@ -210,6 +210,7 @@ pub enum InputParseError {
     /// The input did not correspond to any command.
     UnknownCommand,
     /// The input was not valid for the matched command.
+    /// TODO use `CommandParseError` from `command_format`
     CommandParseError {
         /// The name of the verb corresponding to the command.
         verb: String,
