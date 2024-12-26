@@ -42,11 +42,13 @@ impl From<CommandPartId<OneOfPartType>> for TypedCommandPartId {
     }
 }
 
+//TODO have this return something that can provide info about the reason it's invalid
 pub type EntityPartValidatorFn = fn(CommandPartParseContext<Entity>, &World) -> bool;
 
 /// A piece of a command format.
 /// TODO allow specifying which parts to include in an error message (for example, the "at" and "the" are optional in a "look" command, but if someone enters just "l" the error should probably be "look at what?" and not "l what?" or "look at the what?")
 /// TODO allow providing names for parts so format strings can be generated (e.g. "look at <thing>")
+/// TODO allow parts to be parsed into custom types (e.g. a `Direction` for the "move" command)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandFormatPart {
     /// A literal value.
@@ -113,8 +115,8 @@ pub struct EntityPartType;
 impl CommandPartType for EntityPartType {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MaybePartType;
-impl CommandPartType for MaybePartType {}
+pub struct MaybePartType<T: CommandPartType>(PhantomData<fn(T)>);
+impl<T: CommandPartType> CommandPartType for MaybePartType<T> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OneOfPartType;
@@ -155,8 +157,8 @@ impl CommandFormat {
     }
 
     /// Creates a format starting with a `Maybe` part.
-    pub fn new_with_maybe(
-        id: CommandPartId<MaybePartType>,
+    pub fn new_with_maybe<T: CommandPartType>(
+        id: CommandPartId<MaybePartType<T>>,
         part: CommandFormatPart,
     ) -> CommandFormat {
         CommandFormat(NonEmpty::new((Some(id.into()), maybe_part(part))))
