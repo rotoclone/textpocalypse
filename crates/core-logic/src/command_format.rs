@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, world::Command};
 
 use nonempty::{nonempty, NonEmpty};
 
@@ -12,9 +12,10 @@ pub struct CommandFormat(NonEmpty<(Option<TypedCommandPartId>, CommandFormatPart
 /// Enum of all the possible different generic `CommandPartId`s so different ones can be put in a collection together.
 #[derive(Debug, PartialEq, Eq)]
 enum TypedCommandPartId {
+    Literal(CommandPartId<LiteralPartType>),
     AnyText(CommandPartId<AnyTextPartType>),
     Entity(CommandPartId<EntityPartType>),
-    Maybe(CommandPartId<MaybePartType>),
+    Maybe(Box<TypedCommandPartId>),
     OneOf(CommandPartId<OneOfPartType>),
 }
 
@@ -30,9 +31,9 @@ impl From<CommandPartId<EntityPartType>> for TypedCommandPartId {
     }
 }
 
-impl From<CommandPartId<MaybePartType>> for TypedCommandPartId {
-    fn from(val: CommandPartId<MaybePartType>) -> Self {
-        TypedCommandPartId::Maybe(val)
+impl<T: CommandPartType> From<CommandPartId<MaybePartType<T>>> for TypedCommandPartId {
+    fn from(val: CommandPartId<MaybePartType<T>>) -> Self {
+        TypedCommandPartId::Maybe(Box::new(val.into()))
     }
 }
 
@@ -107,6 +108,10 @@ pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
 pub trait CommandPartType {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LiteralPartType;
+impl CommandPartType for LiteralPartType {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AnyTextPartType;
 impl CommandPartType for AnyTextPartType {}
 
@@ -157,6 +162,7 @@ impl CommandFormat {
     }
 
     /// Creates a format starting with a `Maybe` part.
+    /// TODO somehow enforce that `T` matches the type of `part`
     pub fn new_with_maybe<T: CommandPartType>(
         id: CommandPartId<MaybePartType<T>>,
         part: CommandFormatPart,
@@ -199,7 +205,12 @@ impl CommandFormat {
 
     /// Adds a `Maybe` part to the format.
     /// Panics if there is already a part with the provided ID.
-    pub fn then_maybe(mut self, id: CommandPartId<MaybePartType>, part: CommandFormatPart) -> Self {
+    /// TODO somehow enforce that `T` matches the type of `part`
+    pub fn then_maybe<T: CommandPartType>(
+        mut self,
+        id: CommandPartId<MaybePartType<T>>,
+        part: CommandFormatPart,
+    ) -> Self {
         self.add_part(Some(id.into()), maybe_part(part));
         self
     }
@@ -301,8 +312,8 @@ mod tests {
                 CommandFormatPart::AnyText
             ),
             (
-                Some(TypedCommandPartId::Maybe(CommandPartId::new(
-                    "optionalPartId"
+                Some(TypedCommandPartId::Maybe(Box::new(
+                    TypedCommandPartId::Literal(CommandPartId::new("optionalPartId"))
                 ))),
                 CommandFormatPart::Maybe(Box::new(CommandFormatPart::Literal(
                     "optional part".to_string()
