@@ -1,57 +1,112 @@
-use std::marker::PhantomData;
+use std::{
+    any::{type_name, Any, TypeId},
+    collections::HashMap,
+    marker::PhantomData,
+};
 
-use bevy_ecs::{prelude::*, world::Command};
+use bevy_ecs::prelude::*;
 
 use nonempty::{nonempty, NonEmpty};
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
 #[derive(Debug, PartialEq, Eq)]
-pub struct CommandFormat(NonEmpty<(Option<TypedCommandPartId>, CommandFormatPart)>);
+pub struct CommandFormat(NonEmpty<UntypedCommandFormatPart>);
 
-/// Enum of all the possible different generic `CommandPartId`s so different ones can be put in a collection together.
+/// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct UntypedCommandPartId(String);
+
+impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
+    fn from(val: CommandPartId<T>) -> Self {
+        UntypedCommandPartId(val.0)
+    }
+}
+
+pub type UntypedPartParserFn =
+    fn(PartParserContext<Box<dyn Any>>, &World) -> CommandPartParseResult<Box<dyn Any>>;
+pub type UntypedPartValidatorFn =
+    fn(PartValidatorContext<Box<dyn Any>, Box<dyn Any>>, &World) -> CommandPartValidateResult;
+
+/// A `CommandFormatPart` with no associated type information, so different ones can be put in a collection together.
 #[derive(Debug, PartialEq, Eq)]
-enum TypedCommandPartId {
-    Literal(CommandPartId<LiteralPartType>),
-    AnyText(CommandPartId<AnyTextPartType>),
-    Entity(CommandPartId<EntityPartType>),
-    Maybe(Box<TypedCommandPartId>),
-    OneOf(CommandPartId<OneOfPartType>),
+struct UntypedCommandFormatPart {
+    id: Option<UntypedCommandPartId>,
+    info: Box<dyn Any>,
+    options: CommandFormatPartOptions,
+    parser: UntypedPartParserFn,
+    validator: Option<UntypedPartValidatorFn>,
 }
 
-impl From<CommandPartId<AnyTextPartType>> for TypedCommandPartId {
-    fn from(val: CommandPartId<AnyTextPartType>) -> Self {
-        TypedCommandPartId::AnyText(val)
+impl<I: 'static, P> From<CommandFormatPart<I, P>> for UntypedCommandFormatPart {
+    fn from(val: CommandFormatPart<I, P>) -> Self {
+        UntypedCommandFormatPart {
+            id: val.id.map(|id| id.into()),
+            info: Box::new(val.info),
+            options: val.options,
+            parser: todo!(),    //TODO
+            validator: todo!(), //TODO
+        }
     }
 }
 
-impl From<CommandPartId<EntityPartType>> for TypedCommandPartId {
-    fn from(val: CommandPartId<EntityPartType>) -> Self {
-        TypedCommandPartId::Entity(val)
-    }
+pub type PartParserFn<I, P> = fn(PartParserContext<I>, &World) -> CommandPartParseResult<P>;
+pub type PartValidatorFn<I, P> =
+    fn(PartValidatorContext<I, P>, &World) -> CommandPartValidateResult;
+
+#[derive(Debug)]
+pub struct CommandFormatPart<I, P> {
+    id: Option<CommandPartId<P>>,
+    info: I,
+    options: CommandFormatPartOptions,
+    parser: PartParserFn<I, P>,
+    validator: Option<PartValidatorFn<I, P>>,
 }
 
-impl<T: CommandPartType> From<CommandPartId<MaybePartType<T>>> for TypedCommandPartId {
-    fn from(val: CommandPartId<MaybePartType<T>>) -> Self {
-        TypedCommandPartId::Maybe(Box::new(val.into()))
-    }
+#[derive(Default, Debug, PartialEq, Eq)]
+pub struct CommandFormatPartOptions {
+    /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
+    if_missing: Option<String>,
+    /// The string to include in the format string for this part (e.g. "thing", "target", etc.)
+    name_for_format_string: Option<String>,
 }
 
-impl From<CommandPartId<OneOfPartType>> for TypedCommandPartId {
-    fn from(val: CommandPartId<OneOfPartType>) -> Self {
-        TypedCommandPartId::OneOf(val)
-    }
+pub struct PartParserContext<I> {
+    input: String,
+    info: I,
+    performing_entity: Entity,
 }
 
-//TODO have this return something that can provide info about the reason it's invalid
-pub type EntityPartValidatorFn = fn(CommandPartParseContext<Entity>, &World) -> bool;
+pub enum CommandPartParseResult<T> {
+    Success(T, String),
+    Failure(CommandPartParseError),
+}
 
+pub enum CommandPartParseError {
+    //TODO
+}
+
+pub struct PartValidatorContext<I, P> {
+    parsed_value: P,
+    info: I,
+}
+
+pub enum CommandPartValidateResult {
+    Valid,
+    Invalid(CommandPartValidateError),
+}
+
+pub enum CommandPartValidateError {
+    //TODO
+}
+
+/* TODO remove
 /// A piece of a command format.
 /// TODO allow specifying which parts to include in an error message (for example, the "at" and "the" are optional in a "look" command, but if someone enters just "l" the error should probably be "look at what?" and not "l what?" or "look at the what?")
 /// TODO allow providing names for parts so format strings can be generated (e.g. "look at <thing>")
 /// TODO allow parts to be parsed into custom types (e.g. a `Direction` for the "move" command)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CommandFormatPart {
+pub enum CommandFormatPartOld {
     /// A literal value.
     Literal(String),
     /// Any number of any characters.
@@ -65,73 +120,92 @@ pub enum CommandFormatPart {
         validator: Option<EntityPartValidatorFn>,
     },
     /// Maybe a part, or maybe nothing.
-    Maybe(Box<CommandFormatPart>),
+    Maybe(Box<CommandFormatPartOld>),
     /// One of the provided part types.
     /// Matching will be attempted in order.
     /// TODO allow some way to tell which one was matched after parsing
-    OneOf(Box<NonEmpty<CommandFormatPart>>),
+    OneOf(Box<NonEmpty<CommandFormatPartOld>>),
 }
+    */
 
-/// Creates a `Literal` part.
-pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
-    CommandFormatPart::Literal(literal.into())
-}
-
-/// Creates an `AnyText` part.
-pub fn any_text_part() -> CommandFormatPart {
-    CommandFormatPart::AnyText
-}
-
-/// Creates an `Entity` part.
-pub fn entity_part(
-    if_missing: impl Into<String>,
-    validator: Option<EntityPartValidatorFn>,
-) -> CommandFormatPart {
-    CommandFormatPart::Entity {
-        if_missing: if_missing.into(),
-        validator,
+/// Creates a part to consume a literal value.
+pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String, String> {
+    CommandFormatPart {
+        id: None,
+        info: literal.into(),
+        options: CommandFormatPartOptions::default(),
+        parser: parse_literal,
+        validator: None,
     }
 }
 
-/// Creates a `Maybe` part.
-pub fn maybe_part(part: CommandFormatPart) -> CommandFormatPart {
-    CommandFormatPart::Maybe(Box::new(part))
+fn parse_literal(context: PartParserContext<String>, _: &World) -> CommandPartParseResult<String> {
+    todo!() //TODO
 }
 
-/// Creates a `OneOf` part.
+/// Creates a part to consume any text.
+/// TODO how is this supposed to know when to stop?
+pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<(), String> {
+    CommandFormatPart {
+        id: Some(id),
+        info: (),
+        options: CommandFormatPartOptions::default(),
+        parser: parse_any_text,
+        validator: None,
+    }
+}
+
+fn parse_any_text(context: PartParserContext<()>, _: &World) -> CommandPartParseResult<String> {
+    todo!() //TODO
+}
+
+/// Creates an `Entity` part.
+pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<(), Entity> {
+    CommandFormatPart {
+        id: Some(id),
+        info: (),
+        options: CommandFormatPartOptions::default(),
+        parser: parse_entity,
+        validator: None,
+    }
+}
+
+fn parse_entity(context: PartParserContext<()>, _: &World) -> CommandPartParseResult<Entity> {
+    todo!() //TODO
+}
+
+/// Creates a part to maybe consume something.
+pub fn maybe_part<I, P>(
+    id: CommandPartId<Option<P>>,
+    part: CommandFormatPart<I, P>,
+) -> CommandFormatPart<CommandFormatPart<I, P>, Option<P>> {
+    CommandFormatPart {
+        id: Some(id),
+        info: part,
+        options: CommandFormatPartOptions::default(),
+        parser: parse_maybe,
+        validator: None,
+    }
+}
+
+fn parse_maybe<I, P>(
+    context: PartParserContext<CommandFormatPart<I, P>>,
+    world: &World,
+) -> CommandPartParseResult<Option<P>> {
+    todo!() //TODO
+}
+
+/// Creates a part that consumes one of a set of possible things.
 pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
     CommandFormatPart::OneOf(Box::new(parts))
 }
 
-/// Marker trait for types that represent the type of a command part.
-/// This exists so `CommandPartId`s can be associated with a certain type of part, so the correct thing can be returned when the parsed values are retrieved.
-pub trait CommandPartType {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LiteralPartType;
-impl CommandPartType for LiteralPartType {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AnyTextPartType;
-impl CommandPartType for AnyTextPartType {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EntityPartType;
-impl CommandPartType for EntityPartType {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MaybePartType<T: CommandPartType>(PhantomData<fn(T)>);
-impl<T: CommandPartType> CommandPartType for MaybePartType<T> {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OneOfPartType;
-impl CommandPartType for OneOfPartType {}
-
 /// An identifier for a part of a command to be used to retrieve the parsed value.
+/// `T` is the type that the part will be parsed into.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CommandPartId<T: CommandPartType>(String, PhantomData<fn(T)>);
+pub struct CommandPartId<T>(String, PhantomData<fn(T)>);
 
-impl<T: CommandPartType> CommandPartId<T> {
+impl<T> CommandPartId<T> {
     /// Creates a new part ID.
     pub fn new(value: impl Into<String>) -> CommandPartId<T> {
         CommandPartId(value.into(), PhantomData)
@@ -141,17 +215,17 @@ impl<T: CommandPartType> CommandPartId<T> {
 impl CommandFormat {
     /// Creates a format starting with a `Literal` part.
     pub fn new_with_literal(literal: impl Into<String>) -> CommandFormat {
-        CommandFormat(NonEmpty::new((None, literal_part(literal))))
+        CommandFormat(NonEmpty::new(literal_part(literal).into()))
     }
 
     /// Creates a format starting with an `AnyText` part.
-    pub fn new_with_any_text(id: CommandPartId<AnyTextPartType>) -> CommandFormat {
+    pub fn new_with_any_text(id: CommandPartId<String>) -> CommandFormat {
         CommandFormat(NonEmpty::new((Some(id.into()), any_text_part())))
     }
 
     /// Creates a format starting with an `Entity` part.
     pub fn new_with_entity(
-        id: CommandPartId<EntityPartType>,
+        id: CommandPartId<Entity>,
         if_missing: impl Into<String>,
         validator: Option<EntityPartValidatorFn>,
     ) -> CommandFormat {
@@ -163,16 +237,17 @@ impl CommandFormat {
 
     /// Creates a format starting with a `Maybe` part.
     /// TODO somehow enforce that `T` matches the type of `part`
-    pub fn new_with_maybe<T: CommandPartType>(
-        id: CommandPartId<MaybePartType<T>>,
+    pub fn new_with_maybe<T>(
+        id: CommandPartId<Option<T>>,
         part: CommandFormatPart,
     ) -> CommandFormat {
         CommandFormat(NonEmpty::new((Some(id.into()), maybe_part(part))))
     }
 
     /// Creates a format starting with a `OneOf` part.
-    pub fn new_with_one_of(
-        id: CommandPartId<OneOfPartType>,
+    /// TODO remove T somehow?
+    pub fn new_with_one_of<T>(
+        id: CommandPartId<T>,
         parts: NonEmpty<CommandFormatPart>,
     ) -> CommandFormat {
         CommandFormat(NonEmpty::new((Some(id.into()), one_of_part(parts))))
@@ -186,7 +261,7 @@ impl CommandFormat {
 
     /// Adds an `AnyText` part to the format.
     /// Panics if there is already a part with the provided ID.
-    pub fn then_any_text(mut self, id: CommandPartId<AnyTextPartType>) -> Self {
+    pub fn then_any_text(mut self, id: CommandPartId<String>) -> Self {
         self.add_part(Some(id.into()), any_text_part());
         self
     }
@@ -195,7 +270,7 @@ impl CommandFormat {
     /// Panics if there is already a part with the provided ID.
     pub fn then_entity(
         mut self,
-        id: CommandPartId<EntityPartType>,
+        id: CommandPartId<Entity>,
         if_missing: impl Into<String>,
         validator: Option<EntityPartValidatorFn>,
     ) -> Self {
@@ -206,20 +281,17 @@ impl CommandFormat {
     /// Adds a `Maybe` part to the format.
     /// Panics if there is already a part with the provided ID.
     /// TODO somehow enforce that `T` matches the type of `part`
-    pub fn then_maybe<T: CommandPartType>(
-        mut self,
-        id: CommandPartId<MaybePartType<T>>,
-        part: CommandFormatPart,
-    ) -> Self {
+    pub fn then_maybe<T>(mut self, id: CommandPartId<Option<T>>, part: CommandFormatPart) -> Self {
         self.add_part(Some(id.into()), maybe_part(part));
         self
     }
 
     /// Adds a `OneOf` part to the format.
     /// Panics if there is already a part with the provided ID.
-    pub fn then_one_of(
+    /// TODO remove T somehow?
+    pub fn then_one_of<T>(
         mut self,
-        id: CommandPartId<OneOfPartType>,
+        id: CommandPartId<T>,
         parts: NonEmpty<CommandFormatPart>,
     ) -> Self {
         self.add_part(Some(id.into()), one_of_part(parts));
@@ -228,7 +300,7 @@ impl CommandFormat {
 
     /// Adds a part to the format.
     /// Panics if `id` is `Some` and there is already a part with the same ID.
-    fn add_part(&mut self, id: Option<TypedCommandPartId>, part: CommandFormatPart) {
+    fn add_part(&mut self, id: Option<UntypedCommandPartId>, part: CommandFormatPart) {
         if let Some(id) = &id {
             if self
                 .0
@@ -248,7 +320,28 @@ impl CommandFormat {
 pub enum CommandFormatParseError {}
 
 pub struct ParsedCommand {
-    //TODO
+    parsed_parts: HashMap<UntypedCommandPartId, Box<dyn Any>>,
+}
+
+impl ParsedCommand {
+    /// Gets the parsed value associated with `id`.
+    /// Panics if the ID does not correspond to a part on this command.
+    pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> &T {
+        let parsed_value = self
+            .parsed_parts
+            //TODO remove this clone if possible
+            .get(&UntypedCommandPartId(id.0.clone()))
+            .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
+
+        parsed_value.downcast_ref::<T>().unwrap_or_else(|| {
+            panic!(
+                "Unexpected parsed type for ID {} (expected {}): {:?}",
+                id.0,
+                type_name::<T>(),
+                parsed_value
+            )
+        })
+    }
 }
 
 impl CommandFormat {
@@ -270,6 +363,7 @@ struct ParsedCommandPart {
     //TODO
 }
 
+/* TODO
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -439,3 +533,4 @@ mod tests {
         assert_eq!(expected, format);
     }
 }
+*/

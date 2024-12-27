@@ -18,8 +18,8 @@ use crate::{
     literal_part,
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
-    EntityDescription, EntityPartType, GameMessage, InternalMessageCategory, MessageCategory,
-    MessageDelay, RoomDescription, VerifyActionNotification, World,
+    EntityDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -35,8 +35,9 @@ static LOOK_PATTERN: LazyLock<Regex> =
 static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
 
-static TARGET_PART_ID: LazyLock<CommandPartId<EntityPartType>> =
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
+/* TODO
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new_with_one_of(
         CommandPartId::new("verb"),
@@ -47,6 +48,7 @@ static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then_maybe(CommandPartId::new("thePart"), literal_part("the "))
     .then_entity(TARGET_PART_ID.clone(), "what", None)
 });
+*/
 
 pub struct LookParser;
 
