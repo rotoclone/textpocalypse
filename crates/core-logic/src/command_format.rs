@@ -23,44 +23,81 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     }
 }
 
-pub type UntypedPartParserFn =
-    fn(PartParserContext<Box<dyn Any>>, &World) -> CommandPartParseResult<Box<dyn Any>>;
-pub type UntypedPartValidatorFn =
-    fn(PartValidatorContext<Box<dyn Any>, Box<dyn Any>>, &World) -> CommandPartValidateResult;
-
 /// A `CommandFormatPart` with no associated type information, so different ones can be put in a collection together.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 struct UntypedCommandFormatPart {
     id: Option<UntypedCommandPartId>,
-    info: Box<dyn Any>,
     options: CommandFormatPartOptions,
-    parser: UntypedPartParserFn,
-    validator: Option<UntypedPartValidatorFn>,
+    parser: Box<dyn ParsePartUntyped>,
+    validator: Option<Box<dyn ValidateParsedValueUntyped>>,
 }
 
-impl<I: 'static, P> From<CommandFormatPart<I, P>> for UntypedCommandFormatPart {
-    fn from(val: CommandFormatPart<I, P>) -> Self {
+impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
+    fn from(val: CommandFormatPart<T>) -> Self {
         UntypedCommandFormatPart {
             id: val.id.map(|id| id.into()),
-            info: Box::new(val.info),
             options: val.options,
-            parser: todo!(),    //TODO
-            validator: todo!(), //TODO
+            parser: val.parser.into_untyped(),
+            validator: val.validator.map(|v| v.into_untyped()),
         }
     }
 }
 
-pub type PartParserFn<I, P> = fn(PartParserContext<I>, &World) -> CommandPartParseResult<P>;
-pub type PartValidatorFn<I, P> =
-    fn(PartValidatorContext<I, P>, &World) -> CommandPartValidateResult;
+trait ParsePart<T>: ParsePartUntyped {
+    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped>;
+}
+
+trait ParsePartUntyped: std::fmt::Debug {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>>;
+}
+
+trait ValidateParsedValue<T>: ValidateParsedValueUntyped {
+    fn validate(
+        &self,
+        context: PartValidatorContext<T>,
+        world: &World,
+    ) -> CommandPartValidateResult;
+    fn into_untyped(self) -> Box<dyn ValidateParsedValueUntyped>;
+}
+
+trait ValidateParsedValueUntyped: std::fmt::Debug {
+    fn validate(
+        &self,
+        context: PartValidatorContext<Box<dyn Any>>,
+        world: &World,
+    ) -> CommandPartValidateResult;
+}
+
+impl<T: ValidateParsedValue<P>, P: 'static> ValidateParsedValueUntyped for T {
+    fn validate(
+        &self,
+        context: PartValidatorContext<Box<dyn Any>>,
+        world: &World,
+    ) -> CommandPartValidateResult {
+        self.validate(
+            PartValidatorContext {
+                parsed_value: *context
+                    .parsed_value
+                    .downcast::<P>()
+                    .expect("parsed value type should match"),
+                performing_entity: context.performing_entity,
+            },
+            world,
+        )
+    }
+}
 
 #[derive(Debug)]
-pub struct CommandFormatPart<I, P> {
-    id: Option<CommandPartId<P>>,
-    info: I,
+pub struct CommandFormatPart<T> {
+    id: Option<CommandPartId<T>>,
     options: CommandFormatPartOptions,
-    parser: PartParserFn<I, P>,
-    validator: Option<PartValidatorFn<I, P>>,
+    parser: Box<dyn ParsePart<T>>,
+    validator: Option<Box<dyn ValidateParsedValue<T>>>,
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -71,24 +108,46 @@ pub struct CommandFormatPartOptions {
     name_for_format_string: Option<String>,
 }
 
-pub struct PartParserContext<I> {
+pub struct PartParserContext {
     input: String,
-    info: I,
     performing_entity: Entity,
 }
 
 pub enum CommandPartParseResult<T> {
-    Success(T, String),
-    Failure(CommandPartParseError),
+    Success {
+        parsed: T,
+        remaining: String,
+    },
+    Failure {
+        error: CommandPartParseError,
+        remaining: String,
+    },
+}
+
+impl<T: 'static> CommandPartParseResult<T> {
+    /// Converts the generic type on this result to `Box<dyn Any>`, to make implementing `ParsePartUntyped` easier.
+    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn Any>> {
+        match self {
+            CommandPartParseResult::Success { parsed, remaining } => {
+                CommandPartParseResult::Success {
+                    parsed: Box::new(parsed),
+                    remaining,
+                }
+            }
+            CommandPartParseResult::Failure { error, remaining } => {
+                CommandPartParseResult::Failure { error, remaining }
+            }
+        }
+    }
 }
 
 pub enum CommandPartParseError {
     //TODO
 }
 
-pub struct PartValidatorContext<I, P> {
-    parsed_value: P,
-    info: I,
+pub struct PartValidatorContext<T> {
+    parsed_value: T,
+    performing_entity: Entity,
 }
 
 pub enum CommandPartValidateResult {
@@ -129,75 +188,191 @@ pub enum CommandFormatPartOld {
     */
 
 /// Creates a part to consume a literal value.
-pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String, String> {
+pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
     CommandFormatPart {
         id: None,
-        info: literal.into(),
         options: CommandFormatPartOptions::default(),
-        parser: parse_literal,
+        parser: Box::new(LiteralParser(literal.into())),
         validator: None,
     }
 }
 
-fn parse_literal(context: PartParserContext<String>, _: &World) -> CommandPartParseResult<String> {
-    todo!() //TODO
+#[derive(Debug)]
+struct LiteralParser(String);
+
+impl ParsePart<String> for LiteralParser {
+    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<String> {
+        todo!() //TODO
+    }
+
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self)
+    }
+}
+
+impl ParsePartUntyped for LiteralParser {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        self.parse(context, world).into_generic()
+    }
 }
 
 /// Creates a part to consume any text.
-/// TODO how is this supposed to know when to stop?
-pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<(), String> {
+pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<String> {
     CommandFormatPart {
         id: Some(id),
-        info: (),
         options: CommandFormatPartOptions::default(),
-        parser: parse_any_text,
+        parser: Box::new(AnyTextParser),
         validator: None,
     }
 }
 
-fn parse_any_text(context: PartParserContext<()>, _: &World) -> CommandPartParseResult<String> {
-    todo!() //TODO
+#[derive(Debug)]
+struct AnyTextParser;
+
+impl ParsePart<String> for AnyTextParser {
+    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<String> {
+        // TODO how is this supposed to know when to stop?
+        todo!() //TODO
+    }
+
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self)
+    }
+}
+
+impl ParsePartUntyped for AnyTextParser {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        self.parse(context, world).into_generic()
+    }
 }
 
 /// Creates an `Entity` part.
-pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<(), Entity> {
+pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
     CommandFormatPart {
         id: Some(id),
-        info: (),
         options: CommandFormatPartOptions::default(),
-        parser: parse_entity,
+        parser: Box::new(EntityParser),
         validator: None,
     }
 }
 
-fn parse_entity(context: PartParserContext<()>, _: &World) -> CommandPartParseResult<Entity> {
-    todo!() //TODO
+#[derive(Debug)]
+struct EntityParser;
+
+impl ParsePart<Entity> for EntityParser {
+    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
+        todo!() //TODO
+    }
+
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self)
+    }
+}
+
+impl ParsePartUntyped for EntityParser {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        self.parse(context, world).into_generic()
+    }
 }
 
 /// Creates a part to maybe consume something.
-pub fn maybe_part<I, P>(
-    id: CommandPartId<Option<P>>,
-    part: CommandFormatPart<I, P>,
-) -> CommandFormatPart<CommandFormatPart<I, P>, Option<P>> {
+pub fn maybe_part<T: 'static + std::fmt::Debug>(
+    id: CommandPartId<Option<T>>,
+    part: CommandFormatPart<T>,
+) -> CommandFormatPart<Option<T>> {
     CommandFormatPart {
         id: Some(id),
-        info: part,
         options: CommandFormatPartOptions::default(),
-        parser: parse_maybe,
+        parser: Box::new(MaybeParser(part)),
         validator: None,
     }
 }
 
-fn parse_maybe<I, P>(
-    context: PartParserContext<CommandFormatPart<I, P>>,
-    world: &World,
-) -> CommandPartParseResult<Option<P>> {
-    todo!() //TODO
+#[derive(Debug)]
+struct MaybeParser<T>(CommandFormatPart<T>);
+
+impl<T: 'static + std::fmt::Debug> ParsePart<Option<T>> for MaybeParser<T> {
+    fn parse(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Option<T>> {
+        match self.0.parser.parse(context, world) {
+            CommandPartParseResult::Success { parsed, remaining } => {
+                CommandPartParseResult::Success {
+                    parsed: Some(parsed),
+                    remaining,
+                }
+            }
+            CommandPartParseResult::Failure { remaining, .. } => CommandPartParseResult::Success {
+                parsed: None,
+                remaining,
+            },
+        }
+    }
+
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self)
+    }
+}
+
+impl<T: 'static + std::fmt::Debug> ParsePartUntyped for MaybeParser<T> {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        self.parse(context, world).into_generic()
+    }
 }
 
 /// Creates a part that consumes one of a set of possible things.
-pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
-    CommandFormatPart::OneOf(Box::new(parts))
+pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<Box<dyn Any>> {
+    CommandFormatPart {
+        id: None,
+        options: CommandFormatPartOptions::default(),
+        parser: Box::new(OneOfParser(parts)),
+        validator: None,
+    }
+}
+
+#[derive(Debug)]
+struct OneOfParser(NonEmpty<UntypedCommandFormatPart>);
+
+impl ParsePart<Box<dyn Any>> for OneOfParser {
+    fn parse(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        todo!() //TODO
+    }
+
+    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self)
+    }
+}
+
+impl ParsePartUntyped for OneOfParser {
+    fn parse_untyped(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<Box<dyn Any>> {
+        self.parse(context, world).into_generic()
+    }
 }
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
@@ -220,98 +395,79 @@ impl CommandFormat {
 
     /// Creates a format starting with an `AnyText` part.
     pub fn new_with_any_text(id: CommandPartId<String>) -> CommandFormat {
-        CommandFormat(NonEmpty::new((Some(id.into()), any_text_part())))
+        CommandFormat(NonEmpty::new(any_text_part(id).into()))
     }
 
     /// Creates a format starting with an `Entity` part.
-    pub fn new_with_entity(
-        id: CommandPartId<Entity>,
-        if_missing: impl Into<String>,
-        validator: Option<EntityPartValidatorFn>,
-    ) -> CommandFormat {
-        CommandFormat(NonEmpty::new((
-            Some(id.into()),
-            entity_part(if_missing, validator),
-        )))
+    pub fn new_with_entity(id: CommandPartId<Entity>) -> CommandFormat {
+        CommandFormat(NonEmpty::new(entity_part(id).into()))
     }
 
     /// Creates a format starting with a `Maybe` part.
-    /// TODO somehow enforce that `T` matches the type of `part`
-    pub fn new_with_maybe<T>(
+    pub fn new_with_maybe<T: 'static + std::fmt::Debug>(
         id: CommandPartId<Option<T>>,
-        part: CommandFormatPart,
+        part: CommandFormatPart<T>,
     ) -> CommandFormat {
-        CommandFormat(NonEmpty::new((Some(id.into()), maybe_part(part))))
+        CommandFormat(NonEmpty::new(maybe_part(id, part).into()))
     }
 
     /// Creates a format starting with a `OneOf` part.
-    /// TODO remove T somehow?
-    pub fn new_with_one_of<T>(
-        id: CommandPartId<T>,
-        parts: NonEmpty<CommandFormatPart>,
-    ) -> CommandFormat {
-        CommandFormat(NonEmpty::new((Some(id.into()), one_of_part(parts))))
+    pub fn new_with_one_of(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormat {
+        CommandFormat(NonEmpty::new(one_of_part(parts).into()))
     }
 
     /// Adds a `Literal` part to the format.
     pub fn then_literal(mut self, literal: impl Into<String>) -> Self {
-        self.add_part(None, literal_part(literal));
+        self.add_part(literal_part(literal).into());
         self
     }
 
     /// Adds an `AnyText` part to the format.
     /// Panics if there is already a part with the provided ID.
     pub fn then_any_text(mut self, id: CommandPartId<String>) -> Self {
-        self.add_part(Some(id.into()), any_text_part());
+        self.add_part(any_text_part(id).into());
         self
     }
 
     /// Adds an `Entity` part to the format.
     /// Panics if there is already a part with the provided ID.
-    pub fn then_entity(
-        mut self,
-        id: CommandPartId<Entity>,
-        if_missing: impl Into<String>,
-        validator: Option<EntityPartValidatorFn>,
-    ) -> Self {
-        self.add_part(Some(id.into()), entity_part(if_missing, validator));
+    pub fn then_entity(mut self, id: CommandPartId<Entity>) -> Self {
+        self.add_part(entity_part(id).into());
         self
     }
 
     /// Adds a `Maybe` part to the format.
     /// Panics if there is already a part with the provided ID.
-    /// TODO somehow enforce that `T` matches the type of `part`
-    pub fn then_maybe<T>(mut self, id: CommandPartId<Option<T>>, part: CommandFormatPart) -> Self {
-        self.add_part(Some(id.into()), maybe_part(part));
+    pub fn then_maybe<T: 'static + std::fmt::Debug>(
+        mut self,
+        id: CommandPartId<Option<T>>,
+        part: CommandFormatPart<T>,
+    ) -> Self {
+        self.add_part(maybe_part(id, part).into());
         self
     }
 
     /// Adds a `OneOf` part to the format.
     /// Panics if there is already a part with the provided ID.
-    /// TODO remove T somehow?
-    pub fn then_one_of<T>(
-        mut self,
-        id: CommandPartId<T>,
-        parts: NonEmpty<CommandFormatPart>,
-    ) -> Self {
-        self.add_part(Some(id.into()), one_of_part(parts));
+    pub fn then_one_of(mut self, parts: NonEmpty<UntypedCommandFormatPart>) -> Self {
+        self.add_part(one_of_part(parts).into());
         self
     }
 
     /// Adds a part to the format.
     /// Panics if `id` is `Some` and there is already a part with the same ID.
-    fn add_part(&mut self, id: Option<UntypedCommandPartId>, part: CommandFormatPart) {
-        if let Some(id) = &id {
+    fn add_part(&mut self, part: UntypedCommandFormatPart) {
+        if let Some(id) = &part.id {
             if self
                 .0
                 .iter()
-                .any(|(existing_id, _)| existing_id.as_ref() == Some(id))
+                .any(|existing_part| existing_part.id.as_ref() == Some(id))
             {
                 panic!("Duplicate command part ID: {id:?}")
             }
         }
 
-        self.0.push((id, part));
+        self.0.push(part);
     }
 }
 
@@ -349,14 +505,6 @@ impl CommandFormat {
     pub fn parse(&self, input: &str) -> Result<ParsedCommand, CommandFormatParseError> {
         todo!() //TODO
     }
-}
-
-pub struct CommandPartParseContext<T> {
-    //TODO make this a reference?
-    parsed_parts: Vec<ParsedCommandPart>,
-    //TODO make this a reference?
-    current_part: CommandFormatPart,
-    target: T,
 }
 
 struct ParsedCommandPart {
