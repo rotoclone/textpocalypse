@@ -2,6 +2,7 @@ use std::{
     any::{type_name, Any, TypeId},
     collections::HashMap,
     marker::PhantomData,
+    ops::Deref,
 };
 
 use bevy_ecs::prelude::*;
@@ -10,7 +11,7 @@ use nonempty::{nonempty, NonEmpty};
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct CommandFormat(NonEmpty<UntypedCommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
@@ -37,15 +38,16 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
         UntypedCommandFormatPart {
             id: val.id.map(|id| id.into()),
             options: val.options,
-            parser: val.parser.into_untyped(),
-            validator: val.validator.map(|v| v.into_untyped()),
+            parser: val.parser.as_untyped(),
+            validator: val.validator.map(|v| v.as_untyped()),
         }
     }
 }
 
 trait ParsePart<T>: ParsePartUntyped {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped>;
+
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
 }
 
 trait ParsePartUntyped: std::fmt::Debug {
@@ -62,7 +64,8 @@ trait ValidateParsedValue<T>: ValidateParsedValueUntyped {
         context: PartValidatorContext<T>,
         world: &World,
     ) -> CommandPartValidateResult;
-    fn into_untyped(self) -> Box<dyn ValidateParsedValueUntyped>;
+
+    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped>;
 }
 
 trait ValidateParsedValueUntyped: std::fmt::Debug {
@@ -73,6 +76,7 @@ trait ValidateParsedValueUntyped: std::fmt::Debug {
     ) -> CommandPartValidateResult;
 }
 
+/* TODO remove
 impl<T: ValidateParsedValue<P>, P: 'static> ValidateParsedValueUntyped for T {
     fn validate(
         &self,
@@ -91,8 +95,9 @@ impl<T: ValidateParsedValue<P>, P: 'static> ValidateParsedValueUntyped for T {
         )
     }
 }
+    */
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommandFormatPart<T> {
     id: Option<CommandPartId<T>>,
     options: CommandFormatPartOptions,
@@ -100,7 +105,7 @@ pub struct CommandFormatPart<T> {
     validator: Option<Box<dyn ValidateParsedValue<T>>>,
 }
 
-#[derive(Default, Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct CommandFormatPartOptions {
     /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
     if_missing: Option<String>,
@@ -197,7 +202,7 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LiteralParser(String);
 
 impl ParsePart<String> for LiteralParser {
@@ -205,8 +210,8 @@ impl ParsePart<String> for LiteralParser {
         todo!() //TODO
     }
 
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self)
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self.clone())
     }
 }
 
@@ -230,7 +235,7 @@ pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<String> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct AnyTextParser;
 
 impl ParsePart<String> for AnyTextParser {
@@ -239,8 +244,8 @@ impl ParsePart<String> for AnyTextParser {
         todo!() //TODO
     }
 
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self)
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(*self)
     }
 }
 
@@ -264,7 +269,7 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct EntityParser;
 
 impl ParsePart<Entity> for EntityParser {
@@ -272,8 +277,8 @@ impl ParsePart<Entity> for EntityParser {
         todo!() //TODO
     }
 
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self)
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(*self)
     }
 }
 
@@ -300,7 +305,7 @@ pub fn maybe_part<T: 'static + std::fmt::Debug>(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MaybeParser<T>(CommandFormatPart<T>);
 
 impl<T: 'static + std::fmt::Debug> ParsePart<Option<T>> for MaybeParser<T> {
@@ -323,8 +328,8 @@ impl<T: 'static + std::fmt::Debug> ParsePart<Option<T>> for MaybeParser<T> {
         }
     }
 
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self)
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self.clone())
     }
 }
 
