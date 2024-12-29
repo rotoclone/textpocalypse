@@ -15,7 +15,7 @@ use nonempty::{nonempty, NonEmpty};
 pub struct CommandFormat(NonEmpty<UntypedCommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct UntypedCommandPartId(String);
 
 impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
@@ -33,6 +33,17 @@ struct UntypedCommandFormatPart {
     validator: Option<Box<dyn ValidateParsedValueUntyped>>,
 }
 
+impl Clone for UntypedCommandFormatPart {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            options: self.options.clone(),
+            parser: self.parser.clone_box(),
+            validator: self.validator.as_ref().map(|v| v.clone_box()),
+        }
+    }
+}
+
 impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
     fn from(val: CommandFormatPart<T>) -> Self {
         UntypedCommandFormatPart {
@@ -44,13 +55,13 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
     }
 }
 
-trait ParsePart<T>: ParsePartUntyped {
+trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
 }
 
-trait ParsePartUntyped: std::fmt::Debug {
+trait ParsePartUntyped: std::fmt::Debug + ParsePartUntypedClone {
     fn parse_untyped(
         &self,
         context: PartParserContext,
@@ -58,7 +69,27 @@ trait ParsePartUntyped: std::fmt::Debug {
     ) -> CommandPartParseResult<Box<dyn Any>>;
 }
 
-trait ValidateParsedValue<T>: ValidateParsedValueUntyped {
+trait ParsePartUntypedClone {
+    fn clone_box(&self) -> Box<dyn ParsePartUntyped>;
+}
+
+impl<T: 'static + ParsePartUntyped + Clone> ParsePartUntypedClone for T {
+    fn clone_box(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self.clone())
+    }
+}
+
+trait ParsePartClone<T> {
+    fn clone_box(&self) -> Box<dyn ParsePart<T>>;
+}
+
+impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
+    fn clone_box(&self) -> Box<dyn ParsePart<P>> {
+        Box::new(self.clone())
+    }
+}
+
+trait ValidateParsedValue<T>: ValidateParsedValueUntyped + ValidateParsedValueClone<T> {
     fn validate(
         &self,
         context: PartValidatorContext<T>,
@@ -68,12 +99,32 @@ trait ValidateParsedValue<T>: ValidateParsedValueUntyped {
     fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped>;
 }
 
-trait ValidateParsedValueUntyped: std::fmt::Debug {
+trait ValidateParsedValueUntyped: std::fmt::Debug + ValidateParsedValueUntypedClone {
     fn validate(
         &self,
         context: PartValidatorContext<Box<dyn Any>>,
         world: &World,
     ) -> CommandPartValidateResult;
+}
+
+trait ValidateParsedValueUntypedClone {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped>;
+}
+
+impl<T: 'static + ValidateParsedValueUntyped + Clone> ValidateParsedValueUntypedClone for T {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
+        Box::new(self.clone())
+    }
+}
+
+trait ValidateParsedValueClone<T> {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValue<T>>;
+}
+
+impl<T: 'static + ValidateParsedValue<P> + Clone, P> ValidateParsedValueClone<P> for T {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValue<P>> {
+        Box::new(self.clone())
+    }
 }
 
 /* TODO remove
@@ -97,12 +148,26 @@ impl<T: ValidateParsedValue<P>, P: 'static> ValidateParsedValueUntyped for T {
 }
     */
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CommandFormatPart<T> {
     id: Option<CommandPartId<T>>,
     options: CommandFormatPartOptions,
     parser: Box<dyn ParsePart<T>>,
     validator: Option<Box<dyn ValidateParsedValue<T>>>,
+}
+
+impl<T: Clone> Clone for CommandFormatPart<T> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            options: self.options.clone(),
+            parser: ParsePartClone::clone_box(self.parser.deref()),
+            validator: self
+                .validator
+                .as_ref()
+                .map(|v| ValidateParsedValueClone::clone_box(v.deref())),
+        }
+    }
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
@@ -293,7 +358,7 @@ impl ParsePartUntyped for EntityParser {
 }
 
 /// Creates a part to maybe consume something.
-pub fn maybe_part<T: 'static + std::fmt::Debug>(
+pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
     id: CommandPartId<Option<T>>,
     part: CommandFormatPart<T>,
 ) -> CommandFormatPart<Option<T>> {
@@ -306,9 +371,9 @@ pub fn maybe_part<T: 'static + std::fmt::Debug>(
 }
 
 #[derive(Debug, Clone)]
-struct MaybeParser<T>(CommandFormatPart<T>);
+struct MaybeParser<T: Clone>(CommandFormatPart<T>);
 
-impl<T: 'static + std::fmt::Debug> ParsePart<Option<T>> for MaybeParser<T> {
+impl<T: 'static + std::fmt::Debug + Clone> ParsePart<Option<T>> for MaybeParser<T> {
     fn parse(
         &self,
         context: PartParserContext,
@@ -329,11 +394,11 @@ impl<T: 'static + std::fmt::Debug> ParsePart<Option<T>> for MaybeParser<T> {
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self.clone())
+        Box::new(MaybeParser(self.0.clone()))
     }
 }
 
-impl<T: 'static + std::fmt::Debug> ParsePartUntyped for MaybeParser<T> {
+impl<T: 'static + std::fmt::Debug + Clone> ParsePartUntyped for MaybeParser<T> {
     fn parse_untyped(
         &self,
         context: PartParserContext,
@@ -353,7 +418,7 @@ pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPa
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct OneOfParser(NonEmpty<UntypedCommandFormatPart>);
 
 impl ParsePart<Box<dyn Any>> for OneOfParser {
@@ -365,8 +430,8 @@ impl ParsePart<Box<dyn Any>> for OneOfParser {
         todo!() //TODO
     }
 
-    fn into_untyped(self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self)
+    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
+        Box::new(self.clone())
     }
 }
 
@@ -409,7 +474,7 @@ impl CommandFormat {
     }
 
     /// Creates a format starting with a `Maybe` part.
-    pub fn new_with_maybe<T: 'static + std::fmt::Debug>(
+    pub fn new_with_maybe<T: 'static + std::fmt::Debug + Clone>(
         id: CommandPartId<Option<T>>,
         part: CommandFormatPart<T>,
     ) -> CommandFormat {
@@ -443,7 +508,7 @@ impl CommandFormat {
 
     /// Adds a `Maybe` part to the format.
     /// Panics if there is already a part with the provided ID.
-    pub fn then_maybe<T: 'static + std::fmt::Debug>(
+    pub fn then_maybe<T: 'static + std::fmt::Debug + Clone>(
         mut self,
         id: CommandPartId<Option<T>>,
         part: CommandFormatPart<T>,
