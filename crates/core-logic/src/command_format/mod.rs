@@ -1,11 +1,17 @@
 use std::{
-    any::{type_name, Any, TypeId},
+    any::{type_name, Any},
     collections::HashMap,
     marker::PhantomData,
     ops::Deref,
 };
 
 use bevy_ecs::prelude::*;
+
+mod part_parsers;
+use part_parsers::*;
+
+mod parsed_value_validators;
+use parsed_value_validators::*;
 
 use nonempty::{nonempty, NonEmpty};
 
@@ -26,7 +32,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 
 /// A `CommandFormatPart` with no associated type information, so different ones can be put in a collection together.
 #[derive(Debug)]
-struct UntypedCommandFormatPart {
+pub struct UntypedCommandFormatPart {
     id: Option<UntypedCommandPartId>,
     options: CommandFormatPartOptions,
     parser: Box<dyn ParsePartUntyped>,
@@ -52,86 +58,6 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
             parser: val.parser.as_untyped(),
             validator: val.validator.map(|v| v.as_untyped()),
         }
-    }
-}
-
-trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
-}
-
-trait ParsePartUntyped: std::fmt::Debug + ParsePartUntypedClone {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>>;
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-trait ParsePartUntypedClone {
-    fn clone_box(&self) -> Box<dyn ParsePartUntyped>;
-}
-
-impl<T: 'static + ParsePartUntyped + Clone> ParsePartUntypedClone for T {
-    fn clone_box(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-trait ParsePartClone<T> {
-    fn clone_box(&self) -> Box<dyn ParsePart<T>>;
-}
-
-impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
-    fn clone_box(&self) -> Box<dyn ParsePart<P>> {
-        Box::new(self.clone())
-    }
-}
-
-trait ValidateParsedValue<T>: ValidateParsedValueUntyped + ValidateParsedValueClone<T> {
-    fn validate(
-        &self,
-        context: PartValidatorContext<T>,
-        world: &World,
-    ) -> CommandPartValidateResult;
-
-    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped>;
-}
-
-trait ValidateParsedValueUntyped: std::fmt::Debug + ValidateParsedValueUntypedClone {
-    fn validate(
-        &self,
-        context: PartValidatorContext<Box<dyn Any>>,
-        world: &World,
-    ) -> CommandPartValidateResult;
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-trait ValidateParsedValueUntypedClone {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped>;
-}
-
-impl<T: 'static + ValidateParsedValueUntyped + Clone> ValidateParsedValueUntypedClone for T {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-trait ValidateParsedValueClone<T> {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValue<T>>;
-}
-
-impl<T: 'static + ValidateParsedValue<P> + Clone, P> ValidateParsedValueClone<P> for T {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValue<P>> {
-        Box::new(self.clone())
     }
 }
 
@@ -178,63 +104,59 @@ impl<T: Clone> Clone for CommandFormatPart<T> {
     }
 }
 
+impl<T> CommandFormatPart<T> {
+    /// Adds a validator to this part. Any existing validator will be replaced.
+    pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<T>>) -> Self {
+        self.validator = Some(validator);
+        self
+    }
+
+    /// Sets the string to include in the error message if this part is missing (e.g. "what", "who", etc.).
+    pub fn with_if_missing(mut self, s: impl Into<String>) -> Self {
+        self.options.if_missing = Some(s.into());
+        self
+    }
+
+    /// Sets the string to include in the command's format string for this part (e.g. "thing", "target", etc.).
+    pub fn with_name_for_format_string(mut self, name: impl Into<String>) -> Self {
+        self.options.name_for_format_string = Some(name.into());
+        self
+    }
+
+    /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
+    pub fn always_include_in_errors(mut self) -> Self {
+        self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Always;
+        self
+    }
+
+    /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
+    pub fn never_include_in_errors(mut self) -> Self {
+        self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Never;
+        self
+    }
+}
+
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct CommandFormatPartOptions {
     /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
     if_missing: Option<String>,
-    /// The string to include in the format string for this part (e.g. "thing", "target", etc.)
+    /// The string to include in the command's format string for this part (e.g. "thing", "target", etc.).
+    /// If `None`, the part will not be included in the format string.
     name_for_format_string: Option<String>,
+    /// When to include this part in error messages.
+    include_in_errors_behavior: IncludeInErrorsBehavior,
 }
 
-pub struct PartParserContext {
-    input: String,
-    performing_entity: Entity,
-}
-
-pub enum CommandPartParseResult<T> {
-    Success {
-        parsed: T,
-        remaining: String,
-    },
-    Failure {
-        error: CommandPartParseError,
-        remaining: String,
-    },
-}
-
-impl<T: 'static> CommandPartParseResult<T> {
-    /// Converts the generic type on this result to `Box<dyn Any>`, to make implementing `ParsePartUntyped` easier.
-    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn Any>> {
-        match self {
-            CommandPartParseResult::Success { parsed, remaining } => {
-                CommandPartParseResult::Success {
-                    parsed: Box::new(parsed),
-                    remaining,
-                }
-            }
-            CommandPartParseResult::Failure { error, remaining } => {
-                CommandPartParseResult::Failure { error, remaining }
-            }
-        }
-    }
-}
-
-pub enum CommandPartParseError {
-    //TODO
-}
-
-pub struct PartValidatorContext<T> {
-    parsed_value: T,
-    performing_entity: Entity,
-}
-
-pub enum CommandPartValidateResult {
-    Valid,
-    Invalid(CommandPartValidateError),
-}
-
-pub enum CommandPartValidateError {
-    //TODO
+/// Specifies when to include a part in an error message.
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
+enum IncludeInErrorsBehavior {
+    /// The part is always included in error messages, even if it was not included in the entered command.
+    Always,
+    /// The part is never included in error messages, even if it was included in the entered command.
+    Never,
+    /// The part is only included in an error message if it was in the entered command.
+    #[default]
+    OnlyIfMatched,
 }
 
 /* TODO remove
@@ -275,29 +197,6 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct LiteralParser(String);
-
-impl ParsePart<String> for LiteralParser {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<String> {
-        todo!() //TODO
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-impl ParsePartUntyped for LiteralParser {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        self.parse(context, world).into_generic()
-    }
-}
-
 /// Creates a part to consume any text.
 pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<String> {
     CommandFormatPart {
@@ -305,30 +204,6 @@ pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<String> {
         options: CommandFormatPartOptions::default(),
         parser: Box::new(AnyTextParser),
         validator: None,
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct AnyTextParser;
-
-impl ParsePart<String> for AnyTextParser {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<String> {
-        // TODO how is this supposed to know when to stop?
-        todo!() //TODO
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(*self)
-    }
-}
-
-impl ParsePartUntyped for AnyTextParser {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        self.parse(context, world).into_generic()
     }
 }
 
@@ -342,32 +217,10 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct EntityParser;
-
-impl ParsePart<Entity> for EntityParser {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
-        todo!() //TODO
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(*self)
-    }
-}
-
-impl ParsePartUntyped for EntityParser {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        self.parse(context, world).into_generic()
-    }
-}
-
 /// Creates a part to maybe consume something.
 pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
     id: CommandPartId<Option<T>>,
+    //TODO this part doesn't need an associated ID
     part: CommandFormatPart<T>,
 ) -> CommandFormatPart<Option<T>> {
     CommandFormatPart {
@@ -378,44 +231,6 @@ pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
     }
 }
 
-#[derive(Debug, Clone)]
-struct MaybeParser<T: Clone>(CommandFormatPart<T>);
-
-impl<T: 'static + std::fmt::Debug + Clone> ParsePart<Option<T>> for MaybeParser<T> {
-    fn parse(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Option<T>> {
-        match self.0.parser.parse(context, world) {
-            CommandPartParseResult::Success { parsed, remaining } => {
-                CommandPartParseResult::Success {
-                    parsed: Some(parsed),
-                    remaining,
-                }
-            }
-            CommandPartParseResult::Failure { remaining, .. } => CommandPartParseResult::Success {
-                parsed: None,
-                remaining,
-            },
-        }
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(MaybeParser(self.0.clone()))
-    }
-}
-
-impl<T: 'static + std::fmt::Debug + Clone> ParsePartUntyped for MaybeParser<T> {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        self.parse(context, world).into_generic()
-    }
-}
-
 /// Creates a part that consumes one of a set of possible things.
 pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<Box<dyn Any>> {
     CommandFormatPart {
@@ -423,33 +238,6 @@ pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPa
         options: CommandFormatPartOptions::default(),
         parser: Box::new(OneOfParser(parts)),
         validator: None,
-    }
-}
-
-#[derive(Debug, Clone)]
-struct OneOfParser(NonEmpty<UntypedCommandFormatPart>);
-
-impl ParsePart<Box<dyn Any>> for OneOfParser {
-    fn parse(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        todo!() //TODO
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-impl ParsePartUntyped for OneOfParser {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
-        self.parse(context, world).into_generic()
     }
 }
 
@@ -466,74 +254,23 @@ impl<T> CommandPartId<T> {
 }
 
 impl CommandFormat {
-    /// Creates a format starting with a `Literal` part.
-    pub fn new_with_literal(literal: impl Into<String>) -> CommandFormat {
-        CommandFormat(NonEmpty::new(literal_part(literal).into()))
+    /// Creates a format starting with the provided part.
+    pub fn new<T: 'static + std::fmt::Debug>(part: CommandFormatPart<T>) -> CommandFormat {
+        CommandFormat(NonEmpty::new(part.into()))
     }
 
-    /// Creates a format starting with an `AnyText` part.
-    pub fn new_with_any_text(id: CommandPartId<String>) -> CommandFormat {
-        CommandFormat(NonEmpty::new(any_text_part(id).into()))
-    }
-
-    /// Creates a format starting with an `Entity` part.
-    pub fn new_with_entity(id: CommandPartId<Entity>) -> CommandFormat {
-        CommandFormat(NonEmpty::new(entity_part(id).into()))
-    }
-
-    /// Creates a format starting with a `Maybe` part.
-    pub fn new_with_maybe<T: 'static + std::fmt::Debug + Clone>(
-        id: CommandPartId<Option<T>>,
+    /// Adds a part to the format.
+    /// Panics if the part has an ID and there is already a part with the same ID.
+    pub fn then<T: 'static + std::fmt::Debug>(
+        mut self,
         part: CommandFormatPart<T>,
     ) -> CommandFormat {
-        CommandFormat(NonEmpty::new(maybe_part(id, part).into()))
-    }
-
-    /// Creates a format starting with a `OneOf` part.
-    pub fn new_with_one_of(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormat {
-        CommandFormat(NonEmpty::new(one_of_part(parts).into()))
-    }
-
-    /// Adds a `Literal` part to the format.
-    pub fn then_literal(mut self, literal: impl Into<String>) -> Self {
-        self.add_part(literal_part(literal).into());
-        self
-    }
-
-    /// Adds an `AnyText` part to the format.
-    /// Panics if there is already a part with the provided ID.
-    pub fn then_any_text(mut self, id: CommandPartId<String>) -> Self {
-        self.add_part(any_text_part(id).into());
-        self
-    }
-
-    /// Adds an `Entity` part to the format.
-    /// Panics if there is already a part with the provided ID.
-    pub fn then_entity(mut self, id: CommandPartId<Entity>) -> Self {
-        self.add_part(entity_part(id).into());
-        self
-    }
-
-    /// Adds a `Maybe` part to the format.
-    /// Panics if there is already a part with the provided ID.
-    pub fn then_maybe<T: 'static + std::fmt::Debug + Clone>(
-        mut self,
-        id: CommandPartId<Option<T>>,
-        part: CommandFormatPart<T>,
-    ) -> Self {
-        self.add_part(maybe_part(id, part).into());
-        self
-    }
-
-    /// Adds a `OneOf` part to the format.
-    /// Panics if there is already a part with the provided ID.
-    pub fn then_one_of(mut self, parts: NonEmpty<UntypedCommandFormatPart>) -> Self {
-        self.add_part(one_of_part(parts).into());
+        self.add_part(part.into());
         self
     }
 
     /// Adds a part to the format.
-    /// Panics if `id` is `Some` and there is already a part with the same ID.
+    /// Panics if the part has an ID and there is already a part with the same ID.
     fn add_part(&mut self, part: UntypedCommandFormatPart) {
         if let Some(id) = &part.id {
             if self
@@ -583,10 +320,6 @@ impl CommandFormat {
     pub fn parse(&self, input: &str) -> Result<ParsedCommand, CommandFormatParseError> {
         todo!() //TODO
     }
-}
-
-struct ParsedCommandPart {
-    //TODO
 }
 
 /* TODO

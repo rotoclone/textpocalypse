@@ -10,16 +10,17 @@ use crate::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
     },
+    entity_part,
     game_map::Coordinates,
     input_parser::{
         input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
         InputParser,
     },
-    literal_part,
+    literal_part, maybe_part,
     notification::VerifyResult,
-    ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
-    EntityDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    RoomDescription, VerifyActionNotification, World,
+    one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
+    DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -37,18 +38,26 @@ static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
 
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
-/* TODO
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new_with_one_of(
-        CommandPartId::new("verb"),
-        nonempty![literal_part("look"), literal_part("l"),],
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("look").always_include_in_errors().into(),
+        literal_part("l").never_include_in_errors().into(),
+    ]))
+    .then(literal_part(" "))
+    .then(maybe_part(
+        CommandPartId::new("atPart"),
+        literal_part("at "),
+    ))
+    .then(maybe_part(
+        CommandPartId::new("thePart"),
+        literal_part("the "),
+    ))
+    .then(
+        entity_part(TARGET_PART_ID.clone())
+            .with_if_missing("what")
+            .with_name_for_format_string("thing/direction"),
     )
-    .then_literal(" ")
-    .then_maybe(CommandPartId::new("atPart"), literal_part("at "))
-    .then_maybe(CommandPartId::new("thePart"), literal_part("the "))
-    .then_entity(TARGET_PART_ID.clone(), "what", None)
 });
-*/
 
 pub struct LookParser;
 

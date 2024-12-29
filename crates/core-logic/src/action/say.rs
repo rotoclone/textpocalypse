@@ -5,12 +5,13 @@ use nonempty::nonempty;
 use regex::Regex;
 
 use crate::{
+    any_text_part,
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{CommandParseError, InputParseError, InputParser},
     literal_part,
     notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId, DynamicMessage,
-    DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
+    one_of_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
+    DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
@@ -24,15 +25,17 @@ static SAY_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(\"|say )(?P<text>.*)").unwrap());
 
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
-/* TODO
 static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new_with_one_of(
-        CommandPartId::new("verb"),
-        nonempty![literal_part("say "), literal_part("\"")],
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("say ").always_include_in_errors().into(),
+        literal_part("\"").never_include_in_errors().into()
+    ]))
+    .then(
+        any_text_part(TEXT_PART_ID.clone())
+            .with_if_missing("what")
+            .with_name_for_format_string("statement"),
     )
-    .then_any_text(TEXT_PART_ID.clone())
 });
-*/
 
 pub struct SayParser;
 
