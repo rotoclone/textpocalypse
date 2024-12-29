@@ -69,6 +69,8 @@ trait ParsePartUntyped: std::fmt::Debug + ParsePartUntypedClone {
     ) -> CommandPartParseResult<Box<dyn Any>>;
 }
 
+/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
+/// https://stackoverflow.com/a/30353928
 trait ParsePartUntypedClone {
     fn clone_box(&self) -> Box<dyn ParsePartUntyped>;
 }
@@ -79,6 +81,8 @@ impl<T: 'static + ParsePartUntyped + Clone> ParsePartUntypedClone for T {
     }
 }
 
+/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
+/// https://stackoverflow.com/a/30353928
 trait ParsePartClone<T> {
     fn clone_box(&self) -> Box<dyn ParsePart<T>>;
 }
@@ -107,6 +111,8 @@ trait ValidateParsedValueUntyped: std::fmt::Debug + ValidateParsedValueUntypedCl
     ) -> CommandPartValidateResult;
 }
 
+/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
+/// https://stackoverflow.com/a/30353928
 trait ValidateParsedValueUntypedClone {
     fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped>;
 }
@@ -117,6 +123,8 @@ impl<T: 'static + ValidateParsedValueUntyped + Clone> ValidateParsedValueUntyped
     }
 }
 
+/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
+/// https://stackoverflow.com/a/30353928
 trait ValidateParsedValueClone<T> {
     fn clone_box(&self) -> Box<dyn ValidateParsedValue<T>>;
 }
