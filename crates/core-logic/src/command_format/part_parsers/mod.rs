@@ -88,6 +88,8 @@ impl<T: 'static> CommandPartParseResult<T> {
     }
 }
 
+/// An error encountered while attempting to parse a command part.
 pub enum CommandPartParseError {
-    //TODO
+    /// The part was missing from the input
+    NotFound,
 }

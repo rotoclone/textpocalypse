@@ -2,14 +2,26 @@ use std::any::Any;
 
 use bevy_ecs::prelude::*;
 
-use super::{CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext};
+use super::{
+    CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
+};
 
 #[derive(Debug, Clone)]
 pub struct LiteralParser(pub String);
 
 impl ParsePart<String> for LiteralParser {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<String> {
-        todo!() //TODO
+    fn parse(&self, context: PartParserContext, _: &World) -> CommandPartParseResult<String> {
+        if let Some(remaining) = context.input.strip_prefix(&self.0) {
+            return CommandPartParseResult::Success {
+                parsed: self.0.clone(),
+                remaining: remaining.to_string(),
+            };
+        }
+
+        CommandPartParseResult::Failure {
+            error: CommandPartParseError::NotFound,
+            remaining: context.input,
+        }
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
