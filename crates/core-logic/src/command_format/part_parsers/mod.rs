@@ -17,6 +17,8 @@ pub use maybe_parser::MaybeParser;
 mod one_of_parser;
 pub use one_of_parser::OneOfParser;
 
+use super::CommandPartValidateError;
+
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
 
@@ -55,6 +57,7 @@ impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
     }
 }
 
+#[derive(Clone)]
 pub struct PartParserContext {
     input: String,
     performing_entity: Entity,
@@ -92,4 +95,6 @@ impl<T: 'static> CommandPartParseResult<T> {
 pub enum CommandPartParseError {
     /// The part was missing from the input
     NotFound,
+    /// The part was found, but was invalid
+    Invalid(CommandPartValidateError),
 }
