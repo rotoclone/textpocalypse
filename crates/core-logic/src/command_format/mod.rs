@@ -288,7 +288,12 @@ impl CommandFormat {
 
 /// An error encountered while parsing input into a command.
 /// TODO rename to `CommandParseError`
-pub enum CommandFormatParseError {}
+pub enum CommandFormatParseError {
+    /// A required part was not matched
+    MissingPart,
+    /// Something invalid was provided for a part
+    InvalidPart,
+}
 
 pub struct ParsedCommand {
     parsed_parts: HashMap<UntypedCommandPartId, Box<dyn Any>>,
