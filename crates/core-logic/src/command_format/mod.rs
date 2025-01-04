@@ -15,6 +15,8 @@ use parsed_value_validators::*;
 
 use nonempty::{nonempty, NonEmpty};
 
+use crate::GameMessage;
+
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
 #[derive(Debug)]
@@ -289,10 +291,23 @@ impl CommandFormat {
 /// An error encountered while parsing input into a command.
 /// TODO rename to `CommandParseError`
 pub enum CommandFormatParseError {
-    /// A required part was not matched
-    MissingPart,
-    /// Something invalid was provided for a part
-    InvalidPart,
+    /// An error occurred when attempting to parse a part
+    Part {
+        matched_parts: Vec<UntypedCommandFormatPart>,
+        error: CommandPartParseError,
+    },
+    /// Some of the input remained unmatched after all the parser were run
+    UnmatchedInput {
+        matched_parts: Vec<UntypedCommandFormatPart>,
+        unmatched: String,
+    },
+}
+
+impl CommandFormatParseError {
+    /// Turns the error into a message to send to the entering entity describing what went wrong.
+    pub fn into_message(self) -> GameMessage {
+        todo!() //TODO
+    }
 }
 
 pub struct ParsedCommand {
@@ -322,8 +337,48 @@ impl ParsedCommand {
 
 impl CommandFormat {
     /// Attempts to parse the provided input with this format.
-    pub fn parse(&self, input: &str) -> Result<ParsedCommand, CommandFormatParseError> {
-        todo!() //TODO
+    pub fn parse(
+        &self,
+        input: impl Into<String>,
+        entering_entity: Entity,
+        world: &World,
+    ) -> Result<ParsedCommand, CommandFormatParseError> {
+        let mut remaining_input = input.into();
+        let mut matched_parts = Vec::new();
+        let mut parsed_parts = HashMap::new();
+        for part in &self.0 {
+            match part.parser.parse_untyped(
+                PartParserContext {
+                    input: remaining_input,
+                    entering_entity,
+                },
+                world,
+            ) {
+                CommandPartParseResult::Success { parsed, remaining } => {
+                    matched_parts.push(part.clone());
+                    if let Some(id) = &part.id {
+                        parsed_parts.insert(id.clone(), parsed);
+                    }
+
+                    remaining_input = remaining;
+                }
+                CommandPartParseResult::Failure { error, .. } => {
+                    return Err(CommandFormatParseError::Part {
+                        matched_parts,
+                        error,
+                    })
+                }
+            }
+        }
+
+        if !remaining_input.is_empty() {
+            return Err(CommandFormatParseError::UnmatchedInput {
+                matched_parts,
+                unmatched: remaining_input,
+            });
+        }
+
+        Ok(ParsedCommand { parsed_parts })
     }
 }
 
