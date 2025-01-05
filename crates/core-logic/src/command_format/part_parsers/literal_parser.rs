@@ -6,6 +6,7 @@ use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
 };
 
+//TODO allow ignoring case?
 #[derive(Debug, Clone)]
 pub struct LiteralParser(pub String);
 
