@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy_ecs::prelude::*;
 use log::debug;
 
@@ -216,6 +218,7 @@ impl Pronouns {
 impl Description {
     /// Determines whether the provided input refers to the entity with this description.
     pub fn matches(&self, input: &str) -> bool {
+        //TODO use get_all_ways_to_reference here
         debug!("Checking if {input:?} matches {self:?}");
         self.name.eq_ignore_ascii_case(input)
             || self.room_name.eq_ignore_ascii_case(input)
@@ -290,6 +293,18 @@ impl Description {
         } else {
             "something".to_string()
         }
+    }
+
+    /// Finds all the strings representing ways to reference the provided entity.
+    pub fn get_all_ways_to_reference(entity: Entity, world: &World) -> HashSet<&str> {
+        let mut names = HashSet::new();
+        if let Some(desc) = world.get::<Description>(entity) {
+            names.insert(desc.name.as_str());
+            names.insert(desc.room_name.as_str());
+            names.extend(desc.aliases.iter().map(|a| a.as_str()))
+        }
+
+        names
     }
 }
 

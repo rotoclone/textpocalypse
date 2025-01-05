@@ -48,7 +48,7 @@ pub fn find_parsers_relevant_for(
 }
 
 /// Finds all the entities the provided entity can currently directly interact with.
-fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
+pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
     let location_id = world
         .get::<Location>(entity)
         .expect("Entity should have a location")
