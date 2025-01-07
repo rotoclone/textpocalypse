@@ -5,7 +5,8 @@ use bevy_ecs::prelude::*;
 use crate::{find_entities_in_presence_of, Description};
 
 use super::{
-    CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
+    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, ParsePart,
+    ParsePartUntyped, PartParserContext,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -15,8 +16,8 @@ impl ParsePart<Entity> for EntityParser {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
         for entity in find_entities_in_presence_of(context.entering_entity, world) {
             for name in Description::get_all_ways_to_reference(entity, world) {
-                //TODO ignore case
-                if let Some(remaining) = context.input.strip_prefix(name) {
+                if let Ok((remaining, _)) = match_literal_ignore_case(name, context.input.as_str())
+                {
                     return CommandPartParseResult::Success {
                         parsed: entity,
                         remaining: remaining.to_string(),

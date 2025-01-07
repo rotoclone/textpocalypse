@@ -15,6 +15,7 @@ mod maybe_parser;
 pub use maybe_parser::MaybeParser;
 
 mod one_of_parser;
+use nom::{bytes::complete::tag_no_case, IResult};
 pub use one_of_parser::OneOfParser;
 
 use super::CommandPartValidateError;
@@ -98,4 +99,10 @@ pub enum CommandPartParseError {
     NotFound,
     /// The part was found, but was invalid
     Invalid(CommandPartValidateError),
+}
+
+/// Attempts to match a literal from the beginning of the provided input.
+/// Returns `Ok(remaining, matched)` if `input` starts with `literal` ignoring case.
+fn match_literal_ignore_case<'i>(literal: &str, input: &'i str) -> IResult<&'i str, &'i str> {
+    tag_no_case(literal)(input)
 }
