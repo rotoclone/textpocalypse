@@ -56,6 +56,7 @@ pub enum CommandPartValidateResult {
     Invalid(CommandPartValidateError),
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartValidateError {
     //TODO
 }

@@ -296,6 +296,7 @@ impl Description {
     }
 
     /// Finds all the strings representing ways to reference the provided entity.
+    /// TODO include "me" and "here"
     pub fn get_all_ways_to_reference(entity: Entity, world: &World) -> HashSet<&str> {
         let mut names = HashSet::new();
         if let Some(desc) = world.get::<Description>(entity) {

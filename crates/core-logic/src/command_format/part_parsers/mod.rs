@@ -65,6 +65,7 @@ pub struct PartParserContext {
     pub entering_entity: Entity,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseResult<T> {
     Success {
         parsed: T,
@@ -94,6 +95,7 @@ impl<T: 'static> CommandPartParseResult<T> {
 }
 
 /// An error encountered while attempting to parse a command part.
+#[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
     /// The part was missing from the input
     NotFound,
