@@ -55,7 +55,7 @@ static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(
         entity_part(TARGET_PART_ID.clone())
             .with_if_missing("what")
-            .with_name_for_format_string("thing/direction"),
+            .with_placeholder_for_format_string("thing/direction"),
     )
 });
 

@@ -119,9 +119,15 @@ impl<T> CommandFormatPart<T> {
         self
     }
 
-    /// Sets the string to include in the command's format string for this part (e.g. "thing", "target", etc.).
-    pub fn with_name_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.name_for_format_string = Some(name.into());
+    /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
+    pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
+        self.options.format_string_part = FormatStringPart::Literal(name.into());
+        self
+    }
+
+    /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
+    pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
+        self.options.format_string_part = FormatStringPart::Placeholder(name.into());
         self
     }
 
@@ -144,9 +150,21 @@ pub struct CommandFormatPartOptions {
     if_missing: Option<String>,
     /// The string to include in the command's format string for this part (e.g. "thing", "target", etc.).
     /// If `None`, the part will not be included in the format string.
-    name_for_format_string: Option<String>,
+    format_string_part: FormatStringPart,
     /// When to include this part in error messages.
     include_in_errors_behavior: IncludeInErrorsBehavior,
+}
+
+/// Describes what to include in the format string for a part.
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
+enum FormatStringPart {
+    /// This part shouldn't be included in the format string.
+    #[default]
+    Nothing,
+    /// A literal string, for parts of the format that must be entered literally to be matched (e.g. "get", "look", etc.)
+    Literal(String),
+    /// A placeholder for a target, (e.g. "thing", "target", etc.)
+    Placeholder(String),
 }
 
 /// Specifies when to include a part in an error message.
@@ -191,10 +209,14 @@ pub enum CommandFormatPartOld {
 
 /// Creates a part to consume a literal value.
 pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
+    let literal_string = literal.into();
     CommandFormatPart {
         id: None,
-        options: CommandFormatPartOptions::default(),
-        parser: Box::new(LiteralParser(literal.into())),
+        options: CommandFormatPartOptions {
+            format_string_part: FormatStringPart::Literal(literal_string.clone()),
+            ..Default::default()
+        },
+        parser: Box::new(LiteralParser(literal_string)),
         validator: None,
     }
 }
@@ -285,6 +307,15 @@ impl CommandFormat {
         }
 
         self.0.push(part);
+    }
+
+    /// Gets the format string parts for this command format, to demonstrate how it should be used.
+    /// TODO provide some way to tell which part is which, so the placeholder part for the entity in context can be replaced with the name of the entity, e.g. for the commands on an entity called "box", have the format be "put box in <container>" rather than just "put <item> in <container>"
+    fn get_format_string_parts(&self) -> Vec<FormatStringPart> {
+        self.0
+            .iter()
+            .map(|part| part.options.format_string_part.clone())
+            .collect()
     }
 }
 

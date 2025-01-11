@@ -33,7 +33,7 @@ static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(
         any_text_part(TEXT_PART_ID.clone())
             .with_if_missing("what")
-            .with_name_for_format_string("statement"),
+            .with_placeholder_for_format_string("statement"),
     )
 });
 
