@@ -55,11 +55,16 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, &'i str
 
 #[cfg(test)]
 mod tests {
-    use crate::Pronouns;
+    use crate::{move_entity, Container, Pronouns};
 
     use super::*;
 
-    //TODO entities need to be in the same location
+    fn spawn_entity_in_location(id: &str, location: Entity, world: &mut World) -> Entity {
+        let entity = world.spawn(build_entity_description(id)).id();
+        move_entity(entity, location, world);
+        entity
+    }
+
     fn build_entity_description(id: &str) -> Description {
         Description {
             name: format!("entity {id} name"),
@@ -79,8 +84,9 @@ mod tests {
     #[test]
     fn parse_empty_input() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        world.spawn(build_entity_description("2"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
 
         let context = PartParserContext {
             input: "".to_string(),
@@ -98,17 +104,18 @@ mod tests {
     #[test]
     fn parse_no_match() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        world.spawn(build_entity_description("2"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
 
         let context = PartParserContext {
-            input: "entity 12".to_string(),
+            input: "entity 12 name".to_string(),
             entering_entity: entity_1,
         };
 
         let expected = CommandPartParseResult::Failure {
             error: CommandPartParseError::NotFound,
-            remaining: "entity 12".to_string(),
+            remaining: "entity 12 name".to_string(),
         };
 
         assert_eq!(expected, EntityParser.parse(context, &world));
@@ -117,12 +124,13 @@ mod tests {
     #[test]
     fn parse_match_name_no_remaining() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        let entity_2 = world.spawn(build_entity_description("2")).id();
-        world.spawn(build_entity_description("3"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
 
         let context = PartParserContext {
-            input: "entity 2".to_string(),
+            input: "entity 2 name".to_string(),
             entering_entity: entity_1,
         };
 
@@ -137,12 +145,13 @@ mod tests {
     #[test]
     fn parse_match_name() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        let entity_2 = world.spawn(build_entity_description("2")).id();
-        world.spawn(build_entity_description("3"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
 
         let context = PartParserContext {
-            input: "entity 2 and stuff".to_string(),
+            input: "entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
         };
 
@@ -157,12 +166,13 @@ mod tests {
     #[test]
     fn parse_match_name_with_the() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        let entity_2 = world.spawn(build_entity_description("2")).id();
-        world.spawn(build_entity_description("3"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
 
         let context = PartParserContext {
-            input: "the entity 2 and stuff".to_string(),
+            input: "the entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
         };
 
@@ -175,20 +185,43 @@ mod tests {
     }
 
     #[test]
-    fn parse_name_not_at_beginning() {
+    fn parse_wrong_location() {
         let mut world = World::new();
-        let entity_1 = world.spawn(build_entity_description("1")).id();
-        world.spawn(build_entity_description("2"));
-        world.spawn(build_entity_description("3"));
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let location_2 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_2, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
 
         let context = PartParserContext {
-            input: "it's entity 2 and stuff".to_string(),
+            input: "entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
         };
 
         let expected = CommandPartParseResult::Failure {
             error: CommandPartParseError::NotFound,
-            remaining: "it's entity 2 and stuff".to_string(),
+            remaining: "entity 2 name and stuff".to_string(),
+        };
+
+        assert_eq!(expected, EntityParser.parse(context, &world));
+    }
+
+    #[test]
+    fn parse_name_not_at_beginning() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "it's entity 2 name and stuff".to_string(),
+            entering_entity: entity_1,
+        };
+
+        let expected = CommandPartParseResult::Failure {
+            error: CommandPartParseError::NotFound,
+            remaining: "it's entity 2 name and stuff".to_string(),
         };
 
         assert_eq!(expected, EntityParser.parse(context, &world));
