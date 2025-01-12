@@ -116,11 +116,27 @@ impl InputParser for LookParser {
         _: Entity,
         world: &World,
     ) -> Option<Vec<String>> {
+        if world.get::<Description>(entity).is_some() {
+            return Some(vec![LOOK_COMMAND_FORMAT
+                .get_format_string()
+                .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                .to_string()]);
+        }
+
+        None
+
+        /* TODO
         input_formats_if_has_component::<Description>(
             entity,
             world,
-            &[LOOK_FORMAT, DETAILED_LOOK_FORMAT],
+            &[
+                LOOK_COMMAND_FORMAT
+                    .get_format_string()
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
+                DETAILED_LOOK_FORMAT,
+            ],
         )
+        */
     }
 }
 

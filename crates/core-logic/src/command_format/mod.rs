@@ -1,6 +1,7 @@
 use std::{
     any::{type_name, Any},
     collections::HashMap,
+    fmt::Display,
     marker::PhantomData,
     ops::Deref,
 };
@@ -8,6 +9,7 @@ use std::{
 use bevy_ecs::prelude::*;
 
 mod part_parsers;
+use itertools::Itertools;
 use part_parsers::*;
 
 mod parsed_value_validators;
@@ -15,7 +17,7 @@ use parsed_value_validators::*;
 
 use nonempty::{nonempty, NonEmpty};
 
-use crate::GameMessage;
+use crate::{Description, GameMessage};
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
@@ -121,13 +123,14 @@ impl<T> CommandFormatPart<T> {
 
     /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
     pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_string_part = FormatStringPart::Literal(name.into());
+        self.options.format_string_part_type = CommandFormatStringPartType::Literal(name.into());
         self
     }
 
     /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
     pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_string_part = FormatStringPart::Placeholder(name.into());
+        self.options.format_string_part_type =
+            CommandFormatStringPartType::Placeholder(name.into());
         self
     }
 
@@ -150,14 +153,14 @@ pub struct CommandFormatPartOptions {
     if_missing: Option<String>,
     /// The string to include in the command's format string for this part (e.g. "thing", "target", etc.).
     /// If `None`, the part will not be included in the format string.
-    format_string_part: FormatStringPart,
+    format_string_part_type: CommandFormatStringPartType,
     /// When to include this part in error messages.
     include_in_errors_behavior: IncludeInErrorsBehavior,
 }
 
 /// Describes what to include in the format string for a part.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
-enum FormatStringPart {
+enum CommandFormatStringPartType {
     /// This part shouldn't be included in the format string.
     #[default]
     Nothing,
@@ -177,6 +180,62 @@ enum IncludeInErrorsBehavior {
     /// The part is only included in an error message if it was in the entered command.
     #[default]
     OnlyIfMatched,
+}
+
+struct CommandFormatStringPart {
+    id: Option<UntypedCommandPartId>,
+    part_type: CommandFormatStringPartType,
+}
+
+pub struct CommandFormatString {
+    parts: Vec<CommandFormatStringPart>,
+    filled_placeholders: HashMap<UntypedCommandPartId, String>,
+}
+
+impl CommandFormatString {
+    /// Creates a new format string with no placeholders filled in.
+    fn new(parts: Vec<CommandFormatStringPart>) -> CommandFormatString {
+        CommandFormatString {
+            parts,
+            filled_placeholders: HashMap::new(),
+        }
+    }
+
+    /// Fills the placeholder for the part with the provided ID with the name of the provided entity.
+    /// Does nothing if the entity has no name.
+    pub fn with_targeted_entity(
+        mut self,
+        id: CommandPartId<Entity>,
+        entity: Entity,
+        world: &World,
+    ) -> Self {
+        if let Some(name) = Description::get_name(entity, world) {
+            self.filled_placeholders.insert(id.into(), name);
+        }
+
+        self
+    }
+}
+
+impl Display for CommandFormatString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = self
+            .parts
+            .iter()
+            .map(|part| match &part.part_type {
+                CommandFormatStringPartType::Nothing => "".to_string(),
+                CommandFormatStringPartType::Literal(l) => l.to_string(),
+                CommandFormatStringPartType::Placeholder(p) => part
+                    .id
+                    .as_ref()
+                    .map(|id| self.filled_placeholders.get(&id).map(|s| s.clone()))
+                    .flatten()
+                    .unwrap_or_else(|| format!("<{p}>")),
+            })
+            .join(" ");
+
+        string.fmt(f)
+    }
 }
 
 /* TODO remove
@@ -213,7 +272,7 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
     CommandFormatPart {
         id: None,
         options: CommandFormatPartOptions {
-            format_string_part: FormatStringPart::Literal(literal_string.clone()),
+            format_string_part_type: CommandFormatStringPartType::Literal(literal_string.clone()),
             ..Default::default()
         },
         parser: Box::new(LiteralParser(literal_string)),
@@ -310,12 +369,17 @@ impl CommandFormat {
     }
 
     /// Gets the format string parts for this command format, to demonstrate how it should be used.
-    /// TODO provide some way to tell which part is which, so the placeholder part for the entity in context can be replaced with the name of the entity, e.g. for the commands on an entity called "box", have the format be "put box in <container>" rather than just "put <item> in <container>"
-    fn get_format_string_parts(&self) -> Vec<FormatStringPart> {
-        self.0
-            .iter()
-            .map(|part| part.options.format_string_part.clone())
-            .collect()
+    /// TODO rename this since it doesn't actually return a string
+    pub fn get_format_string(&self) -> CommandFormatString {
+        CommandFormatString::new(
+            self.0
+                .iter()
+                .map(|part| CommandFormatStringPart {
+                    id: part.id.clone(),
+                    part_type: part.options.format_string_part_type.clone(),
+                })
+                .collect(),
+        )
     }
 }
 
