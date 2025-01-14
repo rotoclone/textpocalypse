@@ -12,10 +12,7 @@ use crate::{
     },
     entity_part,
     game_map::Coordinates,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     literal_part, maybe_part,
     notification::VerifyResult,
     one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
@@ -40,8 +37,8 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
-        literal_part("look").always_include_in_errors().into(),
-        literal_part("l").never_include_in_errors().into(),
+        literal_part("look").into(),
+        literal_part("l").into(),
     ]))
     .then(literal_part(" "))
     .then(maybe_part(
@@ -107,7 +104,10 @@ impl InputParser for LookParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![LOOK_FORMAT.to_string(), DETAILED_LOOK_FORMAT.to_string()]
+        vec![
+            LOOK_COMMAND_FORMAT.get_format_string().to_string(),
+            DETAILED_LOOK_FORMAT.to_string(),
+        ]
     }
 
     fn get_input_formats_for(

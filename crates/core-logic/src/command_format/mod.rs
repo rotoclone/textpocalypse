@@ -222,17 +222,17 @@ impl Display for CommandFormatString {
         let string = self
             .parts
             .iter()
-            .map(|part| match &part.part_type {
-                CommandFormatStringPartType::Nothing => "".to_string(),
-                CommandFormatStringPartType::Literal(l) => l.to_string(),
-                CommandFormatStringPartType::Placeholder(p) => part
-                    .id
-                    .as_ref()
-                    .map(|id| self.filled_placeholders.get(&id).map(|s| s.clone()))
-                    .flatten()
-                    .unwrap_or_else(|| format!("<{p}>")),
+            .filter_map(|part| match &part.part_type {
+                CommandFormatStringPartType::Nothing => None,
+                CommandFormatStringPartType::Literal(l) => Some(l.to_string()),
+                CommandFormatStringPartType::Placeholder(p) => Some(
+                    part.id
+                        .as_ref()
+                        .and_then(|id| self.filled_placeholders.get(id).cloned())
+                        .unwrap_or_else(|| format!("<{p}>")),
+                ),
             })
-            .join(" ");
+            .join("");
 
         string.fmt(f)
     }
@@ -315,10 +315,11 @@ pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
 }
 
 /// Creates a part that consumes one of a set of possible things.
+/// Inherits the options from the first part in the provided list.
 pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<Box<dyn Any>> {
     CommandFormatPart {
         id: None,
-        options: CommandFormatPartOptions::default(),
+        options: parts.first().options.clone(),
         parser: Box::new(OneOfParser(parts)),
         validator: None,
     }
@@ -368,7 +369,7 @@ impl CommandFormat {
         self.0.push(part);
     }
 
-    /// Gets the format string parts for this command format, to demonstrate how it should be used.
+    /// Gets the format string for this command format, to demonstrate how it should be used.
     /// TODO rename this since it doesn't actually return a string
     pub fn get_format_string(&self) -> CommandFormatString {
         CommandFormatString::new(
