@@ -1,23 +1,25 @@
+use itertools::Itertools;
 use std::{
     any::{type_name, Any},
     collections::HashMap,
-    fmt::Display,
     marker::PhantomData,
     ops::Deref,
 };
 
 use bevy_ecs::prelude::*;
 
+use nonempty::{nonempty, NonEmpty};
+
+use crate::GameMessage;
+
+mod command_format_string;
+use command_format_string::*;
+
 mod part_parsers;
-use itertools::Itertools;
 use part_parsers::*;
 
 mod parsed_value_validators;
 use parsed_value_validators::*;
-
-use nonempty::{nonempty, NonEmpty};
-
-use crate::{Description, GameMessage};
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
@@ -26,7 +28,7 @@ pub struct CommandFormat(NonEmpty<UntypedCommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-struct UntypedCommandPartId(String);
+pub struct UntypedCommandPartId(String);
 
 impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     fn from(val: CommandPartId<T>) -> Self {
@@ -158,18 +160,6 @@ pub struct CommandFormatPartOptions {
     include_in_errors_behavior: IncludeInErrorsBehavior,
 }
 
-/// Describes what to include in the format string for a part.
-#[derive(Default, Debug, PartialEq, Eq, Clone)]
-enum CommandFormatStringPartType {
-    /// This part shouldn't be included in the format string.
-    #[default]
-    Nothing,
-    /// A literal string, for parts of the format that must be entered literally to be matched (e.g. "get", "look", etc.)
-    Literal(String),
-    /// A placeholder for a target, (e.g. "thing", "target", etc.)
-    Placeholder(String),
-}
-
 /// Specifies when to include a part in an error message.
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 enum IncludeInErrorsBehavior {
@@ -180,62 +170,6 @@ enum IncludeInErrorsBehavior {
     /// The part is only included in an error message if it was in the entered command.
     #[default]
     OnlyIfMatched,
-}
-
-struct CommandFormatStringPart {
-    id: Option<UntypedCommandPartId>,
-    part_type: CommandFormatStringPartType,
-}
-
-pub struct CommandFormatString {
-    parts: Vec<CommandFormatStringPart>,
-    filled_placeholders: HashMap<UntypedCommandPartId, String>,
-}
-
-impl CommandFormatString {
-    /// Creates a new format string with no placeholders filled in.
-    fn new(parts: Vec<CommandFormatStringPart>) -> CommandFormatString {
-        CommandFormatString {
-            parts,
-            filled_placeholders: HashMap::new(),
-        }
-    }
-
-    /// Fills the placeholder for the part with the provided ID with the name of the provided entity.
-    /// Does nothing if the entity has no name.
-    pub fn with_targeted_entity(
-        mut self,
-        id: CommandPartId<Entity>,
-        entity: Entity,
-        world: &World,
-    ) -> Self {
-        if let Some(name) = Description::get_name(entity, world) {
-            self.filled_placeholders.insert(id.into(), name);
-        }
-
-        self
-    }
-}
-
-impl Display for CommandFormatString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = self
-            .parts
-            .iter()
-            .filter_map(|part| match &part.part_type {
-                CommandFormatStringPartType::Nothing => None,
-                CommandFormatStringPartType::Literal(l) => Some(l.to_string()),
-                CommandFormatStringPartType::Placeholder(p) => Some(
-                    part.id
-                        .as_ref()
-                        .and_then(|id| self.filled_placeholders.get(id).cloned())
-                        .unwrap_or_else(|| format!("<{p}>")),
-                ),
-            })
-            .join("");
-
-        string.fmt(f)
-    }
 }
 
 /* TODO remove
