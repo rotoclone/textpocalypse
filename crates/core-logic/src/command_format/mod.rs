@@ -67,27 +67,6 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
     }
 }
 
-/* TODO remove
-impl<T: ValidateParsedValue<P>, P: 'static> ValidateParsedValueUntyped for T {
-    fn validate(
-        &self,
-        context: PartValidatorContext<Box<dyn Any>>,
-        world: &World,
-    ) -> CommandPartValidateResult {
-        self.validate(
-            PartValidatorContext {
-                parsed_value: *context
-                    .parsed_value
-                    .downcast::<P>()
-                    .expect("parsed value type should match"),
-                performing_entity: context.performing_entity,
-            },
-            world,
-        )
-    }
-}
-    */
-
 #[derive(Debug)]
 pub struct CommandFormatPart<T> {
     id: Option<CommandPartId<T>>,
@@ -167,38 +146,10 @@ enum IncludeInErrorsBehavior {
     Always,
     /// The part is never included in error messages, even if it was included in the entered command.
     Never,
-    /// The part is only included in an error message if it was in the entered command.
+    /// The part is only included in an error message if it was in the entered command, or if parsing it was the cause of the error.
     #[default]
     OnlyIfMatched,
 }
-
-/* TODO remove
-/// A piece of a command format.
-/// TODO allow specifying which parts to include in an error message (for example, the "at" and "the" are optional in a "look" command, but if someone enters just "l" the error should probably be "look at what?" and not "l what?" or "look at the what?")
-/// TODO allow providing names for parts so format strings can be generated (e.g. "look at <thing>")
-/// TODO allow parts to be parsed into custom types (e.g. a `Direction` for the "move" command)
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CommandFormatPartOld {
-    /// A literal value.
-    Literal(String),
-    /// Any number of any characters.
-    AnyText,
-    /// A string that identifies an entity.
-    Entity {
-        /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
-        if_missing: String,
-        /// The function to use to check whether the chosen Entity is valid.
-        /// If this returns `false`, parsing will fail.
-        validator: Option<EntityPartValidatorFn>,
-    },
-    /// Maybe a part, or maybe nothing.
-    Maybe(Box<CommandFormatPartOld>),
-    /// One of the provided part types.
-    /// Matching will be attempted in order.
-    /// TODO allow some way to tell which one was matched after parsing
-    OneOf(Box<NonEmpty<CommandFormatPartOld>>),
-}
-    */
 
 /// Creates a part to consume a literal value.
 pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
@@ -323,12 +274,12 @@ impl CommandFormat {
 pub enum CommandFormatParseError {
     /// An error occurred when attempting to parse a part
     Part {
-        matched_parts: Vec<UntypedCommandFormatPart>,
+        matched_parts: Vec<MatchedCommandFormatPart>,
         error: CommandPartParseError,
     },
-    /// Some of the input remained unmatched after all the parser were run
+    /// Some of the input remained unmatched after all the parsers were run
     UnmatchedInput {
-        matched_parts: Vec<UntypedCommandFormatPart>,
+        matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
     },
 }
@@ -338,6 +289,13 @@ impl CommandFormatParseError {
     pub fn into_message(self) -> GameMessage {
         todo!() //TODO
     }
+}
+
+struct MatchedCommandFormatPart {
+    id: UntypedCommandPartId,
+    options: CommandFormatPartOptions,
+    parsed_value: Box<dyn Any>,
+    error_string_fn: Box<dyn Fn(Box<dyn Any>) -> String>,
 }
 
 pub struct ParsedCommand {

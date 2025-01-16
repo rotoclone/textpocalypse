@@ -21,17 +21,26 @@ pub use one_of_parser::OneOfParser;
 use super::CommandPartValidateError;
 
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
+    /// Runs this parser on the input in `context`.
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
 
+    /// Turns a parsed value into a string to include in an error message.
+    fn as_string_for_error(&self, parsed: T, world: &World) -> String;
+
+    /// Builds a version of this parser with no generic type.
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
 }
 
 pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClone {
+    /// Runs this parser on the input in `context`.
     fn parse_untyped(
         &self,
         context: PartParserContext,
         world: &World,
     ) -> CommandPartParseResult<Box<dyn Any>>;
+
+    /// Turns a parsed value into a string to include in an error message.
+    fn as_string_for_error_untyped(&self, parsed: Box<dyn Any>, world: &World) -> String;
 }
 
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.

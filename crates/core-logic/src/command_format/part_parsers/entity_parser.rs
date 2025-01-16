@@ -33,6 +33,10 @@ impl ParsePart<Entity> for EntityParser {
         }
     }
 
+    fn as_string_for_error(&self, parsed: Entity, world: &World) -> String {
+        Description::get_name(parsed, world).unwrap_or_else(|| "something".to_string())
+    }
+
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(*self)
     }
@@ -45,6 +49,13 @@ impl ParsePartUntyped for EntityParser {
         world: &World,
     ) -> CommandPartParseResult<Box<dyn Any>> {
         self.parse(context, world).into_generic()
+    }
+
+    fn as_string_for_error_untyped(&self, parsed: Box<dyn Any>, world: &World) -> String {
+        self.as_string_for_error(
+            *parsed.downcast().expect("parsed value should be an Entity"),
+            world,
+        )
     }
 }
 
