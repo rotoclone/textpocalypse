@@ -18,14 +18,21 @@ mod one_of_parser;
 use nom::{bytes::complete::tag_no_case, IResult};
 pub use one_of_parser::OneOfParser;
 
-use super::CommandPartValidateError;
+use super::{CommandFormatPartOptions, CommandPartValidateError};
 
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     /// Runs this parser on the input in `context`.
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
 
     /// Turns a parsed value into a string to include in an error message.
-    fn as_string_for_error(&self, parsed: T, world: &World) -> String;
+    /// `options` is the options on the part this parser is for.
+    fn as_string_for_error(
+        &self,
+        context: PartParserContext,
+        options: CommandFormatPartOptions,
+        parsed: Option<T>,
+        world: &World,
+    ) -> String;
 
     /// Builds a version of this parser with no generic type.
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
@@ -40,7 +47,13 @@ pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClon
     ) -> CommandPartParseResult<Box<dyn Any>>;
 
     /// Turns a parsed value into a string to include in an error message.
-    fn as_string_for_error_untyped(&self, parsed: Box<dyn Any>, world: &World) -> String;
+    fn as_string_for_error_untyped(
+        &self,
+        context: PartParserContext,
+        options: CommandFormatPartOptions,
+        parsed: Option<Box<dyn Any>>,
+        world: &World,
+    ) -> String;
 }
 
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
