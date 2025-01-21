@@ -18,21 +18,45 @@ pub struct EntityParser;
 
 impl ParsePart<Entity> for EntityParser {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
+        let mut best_matches: Vec<(Entity, &str)> = Vec::new();
         for entity in find_entities_in_presence_of(context.entering_entity, world) {
             for name in Description::get_all_ways_to_reference(entity, world) {
                 if let Ok((remaining, _)) = match_entity_name(name, context.input.as_str()) {
-                    return CommandPartParseResult::Success {
-                        parsed: entity,
-                        remaining: remaining.to_string(),
-                    };
+                    // match based on which consumes the most of the input, since that's the most complete match
+                    // TODO update tests
+                    if let Some((_, best_remaining)) = best_matches.first() {
+                        if remaining.len() < best_remaining.len() {
+                            best_matches.clear();
+                            best_matches.push((entity, remaining));
+                        } else if remaining.len() == best_remaining.len() {
+                            best_matches.push((entity, remaining));
+                        }
+                    } else {
+                        best_matches.push((entity, remaining));
+                    }
                 }
-                //TODO return an error if there are multiple matching entities?
             }
         }
 
-        CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
-            remaining: context.input,
+        if best_matches.len() == 1 {
+            // matched exactly one target
+            let (entity, remaining) = best_matches.first().unwrap();
+            CommandPartParseResult::Success {
+                parsed: *entity,
+                remaining: remaining.to_string(),
+            }
+        } else if best_matches.len() > 1 {
+            // matched multiple targets
+            CommandPartParseResult::Failure {
+                error: CommandPartParseError::AmbiguousInput,
+                remaining: context.input,
+            }
+        } else {
+            // matched no targets
+            CommandPartParseResult::Failure {
+                error: CommandPartParseError::NotFound,
+                remaining: context.input,
+            }
         }
     }
 
