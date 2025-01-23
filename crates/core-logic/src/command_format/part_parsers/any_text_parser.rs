@@ -16,6 +16,15 @@ impl ParsePart<String> for AnyTextParser {
         }
     }
 
+    fn as_string_for_error(
+        &self,
+        _: PartParserContext,
+        parsed: Option<String>,
+        _: &World,
+    ) -> Option<String> {
+        parsed
+    }
+
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(*self)
     }
@@ -28,5 +37,21 @@ impl ParsePartUntyped for AnyTextParser {
         world: &World,
     ) -> CommandPartParseResult<Box<dyn Any>> {
         self.parse(context, world).into_generic()
+    }
+
+    fn as_string_for_error_untyped(
+        &self,
+        context: PartParserContext,
+        parsed: Option<Box<dyn Any>>,
+        world: &World,
+    ) -> Option<String> {
+        self.as_string_for_error(
+            context,
+            parsed.map(|p| {
+                *p.downcast::<String>()
+                    .unwrap_or_else(|e| panic!("parsed value should be a String, but was {e:?}",))
+            }),
+            world,
+        )
     }
 }
