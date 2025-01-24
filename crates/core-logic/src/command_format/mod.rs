@@ -292,14 +292,12 @@ impl CommandFormatParseError {
 }
 
 struct MatchedCommandFormatPart {
-    id: UntypedCommandPartId,
-    options: CommandFormatPartOptions,
+    part: UntypedCommandFormatPart,
     parsed_value: Box<dyn Any>,
-    error_string_fn: Box<dyn Fn(Box<dyn Any>) -> String>,
 }
 
 pub struct ParsedCommand {
-    parsed_parts: HashMap<UntypedCommandPartId, Box<dyn Any>>,
+    parsed_parts: HashMap<UntypedCommandPartId, MatchedCommandFormatPart>,
 }
 
 impl ParsedCommand {
@@ -310,6 +308,7 @@ impl ParsedCommand {
             .parsed_parts
             //TODO remove this clone if possible
             .get(&UntypedCommandPartId(id.0.clone()))
+            .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
 
         parsed_value.downcast_ref::<T>().unwrap_or_else(|| {
@@ -332,7 +331,6 @@ impl CommandFormat {
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
         let mut remaining_input = input.into();
-        let mut matched_parts = Vec::new();
         let mut parsed_parts = HashMap::new();
         for part in &self.0 {
             match part.parser.parse_untyped(
@@ -343,16 +341,21 @@ impl CommandFormat {
                 world,
             ) {
                 CommandPartParseResult::Success { parsed, remaining } => {
-                    matched_parts.push(part.clone());
                     if let Some(id) = &part.id {
-                        parsed_parts.insert(id.clone(), parsed);
+                        parsed_parts.insert(
+                            id.clone(),
+                            MatchedCommandFormatPart {
+                                part: part.clone(),
+                                parsed_value: parsed,
+                            },
+                        );
                     }
 
                     remaining_input = remaining;
                 }
                 CommandPartParseResult::Failure { error, .. } => {
                     return Err(CommandFormatParseError::Part {
-                        matched_parts,
+                        matched_parts: parsed_parts.into_values().collect(),
                         error,
                     })
                 }
@@ -361,7 +364,7 @@ impl CommandFormat {
 
         if !remaining_input.is_empty() {
             return Err(CommandFormatParseError::UnmatchedInput {
-                matched_parts,
+                matched_parts: parsed_parts.into_values().collect(),
                 unmatched: remaining_input,
             });
         }
