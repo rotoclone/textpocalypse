@@ -36,6 +36,16 @@ impl ParsePart<Box<dyn Any>> for OneOfParser {
         }
     }
 
+    fn as_string_for_error(
+        &self,
+        context: PartParserContext,
+        parsed: Option<Box<dyn Any>>,
+        world: &World,
+    ) -> Option<String> {
+        //TODO need to know which part actually got matched, so `as_string_for_error can be delegated to it`
+        todo!() //TODO
+    }
+
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(self.clone())
     }
@@ -48,5 +58,14 @@ impl ParsePartUntyped for OneOfParser {
         world: &World,
     ) -> CommandPartParseResult<Box<dyn Any>> {
         self.parse(context, world).into_generic()
+    }
+
+    fn as_string_for_error_untyped(
+        &self,
+        context: PartParserContext,
+        parsed: Option<Box<dyn Any>>,
+        world: &World,
+    ) -> Option<String> {
+        self.as_string_for_error(context, parsed, world)
     }
 }

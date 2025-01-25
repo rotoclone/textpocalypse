@@ -275,6 +275,8 @@ pub enum CommandFormatParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
+        // boxed to reduce size
+        unmatched_part: Box<UntypedCommandFormatPart>,
         error: CommandPartParseError,
     },
     /// Some of the input remained unmatched after all the parsers were run
@@ -286,12 +288,45 @@ pub enum CommandFormatParseError {
 
 impl CommandFormatParseError {
     /// Turns the error into a message to send to the entering entity describing what went wrong.
-    pub fn into_message(self) -> GameMessage {
+    pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
+        let string = match self {
+            CommandFormatParseError::Part {
+                matched_parts,
+                unmatched_part,
+                error,
+            } => {
+                //TODO take into account options
+                let matched_parts_string = matched_parts
+                    .into_iter()
+                    .filter_map(|matched_part| {
+                        matched_part.part.parser.as_string_for_error_untyped(
+                            context.clone(),
+                            Some(matched_part.parsed_value),
+                            world,
+                        )
+                    })
+                    .join("");
+
+                format!(
+                    "{}{}",
+                    matched_parts_string,
+                    unmatched_part
+                        .parser
+                        .as_string_for_error_untyped(context, None, world)
+                        .unwrap_or_default()
+                )
+            }
+            CommandFormatParseError::UnmatchedInput {
+                matched_parts,
+                unmatched,
+            } => todo!(),
+        };
+
         todo!() //TODO
     }
 }
 
-struct MatchedCommandFormatPart {
+pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
     parsed_value: Box<dyn Any>,
 }
@@ -356,6 +391,7 @@ impl CommandFormat {
                 CommandPartParseResult::Failure { error, .. } => {
                     return Err(CommandFormatParseError::Part {
                         matched_parts: parsed_parts.into_values().collect(),
+                        unmatched_part: Box::new(part.clone()),
                         error,
                     })
                 }
