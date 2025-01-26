@@ -67,6 +67,17 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
     }
 }
 
+//TODO rename
+pub enum CommandFormatPartEnum<T> {
+    Literal(String),
+    AnyText(CommandPartId<String>),
+    Entity(CommandPartId<Entity>),
+    Maybe(CommandPartId<T>, Box<CommandFormatPart<T>>),
+    OneOf(NonEmpty<UntypedCommandFormatPart>),
+    Custom(CommandPartId<T>, Box<dyn ParsePart<T>>),
+}
+
+//TODO remove
 #[derive(Debug)]
 pub struct CommandFormatPart<T> {
     id: Option<CommandPartId<T>>,
@@ -140,6 +151,7 @@ pub struct CommandFormatPartOptions {
 }
 
 /// Specifies when to include a part in an error message.
+/// TODO does this even make sense? Won't a part always be matched unless it's wrapped in a "maybe" part?
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 enum IncludeInErrorsBehavior {
     /// The part is always included in error messages, even if it was not included in the entered command.
@@ -324,6 +336,12 @@ impl CommandFormatParseError {
 
         todo!() //TODO
     }
+}
+
+//TODO give this a better name
+pub enum ProcessedCommandFormatPart {
+    Matched(MatchedCommandFormatPart),
+    Unmatched(UntypedCommandFormatPart),
 }
 
 pub struct MatchedCommandFormatPart {
