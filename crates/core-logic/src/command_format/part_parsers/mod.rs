@@ -18,19 +18,11 @@ mod one_of_parser;
 use nom::{bytes::complete::tag_no_case, IResult};
 pub use one_of_parser::OneOfParser;
 
-use super::CommandPartValidateError;
+use super::{CommandPartValidateError, ParseableValue};
 
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     /// Runs this parser on the input in `context`.
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
-
-    /// Turns a parsed value into a string to include in an error message, if possible.
-    fn as_string_for_error(
-        &self,
-        context: PartParserContext,
-        parsed: Option<T>,
-        world: &World,
-    ) -> Option<String>;
 
     /// Builds a version of this parser with no generic type.
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
@@ -42,15 +34,7 @@ pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClon
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>>;
-
-    /// Turns a parsed value into a string to include in an error message, if possible.
-    fn as_string_for_error_untyped(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Box<dyn Any>>,
-        world: &World,
-    ) -> Option<String>;
+    ) -> CommandPartParseResult<Box<dyn ParseableValue>>;
 }
 
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
@@ -96,9 +80,9 @@ pub enum CommandPartParseResult<T> {
     },
 }
 
-impl<T: 'static> CommandPartParseResult<T> {
-    /// Converts the generic type on this result to `Box<dyn Any>`, to make implementing `ParsePartUntyped` easier.
-    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn Any>> {
+impl<T: 'static + ParseableValue> CommandPartParseResult<T> {
+    /// Converts the generic type on this result to `Box<dyn ParseableValue>`, to make implementing `ParsePartUntyped` easier.
+    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn ParseableValue>> {
         match self {
             CommandPartParseResult::Success { parsed, remaining } => {
                 CommandPartParseResult::Success {

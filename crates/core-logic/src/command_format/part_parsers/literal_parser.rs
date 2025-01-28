@@ -2,6 +2,8 @@ use std::any::Any;
 
 use bevy_ecs::prelude::*;
 
+use crate::ParseableValue;
+
 use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
 };
@@ -28,15 +30,6 @@ impl ParsePart<String> for LiteralParser {
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(self.clone())
     }
-
-    fn as_string_for_error(
-        &self,
-        _: PartParserContext,
-        _: Option<String>,
-        _: &World,
-    ) -> Option<String> {
-        Some(self.0.clone())
-    }
 }
 
 impl ParsePartUntyped for LiteralParser {
@@ -44,23 +37,7 @@ impl ParsePartUntyped for LiteralParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
+    ) -> CommandPartParseResult<Box<dyn ParseableValue>> {
         self.parse(context, world).into_generic()
-    }
-
-    fn as_string_for_error_untyped(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Box<dyn Any>>,
-        world: &World,
-    ) -> Option<String> {
-        self.as_string_for_error(
-            context,
-            parsed.map(|p| {
-                *p.downcast::<String>()
-                    .unwrap_or_else(|e| panic!("parsed value should be a String, but was {e:?}",))
-            }),
-            world,
-        )
     }
 }

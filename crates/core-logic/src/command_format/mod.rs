@@ -15,6 +15,9 @@ use crate::GameMessage;
 mod command_format_string;
 use command_format_string::*;
 
+mod parseable_value;
+use parseable_value::*;
+
 mod part_parsers;
 use part_parsers::*;
 
@@ -67,7 +70,7 @@ impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
     }
 }
 
-//TODO rename
+//TODO rename or remove
 pub enum CommandFormatPartEnum<T> {
     Literal(String),
     AnyText(CommandPartId<String>),
@@ -77,7 +80,7 @@ pub enum CommandFormatPartEnum<T> {
     Custom(CommandPartId<T>, Box<dyn ParsePart<T>>),
 }
 
-//TODO remove
+//TODO remove in favor of enum?
 #[derive(Debug)]
 pub struct CommandFormatPart<T> {
     id: Option<CommandPartId<T>>,
@@ -310,22 +313,17 @@ impl CommandFormatParseError {
                 //TODO take into account options
                 let matched_parts_string = matched_parts
                     .into_iter()
-                    .filter_map(|matched_part| {
-                        matched_part.part.parser.as_string_for_error_untyped(
-                            context.clone(),
-                            Some(matched_part.parsed_value),
-                            world,
-                        )
+                    .map(|matched_part| {
+                        matched_part
+                            .parsed_value
+                            .to_string_for_parse_error(context.clone(), world)
                     })
                     .join("");
 
                 format!(
                     "{}{}",
                     matched_parts_string,
-                    unmatched_part
-                        .parser
-                        .as_string_for_error_untyped(context, None, world)
-                        .unwrap_or_default()
+                    unmatched_part.options.if_missing.unwrap_or_default()
                 )
             }
             CommandFormatParseError::UnmatchedInput {
@@ -346,7 +344,7 @@ pub enum ProcessedCommandFormatPart {
 
 pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
-    parsed_value: Box<dyn Any>,
+    parsed_value: Box<dyn ParseableValue>,
 }
 
 pub struct ParsedCommand {
@@ -364,14 +362,17 @@ impl ParsedCommand {
             .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
 
-        parsed_value.downcast_ref::<T>().unwrap_or_else(|| {
-            panic!(
-                "Unexpected parsed type for ID {} (expected {}): {:?}",
-                id.0,
-                type_name::<T>(),
-                parsed_value
-            )
-        })
+        parsed_value
+            .as_any()
+            .downcast_ref::<T>()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Unexpected parsed type for ID {} (expected {}): {:?}",
+                    id.0,
+                    type_name::<T>(),
+                    parsed_value
+                )
+            })
     }
 }
 
