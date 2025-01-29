@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use bevy_ecs::prelude::*;
 
 mod literal_parser;
@@ -18,7 +16,7 @@ mod one_of_parser;
 use nom::{bytes::complete::tag_no_case, IResult};
 pub use one_of_parser::OneOfParser;
 
-use super::{CommandPartValidateError, ParseableValue};
+use super::{parsed_value::ParsedValue, CommandPartValidateError};
 
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     /// Runs this parser on the input in `context`.
@@ -34,7 +32,7 @@ pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClon
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParseableValue>>;
+    ) -> CommandPartParseResult<Box<dyn ParsedValue>>;
 }
 
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
@@ -80,9 +78,9 @@ pub enum CommandPartParseResult<T> {
     },
 }
 
-impl<T: 'static + ParseableValue> CommandPartParseResult<T> {
-    /// Converts the generic type on this result to `Box<dyn ParseableValue>`, to make implementing `ParsePartUntyped` easier.
-    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn ParseableValue>> {
+impl<T: 'static + ParsedValue> CommandPartParseResult<T> {
+    /// Converts the generic type on this result to `Box<dyn ParsedValue>`, to make implementing `ParsePartUntyped` easier.
+    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         match self {
             CommandPartParseResult::Success { parsed, remaining } => {
                 CommandPartParseResult::Success {

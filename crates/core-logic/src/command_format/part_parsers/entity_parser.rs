@@ -1,9 +1,7 @@
-use std::any::Any;
-
 use bevy_ecs::prelude::*;
 use nom::{bytes::complete::tag, combinator::opt, sequence::preceded, IResult};
 
-use crate::{find_entities_in_presence_of, Description};
+use crate::{command_format::parsed_value::ParsedValue, find_entities_in_presence_of, Description};
 
 use super::{
     match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, ParsePart,
@@ -57,17 +55,6 @@ impl ParsePart<Entity> for EntityParser {
         }
     }
 
-    fn as_string_for_error(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Entity>,
-        world: &World,
-    ) -> Option<String> {
-        parsed.map(|entity| {
-            Description::get_reference_name(entity, Some(context.entering_entity), world)
-        })
-    }
-
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(*self)
     }
@@ -78,24 +65,8 @@ impl ParsePartUntyped for EntityParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
+    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         self.parse(context, world).into_generic()
-    }
-
-    fn as_string_for_error_untyped(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Box<dyn Any>>,
-        world: &World,
-    ) -> Option<String> {
-        self.as_string_for_error(
-            context,
-            parsed.map(|p| {
-                *p.downcast::<Entity>()
-                    .unwrap_or_else(|e| panic!("parsed value should be an Entity, but was {e:?}",))
-            }),
-            world,
-        )
     }
 }
 

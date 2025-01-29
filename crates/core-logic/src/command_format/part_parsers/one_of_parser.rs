@@ -1,9 +1,7 @@
-use std::any::Any;
-
 use bevy_ecs::prelude::*;
 use nonempty::NonEmpty;
 
-use crate::command_format::UntypedCommandFormatPart;
+use crate::command_format::{parsed_value::ParsedValue, UntypedCommandFormatPart};
 
 use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
@@ -12,12 +10,12 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct OneOfParser(pub NonEmpty<UntypedCommandFormatPart>);
 
-impl ParsePart<Box<dyn Any>> for OneOfParser {
+impl ParsePart<Box<dyn ParsedValue>> for OneOfParser {
     fn parse(
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
+    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         let mut first_error = None;
         for part in &self.0 {
             match part.parser.parse_untyped(context.clone(), world) {
@@ -36,16 +34,6 @@ impl ParsePart<Box<dyn Any>> for OneOfParser {
         }
     }
 
-    fn as_string_for_error(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Box<dyn Any>>,
-        world: &World,
-    ) -> Option<String> {
-        //TODO need to know which part actually got matched, so `as_string_for_error` can be delegated to it
-        todo!() //TODO
-    }
-
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(self.clone())
     }
@@ -56,16 +44,7 @@ impl ParsePartUntyped for OneOfParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn Any>> {
+    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         self.parse(context, world).into_generic()
-    }
-
-    fn as_string_for_error_untyped(
-        &self,
-        context: PartParserContext,
-        parsed: Option<Box<dyn Any>>,
-        world: &World,
-    ) -> Option<String> {
-        self.as_string_for_error(context, parsed, world)
     }
 }

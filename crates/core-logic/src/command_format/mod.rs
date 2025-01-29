@@ -1,10 +1,5 @@
 use itertools::Itertools;
-use std::{
-    any::{type_name, Any},
-    collections::HashMap,
-    marker::PhantomData,
-    ops::Deref,
-};
+use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref};
 
 use bevy_ecs::prelude::*;
 
@@ -15,8 +10,8 @@ use crate::GameMessage;
 mod command_format_string;
 use command_format_string::*;
 
-mod parseable_value;
-use parseable_value::*;
+mod parsed_value;
+use parsed_value::*;
 
 mod part_parsers;
 use part_parsers::*;
@@ -201,7 +196,7 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
 }
 
 /// Creates a part to maybe consume something.
-pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
+pub fn maybe_part<T: 'static + ParsedValue + std::fmt::Debug + Clone>(
     id: CommandPartId<Option<T>>,
     //TODO this part doesn't need an associated ID
     part: CommandFormatPart<T>,
@@ -216,7 +211,9 @@ pub fn maybe_part<T: 'static + std::fmt::Debug + Clone>(
 
 /// Creates a part that consumes one of a set of possible things.
 /// Inherits the options from the first part in the provided list.
-pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<Box<dyn Any>> {
+pub fn one_of_part(
+    parts: NonEmpty<UntypedCommandFormatPart>,
+) -> CommandFormatPart<Box<dyn ParsedValue>> {
     CommandFormatPart {
         id: None,
         options: parts.first().options.clone(),
@@ -344,7 +341,7 @@ pub enum ProcessedCommandFormatPart {
 
 pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
-    parsed_value: Box<dyn ParseableValue>,
+    parsed_value: Box<dyn ParsedValue>,
 }
 
 pub struct ParsedCommand {

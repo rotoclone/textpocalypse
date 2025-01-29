@@ -1,8 +1,6 @@
-use std::any::Any;
-
 use bevy_ecs::prelude::*;
 
-use crate::ParseableValue;
+use crate::command_format::parsed_value::ParsedValue;
 
 use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
@@ -37,7 +35,7 @@ impl ParsePartUntyped for LiteralParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParseableValue>> {
+    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         self.parse(context, world).into_generic()
     }
 }
