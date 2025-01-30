@@ -318,7 +318,7 @@ impl CommandFormatParseError {
                     .join("");
 
                 format!(
-                    "{}{}",
+                    "{}{}?",
                     matched_parts_string,
                     unmatched_part.options.if_missing.unwrap_or_default()
                 )
@@ -341,6 +341,7 @@ pub enum ProcessedCommandFormatPart {
 
 pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
+    matched_input: String,
     parsed_value: Box<dyn ParsedValue>,
 }
 
@@ -391,12 +392,17 @@ impl CommandFormat {
                 },
                 world,
             ) {
-                CommandPartParseResult::Success { parsed, remaining } => {
+                CommandPartParseResult::Success {
+                    parsed,
+                    consumed,
+                    remaining,
+                } => {
                     if let Some(id) = &part.id {
                         parsed_parts.insert(
                             id.clone(),
                             MatchedCommandFormatPart {
                                 part: part.clone(),
+                                matched_input: consumed,
                                 parsed_value: parsed,
                             },
                         );

@@ -13,21 +13,21 @@ pub struct EntityParser;
 
 impl ParsePart<Entity> for EntityParser {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
-        let mut best_matches: Vec<(Entity, &str)> = Vec::new();
+        let mut best_matches: Vec<(Entity, &str, &str)> = Vec::new();
         for entity in find_entities_in_presence_of(context.entering_entity, world) {
             for name in Description::get_all_ways_to_reference(entity, world) {
-                if let Ok((remaining, _)) = match_entity_name(name, context.input.as_str()) {
+                if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
                     // match based on which consumes the most of the input, since that's the most complete match
                     // TODO update tests
-                    if let Some((_, best_remaining)) = best_matches.first() {
+                    if let Some((_, best_remaining, _)) = best_matches.first() {
                         if remaining.len() < best_remaining.len() {
                             best_matches.clear();
-                            best_matches.push((entity, remaining));
+                            best_matches.push((entity, remaining, matched));
                         } else if remaining.len() == best_remaining.len() {
-                            best_matches.push((entity, remaining));
+                            best_matches.push((entity, remaining, matched));
                         }
                     } else {
-                        best_matches.push((entity, remaining));
+                        best_matches.push((entity, remaining, matched));
                     }
                 }
             }
@@ -35,9 +35,10 @@ impl ParsePart<Entity> for EntityParser {
 
         if best_matches.len() == 1 {
             // matched exactly one target
-            let (entity, remaining) = best_matches.first().unwrap();
+            let (entity, remaining, matched) = best_matches.first().unwrap();
             CommandPartParseResult::Success {
                 parsed: *entity,
+                consumed: matched.to_string(),
                 remaining: remaining.to_string(),
             }
         } else if best_matches.len() > 1 {
@@ -158,6 +159,7 @@ mod tests {
 
         let expected = CommandPartParseResult::Success {
             parsed: entity_2,
+            consumed: "entity 2 name".to_string(),
             remaining: "".to_string(),
         };
 
@@ -179,6 +181,7 @@ mod tests {
 
         let expected = CommandPartParseResult::Success {
             parsed: entity_2,
+            consumed: "entity 2 name".to_string(),
             remaining: " and stuff".to_string(),
         };
 
@@ -200,6 +203,7 @@ mod tests {
 
         let expected = CommandPartParseResult::Success {
             parsed: entity_2,
+            consumed: "the entity 2 name".to_string(),
             remaining: " and stuff".to_string(),
         };
 

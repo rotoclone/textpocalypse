@@ -70,6 +70,7 @@ pub struct PartParserContext {
 pub enum CommandPartParseResult<T> {
     Success {
         parsed: T,
+        consumed: String,
         remaining: String,
     },
     Failure {
@@ -82,12 +83,15 @@ impl<T: 'static + ParsedValue> CommandPartParseResult<T> {
     /// Converts the generic type on this result to `Box<dyn ParsedValue>`, to make implementing `ParsePartUntyped` easier.
     pub fn into_generic(self) -> CommandPartParseResult<Box<dyn ParsedValue>> {
         match self {
-            CommandPartParseResult::Success { parsed, remaining } => {
-                CommandPartParseResult::Success {
-                    parsed: Box::new(parsed),
-                    remaining,
-                }
-            }
+            CommandPartParseResult::Success {
+                parsed,
+                consumed,
+                remaining,
+            } => CommandPartParseResult::Success {
+                parsed: Box::new(parsed),
+                consumed,
+                remaining,
+            },
             CommandPartParseResult::Failure { error, remaining } => {
                 CommandPartParseResult::Failure { error, remaining }
             }

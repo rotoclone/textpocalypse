@@ -11,7 +11,8 @@ impl ParsePart<String> for AnyTextParser {
     fn parse(&self, context: PartParserContext, _: &World) -> CommandPartParseResult<String> {
         // TODO allow somehow specifying to stop at a certain point?
         CommandPartParseResult::Success {
-            parsed: context.input,
+            parsed: context.input.clone(),
+            consumed: context.input,
             remaining: "".to_string(),
         }
     }
