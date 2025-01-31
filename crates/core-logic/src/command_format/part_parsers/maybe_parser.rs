@@ -14,14 +14,18 @@ impl<T: 'static + ParsedValue + std::fmt::Debug + Clone> ParsePart<Option<T>> fo
         world: &World,
     ) -> CommandPartParseResult<Option<T>> {
         match self.0.parser.parse(context, world) {
-            CommandPartParseResult::Success { parsed, remaining } => {
-                CommandPartParseResult::Success {
-                    parsed: Some(parsed),
-                    remaining,
-                }
-            }
+            CommandPartParseResult::Success {
+                parsed,
+                consumed,
+                remaining,
+            } => CommandPartParseResult::Success {
+                parsed: Some(parsed),
+                consumed,
+                remaining,
+            },
             CommandPartParseResult::Failure { remaining, .. } => CommandPartParseResult::Success {
                 parsed: None,
+                consumed: "".to_string(),
                 remaining,
             },
         }

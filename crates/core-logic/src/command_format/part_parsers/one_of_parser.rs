@@ -19,8 +19,16 @@ impl ParsePart<Box<dyn ParsedValue>> for OneOfParser {
         let mut first_error = None;
         for part in &self.0 {
             match part.parser.parse_untyped(context.clone(), world) {
-                CommandPartParseResult::Success { parsed, remaining } => {
-                    return CommandPartParseResult::Success { parsed, remaining };
+                CommandPartParseResult::Success {
+                    parsed,
+                    consumed,
+                    remaining,
+                } => {
+                    return CommandPartParseResult::Success {
+                        parsed,
+                        consumed,
+                        remaining,
+                    };
                 }
                 CommandPartParseResult::Failure { error, .. } => {
                     first_error.get_or_insert(error);

@@ -15,6 +15,7 @@ impl ParsePart<String> for LiteralParser {
         if let Some(remaining) = context.input.strip_prefix(&self.0) {
             return CommandPartParseResult::Success {
                 parsed: self.0.clone(),
+                consumed: self.0.clone(),
                 remaining: remaining.to_string(),
             };
         }
