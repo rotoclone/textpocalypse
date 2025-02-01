@@ -100,6 +100,7 @@ impl<T: 'static + ParsedValue> CommandPartParseResult<T> {
 }
 
 /// An error encountered while attempting to parse a command part.
+/// TODO include additional information about why a part wasn't matched, like if it's an entity that doesn't exist the error should be able to include something like "there's no <thing> here"
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
     /// The part was missing from the input

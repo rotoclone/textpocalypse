@@ -14,6 +14,7 @@ mod parsed_value;
 use parsed_value::*;
 
 mod part_parsers;
+pub use part_parsers::PartParserContext;
 use part_parsers::*;
 
 mod parsed_value_validators;
@@ -282,8 +283,7 @@ impl CommandFormat {
 }
 
 /// An error encountered while parsing input into a command.
-/// TODO rename to `CommandParseError`
-pub enum CommandFormatParseError {
+pub enum CommandParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
@@ -298,11 +298,11 @@ pub enum CommandFormatParseError {
     },
 }
 
-impl CommandFormatParseError {
+impl CommandParseError {
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
         let string = match self {
-            CommandFormatParseError::Part {
+            CommandParseError::Part {
                 matched_parts,
                 unmatched_part,
                 error,
@@ -323,7 +323,7 @@ impl CommandFormatParseError {
                     unmatched_part.options.if_missing.unwrap_or_default()
                 )
             }
-            CommandFormatParseError::UnmatchedInput {
+            CommandParseError::UnmatchedInput {
                 matched_parts,
                 unmatched,
             } => todo!(),
@@ -381,7 +381,7 @@ impl CommandFormat {
         input: impl Into<String>,
         entering_entity: Entity,
         world: &World,
-    ) -> Result<ParsedCommand, CommandFormatParseError> {
+    ) -> Result<ParsedCommand, CommandParseError> {
         let mut remaining_input = input.into();
         let mut parsed_parts = HashMap::new();
         for part in &self.0 {
@@ -411,7 +411,7 @@ impl CommandFormat {
                     remaining_input = remaining;
                 }
                 CommandPartParseResult::Failure { error, .. } => {
-                    return Err(CommandFormatParseError::Part {
+                    return Err(CommandParseError::Part {
                         matched_parts: parsed_parts.into_values().collect(),
                         unmatched_part: Box::new(part.clone()),
                         error,
@@ -421,7 +421,7 @@ impl CommandFormat {
         }
 
         if !remaining_input.is_empty() {
-            return Err(CommandFormatParseError::UnmatchedInput {
+            return Err(CommandParseError::UnmatchedInput {
                 matched_parts: parsed_parts.into_values().collect(),
                 unmatched: remaining_input,
             });

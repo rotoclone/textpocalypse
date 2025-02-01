@@ -2,12 +2,12 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
-use regex::Regex;
 
 use crate::{
     any_text_part,
+    command_format::CommandParseError,
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{CommandParseError, InputParseError, InputParser},
+    input_parser::InputParser,
     literal_part,
     notification::VerifyResult,
     one_of_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
@@ -16,13 +16,6 @@ use crate::{
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
-
-const SAY_VERB_NAME: &str = "say";
-const SAY_FORMAT: &str = "say <>";
-const TEXT_CAPTURE: &str = "text";
-
-static SAY_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(\"|say )(?P<text>.*)").unwrap());
 
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
 static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -40,26 +33,22 @@ static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 pub struct SayParser;
 
 impl InputParser for SayParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = SAY_PATTERN.captures(input) {
-            if let Some(text_match) = captures.name(TEXT_CAPTURE) {
-                return Ok(Box::new(SayAction {
-                    text: text_match.as_str().to_string(),
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: SAY_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        }
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = SAY_COMMAND_FORMAT.parse(input, source_entity, world)?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(SayAction {
+            text: parsed.get(&TEXT_PART_ID).to_string(),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SAY_FORMAT.to_string()]
+        vec![SAY_COMMAND_FORMAT.get_format_string().to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {

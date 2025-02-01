@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use bevy_ecs::prelude::*;
 use nom::{bytes::complete::tag, combinator::opt, sequence::preceded, IResult};
 
@@ -20,11 +22,13 @@ impl ParsePart<Entity> for EntityParser {
                     // match based on which consumes the most of the input, since that's the most complete match
                     // TODO update tests
                     if let Some((_, best_remaining, _)) = best_matches.first() {
-                        if remaining.len() < best_remaining.len() {
-                            best_matches.clear();
-                            best_matches.push((entity, remaining, matched));
-                        } else if remaining.len() == best_remaining.len() {
-                            best_matches.push((entity, remaining, matched));
+                        match remaining.len().cmp(&best_remaining.len()) {
+                            Ordering::Less => {
+                                best_matches.clear();
+                                best_matches.push((entity, remaining, matched));
+                            }
+                            Ordering::Equal => best_matches.push((entity, remaining, matched)),
+                            Ordering::Greater => (),
                         }
                     } else {
                         best_matches.push((entity, remaining, matched));
@@ -33,25 +37,29 @@ impl ParsePart<Entity> for EntityParser {
             }
         }
 
-        if best_matches.len() == 1 {
-            // matched exactly one target
-            let (entity, remaining, matched) = best_matches.first().unwrap();
-            CommandPartParseResult::Success {
-                parsed: *entity,
-                consumed: matched.to_string(),
-                remaining: remaining.to_string(),
+        match best_matches.len().cmp(&1) {
+            Ordering::Equal => {
+                // matched exactly one target
+                let (entity, remaining, matched) = best_matches.first().unwrap();
+                CommandPartParseResult::Success {
+                    parsed: *entity,
+                    consumed: matched.to_string(),
+                    remaining: remaining.to_string(),
+                }
             }
-        } else if best_matches.len() > 1 {
-            // matched multiple targets
-            CommandPartParseResult::Failure {
-                error: CommandPartParseError::AmbiguousInput,
-                remaining: context.input,
+            Ordering::Greater => {
+                // matched multiple targets
+                CommandPartParseResult::Failure {
+                    error: CommandPartParseError::AmbiguousInput,
+                    remaining: context.input,
+                }
             }
-        } else {
-            // matched no targets
-            CommandPartParseResult::Failure {
-                error: CommandPartParseError::NotFound,
-                remaining: context.input,
+            Ordering::Less => {
+                // matched no targets
+                CommandPartParseResult::Failure {
+                    error: CommandPartParseError::NotFound,
+                    remaining: context.input,
+                }
             }
         }
     }
