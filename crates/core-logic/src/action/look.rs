@@ -6,6 +6,7 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
+    command_format::PartParserContext,
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
@@ -15,7 +16,7 @@ use crate::{
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
     literal_part, maybe_part,
     notification::VerifyResult,
-    one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
+    one_of_part, send_message, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
     DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
     MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
@@ -65,6 +66,34 @@ impl InputParser for LookParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
+        //TODO use `?` instead
+        let parsed = match LOOK_COMMAND_FORMAT.parse(input, source_entity, world) {
+            Ok(p) => p,
+            Err(e) => {
+                //TODO don't send message directly here
+                send_message(
+                    world,
+                    source_entity,
+                    e.into_message(
+                        PartParserContext {
+                            input: input.to_string(),
+                            entering_entity: source_entity,
+                        },
+                        world,
+                    ),
+                );
+                return Err(InputParseError::UnknownCommand);
+            }
+        };
+
+        return Ok(Box::new(LookAction {
+            target: *parsed.get(&TARGET_PART_ID),
+            detailed: false,
+            notification_sender: ActionNotificationSender::new(),
+        }));
+
+        /* TODO
+
         let (captures, verb_name, detailed) = if let Some(captures) = LOOK_PATTERN.captures(input) {
             (captures, LOOK_VERB_NAME, false)
         } else if let Some(captures) = DETAILED_LOOK_PATTERN.captures(input) {
@@ -101,6 +130,7 @@ impl InputParser for LookParser {
         }
 
         Err(InputParseError::UnknownCommand)
+        */
     }
 
     fn get_input_formats(&self) -> Vec<String> {

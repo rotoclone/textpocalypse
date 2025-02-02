@@ -5,14 +5,14 @@ use nonempty::nonempty;
 
 use crate::{
     any_text_part,
-    command_format::CommandParseError,
+    command_format::PartParserContext,
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     literal_part,
     notification::VerifyResult,
-    one_of_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
-    DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    one_of_part, send_message, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat,
+    CommandPartId, DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay,
+    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -38,8 +38,26 @@ impl InputParser for SayParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
-        let parsed = SAY_COMMAND_FORMAT.parse(input, source_entity, world)?;
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        //TODO use `?` instead
+        let parsed = match SAY_COMMAND_FORMAT.parse(input, source_entity, world) {
+            Ok(p) => p,
+            Err(e) => {
+                //TODO don't send message directly here
+                send_message(
+                    world,
+                    source_entity,
+                    e.into_message(
+                        PartParserContext {
+                            input: input.to_string(),
+                            entering_entity: source_entity,
+                        },
+                        world,
+                    ),
+                );
+                return Err(InputParseError::UnknownCommand);
+            }
+        };
 
         Ok(Box::new(SayAction {
             text: parsed.get(&TEXT_PART_ID).to_string(),

@@ -6,7 +6,6 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    command_format::{CommandFormatParseError, CommandParseError},
     component::{Container, CustomInputParser, Location},
     Direction, StandardInputParsers,
 };
@@ -208,16 +207,22 @@ impl CommandTargetName {
 
 /// An error while parsing input.
 /// TODO remove
-pub enum InputParseErrorOld {
+pub enum InputParseError {
     /// The input did not correspond to any command.
     UnknownCommand,
     /// The input was not valid for the matched command.
-    CommandParseError(CommandParseError),
+    /// TODO use `CommandParseError` from `command_format`
+    CommandParseError {
+        /// The name of the verb corresponding to the command.
+        verb: String,
+        /// The error that occurred when parsing the input as the command.
+        error: CommandParseError,
+    },
 }
 
 /// An error while parsing input into a specific command.
 /// TODO remove
-pub enum CommandParseErrorOld {
+pub enum CommandParseError {
     /// A required target was not provided.
     MissingTarget,
     /// A provided target is not in the presence of the entity that provided the input.
@@ -234,7 +239,7 @@ pub trait InputParser: Send + Sync {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError>;
+    ) -> Result<Box<dyn Action>, InputParseError>;
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser.
     /// Targets in the provided formats are denoted with "<>".
