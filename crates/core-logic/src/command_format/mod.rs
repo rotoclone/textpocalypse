@@ -284,6 +284,7 @@ impl CommandFormat {
 
 /// An error encountered while parsing input into a command.
 /// TODO rename
+#[derive(Debug)]
 pub enum CommandParseErrorNew {
     /// An error occurred when attempting to parse a part
     Part {
@@ -340,6 +341,7 @@ pub enum ProcessedCommandFormatPart {
     Unmatched(UntypedCommandFormatPart),
 }
 
+#[derive(Debug)]
 pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
     matched_input: String,
@@ -398,6 +400,8 @@ impl CommandFormat {
                     consumed,
                     remaining,
                 } => {
+                    dbg!(&parsed, &consumed, &remaining); //TODO
+
                     if let Some(id) = &part.id {
                         parsed_parts.insert(
                             id.clone(),

@@ -34,7 +34,7 @@ static LOOK_PATTERN: LazyLock<Regex> =
 static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+static TARGET_PART_ID: LazyLock<CommandPartId<Option<Entity>>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
@@ -46,14 +46,14 @@ static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         CommandPartId::new("atPart"),
         literal_part("at "),
     ))
-    .then(maybe_part(
-        CommandPartId::new("thePart"),
-        literal_part("the "),
-    ))
     .then(
-        entity_part(TARGET_PART_ID.clone())
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing/direction"),
+        maybe_part(
+            TARGET_PART_ID.clone(),
+            //TODO remove need to include another ID here
+            entity_part(CommandPartId::new("targetPart")),
+        )
+        .with_if_missing("what")
+        .with_placeholder_for_format_string("thing/direction"),
     )
 });
 
@@ -70,6 +70,8 @@ impl InputParser for LookParser {
         let parsed = match LOOK_COMMAND_FORMAT.parse(input, source_entity, world) {
             Ok(p) => p,
             Err(e) => {
+                dbg!(&e); //TODO
+
                 //TODO don't send message directly here
                 send_message(
                     world,
@@ -86,8 +88,20 @@ impl InputParser for LookParser {
             }
         };
 
+        let here = match CommandTarget::Here.find_target_entity(source_entity, world) {
+            Some(e) => e,
+            None => {
+                return Err(InputParseError::CommandParseError {
+                    verb: LOOK_VERB_NAME.to_string(),
+                    error: CommandParseError::Other("There's nothing to see.".to_string()),
+                })
+            }
+        };
+
+        let target = parsed.get(&TARGET_PART_ID).unwrap_or(here);
+
         return Ok(Box::new(LookAction {
-            target: *parsed.get(&TARGET_PART_ID),
+            target,
             detailed: false,
             notification_sender: ActionNotificationSender::new(),
         }));
@@ -149,7 +163,8 @@ impl InputParser for LookParser {
         if world.get::<Description>(entity).is_some() {
             return Some(vec![LOOK_COMMAND_FORMAT
                 .get_format_string()
-                .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                //TODO this seems a little silly, maybe provide a `with_optional_targeted_entity` that takes in a `CommandPartId<Optional<Entity>>`?
+                .with_targeted_entity(CommandPartId::new("targetPart"), entity, world)
                 .to_string()]);
         }
 
