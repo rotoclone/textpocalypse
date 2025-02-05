@@ -261,5 +261,49 @@ mod tests {
         assert_eq!(expected, EntityParser.parse(context, &world));
     }
 
+    #[test]
+    fn parse_match_alias() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2 alias 1 and stuff".to_string(),
+            entering_entity: entity_1,
+        };
+
+        let expected = CommandPartParseResult::Success {
+            parsed: entity_2,
+            consumed: "entity 2 alias 1".to_string(),
+            remaining: " and stuff".to_string(),
+        };
+
+        assert_eq!(expected, EntityParser.parse(context, &world));
+    }
+
+    #[test]
+    fn parse_match_alias_with_the() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "the entity 2 alias 1 and stuff".to_string(),
+            entering_entity: entity_1,
+        };
+
+        let expected = CommandPartParseResult::Success {
+            parsed: entity_2,
+            consumed: "the entity 2 alias 1".to_string(),
+            remaining: " and stuff".to_string(),
+        };
+
+        assert_eq!(expected, EntityParser.parse(context, &world));
+    }
+
     //TODO more tests
 }
