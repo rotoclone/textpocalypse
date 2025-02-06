@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy_ecs::prelude::*;
-use nom::{bytes::complete::tag, combinator::opt, sequence::preceded, IResult};
+use nom::{bytes::complete::tag, combinator::opt, sequence::pair, IResult};
 
 use crate::{command_format::parsed_value::ParsedValue, find_entities_in_presence_of, Description};
 
@@ -15,7 +15,7 @@ pub struct EntityParser;
 
 impl ParsePart<Entity> for EntityParser {
     fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
-        let mut best_matches: Vec<(Entity, &str, &str)> = Vec::new();
+        let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
         for entity in find_entities_in_presence_of(context.entering_entity, world) {
             for name in Description::get_all_ways_to_reference(entity, world) {
                 if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
@@ -43,7 +43,7 @@ impl ParsePart<Entity> for EntityParser {
                 let (entity, remaining, matched) = best_matches.first().unwrap();
                 CommandPartParseResult::Success {
                     parsed: *entity,
-                    consumed: matched.to_string(),
+                    consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
                     remaining: remaining.to_string(),
                 }
             }
@@ -79,9 +79,23 @@ impl ParsePartUntyped for EntityParser {
     }
 }
 
+struct MatchedEntityName<'a> {
+    prefix: Option<&'a str>,
+    name: &'a str,
+}
+
 /// Matches the name of an entity, optionally preceded by "the".
-fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, &'i str> {
-    preceded(opt(tag("the ")), |i| match_literal_ignore_case(name, i))(input)
+fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, MatchedEntityName<'i>> {
+    let (remaining, (prefix, matched)) =
+        pair(opt(tag("the ")), |i| match_literal_ignore_case(name, i))(input)?;
+
+    Ok((
+        remaining,
+        MatchedEntityName {
+            prefix,
+            name: matched,
+        },
+    ))
 }
 
 #[cfg(test)]
