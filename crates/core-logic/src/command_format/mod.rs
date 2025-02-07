@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref};
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{label::DynEq, prelude::*};
 
 use nonempty::{nonempty, NonEmpty};
 
@@ -353,6 +353,41 @@ pub struct ParsedCommand {
 }
 
 impl ParsedCommand {
+    //TODO remove
+    pub fn get_optional_entity(&self, id: &CommandPartId<Option<Entity>>) -> &Option<Entity> {
+        let parsed_value = self
+            .parsed_parts
+            //TODO remove this clone if possible
+            .get(&UntypedCommandPartId(id.0.clone()))
+            .map(|matched_part| &matched_part.parsed_value)
+            .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
+
+        match ParsedValue::as_any(&Some(World::new().spawn_empty().id()))
+            .downcast_ref::<Option<Entity>>()
+        {
+            Some(_) => panic!("success"),
+            None => panic!("failure"),
+        }
+
+        parsed_value
+            .as_any()
+            .downcast_ref::<Option<Entity>>()
+            .unwrap_or_else(|| {
+                dbg!(
+                    parsed_value.type_id(),
+                    Some("").as_any().type_id(),
+                    Some(5).as_any().type_id(),
+                    ParsedValue::as_any(&Some(World::new().spawn_empty().id())).type_id(),
+                ); //TODO
+                panic!(
+                    "Unexpected parsed type for ID '{}' (expected {}): {:?}",
+                    id.0,
+                    type_name::<Option<Entity>>(),
+                    parsed_value
+                )
+            })
+    }
+
     /// Gets the parsed value associated with `id`.
     /// Panics if the ID does not correspond to a part on this command.
     pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> &T {
@@ -368,7 +403,7 @@ impl ParsedCommand {
             .downcast_ref::<T>()
             .unwrap_or_else(|| {
                 panic!(
-                    "Unexpected parsed type for ID {} (expected {}): {:?}",
+                    "Unexpected parsed type for ID '{}' (expected {}): {:?}",
                     id.0,
                     type_name::<T>(),
                     parsed_value

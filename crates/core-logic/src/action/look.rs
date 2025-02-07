@@ -98,7 +98,7 @@ impl InputParser for LookParser {
             }
         };
 
-        let target = parsed.get(&TARGET_PART_ID).unwrap_or(here);
+        let target = parsed.get_optional_entity(&TARGET_PART_ID).unwrap_or(here);
 
         return Ok(Box::new(LookAction {
             target,
