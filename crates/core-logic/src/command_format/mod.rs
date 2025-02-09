@@ -1,7 +1,12 @@
 use itertools::Itertools;
-use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref};
+use std::{
+    any::{type_name, Any},
+    collections::HashMap,
+    marker::PhantomData,
+    ops::Deref,
+};
 
-use bevy_ecs::{label::DynEq, prelude::*};
+use bevy_ecs::prelude::*;
 
 use nonempty::{nonempty, NonEmpty};
 
@@ -362,13 +367,15 @@ impl ParsedCommand {
             .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
 
-        match ParsedValue::as_any(&Some(World::new().spawn_empty().id()))
-            .downcast_ref::<Option<Entity>>()
-        {
+        let entity: Option<Entity> = Some(World::new().spawn_empty().id());
+        let boxed: Box<dyn ParsedValue> = Box::new(entity);
+
+        match boxed.as_any().downcast_ref::<Option<Entity>>() {
             Some(_) => panic!("success"),
             None => panic!("failure"),
         }
 
+        /* TODO
         parsed_value
             .as_any()
             .downcast_ref::<Option<Entity>>()
@@ -386,6 +393,7 @@ impl ParsedCommand {
                     parsed_value
                 )
             })
+            */
     }
 
     /// Gets the parsed value associated with `id`.
