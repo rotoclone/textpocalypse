@@ -7,7 +7,9 @@ use super::{CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserConte
 #[derive(Debug, Clone)]
 pub struct MaybeParser<T: Clone>(pub CommandFormatPart<T>);
 
-impl<T: 'static + ParsedValue + std::fmt::Debug + Clone> ParsePart<Option<T>> for MaybeParser<T> {
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePart<Option<T>>
+    for MaybeParser<T>
+{
     fn parse(
         &self,
         context: PartParserContext,
@@ -36,12 +38,12 @@ impl<T: 'static + ParsedValue + std::fmt::Debug + Clone> ParsePart<Option<T>> fo
     }
 }
 
-impl<T: 'static + ParsedValue + std::fmt::Debug + Clone> ParsePartUntyped for MaybeParser<T> {
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePartUntyped for MaybeParser<T> {
     fn parse_untyped(
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
+    ) -> CommandPartParseResult<ParsedValue> {
         self.parse(context, world).into_generic()
     }
 }

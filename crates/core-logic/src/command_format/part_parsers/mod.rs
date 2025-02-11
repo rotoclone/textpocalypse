@@ -32,7 +32,7 @@ pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClon
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParsedValue>>;
+    ) -> CommandPartParseResult<ParsedValue>;
 }
 
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
@@ -79,16 +79,16 @@ pub enum CommandPartParseResult<T> {
     },
 }
 
-impl<T: 'static + ParsedValue> CommandPartParseResult<T> {
-    /// Converts the generic type on this result to `Box<dyn ParsedValue>`, to make implementing `ParsePartUntyped` easier.
-    pub fn into_generic(self) -> CommandPartParseResult<Box<dyn ParsedValue>> {
+impl<T: Into<ParsedValue>> CommandPartParseResult<T> {
+    /// Converts the generic type on this result to `ParsedValue`, to make implementing `ParsePartUntyped` easier.
+    pub fn into_generic(self) -> CommandPartParseResult<ParsedValue> {
         match self {
             CommandPartParseResult::Success {
                 parsed,
                 consumed,
                 remaining,
             } => CommandPartParseResult::Success {
-                parsed: Box::new(parsed),
+                parsed: parsed.into(),
                 consumed,
                 remaining,
             },

@@ -74,7 +74,7 @@ impl ParsePartUntyped for EntityParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
+    ) -> CommandPartParseResult<ParsedValue> {
         self.parse(context, world).into_generic()
     }
 }

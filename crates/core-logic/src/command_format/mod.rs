@@ -202,7 +202,7 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
 }
 
 /// Creates a part to maybe consume something.
-pub fn maybe_part<T: 'static + ParsedValue + std::fmt::Debug + Clone>(
+pub fn maybe_part<T: Into<ParsedValue>>(
     id: CommandPartId<Option<T>>,
     //TODO this part doesn't need an associated ID
     part: CommandFormatPart<T>,
@@ -217,9 +217,7 @@ pub fn maybe_part<T: 'static + ParsedValue + std::fmt::Debug + Clone>(
 
 /// Creates a part that consumes one of a set of possible things.
 /// Inherits the options from the first part in the provided list.
-pub fn one_of_part(
-    parts: NonEmpty<UntypedCommandFormatPart>,
-) -> CommandFormatPart<Box<dyn ParsedValue>> {
+pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<ParsedValue> {
     CommandFormatPart {
         id: None,
         options: parts.first().options.clone(),
@@ -350,7 +348,7 @@ pub enum ProcessedCommandFormatPart {
 pub struct MatchedCommandFormatPart {
     part: UntypedCommandFormatPart,
     matched_input: String,
-    parsed_value: Box<dyn ParsedValue>,
+    parsed_value: ParsedValue,
 }
 
 pub struct ParsedCommand {

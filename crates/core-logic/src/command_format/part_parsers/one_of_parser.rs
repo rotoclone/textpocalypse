@@ -10,12 +10,12 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct OneOfParser(pub NonEmpty<UntypedCommandFormatPart>);
 
-impl ParsePart<Box<dyn ParsedValue>> for OneOfParser {
+impl ParsePart<ParsedValue> for OneOfParser {
     fn parse(
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
+    ) -> CommandPartParseResult<ParsedValue> {
         let mut first_error = None;
         for part in &self.0 {
             match part.parser.parse_untyped(context.clone(), world) {
@@ -52,7 +52,7 @@ impl ParsePartUntyped for OneOfParser {
         &self,
         context: PartParserContext,
         world: &World,
-    ) -> CommandPartParseResult<Box<dyn ParsedValue>> {
+    ) -> CommandPartParseResult<ParsedValue> {
         self.parse(context, world).into_generic()
     }
 }
