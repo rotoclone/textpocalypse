@@ -1,13 +1,13 @@
 use bevy_ecs::prelude::*;
 
-use std::{any::Any, ops::Deref};
+use std::{any::Any, borrow::Borrow, ops::Deref};
 
 use crate::component::Description;
 
 use super::PartParserContext;
 
 /// A value parsed from a command.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParsedValue {
     String(String),
     Entity(Entity),
@@ -34,6 +34,19 @@ impl ParsedValue {
 impl From<String> for ParsedValue {
     fn from(value: String) -> Self {
         ParsedValue::String(value)
+    }
+}
+
+impl TryFrom<ParsedValue> for String {
+    //TODO should this be an actual type?
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::String(s) = value {
+            Ok(s)
+        } else {
+            Err(())
+        }
     }
 }
 

@@ -202,7 +202,7 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
 }
 
 /// Creates a part to maybe consume something.
-pub fn maybe_part<T: Into<ParsedValue>>(
+pub fn maybe_part<T: 'static + Into<ParsedValue> + Clone + std::fmt::Debug>(
     id: CommandPartId<Option<T>>,
     //TODO this part doesn't need an associated ID
     part: CommandFormatPart<T>,
@@ -356,47 +356,9 @@ pub struct ParsedCommand {
 }
 
 impl ParsedCommand {
-    //TODO remove
-    pub fn get_optional_entity(&self, id: &CommandPartId<Option<Entity>>) -> &Option<Entity> {
-        let parsed_value = self
-            .parsed_parts
-            //TODO remove this clone if possible
-            .get(&UntypedCommandPartId(id.0.clone()))
-            .map(|matched_part| &matched_part.parsed_value)
-            .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
-
-        let entity: Option<Entity> = Some(World::new().spawn_empty().id());
-        let boxed: Box<dyn ParsedValue> = Box::new(entity);
-
-        match boxed.as_any().downcast_ref::<Option<Entity>>() {
-            Some(_) => panic!("success"),
-            None => panic!("failure"),
-        }
-
-        /* TODO
-        parsed_value
-            .as_any()
-            .downcast_ref::<Option<Entity>>()
-            .unwrap_or_else(|| {
-                dbg!(
-                    parsed_value.type_id(),
-                    Some("").as_any().type_id(),
-                    Some(5).as_any().type_id(),
-                    ParsedValue::as_any(&Some(World::new().spawn_empty().id())).type_id(),
-                ); //TODO
-                panic!(
-                    "Unexpected parsed type for ID '{}' (expected {}): {:?}",
-                    id.0,
-                    type_name::<Option<Entity>>(),
-                    parsed_value
-                )
-            })
-            */
-    }
-
     /// Gets the parsed value associated with `id`.
-    /// Panics if the ID does not correspond to a part on this command.
-    pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> &T {
+    /// Panics if the ID does not correspond to a part on this command, or the parsed value for this ID isn't a `T`.
+    pub fn get<T: 'static + TryFrom<ParsedValue>>(&self, id: &CommandPartId<T>) -> T {
         let parsed_value = self
             .parsed_parts
             //TODO remove this clone if possible
@@ -404,17 +366,14 @@ impl ParsedCommand {
             .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
 
-        parsed_value
-            .as_any()
-            .downcast_ref::<T>()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Unexpected parsed type for ID '{}' (expected {}): {:?}",
-                    id.0,
-                    type_name::<T>(),
-                    parsed_value
-                )
-            })
+        //TODO remove this clone if possible
+        parsed_value.clone().try_into().unwrap_or_else(|_| {
+            panic!(
+                "Unable to convert {:?} to {}",
+                parsed_value,
+                type_name::<T>()
+            )
+        })
     }
 }
 
