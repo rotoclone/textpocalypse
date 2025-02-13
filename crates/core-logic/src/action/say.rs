@@ -60,7 +60,7 @@ impl InputParser for SayParser {
         };
 
         Ok(Box::new(SayAction {
-            text: parsed.get(&TEXT_PART_ID),
+            text: parsed.get(&TEXT_PART_ID).to_string(),
             notification_sender: ActionNotificationSender::new(),
         }))
     }

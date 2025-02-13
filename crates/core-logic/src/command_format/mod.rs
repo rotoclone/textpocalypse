@@ -358,7 +358,10 @@ pub struct ParsedCommand {
 impl ParsedCommand {
     /// Gets the parsed value associated with `id`.
     /// Panics if the ID does not correspond to a part on this command, or the parsed value for this ID isn't a `T`.
-    pub fn get<T: 'static + TryFrom<ParsedValue>>(&self, id: &CommandPartId<T>) -> T {
+    pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> &T
+    where
+        ParsedValue: TryIntoRef<T>,
+    {
         let parsed_value = self
             .parsed_parts
             //TODO remove this clone if possible
@@ -366,8 +369,7 @@ impl ParsedCommand {
             .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
 
-        //TODO remove this clone if possible
-        parsed_value.clone().try_into().unwrap_or_else(|_| {
+        parsed_value.try_into_ref().unwrap_or_else(|| {
             panic!(
                 "Unable to convert {:?} to {}",
                 parsed_value,

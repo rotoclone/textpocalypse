@@ -31,21 +31,23 @@ impl ParsedValue {
     }
 }
 
+pub trait TryIntoRef<T> {
+    // TODO doc
+    fn try_into_ref(&self) -> Option<&T>;
+}
+
 impl From<String> for ParsedValue {
     fn from(value: String) -> Self {
         ParsedValue::String(value)
     }
 }
 
-impl TryFrom<ParsedValue> for String {
-    //TODO should this be an actual type?
-    type Error = ();
-
-    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
-        if let ParsedValue::String(s) = value {
-            Ok(s)
+impl TryIntoRef<String> for ParsedValue {
+    fn try_into_ref(&self) -> Option<&String> {
+        if let ParsedValue::String(s) = self {
+            Some(s)
         } else {
-            Err(())
+            None
         }
     }
 }
@@ -56,9 +58,50 @@ impl From<Entity> for ParsedValue {
     }
 }
 
+impl TryIntoRef<Entity> for ParsedValue {
+    fn try_into_ref(&self) -> Option<&Entity> {
+        if let ParsedValue::Entity(e) = self {
+            Some(e)
+        } else {
+            None
+        }
+    }
+}
+
+/* TODO remove?
 impl From<Option<Box<ParsedValue>>> for ParsedValue {
     fn from(value: Option<Box<ParsedValue>>) -> Self {
         ParsedValue::Option(value)
+    }
+}
+    */
+
+impl<T: Into<ParsedValue>> From<Option<T>> for ParsedValue {
+    fn from(value: Option<T>) -> Self {
+        ParsedValue::Option(value.map(|v| Box::new(v.into())))
+    }
+}
+
+impl TryIntoRef<Option<Box<ParsedValue>>> for ParsedValue {
+    fn try_into_ref(&self) -> Option<&Option<Box<ParsedValue>>> {
+        if let ParsedValue::Option(o) = self {
+            Some(o)
+        } else {
+            None
+        }
+    }
+}
+
+impl<T> TryIntoRef<Option<T>> for ParsedValue
+where
+    ParsedValue: TryIntoRef<T>,
+{
+    fn try_into_ref(&self) -> Option<&Option<T>> {
+        if let ParsedValue::Option(o) = self {
+            o.map(|p| p.try_into_ref())
+        } else {
+            None
+        }
     }
 }
 
