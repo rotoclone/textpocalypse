@@ -31,10 +31,12 @@ impl ParsedValue {
     }
 }
 
+/*TODO remove
 pub trait TryIntoRef<T> {
     // TODO doc
     fn try_into_ref(&self) -> Option<&T>;
 }
+    */
 
 impl From<String> for ParsedValue {
     fn from(value: String) -> Self {
@@ -42,6 +44,20 @@ impl From<String> for ParsedValue {
     }
 }
 
+impl TryFrom<ParsedValue> for String {
+    //TODO should this be an actual type?
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::String(s) = value {
+            Ok(s)
+        } else {
+            Err(())
+        }
+    }
+}
+
+/* TODO remove
 impl TryIntoRef<String> for ParsedValue {
     fn try_into_ref(&self) -> Option<&String> {
         if let ParsedValue::String(s) = self {
@@ -51,6 +67,7 @@ impl TryIntoRef<String> for ParsedValue {
         }
     }
 }
+    */
 
 impl From<Entity> for ParsedValue {
     fn from(value: Entity) -> Self {
@@ -58,12 +75,15 @@ impl From<Entity> for ParsedValue {
     }
 }
 
-impl TryIntoRef<Entity> for ParsedValue {
-    fn try_into_ref(&self) -> Option<&Entity> {
-        if let ParsedValue::Entity(e) = self {
-            Some(e)
+impl TryFrom<ParsedValue> for Entity {
+    //TODO should this be an actual type?
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::Entity(e) = value {
+            Ok(e)
         } else {
-            None
+            Err(())
         }
     }
 }
@@ -82,6 +102,23 @@ impl<T: Into<ParsedValue>> From<Option<T>> for ParsedValue {
     }
 }
 
+impl<T: TryFrom<ParsedValue>> TryFrom<ParsedValue> for Option<T> {
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::Option(o) = value {
+            if let Some(inner) = o {
+                inner.try_into()
+            } else {
+                Ok(None)
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
+/* TODO remove
 impl TryIntoRef<Option<Box<ParsedValue>>> for ParsedValue {
     fn try_into_ref(&self) -> Option<&Option<Box<ParsedValue>>> {
         if let ParsedValue::Option(o) = self {
@@ -92,18 +129,19 @@ impl TryIntoRef<Option<Box<ParsedValue>>> for ParsedValue {
     }
 }
 
-impl<T> TryIntoRef<Option<T>> for ParsedValue
+impl<T: Clone> TryIntoRef<Option<T>> for ParsedValue
 where
     ParsedValue: TryIntoRef<T>,
 {
     fn try_into_ref(&self) -> Option<&Option<T>> {
         if let ParsedValue::Option(o) = self {
-            o.map(|p| p.try_into_ref())
+            o.map(|inner| inner.try_into_ref().cloned())
         } else {
             None
         }
     }
 }
+    */
 
 /* TODO remove
 
