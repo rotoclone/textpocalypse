@@ -102,16 +102,12 @@ impl<T: Into<ParsedValue>> From<Option<T>> for ParsedValue {
     }
 }
 
-impl<T: TryFrom<ParsedValue>> TryFrom<ParsedValue> for Option<T> {
+impl TryFrom<ParsedValue> for Option<Box<ParsedValue>> {
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
         if let ParsedValue::Option(o) = value {
-            if let Some(inner) = o {
-                inner.try_into()
-            } else {
-                Ok(None)
-            }
+            Ok(o)
         } else {
             Err(())
         }
