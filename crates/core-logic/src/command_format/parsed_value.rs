@@ -1,7 +1,5 @@
 use bevy_ecs::prelude::*;
 
-use std::{any::Any, borrow::Borrow, ops::Deref};
-
 use crate::component::Description;
 
 use super::PartParserContext;
@@ -31,13 +29,6 @@ impl ParsedValue {
     }
 }
 
-/*TODO remove
-pub trait TryIntoRef<T> {
-    // TODO doc
-    fn try_into_ref(&self) -> Option<&T>;
-}
-    */
-
 impl From<String> for ParsedValue {
     fn from(value: String) -> Self {
         ParsedValue::String(value)
@@ -56,18 +47,6 @@ impl TryFrom<ParsedValue> for String {
         }
     }
 }
-
-/* TODO remove
-impl TryIntoRef<String> for ParsedValue {
-    fn try_into_ref(&self) -> Option<&String> {
-        if let ParsedValue::String(s) = self {
-            Some(s)
-        } else {
-            None
-        }
-    }
-}
-    */
 
 impl From<Entity> for ParsedValue {
     fn from(value: Entity) -> Self {
@@ -88,52 +67,64 @@ impl TryFrom<ParsedValue> for Entity {
     }
 }
 
-/* TODO remove?
-impl From<Option<Box<ParsedValue>>> for ParsedValue {
-    fn from(value: Option<Box<ParsedValue>>) -> Self {
-        ParsedValue::Option(value)
-    }
-}
-    */
-
-impl<T: Into<ParsedValue>> From<Option<T>> for ParsedValue {
+impl<T> From<Option<T>> for ParsedValue
+where
+    T: Into<ParsedValue>,
+{
     fn from(value: Option<T>) -> Self {
         ParsedValue::Option(value.map(|v| Box::new(v.into())))
     }
 }
 
-impl TryFrom<ParsedValue> for Option<Box<ParsedValue>> {
+//TODO figure out how to avoid duplicating this for every non-option `ParsedValue` type
+impl TryFrom<ParsedValue> for Option<String> {
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
         if let ParsedValue::Option(o) = value {
-            Ok(o)
+            if let Some(p) = o {
+                (*p).try_into()
+            } else {
+                Ok(None)
+            }
         } else {
             Err(())
         }
     }
 }
 
-/* TODO remove
-impl TryIntoRef<Option<Box<ParsedValue>>> for ParsedValue {
-    fn try_into_ref(&self) -> Option<&Option<Box<ParsedValue>>> {
-        if let ParsedValue::Option(o) = self {
-            Some(o)
+impl TryFrom<ParsedValue> for Option<Entity> {
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::Option(o) = value {
+            if let Some(p) = o {
+                (*p).try_into()
+            } else {
+                Ok(None)
+            }
         } else {
-            None
+            Err(())
         }
     }
 }
 
-impl<T: Clone> TryIntoRef<Option<T>> for ParsedValue
+/* TODO
+impl<T> TryFrom<ParsedValue> for Option<T>
 where
-    ParsedValue: TryIntoRef<T>,
+    T: TryFrom<ParsedValue, Error = ()>,
 {
-    fn try_into_ref(&self) -> Option<&Option<T>> {
-        if let ParsedValue::Option(o) = self {
-            o.map(|inner| inner.try_into_ref().cloned())
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::Option(o) = value {
+            if let Some(p) = o {
+                (*p).try_into()
+            } else {
+                Ok(None)
+            }
         } else {
-            None
+            Err(())
         }
     }
 }
