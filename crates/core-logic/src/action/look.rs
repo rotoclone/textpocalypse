@@ -100,11 +100,11 @@ impl InputParser for LookParser {
 
         let target = parsed.get(&TARGET_PART_ID).unwrap_or(here);
 
-        return Ok(Box::new(LookAction {
+        Ok(Box::new(LookAction {
             target,
             detailed: false,
             notification_sender: ActionNotificationSender::new(),
-        }));
+        }))
 
         /* TODO
 

@@ -81,9 +81,9 @@ impl TryFrom<ParsedValue> for Option<String> {
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
-        if let ParsedValue::Option(o) = value {
-            if let Some(p) = o {
-                (*p).try_into()
+        if let ParsedValue::Option(opt) = value {
+            if let Some(parsed) = opt {
+                String::try_from(*parsed).map(Some)
             } else {
                 Ok(None)
             }
@@ -97,9 +97,9 @@ impl TryFrom<ParsedValue> for Option<Entity> {
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
-        if let ParsedValue::Option(o) = value {
-            if let Some(p) = o {
-                (*p).try_into()
+        if let ParsedValue::Option(opt) = value {
+            if let Some(parsed) = opt {
+                Entity::try_from(*parsed).map(Some)
             } else {
                 Ok(None)
             }
