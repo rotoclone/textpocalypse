@@ -37,6 +37,22 @@ impl ParsePart<Entity> for EntityParser {
             }
         }
 
+        if let Some((entity, remaining, matched)) = best_matches.first() {
+            // matched at least one target
+            CommandPartParseResult::Success {
+                parsed: *entity,
+                consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
+                remaining: remaining.to_string(),
+            }
+        } else {
+            // matched no targets
+            CommandPartParseResult::Failure {
+                error: CommandPartParseError::NotFound,
+                remaining: context.input,
+            }
+        }
+
+        /* TODO remove
         match best_matches.len().cmp(&1) {
             Ordering::Equal => {
                 // matched exactly one target
@@ -49,6 +65,7 @@ impl ParsePart<Entity> for EntityParser {
             }
             Ordering::Greater => {
                 // matched multiple targets
+                //TODO should this be a failure, or should it just pick one?
                 CommandPartParseResult::Failure {
                     error: CommandPartParseError::AmbiguousInput,
                     remaining: context.input,
@@ -62,6 +79,7 @@ impl ParsePart<Entity> for EntityParser {
                 }
             }
         }
+        */
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {

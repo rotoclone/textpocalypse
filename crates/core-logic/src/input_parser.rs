@@ -1,6 +1,7 @@
 use std::{collections::HashSet, fmt::Display, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use log::debug;
 use regex::Regex;
 
@@ -48,7 +49,10 @@ pub fn find_parsers_relevant_for(
 }
 
 /// Finds all the entities the provided entity can currently directly interact with.
-pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
+///
+/// Entities in `entity`'s inventory will appear first, then entities in `entity`'s location, then the location itself.
+/// Within those groupings the entities will be sorted in their natural order for consistency.
+pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity> {
     let location_id = world
         .get::<Location>(entity)
         .expect("Entity should have a location")
@@ -59,12 +63,19 @@ pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<En
         .get::<Container>(location_id)
         .expect("Entity's location should be a container");
 
-    let mut entities = location.get_entities(entity, world).clone();
+    let location_entities = location.get_entities(entity, world);
 
     // include entities in the provided entity's inventory
-    if let Some(inventory) = world.get::<Container>(entity) {
-        entities.extend(inventory.get_entities(entity, world).clone());
-    }
+    let inventory_entities = if let Some(inventory) = world.get::<Container>(entity) {
+        inventory.get_entities(entity, world)
+    } else {
+        HashSet::new()
+    };
+
+    let mut entities = Vec::with_capacity(inventory_entities.len() + location_entities.len() + 1);
+    entities.extend(inventory_entities.iter().sorted());
+    entities.extend(location_entities.iter().sorted());
+    entities.push(location_id);
 
     entities
 }
