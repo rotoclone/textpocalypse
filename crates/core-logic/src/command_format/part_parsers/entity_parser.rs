@@ -37,6 +37,7 @@ impl ParsePart<Entity> for EntityParser {
             }
         }
 
+        //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
         if let Some((entity, remaining, matched)) = best_matches.first() {
             // matched at least one target
             CommandPartParseResult::Success {
@@ -51,35 +52,6 @@ impl ParsePart<Entity> for EntityParser {
                 remaining: context.input,
             }
         }
-
-        /* TODO remove
-        match best_matches.len().cmp(&1) {
-            Ordering::Equal => {
-                // matched exactly one target
-                let (entity, remaining, matched) = best_matches.first().unwrap();
-                CommandPartParseResult::Success {
-                    parsed: *entity,
-                    consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
-                    remaining: remaining.to_string(),
-                }
-            }
-            Ordering::Greater => {
-                // matched multiple targets
-                //TODO should this be a failure, or should it just pick one?
-                CommandPartParseResult::Failure {
-                    error: CommandPartParseError::AmbiguousInput,
-                    remaining: context.input,
-                }
-            }
-            Ordering::Less => {
-                // matched no targets
-                CommandPartParseResult::Failure {
-                    error: CommandPartParseError::NotFound,
-                    remaining: context.input,
-                }
-            }
-        }
-        */
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {

@@ -105,9 +105,6 @@ impl<T: Into<ParsedValue>> CommandPartParseResult<T> {
 pub enum CommandPartParseError {
     /// The part was missing from the input
     NotFound,
-    /// The input matched multiple targets
-    /// TODO include the targets
-    AmbiguousInput,
     /// The part was found, but was invalid
     Invalid(CommandPartValidateError),
 }

@@ -312,6 +312,7 @@ impl CommandParseErrorNew {
                 unmatched_part,
                 error,
             } => {
+                if matched_parts.is_empty() {}
                 //TODO take into account options
                 let matched_parts_string = matched_parts
                     .into_iter()
@@ -322,10 +323,17 @@ impl CommandParseErrorNew {
                     })
                     .join("");
 
+                let error_detail_string = match error {
+                    CommandPartParseError::NotFound => "",
+                    //TODO include a variant for when there's more input to parse, but it doesn't parse into the expected thing (like if you provide the name of a target entity but there's no entity with that name)
+                    CommandPartParseError::Invalid(command_part_validate_error) => todo!(),
+                };
+
                 format!(
-                    "{}{}?",
+                    "{}{}?{}",
                     matched_parts_string,
-                    unmatched_part.options.if_missing.unwrap_or_default()
+                    unmatched_part.options.if_missing.unwrap_or_default(),
+                    error_detail_string
                 )
             }
             CommandParseErrorNew::UnmatchedInput {
