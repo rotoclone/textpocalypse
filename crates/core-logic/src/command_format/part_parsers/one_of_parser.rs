@@ -37,7 +37,7 @@ impl ParsePart<ParsedValue> for OneOfParser {
         }
 
         CommandPartParseResult::Failure {
-            error: first_error.unwrap_or(CommandPartParseError::NotFound),
+            error: first_error.unwrap_or(CommandPartParseError::Unmatched),
             remaining: context.input,
         }
     }

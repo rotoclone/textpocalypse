@@ -48,7 +48,7 @@ impl ParsePart<Entity> for EntityParser {
         } else {
             // matched no targets
             CommandPartParseResult::Failure {
-                error: CommandPartParseError::NotFound,
+                error: CommandPartParseError::Unmatched,
                 remaining: context.input,
             }
         }
@@ -129,7 +129,7 @@ mod tests {
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
+            error: CommandPartParseError::Unmatched,
             remaining: "".to_string(),
         };
 
@@ -149,7 +149,7 @@ mod tests {
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
+            error: CommandPartParseError::Unmatched,
             remaining: "entity 12 name".to_string(),
         };
 
@@ -237,7 +237,7 @@ mod tests {
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
+            error: CommandPartParseError::Unmatched,
             remaining: "entity 2 name and stuff".to_string(),
         };
 
@@ -258,7 +258,7 @@ mod tests {
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
+            error: CommandPartParseError::Unmatched,
             remaining: "it's entity 2 name and stuff".to_string(),
         };
 

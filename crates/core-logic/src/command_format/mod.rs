@@ -312,7 +312,9 @@ impl CommandParseErrorNew {
                 unmatched_part,
                 error,
             } => {
-                if matched_parts.is_empty() {}
+                if matched_parts.is_empty() {
+                    //TODO special message
+                }
                 //TODO take into account options
                 let matched_parts_string = matched_parts
                     .into_iter()
@@ -324,8 +326,8 @@ impl CommandParseErrorNew {
                     .join("");
 
                 let error_detail_string = match error {
-                    CommandPartParseError::NotFound => "",
-                    //TODO include a variant for when there's more input to parse, but it doesn't parse into the expected thing (like if you provide the name of a target entity but there's no entity with that name)
+                    CommandPartParseError::EndOfInput => "",
+                    CommandPartParseError::Unmatched => todo!(),
                     CommandPartParseError::Invalid(command_part_validate_error) => todo!(),
                 };
 
@@ -398,6 +400,14 @@ impl CommandFormat {
         let mut remaining_input = input.into();
         let mut parsed_parts = HashMap::new();
         for part in &self.0 {
+            if remaining_input.is_empty() {
+                return Err(CommandParseErrorNew::Part {
+                    matched_parts: parsed_parts.into_values().collect(),
+                    unmatched_part: Box::new(part.clone()),
+                    error: CommandPartParseError::EndOfInput,
+                });
+            }
+
             match part.parser.parse_untyped(
                 PartParserContext {
                     input: remaining_input,

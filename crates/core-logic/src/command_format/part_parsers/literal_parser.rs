@@ -21,7 +21,7 @@ impl ParsePart<String> for LiteralParser {
         }
 
         CommandPartParseResult::Failure {
-            error: CommandPartParseError::NotFound,
+            error: CommandPartParseError::Unmatched,
             remaining: context.input,
         }
     }

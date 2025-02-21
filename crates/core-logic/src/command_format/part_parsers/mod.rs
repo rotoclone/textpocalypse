@@ -103,8 +103,10 @@ impl<T: Into<ParsedValue>> CommandPartParseResult<T> {
 /// TODO include additional information about why a part wasn't matched, like if it's an entity that doesn't exist the error should be able to include something like "there's no <thing> here"
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
-    /// The part was missing from the input
-    NotFound,
+    /// All the input was consumed before getting to this part
+    EndOfInput,
+    /// The part was not matched
+    Unmatched,
     /// The part was found, but was invalid
     Invalid(CommandPartValidateError),
 }
