@@ -401,6 +401,7 @@ impl CommandFormat {
         let mut parsed_parts = HashMap::new();
         for part in &self.0 {
             if remaining_input.is_empty() {
+                //TODO but what if all the remaining parts are optional?
                 return Err(CommandParseErrorNew::Part {
                     matched_parts: parsed_parts.into_values().collect(),
                     unmatched_part: Box::new(part.clone()),
