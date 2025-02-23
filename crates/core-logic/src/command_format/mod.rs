@@ -398,15 +398,11 @@ impl CommandFormat {
         world: &World,
     ) -> Result<ParsedCommand, CommandParseErrorNew> {
         let mut remaining_input = input.into();
+        let mut has_remaining_input = true;
         let mut parsed_parts = HashMap::new();
         for part in &self.0 {
             if remaining_input.is_empty() {
-                //TODO but what if all the remaining parts are optional?
-                return Err(CommandParseErrorNew::Part {
-                    matched_parts: parsed_parts.into_values().collect(),
-                    unmatched_part: Box::new(part.clone()),
-                    error: CommandPartParseError::EndOfInput,
-                });
+                has_remaining_input = false;
             }
 
             match part.parser.parse_untyped(
@@ -437,11 +433,23 @@ impl CommandFormat {
                     remaining_input = remaining;
                 }
                 CommandPartParseResult::Failure { error, .. } => {
+                    if !has_remaining_input {
+                        // Assume that this part failed to parse due to the input being empty. This has to be down here because some parts
+                        // may be optional, in which case they will parse just fine with no input, so this shouldn't pre-emptively return
+                        // an end of input error without letting the part see if that's actually a problem first.
+                        //TODO is it a problem to just throw away the error returned from the part?
+                        return Err(CommandParseErrorNew::Part {
+                            matched_parts: parsed_parts.into_values().collect(),
+                            unmatched_part: Box::new(part.clone()),
+                            error: CommandPartParseError::EndOfInput,
+                        });
+                    }
+
                     return Err(CommandParseErrorNew::Part {
                         matched_parts: parsed_parts.into_values().collect(),
                         unmatched_part: Box::new(part.clone()),
                         error,
-                    })
+                    });
                 }
             }
         }
