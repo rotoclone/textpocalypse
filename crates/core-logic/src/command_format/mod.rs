@@ -10,7 +10,7 @@ use bevy_ecs::prelude::*;
 
 use nonempty::{nonempty, NonEmpty};
 
-use crate::GameMessage;
+use crate::{Direction, GameMessage};
 
 mod command_format_string;
 use command_format_string::*;
@@ -28,7 +28,7 @@ use parsed_value_validators::*;
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
 #[derive(Debug)]
-pub struct CommandFormat(NonEmpty<UntypedCommandFormatPart>);
+pub struct CommandFormat(NonEmpty<CommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -40,57 +40,28 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     }
 }
 
-/// A `CommandFormatPart` with no associated type information, so different ones can be put in a collection together.
+#[derive(Debug, Clone)]
+pub enum CommandFormatPart {
+    Literal(String, CommandFormatPartParams<String>),
+    OptionalLiteral(String, CommandFormatPartParams<Option<String>>),
+    AnyText(CommandFormatPartParams<String>),
+    OptionalAnyText(CommandFormatPartParams<Option<String>>),
+    Entity(CommandFormatPartParams<Entity>),
+    OptionalEntity(CommandFormatPartParams<Option<Entity>>),
+    Direction(CommandFormatPartParams<Direction>),
+    OptionalDirection(CommandFormatPartParams<Option<Direction>>),
+    OneOf(NonEmpty<Box<CommandFormatPart>>),
+}
+
 #[derive(Debug)]
-pub struct UntypedCommandFormatPart {
-    id: Option<UntypedCommandPartId>,
-    options: CommandFormatPartOptions,
-    parser: Box<dyn ParsePartUntyped>,
-    validator: Option<Box<dyn ValidateParsedValueUntyped>>,
-}
-
-impl Clone for UntypedCommandFormatPart {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            options: self.options.clone(),
-            parser: self.parser.clone_box(),
-            validator: self.validator.as_ref().map(|v| v.clone_box()),
-        }
-    }
-}
-
-impl<T> From<CommandFormatPart<T>> for UntypedCommandFormatPart {
-    fn from(val: CommandFormatPart<T>) -> Self {
-        UntypedCommandFormatPart {
-            id: val.id.map(|id| id.into()),
-            options: val.options,
-            parser: val.parser.as_untyped(),
-            validator: val.validator.map(|v| v.as_untyped()),
-        }
-    }
-}
-
-//TODO rename or remove
-pub enum CommandFormatPartEnum<T> {
-    Literal(String),
-    AnyText(CommandPartId<String>),
-    Entity(CommandPartId<Entity>),
-    Maybe(CommandPartId<T>, Box<CommandFormatPart<T>>),
-    OneOf(NonEmpty<UntypedCommandFormatPart>),
-    Custom(CommandPartId<T>, Box<dyn ParsePart<T>>),
-}
-
-//TODO remove in favor of enum?
-#[derive(Debug)]
-pub struct CommandFormatPart<T> {
+pub struct CommandFormatPartParams<T> {
     id: Option<CommandPartId<T>>,
     options: CommandFormatPartOptions,
     parser: Box<dyn ParsePart<T>>,
     validator: Option<Box<dyn ValidateParsedValue<T>>>,
 }
 
-impl<T: Clone> Clone for CommandFormatPart<T> {
+impl<T: Clone> Clone for CommandFormatPartParams<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
@@ -104,7 +75,7 @@ impl<T: Clone> Clone for CommandFormatPart<T> {
     }
 }
 
-impl<T> CommandFormatPart<T> {
+impl<T> CommandFormatPartParams<T> {
     /// Adds a validator to this part. Any existing validator will be replaced.
     pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<T>>) -> Self {
         self.validator = Some(validator);
@@ -168,37 +139,60 @@ enum IncludeInErrorsBehavior {
 }
 
 /// Creates a part to consume a literal value.
-pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart<String> {
+pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
     let literal_string = literal.into();
-    CommandFormatPart {
-        id: None,
-        options: CommandFormatPartOptions {
-            format_string_part_type: CommandFormatStringPartType::Literal(literal_string.clone()),
-            ..Default::default()
+    CommandFormatPart::Literal(
+        literal_string.clone(),
+        CommandFormatPartParams {
+            id: None,
+            options: CommandFormatPartOptions {
+                format_string_part_type: CommandFormatStringPartType::Literal(
+                    literal_string.clone(),
+                ),
+                ..Default::default()
+            },
+            parser: Box::new(LiteralParser(literal_string)),
+            validator: None,
         },
-        parser: Box::new(LiteralParser(literal_string)),
-        validator: None,
-    }
+    )
+}
+
+pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
+    let literal_string = literal.into();
+    CommandFormatPart::Literal(
+        literal_string.clone(),
+        CommandFormatPartParams {
+            id: None,
+            options: CommandFormatPartOptions {
+                format_string_part_type: CommandFormatStringPartType::Literal(
+                    literal_string.clone(),
+                ),
+                ..Default::default()
+            },
+            parser: Box::new(OptionalParser(Box::new(LiteralParser(literal_string)))),
+            validator: None,
+        },
+    )
 }
 
 /// Creates a part to consume any text.
-pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart<String> {
-    CommandFormatPart {
+pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart {
+    CommandFormatPart::AnyText(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
         parser: Box::new(AnyTextParser),
         validator: None,
-    }
+    })
 }
 
 /// Creates an `Entity` part.
-pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart<Entity> {
-    CommandFormatPart {
+pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
+    CommandFormatPart::Entity(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
         parser: Box::new(EntityParser),
         validator: None,
-    }
+    })
 }
 
 /// Creates a part to maybe consume something.

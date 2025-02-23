@@ -9,14 +9,14 @@ pub use any_text_parser::AnyTextParser;
 mod entity_parser;
 pub use entity_parser::EntityParser;
 
-mod maybe_parser;
-pub use maybe_parser::MaybeParser;
+mod optional_parser;
+pub use optional_parser::OptionalParser;
 
 mod one_of_parser;
 use nom::{bytes::complete::tag_no_case, IResult};
 pub use one_of_parser::OneOfParser;
 
-use super::{parsed_value::ParsedValue, CommandPartValidateError};
+use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateError};
 
 pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
     /// Runs this parser on the input in `context`.
@@ -64,6 +64,7 @@ impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
 pub struct PartParserContext {
     pub input: String,
     pub entering_entity: Entity,
+    pub next_part: CommandFormatPart,
 }
 
 #[derive(PartialEq, Eq, Debug)]

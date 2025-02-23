@@ -1,21 +1,19 @@
 use bevy_ecs::prelude::*;
 
-use crate::{command_format::parsed_value::ParsedValue, CommandFormatPart};
+use crate::command_format::parsed_value::ParsedValue;
 
 use super::{CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext};
 
-#[derive(Debug, Clone)]
-pub struct MaybeParser<T: Clone>(pub CommandFormatPart<T>);
+#[derive(Debug)]
+pub struct OptionalParser<T>(pub Box<dyn ParsePart<T>>);
 
-impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePart<Option<T>>
-    for MaybeParser<T>
-{
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug> ParsePart<Option<T>> for OptionalParser<T> {
     fn parse(
         &self,
         context: PartParserContext,
         world: &World,
     ) -> CommandPartParseResult<Option<T>> {
-        match self.0.parser.parse(context, world) {
+        match self.0.parse(context, world) {
             CommandPartParseResult::Success {
                 parsed,
                 consumed,
@@ -34,11 +32,11 @@ impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePart<Option<
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(MaybeParser(self.0.clone()))
+        Box::new(OptionalParser(self.0.clone()))
     }
 }
 
-impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePartUntyped for MaybeParser<T> {
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug> ParsePartUntyped for OptionalParser<T> {
     fn parse_untyped(
         &self,
         context: PartParserContext,
