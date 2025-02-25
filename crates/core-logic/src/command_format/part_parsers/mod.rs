@@ -38,11 +38,11 @@ pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClon
 /// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
 /// https://stackoverflow.com/a/30353928
 pub trait ParsePartUntypedClone {
-    fn clone_box(&self) -> Box<dyn ParsePartUntyped>;
+    fn clone_box_untyped(&self) -> Box<dyn ParsePartUntyped>;
 }
 
 impl<T: 'static + ParsePartUntyped + Clone> ParsePartUntypedClone for T {
-    fn clone_box(&self) -> Box<dyn ParsePartUntyped> {
+    fn clone_box_untyped(&self) -> Box<dyn ParsePartUntyped> {
         Box::new(self.clone())
     }
 }

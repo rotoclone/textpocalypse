@@ -5,9 +5,19 @@ use crate::command_format::parsed_value::ParsedValue;
 use super::{CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext};
 
 #[derive(Debug)]
-pub struct OptionalParser<T>(pub Box<dyn ParsePart<T>>);
+pub struct OptionalParser<T: Into<ParsedValue> + std::fmt::Debug + Clone>(
+    pub Box<dyn ParsePart<T>>,
+);
 
-impl<T: 'static + Into<ParsedValue> + std::fmt::Debug> ParsePart<Option<T>> for OptionalParser<T> {
+impl<T: Into<ParsedValue> + std::fmt::Debug + Clone + ParsePart<T>> Clone for OptionalParser<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone_box())
+    }
+}
+
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePart<Option<T>>
+    for OptionalParser<T>
+{
     fn parse(
         &self,
         context: PartParserContext,
@@ -32,11 +42,13 @@ impl<T: 'static + Into<ParsedValue> + std::fmt::Debug> ParsePart<Option<T>> for 
     }
 
     fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(OptionalParser(self.0.clone()))
+        Box::new(self.clone())
     }
 }
 
-impl<T: 'static + Into<ParsedValue> + std::fmt::Debug> ParsePartUntyped for OptionalParser<T> {
+impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePartUntyped
+    for OptionalParser<T>
+{
     fn parse_untyped(
         &self,
         context: PartParserContext,

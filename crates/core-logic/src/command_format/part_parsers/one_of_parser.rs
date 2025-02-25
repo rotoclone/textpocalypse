@@ -1,14 +1,14 @@
 use bevy_ecs::prelude::*;
 use nonempty::NonEmpty;
 
-use crate::command_format::{parsed_value::ParsedValue, UntypedCommandFormatPart};
+use crate::command_format::parsed_value::ParsedValue;
 
 use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
 };
 
 #[derive(Debug, Clone)]
-pub struct OneOfParser(pub NonEmpty<UntypedCommandFormatPart>);
+pub struct OneOfParser(pub NonEmpty<Box<dyn ParsePartUntyped>>);
 
 impl ParsePart<ParsedValue> for OneOfParser {
     fn parse(
@@ -17,8 +17,8 @@ impl ParsePart<ParsedValue> for OneOfParser {
         world: &World,
     ) -> CommandPartParseResult<ParsedValue> {
         let mut first_error = None;
-        for part in &self.0 {
-            match part.parser.parse_untyped(context.clone(), world) {
+        for parser in &self.0 {
+            match parser.parse_untyped(context.clone(), world) {
                 CommandPartParseResult::Success {
                     parsed,
                     consumed,

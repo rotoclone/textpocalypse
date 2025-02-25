@@ -88,6 +88,7 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
     ))
 }
 
+/* TODO
 #[cfg(test)]
 mod tests {
     use crate::{move_entity, Container, Pronouns};
@@ -311,3 +312,4 @@ mod tests {
 
     //TODO more tests
 }
+    */

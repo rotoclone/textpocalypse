@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use crate::component::Description;
+use crate::{component::Description, Direction};
 
 use super::PartParserContext;
 
@@ -9,6 +9,7 @@ use super::PartParserContext;
 pub enum ParsedValue {
     String(String),
     Entity(Entity),
+    Direction(Direction),
     //TODO is this necessary?
     Option(Option<Box<ParsedValue>>),
 }
@@ -21,6 +22,7 @@ impl ParsedValue {
             ParsedValue::Entity(e) => {
                 Description::get_reference_name(*e, Some(context.entering_entity), world)
             }
+            ParsedValue::Direction(d) => d.to_string(),
             ParsedValue::Option(o) => o
                 .as_ref()
                 .map(|v| v.to_string_for_parse_error(context, world))

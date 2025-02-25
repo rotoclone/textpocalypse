@@ -159,7 +159,7 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
 
 pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
     let literal_string = literal.into();
-    CommandFormatPart::Literal(
+    CommandFormatPart::OptionalLiteral(
         literal_string.clone(),
         CommandFormatPartParams {
             id: None,
