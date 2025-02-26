@@ -50,14 +50,80 @@ pub enum CommandFormatPart {
     OptionalEntity(CommandFormatPartParams<Option<Entity>>),
     Direction(CommandFormatPartParams<Direction>),
     OptionalDirection(CommandFormatPartParams<Option<Direction>>),
-    OneOf(NonEmpty<Box<CommandFormatPart>>),
+    OneOf(Vec<CommandFormatPart>, CommandFormatPartOptions),
+}
+
+impl CommandFormatPart {
+    /// Gets the options for this part.
+    pub fn options(&self) -> &CommandFormatPartOptions {
+        match self {
+            CommandFormatPart::Literal(_, params) => &params.options,
+            CommandFormatPart::OptionalLiteral(_, params) => &params.options,
+            CommandFormatPart::AnyText(params) => &params.options,
+            CommandFormatPart::OptionalAnyText(params) => &params.options,
+            CommandFormatPart::Entity(params) => &params.options,
+            CommandFormatPart::OptionalEntity(params) => &params.options,
+            CommandFormatPart::Direction(params) => &params.options,
+            CommandFormatPart::OptionalDirection(params) => &params.options,
+            CommandFormatPart::OneOf(_, options) => options,
+        }
+    }
+
+    /// Gets all the IDs associated with this part.
+    /// This will usually return 0 or 1 ID, but `OneOf` parts can have more than 1.
+    pub fn ids(&self) -> Vec<UntypedCommandPartId> {
+        match self {
+            CommandFormatPart::Literal(_, params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::OptionalLiteral(_, params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::AnyText(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::OptionalAnyText(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::Entity(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::OptionalEntity(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::Direction(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::OptionalDirection(params) => params
+                .id
+                .as_ref()
+                .map(|id| vec![id.clone().into()])
+                .unwrap_or_default(),
+            CommandFormatPart::OneOf(parts, _) => {
+                parts.iter().flat_map(|part| part.ids()).collect()
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct CommandFormatPartParams<T> {
     id: Option<CommandPartId<T>>,
     options: CommandFormatPartOptions,
-    parser: Box<dyn ParsePart<T>>,
     validator: Option<Box<dyn ValidateParsedValue<T>>>,
 }
 
@@ -66,7 +132,6 @@ impl<T: Clone> Clone for CommandFormatPartParams<T> {
         Self {
             id: self.id.clone(),
             options: self.options.clone(),
-            parser: ParsePartClone::clone_box(self.parser.deref()),
             validator: self
                 .validator
                 .as_ref()
@@ -146,17 +211,15 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
         CommandFormatPartParams {
             id: None,
             options: CommandFormatPartOptions {
-                format_string_part_type: CommandFormatStringPartType::Literal(
-                    literal_string.clone(),
-                ),
+                format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
                 ..Default::default()
             },
-            parser: Box::new(LiteralParser(literal_string)),
             validator: None,
         },
     )
 }
 
+/// Creates a part to maybe consume a literal value.
 pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::OptionalLiteral(
@@ -164,12 +227,9 @@ pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
         CommandFormatPartParams {
             id: None,
             options: CommandFormatPartOptions {
-                format_string_part_type: CommandFormatStringPartType::Literal(
-                    literal_string.clone(),
-                ),
+                format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
                 ..Default::default()
             },
-            parser: Box::new(OptionalParser(Box::new(LiteralParser(literal_string)))),
             validator: None,
         },
     )
@@ -180,7 +240,15 @@ pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart {
     CommandFormatPart::AnyText(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        parser: Box::new(AnyTextParser),
+        validator: None,
+    })
+}
+
+/// Creates a part to maybe comsume any text.
+pub fn optional_any_text_part(id: CommandPartId<Option<String>>) -> CommandFormatPart {
+    CommandFormatPart::OptionalAnyText(CommandFormatPartParams {
+        id: Some(id),
+        options: CommandFormatPartOptions::default(),
         validator: None,
     })
 }
@@ -190,34 +258,23 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
     CommandFormatPart::Entity(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        parser: Box::new(EntityParser),
         validator: None,
     })
 }
 
-/// Creates a part to maybe consume something.
-pub fn maybe_part<T: 'static + Into<ParsedValue> + Clone + std::fmt::Debug>(
-    id: CommandPartId<Option<T>>,
-    //TODO this part doesn't need an associated ID
-    part: CommandFormatPart<T>,
-) -> CommandFormatPart<Option<T>> {
-    CommandFormatPart {
+pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatPart {
+    CommandFormatPart::OptionalEntity(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        parser: Box::new(MaybeParser(part)),
         validator: None,
-    }
+    })
 }
 
 /// Creates a part that consumes one of a set of possible things.
 /// Inherits the options from the first part in the provided list.
-pub fn one_of_part(parts: NonEmpty<UntypedCommandFormatPart>) -> CommandFormatPart<ParsedValue> {
-    CommandFormatPart {
-        id: None,
-        options: parts.first().options.clone(),
-        parser: Box::new(OneOfParser(parts)),
-        validator: None,
-    }
+pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
+    let options = parts.first().options().clone();
+    CommandFormatPart::OneOf(parts.into_iter().collect(), options)
 }
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
@@ -234,28 +291,25 @@ impl<T> CommandPartId<T> {
 
 impl CommandFormat {
     /// Creates a format starting with the provided part.
-    pub fn new<T: 'static + std::fmt::Debug>(part: CommandFormatPart<T>) -> CommandFormat {
-        CommandFormat(NonEmpty::new(part.into()))
+    pub fn new<T: 'static + std::fmt::Debug>(part: CommandFormatPart) -> CommandFormat {
+        CommandFormat(NonEmpty::new(part))
     }
 
     /// Adds a part to the format.
     /// Panics if the part has an ID and there is already a part with the same ID.
-    pub fn then<T: 'static + std::fmt::Debug>(
-        mut self,
-        part: CommandFormatPart<T>,
-    ) -> CommandFormat {
-        self.add_part(part.into());
+    pub fn then<T: 'static + std::fmt::Debug>(mut self, part: CommandFormatPart) -> CommandFormat {
+        self.add_part(part);
         self
     }
 
     /// Adds a part to the format.
     /// Panics if the part has an ID and there is already a part with the same ID.
-    fn add_part(&mut self, part: UntypedCommandFormatPart) {
-        if let Some(id) = &part.id {
+    fn add_part(&mut self, part: CommandFormatPart) {
+        for id in &part.ids() {
             if self
                 .0
                 .iter()
-                .any(|existing_part| existing_part.id.as_ref() == Some(id))
+                .any(|existing_part| existing_part.ids().contains(id))
             {
                 panic!("Duplicate command part ID: {id:?}")
             }
@@ -272,7 +326,7 @@ impl CommandFormat {
                 .iter()
                 .map(|part| CommandFormatStringPart {
                     id: part.id.clone(),
-                    part_type: part.options.format_string_part_type.clone(),
+                    part_type: part.options().format_string_part_type.clone(),
                 })
                 .collect(),
         )
@@ -287,7 +341,8 @@ pub enum CommandParseErrorNew {
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
         // boxed to reduce size
-        unmatched_part: Box<UntypedCommandFormatPart>,
+        // TODO try without box now?
+        unmatched_part: Box<CommandFormatPart>,
         error: CommandPartParseError,
     },
     /// Some of the input remained unmatched after all the parsers were run
@@ -328,7 +383,7 @@ impl CommandParseErrorNew {
                 format!(
                     "{}{}?{}",
                     matched_parts_string,
-                    unmatched_part.options.if_missing.unwrap_or_default(),
+                    unmatched_part.options().if_missing.unwrap_or_default(),
                     error_detail_string
                 )
             }
@@ -345,12 +400,12 @@ impl CommandParseErrorNew {
 //TODO give this a better name
 pub enum ProcessedCommandFormatPart {
     Matched(MatchedCommandFormatPart),
-    Unmatched(UntypedCommandFormatPart),
+    Unmatched(CommandFormatPart),
 }
 
 #[derive(Debug)]
 pub struct MatchedCommandFormatPart {
-    part: UntypedCommandFormatPart,
+    part: CommandFormatPart,
     matched_input: String,
     parsed_value: ParsedValue,
 }
@@ -399,7 +454,7 @@ impl CommandFormat {
                 has_remaining_input = false;
             }
 
-            match part.parser.parse_untyped(
+            match part.parse_untyped(
                 PartParserContext {
                     input: remaining_input,
                     entering_entity,
