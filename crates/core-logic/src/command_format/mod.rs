@@ -380,12 +380,14 @@ impl CommandParseErrorNew {
                     CommandPartParseError::Invalid(command_part_validate_error) => todo!(),
                 };
 
-                format!(
-                    "{}{}?{}",
-                    matched_parts_string,
-                    unmatched_part.options().if_missing.unwrap_or_default(),
-                    error_detail_string
-                )
+                let unmatched_part_string = unmatched_part
+                    .options()
+                    .if_missing
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
+
+                format!("{matched_parts_string}{unmatched_part_string}?{error_detail_string}")
             }
             CommandParseErrorNew::UnmatchedInput {
                 matched_parts,
