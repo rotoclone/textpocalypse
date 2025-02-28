@@ -61,10 +61,10 @@ impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
 
 /// TODO doc
 #[derive(Clone)]
-pub struct PartParserContext {
+pub struct PartParserContext<'c> {
     pub input: String,
     pub entering_entity: Entity,
-    pub next_part: CommandFormatPart,
+    pub next_part: Option<&'c CommandFormatPart>,
 }
 
 #[derive(PartialEq, Eq, Debug)]

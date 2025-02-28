@@ -118,6 +118,15 @@ impl CommandFormatPart {
             }
         }
     }
+
+    /// TODO doc
+    pub fn parse(
+        &self,
+        context: PartParserContext,
+        world: &World,
+    ) -> CommandPartParseResult<ParsedValue> {
+        todo!() //TODO
+    }
 }
 
 #[derive(Debug)]
@@ -451,15 +460,16 @@ impl CommandFormat {
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = HashMap::new();
-        for part in &self.0 {
+        for (i, part) in self.0.iter().enumerate() {
             if remaining_input.is_empty() {
                 has_remaining_input = false;
             }
 
-            match part.parse_untyped(
+            match part.parse(
                 PartParserContext {
                     input: remaining_input,
                     entering_entity,
+                    next_part: self.0.get(i + 1),
                 },
                 world,
             ) {
