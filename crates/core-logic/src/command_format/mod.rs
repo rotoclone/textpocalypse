@@ -71,7 +71,7 @@ impl CommandFormatPart {
 
     /// Gets all the IDs associated with this part.
     /// This will usually return 0 or 1 ID, but `OneOf` parts can have more than 1.
-    pub fn ids(&self) -> Vec<UntypedCommandPartId> {
+    pub fn all_ids(&self) -> Vec<UntypedCommandPartId> {
         match self {
             CommandFormatPart::Literal(_, params) => params
                 .id
@@ -114,8 +114,33 @@ impl CommandFormatPart {
                 .map(|id| vec![id.clone().into()])
                 .unwrap_or_default(),
             CommandFormatPart::OneOf(parts, _) => {
-                parts.iter().flat_map(|part| part.ids()).collect()
+                parts.iter().flat_map(|part| part.all_ids()).collect()
             }
+        }
+    }
+
+    /// Gets the ID for this part, if it has one.
+    /// This will always return `None` for `OneOf` parts.
+    /// TODO is that what should happen for `OneOf` parts?
+    pub fn id(&self) -> Option<UntypedCommandPartId> {
+        match self {
+            CommandFormatPart::Literal(_, params) => params.id.as_ref().map(|id| id.clone().into()),
+            CommandFormatPart::OptionalLiteral(_, params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::AnyText(params) => params.id.as_ref().map(|id| id.clone().into()),
+            CommandFormatPart::OptionalAnyText(params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::Entity(params) => params.id.as_ref().map(|id| id.clone().into()),
+            CommandFormatPart::OptionalEntity(params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::Direction(params) => params.id.as_ref().map(|id| id.clone().into()),
+            CommandFormatPart::OptionalDirection(params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::OneOf(_, _) => None,
         }
     }
 
@@ -314,11 +339,11 @@ impl CommandFormat {
     /// Adds a part to the format.
     /// Panics if the part has an ID and there is already a part with the same ID.
     fn add_part(&mut self, part: CommandFormatPart) {
-        for id in &part.ids() {
+        for id in &part.all_ids() {
             if self
                 .0
                 .iter()
-                .any(|existing_part| existing_part.ids().contains(id))
+                .any(|existing_part| existing_part.all_ids().contains(id))
             {
                 panic!("Duplicate command part ID: {id:?}")
             }
@@ -334,7 +359,7 @@ impl CommandFormat {
             self.0
                 .iter()
                 .map(|part| CommandFormatStringPart {
-                    id: part.id.clone(),
+                    id: part.id().clone(),
                     part_type: part.options().format_string_part_type.clone(),
                 })
                 .collect(),
@@ -480,7 +505,7 @@ impl CommandFormat {
                 } => {
                     dbg!(&parsed, &consumed, &remaining); //TODO
 
-                    if let Some(id) = &part.id {
+                    if let Some(id) = &part.id() {
                         parsed_parts.insert(
                             id.clone(),
                             MatchedCommandFormatPart {
