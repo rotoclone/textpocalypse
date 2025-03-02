@@ -5,6 +5,7 @@ use std::{
     marker::PhantomData,
     ops::Deref,
 };
+use voca_rs::Voca;
 
 use bevy_ecs::prelude::*;
 
@@ -45,6 +46,7 @@ pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String>),
     OptionalLiteral(String, CommandFormatPartParams<Option<String>>),
     AnyText(CommandFormatPartParams<String>),
+    //TODO empty input already parses successfully for an AnyText part, so is OptionalAnyText necessary?
     OptionalAnyText(CommandFormatPartParams<Option<String>>),
     Entity(CommandFormatPartParams<Entity>),
     OptionalEntity(CommandFormatPartParams<Option<Entity>>),
@@ -150,7 +152,93 @@ impl CommandFormatPart {
         context: PartParserContext,
         world: &World,
     ) -> CommandPartParseResult<ParsedValue> {
-        todo!() //TODO
+        match self {
+            CommandFormatPart::Literal(literal, _) => parse_literal(literal, context),
+            CommandFormatPart::OptionalLiteral(literal, _) => {
+                parse_result_to_option(parse_literal(literal, context))
+            }
+            CommandFormatPart::AnyText(_) => parse_any_text(context),
+            CommandFormatPart::OptionalAnyText(command_format_part_params) => {
+                parse_result_to_option(parse_any_text(context))
+            }
+            CommandFormatPart::Entity(command_format_part_params) => todo!(),
+            CommandFormatPart::OptionalEntity(command_format_part_params) => todo!(),
+            CommandFormatPart::Direction(command_format_part_params) => todo!(),
+            CommandFormatPart::OptionalDirection(command_format_part_params) => todo!(),
+            CommandFormatPart::OneOf(command_format_parts, command_format_part_options) => todo!(),
+        }
+    }
+}
+
+/// Parses a literal value from the provided context.
+fn parse_literal(literal: &str, context: PartParserContext) -> CommandPartParseResult<ParsedValue> {
+    if let Some(remaining) = context.input.strip_prefix(literal) {
+        return CommandPartParseResult::Success {
+            parsed: ParsedValue::String(literal.to_string()),
+            consumed: literal.to_string(),
+            remaining: remaining.to_string(),
+        };
+    }
+
+    CommandPartParseResult::Failure {
+        error: CommandPartParseError::Unmatched,
+        remaining: context.input,
+    }
+}
+
+/// Parses all the text from the provided context.
+/// If the next part to be parsed is a literal, this will stop once that literal is reached.
+fn parse_any_text(context: PartParserContext) -> CommandPartParseResult<ParsedValue> {
+    let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
+        Some(literal)
+    } else {
+        None
+    };
+
+    let (parsed, remaining) = take_until(context.input, stopping_point);
+
+    CommandPartParseResult::Success {
+        parsed: ParsedValue::String(parsed.clone()),
+        consumed: parsed,
+        remaining: remaining.to_string(),
+    }
+}
+
+/// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
+/// If `stopping_point` is `None`, returns `(input, "")`.
+fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> (String, String) {
+    let input = input.into();
+    if let Some(stopping_point) = stopping_point {
+        let parsed = input._before(stopping_point);
+        let remaining = input.strip_prefix(&parsed).unwrap_or_default();
+        (parsed, remaining.to_string())
+    } else {
+        (input.clone(), "".to_string())
+    }
+}
+
+/// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
+fn parse_result_to_option(
+    parse_result: CommandPartParseResult<ParsedValue>,
+) -> CommandPartParseResult<ParsedValue> {
+    match parse_result {
+        CommandPartParseResult::Success {
+            parsed,
+            consumed,
+            remaining,
+        } => CommandPartParseResult::Success {
+            parsed: ParsedValue::Option(Some(Box::new(parsed))),
+            consumed,
+            remaining,
+        },
+        CommandPartParseResult::Failure {
+            error: _,
+            remaining,
+        } => CommandPartParseResult::Success {
+            parsed: ParsedValue::Option(None),
+            consumed: "".to_string(),
+            remaining,
+        },
     }
 }
 

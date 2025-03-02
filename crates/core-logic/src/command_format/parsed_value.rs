@@ -10,7 +10,6 @@ pub enum ParsedValue {
     String(String),
     Entity(Entity),
     Direction(Direction),
-    //TODO is this necessary?
     Option(Option<Box<ParsedValue>>),
 }
 
