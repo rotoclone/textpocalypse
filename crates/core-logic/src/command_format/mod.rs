@@ -158,14 +158,18 @@ impl CommandFormatPart {
                 parse_result_to_option(parse_literal(literal, context))
             }
             CommandFormatPart::AnyText(_) => parse_any_text(context),
-            CommandFormatPart::OptionalAnyText(command_format_part_params) => {
+            CommandFormatPart::OptionalAnyText(_) => {
                 parse_result_to_option(parse_any_text(context))
             }
-            CommandFormatPart::Entity(command_format_part_params) => todo!(),
-            CommandFormatPart::OptionalEntity(command_format_part_params) => todo!(),
-            CommandFormatPart::Direction(command_format_part_params) => todo!(),
-            CommandFormatPart::OptionalDirection(command_format_part_params) => todo!(),
-            CommandFormatPart::OneOf(command_format_parts, command_format_part_options) => todo!(),
+            CommandFormatPart::Entity(_) => parse_entity(context, world),
+            CommandFormatPart::OptionalEntity(_) => {
+                parse_result_to_option(parse_entity(context, world))
+            }
+            CommandFormatPart::Direction(_) => parse_direction(context),
+            CommandFormatPart::OptionalDirection(_) => {
+                parse_result_to_option(parse_direction(context))
+            }
+            CommandFormatPart::OneOf(parts, _) => parse_one_of(parts, context, world),
         }
     }
 }
@@ -189,19 +193,83 @@ fn parse_literal(literal: &str, context: PartParserContext) -> CommandPartParseR
 /// Parses all the text from the provided context.
 /// If the next part to be parsed is a literal, this will stop once that literal is reached.
 fn parse_any_text(context: PartParserContext) -> CommandPartParseResult<ParsedValue> {
-    let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
-        Some(literal)
-    } else {
-        None
-    };
-
-    let (parsed, remaining) = take_until(context.input, stopping_point);
+    let (parsed, remaining) = take_until_literal_if_next(context);
 
     CommandPartParseResult::Success {
         parsed: ParsedValue::String(parsed.clone()),
         consumed: parsed,
         remaining: remaining.to_string(),
     }
+}
+
+/// Parses an entity from the provided context.
+fn parse_entity(context: PartParserContext, world: &World) -> CommandPartParseResult<ParsedValue> {
+    EntityParser.parse(context, world).into_generic()
+}
+
+/// Parses a direction from the provided context.
+fn parse_direction(context: PartParserContext) -> CommandPartParseResult<ParsedValue> {
+    let (to_parse, remaining) = take_until_literal_if_next(context);
+
+    if let Some(direction) = Direction::parse(&to_parse) {
+        CommandPartParseResult::Success {
+            parsed: ParsedValue::Direction(direction),
+            consumed: to_parse,
+            remaining,
+        }
+    } else {
+        CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched,
+            // re-combine here to avoid an extra clone above in non-error cases
+            remaining: format!("{to_parse}{remaining}"),
+        }
+    }
+}
+
+/// Finds the first part in `parts` that successfully parses.
+/// If none of the parts parse successfully, returns the first error encountered.
+fn parse_one_of(
+    parts: &[CommandFormatPart],
+    context: PartParserContext,
+    world: &World,
+) -> CommandPartParseResult<ParsedValue> {
+    let mut first_error = None;
+    for part in parts {
+        match part.parse(context.clone(), world) {
+            CommandPartParseResult::Success {
+                parsed,
+                consumed,
+                remaining,
+            } => {
+                return CommandPartParseResult::Success {
+                    parsed,
+                    consumed,
+                    remaining,
+                };
+            }
+            CommandPartParseResult::Failure { error, .. } => {
+                first_error.get_or_insert(error);
+            }
+        }
+    }
+
+    CommandPartParseResult::Failure {
+        error: first_error.unwrap_or(CommandPartParseError::Unmatched),
+        remaining: context.input,
+    }
+}
+
+/// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
+///
+/// If the next part is not a literal: returns `(input, "")`.
+fn take_until_literal_if_next(context: PartParserContext) -> (String, String) {
+    let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
+        Some(literal)
+    } else {
+        None
+    };
+
+    take_until(context.input, stopping_point)
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.

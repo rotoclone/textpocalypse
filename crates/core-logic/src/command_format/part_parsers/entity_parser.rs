@@ -21,6 +21,7 @@ impl ParsePart<Entity> for EntityParser {
                 if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
                     // match based on which consumes the most of the input, since that's the most complete match
                     // TODO update tests
+                    //TODO skip entities that don't pass the validation function for this part
                     if let Some((_, best_remaining, _)) = best_matches.first() {
                         match remaining.len().cmp(&best_remaining.len()) {
                             Ordering::Less => {

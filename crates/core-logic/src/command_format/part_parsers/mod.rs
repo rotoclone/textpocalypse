@@ -67,6 +67,7 @@ pub struct PartParserContext<'c> {
     pub next_part: Option<&'c CommandFormatPart>,
 }
 
+//TODO remove generic type and just make it a ParsedValue?
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseResult<T> {
     Success {
