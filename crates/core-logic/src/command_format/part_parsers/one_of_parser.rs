@@ -7,6 +7,7 @@ use super::{
     CommandPartParseError, CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext,
 };
 
+/* TODO remove
 #[derive(Debug, Clone)]
 pub struct OneOfParser(pub NonEmpty<Box<dyn ParsePartUntyped>>);
 
@@ -56,3 +57,4 @@ impl ParsePartUntyped for OneOfParser {
         self.parse(context, world).into_generic()
     }
 }
+    */

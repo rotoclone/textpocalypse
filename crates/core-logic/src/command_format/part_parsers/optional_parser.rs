@@ -4,6 +4,7 @@ use crate::command_format::parsed_value::ParsedValue;
 
 use super::{CommandPartParseResult, ParsePart, ParsePartUntyped, PartParserContext};
 
+/* TODO remove
 #[derive(Debug)]
 pub struct OptionalParser<T: Into<ParsedValue> + std::fmt::Debug + Clone>(
     pub Box<dyn ParsePart<T>>,
@@ -57,3 +58,4 @@ impl<T: 'static + Into<ParsedValue> + std::fmt::Debug + Clone> ParsePartUntyped
         self.parse(context, world).into_generic()
     }
 }
+    */

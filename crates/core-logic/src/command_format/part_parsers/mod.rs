@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use nom::{bytes::complete::tag_no_case, IResult};
 
 mod literal_parser;
 pub use literal_parser::LiteralParser;
@@ -10,11 +11,10 @@ mod entity_parser;
 pub use entity_parser::EntityParser;
 
 mod optional_parser;
-pub use optional_parser::OptionalParser;
+//TODO pub use optional_parser::OptionalParser;
 
 mod one_of_parser;
-use nom::{bytes::complete::tag_no_case, IResult};
-pub use one_of_parser::OneOfParser;
+//TODO pub use one_of_parser::OneOfParser;
 
 use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateError};
 
