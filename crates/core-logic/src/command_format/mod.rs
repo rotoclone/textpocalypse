@@ -57,7 +57,7 @@ pub enum CommandFormatPart {
 
 impl CommandFormatPart {
     /// Gets the options for this part.
-    pub fn options(&self) -> &CommandFormatPartOptions {
+    fn options(&self) -> &CommandFormatPartOptions {
         match self {
             CommandFormatPart::Literal(_, params) => &params.options,
             CommandFormatPart::OptionalLiteral(_, params) => &params.options,
@@ -67,6 +67,21 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalEntity(params) => &params.options,
             CommandFormatPart::Direction(params) => &params.options,
             CommandFormatPart::OptionalDirection(params) => &params.options,
+            CommandFormatPart::OneOf(_, options) => options,
+        }
+    }
+
+    /// Gets the options for this part mutably.
+    fn options_mut(&mut self) -> &mut CommandFormatPartOptions {
+        match self {
+            CommandFormatPart::Literal(_, params) => &mut params.options,
+            CommandFormatPart::OptionalLiteral(_, params) => &mut params.options,
+            CommandFormatPart::AnyText(params) => &mut params.options,
+            CommandFormatPart::OptionalAnyText(params) => &mut params.options,
+            CommandFormatPart::Entity(params) => &mut params.options,
+            CommandFormatPart::OptionalEntity(params) => &mut params.options,
+            CommandFormatPart::Direction(params) => &mut params.options,
+            CommandFormatPart::OptionalDirection(params) => &mut params.options,
             CommandFormatPart::OneOf(_, options) => options,
         }
     }
@@ -146,12 +161,45 @@ impl CommandFormatPart {
         }
     }
 
+    /// Sets the string to include in the error message if this part is missing (e.g. "what", "who", etc.).
+    pub fn with_if_missing(mut self, s: impl Into<String>) -> Self {
+        self.options_mut().if_missing = Some(s.into());
+        self
+    }
+
+    /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
+    pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
+        self.options_mut().format_string_part_type =
+            CommandFormatStringPartType::Literal(name.into());
+        self
+    }
+
+    /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
+    pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
+        self.options_mut().format_string_part_type =
+            CommandFormatStringPartType::Placeholder(name.into());
+        self
+    }
+
+    /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
+    pub fn always_include_in_errors(mut self) -> Self {
+        self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Always;
+        self
+    }
+
+    /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
+    pub fn never_include_in_errors(mut self) -> Self {
+        self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Never;
+        self
+    }
+
     /// TODO doc
     pub fn parse(
         &self,
         context: PartParserContext,
         world: &World,
     ) -> CommandPartParseResult<ParsedValue> {
+        //TODO call validators at some point
         match self {
             CommandFormatPart::Literal(literal, _) => parse_literal(literal, context),
             CommandFormatPart::OptionalLiteral(literal, _) => {
@@ -330,6 +378,7 @@ impl<T: Clone> Clone for CommandFormatPartParams<T> {
     }
 }
 
+//TODO probably remove these
 impl<T> CommandFormatPartParams<T> {
     /// Adds a validator to this part. Any existing validator will be replaced.
     pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<T>>) -> Self {
@@ -395,6 +444,22 @@ enum IncludeInErrorsBehavior {
 
 /// Creates a part to consume a literal value.
 pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
+    build_literal_part(literal, None)
+}
+
+/// Creates a part to consume a literal value, with a validator function.
+/// TODO but it doesn't make any sense to have a custom validator, it'll always validate the literal value...unless the validation depends on the world state? is that a valid use case?
+pub fn literal_part_with_validator(
+    literal: impl Into<String>,
+    validator: Box<dyn ValidateParsedValue<String>>,
+) -> CommandFormatPart {
+    build_literal_part(literal, Some(validator))
+}
+
+fn build_literal_part(
+    literal: impl Into<String>,
+    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::Literal(
         literal_string.clone(),
@@ -404,7 +469,7 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
                 format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
                 ..Default::default()
             },
-            validator: None,
+            validator,
         },
     )
 }
@@ -481,13 +546,13 @@ impl<T> CommandPartId<T> {
 
 impl CommandFormat {
     /// Creates a format starting with the provided part.
-    pub fn new<T: 'static + std::fmt::Debug>(part: CommandFormatPart) -> CommandFormat {
+    pub fn new(part: CommandFormatPart) -> CommandFormat {
         CommandFormat(NonEmpty::new(part))
     }
 
     /// Adds a part to the format.
     /// Panics if the part has an ID and there is already a part with the same ID.
-    pub fn then<T: 'static + std::fmt::Debug>(mut self, part: CommandFormatPart) -> CommandFormat {
+    pub fn then(mut self, part: CommandFormatPart) -> CommandFormat {
         self.add_part(part);
         self
     }
