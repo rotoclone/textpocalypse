@@ -51,6 +51,7 @@ impl InputParser for SayParser {
                         PartParserContext {
                             input: input.to_string(),
                             entering_entity: source_entity,
+                            next_part: None,
                         },
                         world,
                     ),

@@ -41,6 +41,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     }
 }
 
+//TODO add a variant for some kind of "sub-list" of parts, so you can do stuff like define optionally having a whole sequence of parts as whole, rather than having to make them optional individually
 #[derive(Debug, Clone)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String>),
@@ -455,6 +456,8 @@ pub fn literal_part_with_validator(
 ) -> CommandFormatPart {
     build_literal_part(literal, Some(validator))
 }
+
+//TODO _with_validator functions for other parts
 
 fn build_literal_part(
     literal: impl Into<String>,

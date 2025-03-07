@@ -6,15 +6,14 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    command_format::PartParserContext,
+    command_format::{optional_entity_part, optional_literal_part, PartParserContext},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
     },
-    entity_part,
     game_map::Coordinates,
     input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
-    literal_part, maybe_part,
+    literal_part,
     notification::VerifyResult,
     one_of_part, send_message, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
     DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
@@ -38,22 +37,16 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Option<Entity>>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
-        literal_part("look").into(),
-        literal_part("l").into(),
+        literal_part("look"),
+        literal_part("l"),
     ]))
+    //TODO make this optional (so you can just type "look") without allowing no space between the verb and the target
     .then(literal_part(" "))
-    .then(maybe_part(
-        CommandPartId::new("atPart"),
-        literal_part("at "),
-    ))
+    .then(optional_literal_part("at "))
     .then(
-        maybe_part(
-            TARGET_PART_ID.clone(),
-            //TODO remove need to include another ID here
-            entity_part(CommandPartId::new("targetPart")),
-        )
-        .with_if_missing("what")
-        .with_placeholder_for_format_string("thing/direction"),
+        optional_entity_part(TARGET_PART_ID.clone())
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("thing/direction"),
     )
 });
 
@@ -80,6 +73,7 @@ impl InputParser for LookParser {
                         PartParserContext {
                             input: input.to_string(),
                             entering_entity: source_entity,
+                            next_part: None,
                         },
                         world,
                     ),
