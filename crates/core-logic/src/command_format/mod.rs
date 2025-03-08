@@ -547,6 +547,7 @@ impl<T> CommandPartId<T> {
     }
 }
 
+//TODO add some kind of function for detecting if an input starts with the verb for a format, for example to differentiate between an invalid look, and invalid examine, or just a different command
 impl CommandFormat {
     /// Creates a format starting with the provided part.
     pub fn new(part: CommandFormatPart) -> CommandFormat {
