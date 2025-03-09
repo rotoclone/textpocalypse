@@ -457,8 +457,6 @@ pub fn literal_part_with_validator(
     build_literal_part(literal, Some(validator))
 }
 
-//TODO _with_validator functions for other parts
-
 fn build_literal_part(
     literal: impl Into<String>,
     validator: Option<Box<dyn ValidateParsedValue<String>>>,
@@ -479,6 +477,22 @@ fn build_literal_part(
 
 /// Creates a part to maybe consume a literal value.
 pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
+    build_optional_literal_part(literal, None)
+}
+
+/// Creates a part to maybe consume a literal value, with a validator function.
+/// TODO but it doesn't make any sense to have a custom validator, it'll always validate the literal value...unless the validation depends on the world state? is that a valid use case?
+pub fn optional_literal_part_with_validator(
+    literal: impl Into<String>,
+    validator: Box<dyn ValidateParsedValue<Option<String>>>,
+) -> CommandFormatPart {
+    build_optional_literal_part(literal, Some(validator))
+}
+
+fn build_optional_literal_part(
+    literal: impl Into<String>,
+    validator: Option<Box<dyn ValidateParsedValue<Option<String>>>>,
+) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::OptionalLiteral(
         literal_string.clone(),
@@ -488,43 +502,103 @@ pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
                 format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
                 ..Default::default()
             },
-            validator: None,
+            validator,
         },
     )
 }
 
 /// Creates a part to consume any text.
 pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart {
+    build_any_text_part(id, None)
+}
+
+/// Creates a part to consume any text, with a validator function.
+pub fn any_text_part_with_validator(
+    id: CommandPartId<String>,
+    validator: Box<dyn ValidateParsedValue<String>>,
+) -> CommandFormatPart {
+    build_any_text_part(id, Some(validator))
+}
+
+fn build_any_text_part(
+    id: CommandPartId<String>,
+    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+) -> CommandFormatPart {
     CommandFormatPart::AnyText(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        validator: None,
+        validator,
     })
 }
 
 /// Creates a part to maybe comsume any text.
 pub fn optional_any_text_part(id: CommandPartId<Option<String>>) -> CommandFormatPart {
+    build_optional_any_text_part(id, None)
+}
+
+/// Creates a part to maybe comsume any text, with a validation function.
+/// TODO shouldn't validators for optional parts validate the parsed value, not an `Option`, since `None` should always be considered valid?
+pub fn optional_any_text_part_with_validator(
+    id: CommandPartId<Option<String>>,
+    validator: Box<dyn ValidateParsedValue<Option<String>>>,
+) -> CommandFormatPart {
+    build_optional_any_text_part(id, Some(validator))
+}
+
+fn build_optional_any_text_part(
+    id: CommandPartId<Option<String>>,
+    validator: Option<Box<dyn ValidateParsedValue<Option<String>>>>,
+) -> CommandFormatPart {
     CommandFormatPart::OptionalAnyText(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        validator: None,
+        validator,
     })
 }
 
 /// Creates an `Entity` part.
 pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
+    build_entity_part(id, None)
+}
+
+/// Creates an `Entity` part, with a validator function.
+pub fn entity_part_with_validator(
+    id: CommandPartId<Entity>,
+    validator: Box<dyn ValidateParsedValue<Entity>>,
+) -> CommandFormatPart {
+    build_entity_part(id, Some(validator))
+}
+
+fn build_entity_part(
+    id: CommandPartId<Entity>,
+    validator: Option<Box<dyn ValidateParsedValue<Entity>>>,
+) -> CommandFormatPart {
     CommandFormatPart::Entity(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        validator: None,
+        validator,
     })
 }
 
 pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatPart {
+    build_optional_entity_part(id, None)
+}
+
+pub fn optional_entity_part_with_validator(
+    id: CommandPartId<Option<Entity>>,
+    validator: Box<dyn ValidateParsedValue<Option<Entity>>>,
+) -> CommandFormatPart {
+    build_optional_entity_part(id, Some(validator))
+}
+
+fn build_optional_entity_part(
+    id: CommandPartId<Option<Entity>>,
+    validator: Option<Box<dyn ValidateParsedValue<Option<Entity>>>>,
+) -> CommandFormatPart {
     CommandFormatPart::OptionalEntity(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
-        validator: None,
+        validator,
     })
 }
 
