@@ -44,15 +44,15 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 //TODO add a variant for some kind of "sub-list" of parts, so you can do stuff like define optionally having a whole sequence of parts as whole, rather than having to make them optional individually
 #[derive(Debug, Clone)]
 pub enum CommandFormatPart {
-    Literal(String, CommandFormatPartParams<String>),
-    OptionalLiteral(String, CommandFormatPartParams<Option<String>>),
-    AnyText(CommandFormatPartParams<String>),
+    Literal(String, CommandFormatPartParams<String, String>),
+    OptionalLiteral(String, CommandFormatPartParams<Option<String>, String>),
+    AnyText(CommandFormatPartParams<String, String>),
     //TODO empty input already parses successfully for an AnyText part, so is OptionalAnyText necessary?
-    OptionalAnyText(CommandFormatPartParams<Option<String>>),
-    Entity(CommandFormatPartParams<Entity>),
-    OptionalEntity(CommandFormatPartParams<Option<Entity>>),
-    Direction(CommandFormatPartParams<Direction>),
-    OptionalDirection(CommandFormatPartParams<Option<Direction>>),
+    OptionalAnyText(CommandFormatPartParams<Option<String>, String>),
+    Entity(CommandFormatPartParams<Entity, Entity>),
+    OptionalEntity(CommandFormatPartParams<Option<Entity>, Entity>),
+    Direction(CommandFormatPartParams<Direction, Direction>),
+    OptionalDirection(CommandFormatPartParams<Option<Direction>, Direction>),
     OneOf(Vec<CommandFormatPart>, CommandFormatPartOptions),
 }
 
@@ -360,13 +360,13 @@ fn parse_result_to_option(
 }
 
 #[derive(Debug)]
-pub struct CommandFormatPartParams<T> {
-    id: Option<CommandPartId<T>>,
+pub struct CommandFormatPartParams<P, V> {
+    id: Option<CommandPartId<P>>,
     options: CommandFormatPartOptions,
-    validator: Option<Box<dyn ValidateParsedValue<T>>>,
+    validator: Option<Box<dyn ValidateParsedValue<V>>>,
 }
 
-impl<T: Clone> Clone for CommandFormatPartParams<T> {
+impl<P, V> Clone for CommandFormatPartParams<P, V> {
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
@@ -380,9 +380,9 @@ impl<T: Clone> Clone for CommandFormatPartParams<T> {
 }
 
 //TODO probably remove these
-impl<T> CommandFormatPartParams<T> {
+impl<P, V> CommandFormatPartParams<P, V> {
     /// Adds a validator to this part. Any existing validator will be replaced.
-    pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<T>>) -> Self {
+    pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<V>>) -> Self {
         self.validator = Some(validator);
         self
     }
@@ -484,14 +484,14 @@ pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
 /// TODO but it doesn't make any sense to have a custom validator, it'll always validate the literal value...unless the validation depends on the world state? is that a valid use case?
 pub fn optional_literal_part_with_validator(
     literal: impl Into<String>,
-    validator: Box<dyn ValidateParsedValue<Option<String>>>,
+    validator: Box<dyn ValidateParsedValue<String>>,
 ) -> CommandFormatPart {
     build_optional_literal_part(literal, Some(validator))
 }
 
 fn build_optional_literal_part(
     literal: impl Into<String>,
-    validator: Option<Box<dyn ValidateParsedValue<Option<String>>>>,
+    validator: Option<Box<dyn ValidateParsedValue<String>>>,
 ) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::OptionalLiteral(
@@ -537,17 +537,16 @@ pub fn optional_any_text_part(id: CommandPartId<Option<String>>) -> CommandForma
 }
 
 /// Creates a part to maybe comsume any text, with a validation function.
-/// TODO shouldn't validators for optional parts validate the parsed value, not an `Option`, since `None` should always be considered valid?
 pub fn optional_any_text_part_with_validator(
     id: CommandPartId<Option<String>>,
-    validator: Box<dyn ValidateParsedValue<Option<String>>>,
+    validator: Box<dyn ValidateParsedValue<String>>,
 ) -> CommandFormatPart {
     build_optional_any_text_part(id, Some(validator))
 }
 
 fn build_optional_any_text_part(
     id: CommandPartId<Option<String>>,
-    validator: Option<Box<dyn ValidateParsedValue<Option<String>>>>,
+    validator: Option<Box<dyn ValidateParsedValue<String>>>,
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalAnyText(CommandFormatPartParams {
         id: Some(id),
@@ -556,12 +555,12 @@ fn build_optional_any_text_part(
     })
 }
 
-/// Creates an `Entity` part.
+/// Creates a part to parse an entity name.
 pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
     build_entity_part(id, None)
 }
 
-/// Creates an `Entity` part, with a validator function.
+/// Creates a part to parse an entity name, with a validator function.
 pub fn entity_part_with_validator(
     id: CommandPartId<Entity>,
     validator: Box<dyn ValidateParsedValue<Entity>>,
@@ -580,22 +579,72 @@ fn build_entity_part(
     })
 }
 
+/// Creates a part to parse an optional entity name.
 pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatPart {
     build_optional_entity_part(id, None)
 }
 
+/// Creates a part to parse an optional entity name, with a validator function.
 pub fn optional_entity_part_with_validator(
     id: CommandPartId<Option<Entity>>,
-    validator: Box<dyn ValidateParsedValue<Option<Entity>>>,
+    validator: Box<dyn ValidateParsedValue<Entity>>,
 ) -> CommandFormatPart {
     build_optional_entity_part(id, Some(validator))
 }
 
 fn build_optional_entity_part(
     id: CommandPartId<Option<Entity>>,
-    validator: Option<Box<dyn ValidateParsedValue<Option<Entity>>>>,
+    validator: Option<Box<dyn ValidateParsedValue<Entity>>>,
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalEntity(CommandFormatPartParams {
+        id: Some(id),
+        options: CommandFormatPartOptions::default(),
+        validator,
+    })
+}
+
+/// Creates a part to parse a direction.
+pub fn direction_part(id: CommandPartId<Direction>) -> CommandFormatPart {
+    build_direction_part(id, None)
+}
+
+/// Creates a part to parse a direction, with a validator function.
+pub fn direction_part_with_validator(
+    id: CommandPartId<Direction>,
+    validator: Box<dyn ValidateParsedValue<Direction>>,
+) -> CommandFormatPart {
+    build_direction_part(id, Some(validator))
+}
+
+fn build_direction_part(
+    id: CommandPartId<Direction>,
+    validator: Option<Box<dyn ValidateParsedValue<Direction>>>,
+) -> CommandFormatPart {
+    CommandFormatPart::Direction(CommandFormatPartParams {
+        id: Some(id),
+        options: CommandFormatPartOptions::default(),
+        validator,
+    })
+}
+
+/// Creates a part to parse an optional direction.
+pub fn optional_direction_part(id: CommandPartId<Option<Direction>>) -> CommandFormatPart {
+    build_optional_direction_part(id, None)
+}
+
+/// Creates a part to parse an optional direction, with a validator function.
+pub fn optional_direction_part_with_validator(
+    id: CommandPartId<Option<Direction>>,
+    validator: Box<dyn ValidateParsedValue<Direction>>,
+) -> CommandFormatPart {
+    build_optional_direction_part(id, Some(validator))
+}
+
+fn build_optional_direction_part(
+    id: CommandPartId<Option<Direction>>,
+    validator: Option<Box<dyn ValidateParsedValue<Direction>>>,
+) -> CommandFormatPart {
+    CommandFormatPart::OptionalDirection(CommandFormatPartParams {
         id: Some(id),
         options: CommandFormatPartOptions::default(),
         validator,
@@ -611,8 +660,15 @@ pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
 /// `T` is the type that the part will be parsed into.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct CommandPartId<T>(String, PhantomData<fn(T)>);
+
+// implemting clone manually so it's implemented even if `T` is not clone
+impl<T> Clone for CommandPartId<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), self.1.clone())
+    }
+}
 
 impl<T> CommandPartId<T> {
     /// Creates a new part ID.
