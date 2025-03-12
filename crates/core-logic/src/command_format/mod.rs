@@ -742,6 +742,16 @@ pub enum CommandParseErrorNew {
 }
 
 impl CommandParseErrorNew {
+    /// Returns true if at least one part was matched, false if no parts were matched.
+    pub fn any_parts_matched(&self) -> bool {
+        let matched_parts = match self {
+            CommandParseErrorNew::Part { matched_parts, .. } => matched_parts,
+            CommandParseErrorNew::UnmatchedInput { matched_parts, .. } => matched_parts,
+        };
+
+        !matched_parts.is_empty()
+    }
+
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
         let string = match self {

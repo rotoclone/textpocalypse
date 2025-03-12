@@ -100,35 +100,71 @@ impl InputParser for LookParser {
         }
 
         //TODO use `?` instead
-        let parsed = match LOOK_WITH_TARGET_COMMAND_FORMAT.parse(input, source_entity, world) {
-            Ok(p) => p,
+        match LOOK_WITH_TARGET_COMMAND_FORMAT.parse(input, source_entity, world) {
+            Ok(p) => {
+                let target = p.get(&TARGET_PART_ID);
+
+                return Ok(Box::new(LookAction {
+                    target,
+                    detailed: false,
+                    notification_sender: ActionNotificationSender::new(),
+                }));
+            }
             Err(e) => {
                 dbg!(&e); //TODO
 
                 //TODO don't send message directly here
-                send_message(
-                    world,
-                    source_entity,
-                    e.into_message(
-                        PartParserContext {
-                            input: input.to_string(),
-                            entering_entity: source_entity,
-                            next_part: None,
-                        },
+                if e.any_parts_matched() {
+                    send_message(
                         world,
-                    ),
-                );
-                return Err(InputParseError::UnknownCommand);
+                        source_entity,
+                        e.into_message(
+                            PartParserContext {
+                                input: input.to_string(),
+                                entering_entity: source_entity,
+                                next_part: None,
+                            },
+                            world,
+                        ),
+                    );
+                    return Err(InputParseError::UnknownCommand);
+                }
             }
         };
 
-        let target = parsed.get(&TARGET_PART_ID);
+        match DETAILED_LOOK_COMMAND_FORMAT.parse(input, source_entity, world) {
+            Ok(p) => {
+                let target = p.get(&TARGET_PART_ID);
 
-        Ok(Box::new(LookAction {
-            target,
-            detailed: false,
-            notification_sender: ActionNotificationSender::new(),
-        }))
+                return Ok(Box::new(LookAction {
+                    target,
+                    detailed: true,
+                    notification_sender: ActionNotificationSender::new(),
+                }));
+            }
+            Err(e) => {
+                dbg!(&e); //TODO
+
+                //TODO don't send message directly here
+                if e.any_parts_matched() {
+                    send_message(
+                        world,
+                        source_entity,
+                        e.into_message(
+                            PartParserContext {
+                                input: input.to_string(),
+                                entering_entity: source_entity,
+                                next_part: None,
+                            },
+                            world,
+                        ),
+                    );
+                    return Err(InputParseError::UnknownCommand);
+                }
+            }
+        };
+
+        Err(InputParseError::UnknownCommand)
 
         //TODO try parsing examine format too
 
