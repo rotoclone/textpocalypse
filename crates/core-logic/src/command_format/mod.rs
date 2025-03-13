@@ -730,7 +730,6 @@ pub enum CommandParseErrorNew {
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
         // boxed to reduce size
-        // TODO try without box now?
         unmatched_part: Box<CommandFormatPart>,
         error: CommandPartParseError,
     },
@@ -779,12 +778,8 @@ impl CommandParseErrorNew {
                     CommandPartParseError::Invalid(command_part_validate_error) => todo!(),
                 };
 
-                let unmatched_part_string = unmatched_part
-                    .options()
-                    .if_missing
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("");
+                let unmatched_part_string =
+                    unmatched_part.options().if_missing.as_deref().unwrap_or("");
 
                 format!("{matched_parts_string}{unmatched_part_string}?{error_detail_string}")
             }
