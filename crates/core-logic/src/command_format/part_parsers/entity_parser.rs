@@ -3,70 +3,86 @@ use std::cmp::Ordering;
 use bevy_ecs::prelude::*;
 use nom::{bytes::complete::tag, combinator::opt, sequence::pair, IResult};
 
-use crate::{command_format::parsed_value::ParsedValue, find_entities_in_presence_of, Description};
-
-use super::{
-    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, ParsePart,
-    ParsePartUntyped, PartParserContext,
+use crate::{
+    command_format::{
+        parsed_value::ParsedValue,
+        parsed_value_validators::{
+            CommandPartValidateResult, PartValidatorContext, ValidateParsedValue,
+        },
+    },
+    find_entities_in_presence_of, Description,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub struct EntityParser;
+use super::{
+    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, PartParserContext,
+};
 
-impl ParsePart<Entity> for EntityParser {
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<Entity> {
-        let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
-        for entity in find_entities_in_presence_of(context.entering_entity, world) {
-            for name in Description::get_all_ways_to_reference(entity, world) {
-                if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
-                    // match based on which consumes the most of the input, since that's the most complete match
-                    // TODO update tests
-                    //TODO skip entities that don't pass the validation function for this part
-                    if let Some((_, best_remaining, _)) = best_matches.first() {
-                        match remaining.len().cmp(&best_remaining.len()) {
-                            Ordering::Less => {
-                                best_matches.clear();
-                                best_matches.push((entity, remaining, matched));
-                            }
-                            Ordering::Equal => best_matches.push((entity, remaining, matched)),
-                            Ordering::Greater => (),
-                        }
-                    } else {
-                        best_matches.push((entity, remaining, matched));
+/// Parses an entity from the provided context.
+pub fn parse_entity(
+    context: PartParserContext,
+    validator: Option<&dyn ValidateParsedValue<Entity>>,
+    world: &World,
+) -> CommandPartParseResult<ParsedValue> {
+    let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
+    let mut first_invalid_match = None;
+    for entity in find_entities_in_presence_of(context.entering_entity, world) {
+        for name in Description::get_all_ways_to_reference(entity, world) {
+            if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
+                if let CommandPartValidateResult::Invalid(_) = validator
+                    .map(|v| {
+                        ValidateParsedValue::validate(
+                            v,
+                            PartValidatorContext {
+                                parsed_value: entity,
+                                performing_entity: context.entering_entity,
+                            },
+                            world,
+                        )
+                    })
+                    .unwrap_or(CommandPartValidateResult::Valid)
+                {
+                    if first_invalid_match.is_none() {
+                        first_invalid_match = Some((entity, remaining, matched));
                     }
+                    continue;
+                }
+
+                // match based on which consumes the most of the input, since that's the most complete match
+                // TODO update tests
+                if let Some((_, best_remaining, _)) = best_matches.first() {
+                    match remaining.len().cmp(&best_remaining.len()) {
+                        Ordering::Less => {
+                            best_matches.clear();
+                            best_matches.push((entity, remaining, matched));
+                        }
+                        Ordering::Equal => best_matches.push((entity, remaining, matched)),
+                        Ordering::Greater => (),
+                    }
+                } else {
+                    best_matches.push((entity, remaining, matched));
                 }
             }
         }
+    }
 
-        //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
-        if let Some((entity, remaining, matched)) = best_matches.first() {
-            // matched at least one target
-            CommandPartParseResult::Success {
-                parsed: *entity,
-                consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
-                remaining: remaining.to_string(),
-            }
-        } else {
-            // matched no targets
-            CommandPartParseResult::Failure {
-                error: CommandPartParseError::Unmatched,
-                remaining: context.input,
-            }
+    //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
+    if let Some((entity, remaining, matched)) = best_matches
+        .first()
+        // if no valid targets were found, return the first invalid one so the user will get a nice error message about why they can't target that entity
+        .or_else(|| first_invalid_match.as_ref())
+    {
+        // matched at least one target
+        CommandPartParseResult::Success {
+            parsed: ParsedValue::Entity(*entity),
+            consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
+            remaining: remaining.to_string(),
         }
-    }
-
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(*self)
-    }
-}
-
-impl ParsePartUntyped for EntityParser {
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<ParsedValue> {
-        self.parse(context, world).into_generic()
+    } else {
+        // matched no targets
+        CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched,
+            remaining: context.input,
+        }
     }
 }
 

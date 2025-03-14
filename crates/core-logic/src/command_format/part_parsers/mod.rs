@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use nom::{bytes::complete::tag_no_case, IResult};
+use voca_rs::Voca;
 
 mod literal_parser;
 pub use literal_parser::LiteralParser;
@@ -8,7 +9,7 @@ mod any_text_parser;
 pub use any_text_parser::AnyTextParser;
 
 mod entity_parser;
-pub use entity_parser::EntityParser;
+pub use entity_parser::parse_entity;
 
 mod optional_parser;
 //TODO pub use optional_parser::OptionalParser;
@@ -111,6 +112,57 @@ pub enum CommandPartParseError {
     Unmatched,
     /// The part was found, but was invalid
     Invalid(CommandPartValidateError),
+}
+
+/// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
+///
+/// If the next part is not a literal: returns `(input, "")`.
+pub fn take_until_literal_if_next(context: PartParserContext) -> (String, String) {
+    let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
+        Some(literal)
+    } else {
+        None
+    };
+
+    take_until(context.input, stopping_point)
+}
+
+/// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
+/// If `stopping_point` is `None`, returns `(input, "")`.
+pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> (String, String) {
+    let input = input.into();
+    if let Some(stopping_point) = stopping_point {
+        let parsed = input._before(stopping_point);
+        let remaining = input.strip_prefix(&parsed).unwrap_or_default();
+        (parsed, remaining.to_string())
+    } else {
+        (input.clone(), "".to_string())
+    }
+}
+
+/// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
+pub fn parse_result_to_option(
+    parse_result: CommandPartParseResult<ParsedValue>,
+) -> CommandPartParseResult<ParsedValue> {
+    match parse_result {
+        CommandPartParseResult::Success {
+            parsed,
+            consumed,
+            remaining,
+        } => CommandPartParseResult::Success {
+            parsed: ParsedValue::Option(Some(Box::new(parsed))),
+            consumed,
+            remaining,
+        },
+        CommandPartParseResult::Failure {
+            error: _,
+            remaining,
+        } => CommandPartParseResult::Success {
+            parsed: ParsedValue::Option(None),
+            consumed: "".to_string(),
+            remaining,
+        },
+    }
 }
 
 /// Attempts to match a literal from the beginning of the provided input.

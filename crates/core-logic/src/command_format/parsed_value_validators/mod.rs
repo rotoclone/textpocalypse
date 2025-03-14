@@ -47,8 +47,8 @@ impl<T: 'static + ValidateParsedValue<P> + Clone, P> ValidateParsedValueClone<P>
 }
 
 pub struct PartValidatorContext<T> {
-    parsed_value: T,
-    performing_entity: Entity,
+    pub parsed_value: T,
+    pub performing_entity: Entity,
 }
 
 pub enum CommandPartValidateResult {
