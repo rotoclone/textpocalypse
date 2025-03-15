@@ -162,6 +162,34 @@ impl CommandFormatPart {
         }
     }
 
+    /// Gets the validator for this part, if it has one.
+    /// This will always return `None` for `OneOf` parts.
+    fn validator(&self) -> Option<Box<dyn ValidateParsedValueUntyped>> {
+        match self {
+            CommandFormatPart::Literal(_, params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::OptionalLiteral(_, params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::AnyText(params) => params.validator.as_ref().map(|v| v.as_untyped()),
+            CommandFormatPart::OptionalAnyText(params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::Entity(params) => params.validator.as_ref().map(|v| v.as_untyped()),
+            CommandFormatPart::OptionalEntity(params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::Direction(params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::OptionalDirection(params) => {
+                params.validator.as_ref().map(|v| v.as_untyped())
+            }
+            CommandFormatPart::OneOf(_, _) => None,
+        }
+    }
+
     /// Sets the string to include in the error message if this part is missing (e.g. "what", "who", etc.).
     pub fn with_if_missing(mut self, s: impl Into<String>) -> Self {
         self.options_mut().if_missing = Some(s.into());
@@ -200,8 +228,9 @@ impl CommandFormatPart {
         context: PartParserContext,
         world: &World,
     ) -> CommandPartParseResult<ParsedValue> {
-        //TODO call validators at some point
-        match self {
+        let entering_entity = context.entering_entity;
+        // first parse
+        let parse_result = match self {
             CommandFormatPart::Literal(literal, _) => parse_literal(literal, context),
             CommandFormatPart::OptionalLiteral(literal, _) => {
                 parse_result_to_option(parse_literal(literal, context))
@@ -221,6 +250,46 @@ impl CommandFormatPart {
                 parse_result_to_option(parse_direction(context))
             }
             CommandFormatPart::OneOf(parts, _) => parse_one_of(parts, context, world),
+        };
+
+        // now validate
+        match parse_result {
+            CommandPartParseResult::Success {
+                parsed,
+                consumed,
+                remaining,
+            } => {
+                let validation_result = self
+                    .validator()
+                    .map(|v| {
+                        v.validate(
+                            PartValidatorContext {
+                                parsed_value: parsed.clone(),
+                                performing_entity: entering_entity,
+                            },
+                            world,
+                        )
+                    })
+                    .unwrap_or(CommandPartValidateResult::Valid);
+
+                if let CommandPartValidateResult::Invalid(e) = validation_result {
+                    CommandPartParseResult::Failure {
+                        error: CommandPartParseError::Invalid(e),
+                        // re-combine these to effectively un-do the consumption since it's invalid
+                        remaining: format!("{consumed}{remaining}"),
+                    }
+                } else {
+                    CommandPartParseResult::Success {
+                        parsed,
+                        consumed,
+                        remaining,
+                    }
+                }
+            }
+            CommandPartParseResult::Failure { .. } => {
+                // no need to run validator since parsing already failed
+                parse_result
+            }
         }
     }
 }

@@ -2,6 +2,8 @@ use std::any::Any;
 
 use bevy_ecs::prelude::*;
 
+use super::parsed_value::ParsedValue;
+
 pub trait ValidateParsedValue<T>: ValidateParsedValueUntyped + ValidateParsedValueClone<T> {
     fn validate(
         &self,
@@ -17,7 +19,7 @@ pub trait ValidateParsedValueUntyped:
 {
     fn validate(
         &self,
-        context: PartValidatorContext<Box<dyn Any>>,
+        context: PartValidatorContext<ParsedValue>,
         world: &World,
     ) -> CommandPartValidateResult;
 }
