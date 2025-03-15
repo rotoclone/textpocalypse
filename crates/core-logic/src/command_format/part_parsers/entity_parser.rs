@@ -69,7 +69,7 @@ pub fn parse_entity(
     if let Some((entity, remaining, matched)) = best_matches
         .first()
         // if no valid targets were found, return the first invalid one so the user will get a nice error message about why they can't target that entity
-        .or_else(|| first_invalid_match.as_ref())
+        .or(first_invalid_match.as_ref())
     {
         // matched at least one target
         CommandPartParseResult::Success {
