@@ -19,47 +19,6 @@ pub use parse_one_of::parse_one_of;
 
 use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateError};
 
-pub trait ParsePart<T>: ParsePartUntyped + ParsePartClone<T> {
-    /// Runs this parser on the input in `context`.
-    fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult<T>;
-
-    /// Builds a version of this parser with no generic type.
-    fn as_untyped(&self) -> Box<dyn ParsePartUntyped>;
-}
-
-pub trait ParsePartUntyped: std::fmt::Debug + Send + Sync + ParsePartUntypedClone {
-    /// Runs this parser on the input in `context`.
-    fn parse_untyped(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<ParsedValue>;
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-pub trait ParsePartUntypedClone {
-    fn clone_box_untyped(&self) -> Box<dyn ParsePartUntyped>;
-}
-
-impl<T: 'static + ParsePartUntyped + Clone> ParsePartUntypedClone for T {
-    fn clone_box_untyped(&self) -> Box<dyn ParsePartUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-/// This trait exists because adding regular `Clone` to a trait makes it not object-safe, but doing this silly thing works apparently.
-/// https://stackoverflow.com/a/30353928
-pub trait ParsePartClone<T> {
-    fn clone_box(&self) -> Box<dyn ParsePart<T>>;
-}
-
-impl<T: 'static + ParsePart<P> + Clone, P> ParsePartClone<P> for T {
-    fn clone_box(&self) -> Box<dyn ParsePart<P>> {
-        Box::new(self.clone())
-    }
-}
-
 /// TODO doc
 #[derive(Clone)]
 pub struct PartParserContext<'c> {
