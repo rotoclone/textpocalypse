@@ -20,8 +20,8 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
 static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
-        literal_part("say ").always_include_in_errors().into(),
-        literal_part("\"").never_include_in_errors().into()
+        literal_part("say ").always_include_in_errors(),
+        literal_part("\"").never_include_in_errors()
     ]))
     .then(
         any_text_part(TEXT_PART_ID.clone())

@@ -667,15 +667,16 @@ impl CommandParseErrorNew {
 
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
+        if !self.any_parts_matched() {
+            //TODO special message
+        }
+
         let string = match self {
             CommandParseErrorNew::Part {
                 matched_parts,
                 unmatched_part,
                 error,
             } => {
-                if matched_parts.is_empty() {
-                    //TODO special message
-                }
                 //TODO take into account options
                 let matched_parts_string = matched_parts
                     .into_iter()
