@@ -1,15 +1,9 @@
 use itertools::Itertools;
-use std::{
-    any::{type_name, Any},
-    collections::HashMap,
-    marker::PhantomData,
-    ops::Deref,
-};
-use voca_rs::Voca;
+use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref};
 
 use bevy_ecs::prelude::*;
 
-use nonempty::{nonempty, NonEmpty};
+use nonempty::NonEmpty;
 
 use crate::{Direction, GameMessage};
 
@@ -198,15 +192,15 @@ impl CommandFormatPart {
 
     /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
     pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options_mut().format_string_part_type =
-            CommandFormatStringPartType::Literal(name.into());
+        self.options_mut().format_description_part_type =
+            CommandFormatDescriptionPartType::Literal(name.into());
         self
     }
 
     /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
     pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options_mut().format_string_part_type =
-            CommandFormatStringPartType::Placeholder(name.into());
+        self.options_mut().format_description_part_type =
+            CommandFormatDescriptionPartType::Placeholder(name.into());
         self
     }
 
@@ -330,14 +324,15 @@ impl<P, V> CommandFormatPartParams<P, V> {
 
     /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
     pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_string_part_type = CommandFormatStringPartType::Literal(name.into());
+        self.options.format_description_part_type =
+            CommandFormatDescriptionPartType::Literal(name.into());
         self
     }
 
     /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
     pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_string_part_type =
-            CommandFormatStringPartType::Placeholder(name.into());
+        self.options.format_description_part_type =
+            CommandFormatDescriptionPartType::Placeholder(name.into());
         self
     }
 
@@ -358,9 +353,9 @@ impl<P, V> CommandFormatPartParams<P, V> {
 pub struct CommandFormatPartOptions {
     /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
     if_missing: Option<String>,
-    /// The string to include in the command's format string for this part (e.g. "thing", "target", etc.).
+    /// The string to include in the command's format description for this part (e.g. "thing", "target", etc.).
     /// If `None`, the part will not be included in the format string.
-    format_string_part_type: CommandFormatStringPartType,
+    format_description_part_type: CommandFormatDescriptionPartType,
     /// When to include this part in error messages.
     include_in_errors_behavior: IncludeInErrorsBehavior,
 }
@@ -383,15 +378,6 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
     build_literal_part(literal, None)
 }
 
-/// Creates a part to consume a literal value, with a validator function.
-/// TODO but it doesn't make any sense to have a custom validator, it'll always validate the literal value...unless the validation depends on the world state? is that a valid use case?
-pub fn literal_part_with_validator(
-    literal: impl Into<String>,
-    validator: Box<dyn ValidateParsedValue<String>>,
-) -> CommandFormatPart {
-    build_literal_part(literal, Some(validator))
-}
-
 fn build_literal_part(
     literal: impl Into<String>,
     validator: Option<Box<dyn ValidateParsedValue<String>>>,
@@ -402,7 +388,9 @@ fn build_literal_part(
         CommandFormatPartParams {
             id: None,
             options: CommandFormatPartOptions {
-                format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
+                format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                    literal_string,
+                ),
                 ..Default::default()
             },
             validator,
@@ -415,15 +403,6 @@ pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
     build_optional_literal_part(literal, None)
 }
 
-/// Creates a part to maybe consume a literal value, with a validator function.
-/// TODO but it doesn't make any sense to have a custom validator, it'll always validate the literal value...unless the validation depends on the world state? is that a valid use case?
-pub fn optional_literal_part_with_validator(
-    literal: impl Into<String>,
-    validator: Box<dyn ValidateParsedValue<String>>,
-) -> CommandFormatPart {
-    build_optional_literal_part(literal, Some(validator))
-}
-
 fn build_optional_literal_part(
     literal: impl Into<String>,
     validator: Option<Box<dyn ValidateParsedValue<String>>>,
@@ -434,7 +413,9 @@ fn build_optional_literal_part(
         CommandFormatPartParams {
             id: None,
             options: CommandFormatPartOptions {
-                format_string_part_type: CommandFormatStringPartType::Literal(literal_string),
+                format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                    literal_string,
+                ),
                 ..Default::default()
             },
             validator,
@@ -601,7 +582,7 @@ pub struct CommandPartId<T>(String, PhantomData<fn(T)>);
 // implemting clone manually so it's implemented even if `T` is not clone
 impl<T> Clone for CommandPartId<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone())
+        Self(self.0.clone(), self.1)
     }
 }
 
@@ -612,7 +593,6 @@ impl<T> CommandPartId<T> {
     }
 }
 
-//TODO add some kind of function for detecting if an input starts with the verb for a format, for example to differentiate between an invalid look, and invalid examine, or just a different command
 impl CommandFormat {
     /// Creates a format starting with the provided part.
     pub fn new(part: CommandFormatPart) -> CommandFormat {
@@ -642,15 +622,14 @@ impl CommandFormat {
         self.0.push(part);
     }
 
-    /// Gets the format string for this command format, to demonstrate how it should be used.
-    /// TODO rename this since it doesn't actually return a string
-    pub fn get_format_string(&self) -> CommandFormatString {
-        CommandFormatString::new(
+    /// Gets the format description for this command format, to demonstrate how it should be used.
+    pub fn get_format_description(&self) -> CommandFormatDescription {
+        CommandFormatDescription::new(
             self.0
                 .iter()
-                .map(|part| CommandFormatStringPart {
+                .map(|part| CommandFormatDescriptionPart {
                     id: part.id().clone(),
-                    part_type: part.options().format_string_part_type.clone(),
+                    part_type: part.options().format_description_part_type.clone(),
                 })
                 .collect(),
         )

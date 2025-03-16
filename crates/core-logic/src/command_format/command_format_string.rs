@@ -7,14 +7,14 @@ use crate::Description;
 
 use super::{CommandPartId, UntypedCommandPartId};
 
-pub struct CommandFormatStringPart {
+pub struct CommandFormatDescriptionPart {
     pub id: Option<UntypedCommandPartId>,
-    pub part_type: CommandFormatStringPartType,
+    pub part_type: CommandFormatDescriptionPartType,
 }
 
-/// Describes what to include in the format string for a part.
+/// Describes what to include in the format description for a part.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
-pub enum CommandFormatStringPartType {
+pub enum CommandFormatDescriptionPartType {
     /// This part shouldn't be included in the format string.
     #[default]
     Nothing,
@@ -24,15 +24,16 @@ pub enum CommandFormatStringPartType {
     Placeholder(String),
 }
 
-pub struct CommandFormatString {
-    parts: Vec<CommandFormatStringPart>,
+/// Describes the format of a command.
+pub struct CommandFormatDescription {
+    parts: Vec<CommandFormatDescriptionPart>,
     filled_placeholders: HashMap<UntypedCommandPartId, String>,
 }
 
-impl CommandFormatString {
-    /// Creates a new format string with no placeholders filled in.
-    pub fn new(parts: Vec<CommandFormatStringPart>) -> CommandFormatString {
-        CommandFormatString {
+impl CommandFormatDescription {
+    /// Creates a new format description with no placeholders filled in.
+    pub fn new(parts: Vec<CommandFormatDescriptionPart>) -> CommandFormatDescription {
+        CommandFormatDescription {
             parts,
             filled_placeholders: HashMap::new(),
         }
@@ -54,15 +55,15 @@ impl CommandFormatString {
     }
 }
 
-impl Display for CommandFormatString {
+impl Display for CommandFormatDescription {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = self
             .parts
             .iter()
             .filter_map(|part| match &part.part_type {
-                CommandFormatStringPartType::Nothing => None,
-                CommandFormatStringPartType::Literal(l) => Some(l.to_string()),
-                CommandFormatStringPartType::Placeholder(p) => Some(
+                CommandFormatDescriptionPartType::Nothing => None,
+                CommandFormatDescriptionPartType::Literal(l) => Some(l.to_string()),
+                CommandFormatDescriptionPartType::Placeholder(p) => Some(
                     part.id
                         .as_ref()
                         .and_then(|id| self.filled_placeholders.get(id).cloned())

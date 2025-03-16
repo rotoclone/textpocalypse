@@ -67,7 +67,7 @@ impl InputParser for SayParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SAY_COMMAND_FORMAT.get_format_string().to_string()]
+        vec![SAY_COMMAND_FORMAT.get_format_description().to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {

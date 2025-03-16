@@ -212,12 +212,14 @@ impl InputParser for LookParser {
     fn get_input_formats(&self) -> Vec<String> {
         vec![
             LOOK_NO_TARGET_COMMAND_FORMAT
-                .get_format_string()
+                .get_format_description()
                 .to_string(),
             LOOK_WITH_TARGET_COMMAND_FORMAT
-                .get_format_string()
+                .get_format_description()
                 .to_string(),
-            DETAILED_LOOK_COMMAND_FORMAT.get_format_string().to_string(),
+            DETAILED_LOOK_COMMAND_FORMAT
+                .get_format_description()
+                .to_string(),
         ]
     }
 
@@ -230,11 +232,11 @@ impl InputParser for LookParser {
         if world.get::<Description>(entity).is_some() {
             return Some(vec![
                 LOOK_WITH_TARGET_COMMAND_FORMAT
-                    .get_format_string()
+                    .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
                     .to_string(),
                 DETAILED_LOOK_COMMAND_FORMAT
-                    .get_format_string()
+                    .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
                     .to_string(),
             ]);
