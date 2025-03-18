@@ -347,6 +347,13 @@ impl<P, V> CommandFormatPartParams<P, V> {
         self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Never;
         self
     }
+
+    /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
+    /// This overrides that behavior so `error_string` will be used instead of whatever the parsed value was.
+    pub fn with_error_string_override(mut self, error_string: String) -> Self {
+        self.options.error_string_override = Some(error_string);
+        self
+    }
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
@@ -358,6 +365,9 @@ pub struct CommandFormatPartOptions {
     format_description_part_type: CommandFormatDescriptionPartType,
     /// When to include this part in error messages.
     include_in_errors_behavior: IncludeInErrorsBehavior,
+    /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
+    /// If this string is set, it will be used instead of whatever the parsed value was.
+    error_string_override: Option<String>,
 }
 
 /// Specifies when to include a part in an error message.
@@ -671,19 +681,17 @@ impl CommandParseErrorNew {
             //TODO special message
         }
 
+        //TODO include all the parts, each marked whether they were matched or not, so optional parts that are set to always be included in the error can be included
         let string = match self {
             CommandParseErrorNew::Part {
                 matched_parts,
                 unmatched_part,
                 error,
             } => {
-                //TODO take into account options
                 let matched_parts_string = matched_parts
                     .into_iter()
                     .map(|matched_part| {
-                        matched_part
-                            .parsed_value
-                            .to_string_for_parse_error(context.clone(), world)
+                        matched_part.to_string_for_parse_error(context.clone(), world)
                     })
                     .join("");
 
@@ -719,6 +727,17 @@ pub struct MatchedCommandFormatPart {
     part: CommandFormatPart,
     matched_input: String,
     parsed_value: ParsedValue,
+}
+
+impl MatchedCommandFormatPart {
+    /// Builds a string representing this part to use in a parsing error message.
+    fn to_string_for_parse_error(&self, context: PartParserContext, world: &World) -> String {
+        self.part
+            .options()
+            .error_string_override
+            .clone()
+            .unwrap_or_else(|| self.parsed_value.to_string_for_parse_error(context, world))
+    }
 }
 
 pub struct ParsedCommand {
