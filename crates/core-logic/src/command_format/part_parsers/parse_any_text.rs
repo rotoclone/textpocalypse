@@ -11,7 +11,7 @@ pub fn parse_any_text(context: PartParserContext) -> CommandPartParseResult<Pars
 
     if parsed.is_empty() {
         return CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched { details: None },
             remaining,
         };
     }

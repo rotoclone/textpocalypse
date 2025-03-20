@@ -16,7 +16,9 @@ pub fn parse_direction(context: PartParserContext) -> CommandPartParseResult<Par
         }
     } else {
         CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched {
+                details: Some(format!("'{to_parse}' is not a direction.")),
+            },
             // re-combine here to avoid an extra clone above in non-error cases
             remaining: format!("{to_parse}{remaining}"),
         }

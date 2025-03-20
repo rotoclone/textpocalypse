@@ -14,7 +14,8 @@ use crate::{
 };
 
 use super::{
-    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, PartParserContext,
+    match_literal_ignore_case, take_until_literal_if_next, CommandPartParseError,
+    CommandPartParseResult, PartParserContext,
 };
 
 /// Parses an entity from the provided context.
@@ -25,16 +26,18 @@ pub fn parse_entity(
 ) -> CommandPartParseResult<ParsedValue> {
     let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
     let mut first_invalid_match = None;
-    for entity in find_entities_in_presence_of(context.entering_entity, world) {
+    let performing_entity = context.entering_entity;
+    let (to_parse, remaining) = take_until_literal_if_next(context);
+    for entity in find_entities_in_presence_of(performing_entity, world) {
         for name in Description::get_all_ways_to_reference(entity, world) {
-            if let Ok((remaining, matched)) = match_entity_name(name, context.input.as_str()) {
+            if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {
                 if let CommandPartValidateResult::Invalid(_) = validator
                     .map(|v| {
                         ValidateParsedValue::validate(
                             v,
                             PartValidatorContext {
                                 parsed_value: entity,
-                                performing_entity: context.entering_entity,
+                                performing_entity,
                             },
                             world,
                         )
@@ -42,31 +45,31 @@ pub fn parse_entity(
                     .unwrap_or(CommandPartValidateResult::Valid)
                 {
                     if first_invalid_match.is_none() {
-                        first_invalid_match = Some((entity, remaining, matched));
+                        first_invalid_match = Some((entity, extra, matched));
                     }
                     continue;
                 }
 
                 // match based on which consumes the most of the input, since that's the most complete match
                 // TODO update tests
-                if let Some((_, best_remaining, _)) = best_matches.first() {
-                    match remaining.len().cmp(&best_remaining.len()) {
+                if let Some((_, best_extra, _)) = best_matches.first() {
+                    match extra.len().cmp(&best_extra.len()) {
                         Ordering::Less => {
                             best_matches.clear();
-                            best_matches.push((entity, remaining, matched));
+                            best_matches.push((entity, extra, matched));
                         }
-                        Ordering::Equal => best_matches.push((entity, remaining, matched)),
+                        Ordering::Equal => best_matches.push((entity, extra, matched)),
                         Ordering::Greater => (),
                     }
                 } else {
-                    best_matches.push((entity, remaining, matched));
+                    best_matches.push((entity, extra, matched));
                 }
             }
         }
     }
 
     //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
-    if let Some((entity, remaining, matched)) = best_matches
+    if let Some((entity, extra, matched)) = best_matches
         .first()
         // if no valid targets were found, return the first invalid one so the user will get a nice error message about why they can't target that entity
         .or(first_invalid_match.as_ref())
@@ -75,13 +78,16 @@ pub fn parse_entity(
         CommandPartParseResult::Success {
             parsed: ParsedValue::Entity(*entity),
             consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
-            remaining: remaining.to_string(),
+            remaining: format!("{extra}{remaining}"),
         }
     } else {
         // matched no targets
         CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
-            remaining: context.input,
+            error: CommandPartParseError::Unmatched {
+                details: Some(format!("There's no '{to_parse}' here.")),
+            },
+            // re-combine input string to undo split from earlier
+            remaining: format!("{to_parse}{remaining}"),
         }
     }
 }

@@ -68,7 +68,7 @@ pub enum CommandPartParseError {
     /// All the input was consumed before getting to this part
     EndOfInput,
     /// The part was not matched
-    Unmatched,
+    Unmatched { details: Option<String> },
     /// The part was found, but was invalid
     Invalid(CommandPartValidateError),
 }

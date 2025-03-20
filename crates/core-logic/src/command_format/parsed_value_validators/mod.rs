@@ -58,5 +58,5 @@ pub enum CommandPartValidateResult {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct CommandPartValidateError {
-    message: String,
+    pub details: Option<String>,
 }

@@ -696,10 +696,12 @@ impl CommandParseErrorNew {
                     .join("");
 
                 let error_detail_string = match error {
-                    CommandPartParseError::EndOfInput => "",
-                    CommandPartParseError::Unmatched => todo!(),
-                    CommandPartParseError::Invalid(command_part_validate_error) => todo!(),
-                };
+                    CommandPartParseError::EndOfInput => None,
+                    CommandPartParseError::Unmatched { details } => details,
+                    CommandPartParseError::Invalid(error) => error.details,
+                }
+                .map(|message| format!(" ({message})"))
+                .unwrap_or_default();
 
                 let unmatched_part_string =
                     unmatched_part.options().if_missing.as_deref().unwrap_or("");

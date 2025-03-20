@@ -16,7 +16,7 @@ pub fn parse_literal(
     }
 
     CommandPartParseResult::Failure {
-        error: CommandPartParseError::Unmatched,
+        error: CommandPartParseError::Unmatched { details: None },
         remaining: context.input,
     }
 }

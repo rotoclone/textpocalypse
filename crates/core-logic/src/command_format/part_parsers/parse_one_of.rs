@@ -32,7 +32,7 @@ pub fn parse_one_of(
     }
 
     CommandPartParseResult::Failure {
-        error: first_error.unwrap_or(CommandPartParseError::Unmatched),
+        error: first_error.unwrap_or(CommandPartParseError::Unmatched { details: None }),
         remaining: context.input,
     }
 }
