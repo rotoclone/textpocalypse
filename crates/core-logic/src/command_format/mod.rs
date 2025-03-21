@@ -678,10 +678,10 @@ impl CommandParseErrorNew {
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
         if !self.any_parts_matched() {
-            //TODO special message
+            return GameMessage::Error("I don't understand that.".to_string());
         }
 
-        //TODO include all the parts, each marked whether they were matched or not, so optional parts that are set to always be included in the error can be included
+        //TODO include all the parts, each marked whether they were matched or not, so optional parts that are set to always be included in the error can be included?
         let string = match self {
             CommandParseErrorNew::Part {
                 matched_parts,
@@ -711,7 +711,16 @@ impl CommandParseErrorNew {
             CommandParseErrorNew::UnmatchedInput {
                 matched_parts,
                 unmatched,
-            } => todo!(),
+            } => {
+                let matched_parts_string = matched_parts
+                    .into_iter()
+                    .map(|matched_part| {
+                        matched_part.to_string_for_parse_error(context.clone(), world)
+                    })
+                    .join("");
+
+                format!("Did you mean '{matched_parts_string}' (without '{unmatched}')?")
+            }
         };
 
         GameMessage::Error(string)
@@ -747,6 +756,18 @@ pub struct ParsedCommand {
 }
 
 impl ParsedCommand {
+    /// Creates a `ParsedCommand` from a list of matched parts.
+    fn new(all_parsed_parts: Vec<MatchedCommandFormatPart>) -> ParsedCommand {
+        let mut parsed_parts = HashMap::new();
+        for parsed_part in all_parsed_parts {
+            if let Some(id) = parsed_part.part.id() {
+                parsed_parts.insert(id, parsed_part);
+            }
+        }
+
+        ParsedCommand { parsed_parts }
+    }
+
     /// Gets the parsed value associated with `id`.
     /// Panics if the ID does not correspond to a part on this command, or the parsed value for this ID isn't a `T`.
     pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> T
@@ -780,7 +801,7 @@ impl CommandFormat {
     ) -> Result<ParsedCommand, CommandParseErrorNew> {
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
-        let mut parsed_parts = HashMap::new();
+        let mut parsed_parts = Vec::new();
         for (i, part) in self.0.iter().enumerate() {
             if remaining_input.is_empty() {
                 has_remaining_input = false;
@@ -801,16 +822,11 @@ impl CommandFormat {
                 } => {
                     dbg!(&parsed, &consumed, &remaining); //TODO
 
-                    if let Some(id) = &part.id() {
-                        parsed_parts.insert(
-                            id.clone(),
-                            MatchedCommandFormatPart {
-                                part: part.clone(),
-                                matched_input: consumed,
-                                parsed_value: parsed,
-                            },
-                        );
-                    }
+                    parsed_parts.push(MatchedCommandFormatPart {
+                        part: part.clone(),
+                        matched_input: consumed,
+                        parsed_value: parsed,
+                    });
 
                     remaining_input = remaining;
                 }
@@ -821,14 +837,14 @@ impl CommandFormat {
                         // an end of input error without letting the part see if that's actually a problem first.
                         //TODO is it a problem to just throw away the error returned from the part?
                         return Err(CommandParseErrorNew::Part {
-                            matched_parts: parsed_parts.into_values().collect(),
+                            matched_parts: parsed_parts,
                             unmatched_part: Box::new(part.clone()),
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
                     return Err(CommandParseErrorNew::Part {
-                        matched_parts: parsed_parts.into_values().collect(),
+                        matched_parts: parsed_parts,
                         unmatched_part: Box::new(part.clone()),
                         error,
                     });
@@ -838,12 +854,12 @@ impl CommandFormat {
 
         if !remaining_input.is_empty() {
             return Err(CommandParseErrorNew::UnmatchedInput {
-                matched_parts: parsed_parts.into_values().collect(),
+                matched_parts: parsed_parts,
                 unmatched: remaining_input,
             });
         }
 
-        Ok(ParsedCommand { parsed_parts })
+        Ok(ParsedCommand::new(parsed_parts))
     }
 }
 
