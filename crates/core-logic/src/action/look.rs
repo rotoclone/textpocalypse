@@ -43,12 +43,12 @@ static LOOK_NO_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(||
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_WITH_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("look"),
-        literal_part("l"),
-    ]))
+    CommandFormat::new(
+        one_of_part(nonempty![literal_part("look"), literal_part("l"),])
+            .with_error_string_override("look"),
+    )
     .then(literal_part(" "))
-    .then(optional_literal_part("at "))
+    .then(optional_literal_part("at ").always_include_in_errors())
     .then(
         entity_part(TARGET_PART_ID.clone())
             .with_if_missing("what")
@@ -56,11 +56,14 @@ static LOOK_WITH_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(
     )
 });
 static DETAILED_LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("examine"),
-        literal_part("ex"),
-        literal_part("x"),
-    ]))
+    CommandFormat::new(
+        one_of_part(nonempty![
+            literal_part("examine"),
+            literal_part("ex"),
+            literal_part("x"),
+        ])
+        .with_error_string_override("examine"),
+    )
     .then(literal_part(" "))
     .then(
         entity_part(TARGET_PART_ID.clone())

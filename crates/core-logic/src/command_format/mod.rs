@@ -216,6 +216,13 @@ impl CommandFormatPart {
         self
     }
 
+    /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
+    /// This overrides that behavior so `error_string` will be used instead of whatever the parsed value was.
+    pub fn with_error_string_override(mut self, error_string: impl Into<String>) -> Self {
+        self.options_mut().error_string_override = Some(error_string.into());
+        self
+    }
+
     /// TODO doc
     pub fn parse(
         &self,
@@ -375,6 +382,7 @@ pub struct CommandFormatPartOptions {
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 enum IncludeInErrorsBehavior {
     /// The part is always included in error messages, even if it was not included in the entered command.
+    /// TODO this doesn't work currently
     Always,
     /// The part is never included in error messages, even if it was included in the entered command.
     Never,
