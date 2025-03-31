@@ -48,7 +48,7 @@ static LOOK_WITH_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(
             .with_error_string_override("look"),
     )
     .then(literal_part(" "))
-    .then(optional_literal_part("at ").always_include_in_errors())
+    .then(optional_literal_part("at ").with_error_string_override("at "))
     .then(
         entity_part(TARGET_PART_ID.clone())
             .with_if_missing("what")

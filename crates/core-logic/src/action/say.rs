@@ -18,6 +18,7 @@ use crate::{
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
+//TODO somehow get just "say" (no ending space) to result in a "Say what?" error rather than "I don't understand that"
 static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_part(nonempty![literal_part("say "), literal_part("\"")])

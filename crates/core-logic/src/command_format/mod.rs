@@ -204,12 +204,6 @@ impl CommandFormatPart {
         self
     }
 
-    /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
-    pub fn always_include_in_errors(mut self) -> Self {
-        self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Always;
-        self
-    }
-
     /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
     pub fn never_include_in_errors(mut self) -> Self {
         self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Never;
@@ -343,12 +337,6 @@ impl<P, V> CommandFormatPartParams<P, V> {
         self
     }
 
-    /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
-    pub fn always_include_in_errors(mut self) -> Self {
-        self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Always;
-        self
-    }
-
     /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
     pub fn never_include_in_errors(mut self) -> Self {
         self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Never;
@@ -381,9 +369,6 @@ pub struct CommandFormatPartOptions {
 /// TODO does this even make sense? Won't a part always be matched unless it's wrapped in a "maybe" part?
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 enum IncludeInErrorsBehavior {
-    /// The part is always included in error messages, even if it was not included in the entered command.
-    /// TODO this doesn't work currently
-    Always,
     /// The part is never included in error messages, even if it was included in the entered command.
     Never,
     /// The part is only included in an error message if it was in the entered command, or if parsing it was the cause of the error.
