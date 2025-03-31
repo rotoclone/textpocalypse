@@ -366,7 +366,6 @@ pub struct CommandFormatPartOptions {
 }
 
 /// Specifies when to include a part in an error message.
-/// TODO does this even make sense? Won't a part always be matched unless it's wrapped in a "maybe" part?
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
 enum IncludeInErrorsBehavior {
     /// The part is never included in error messages, even if it was included in the entered command.
@@ -674,7 +673,6 @@ impl CommandParseErrorNew {
             return GameMessage::Error("I don't understand that.".to_string());
         }
 
-        //TODO include all the parts, each marked whether they were matched or not, so optional parts that are set to always be included in the error can be included?
         let string = match self {
             CommandParseErrorNew::Part {
                 matched_parts,
@@ -736,8 +734,12 @@ pub struct MatchedCommandFormatPart {
 impl MatchedCommandFormatPart {
     /// Builds a string representing this part to use in a parsing error message.
     fn to_string_for_parse_error(&self, context: PartParserContext, world: &World) -> String {
-        self.part
-            .options()
+        let options = self.part.options();
+        if let IncludeInErrorsBehavior::Never = options.include_in_errors_behavior {
+            return "".to_string();
+        }
+
+        options
             .error_string_override
             .clone()
             .unwrap_or_else(|| self.parsed_value.to_string_for_parse_error(context, world))
