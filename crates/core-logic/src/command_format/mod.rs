@@ -3,6 +3,7 @@ use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref}
 
 use bevy_ecs::prelude::*;
 
+use nonempty::nonempty;
 use nonempty::NonEmpty;
 
 use crate::{Direction, GameMessage};
@@ -306,48 +307,6 @@ impl<P, V> Clone for CommandFormatPartParams<P, V> {
                 .as_ref()
                 .map(|v| ValidateParsedValueClone::clone_box(v.deref())),
         }
-    }
-}
-
-//TODO probably remove these
-impl<P, V> CommandFormatPartParams<P, V> {
-    /// Adds a validator to this part. Any existing validator will be replaced.
-    pub fn with_validator(mut self, validator: Box<dyn ValidateParsedValue<V>>) -> Self {
-        self.validator = Some(validator);
-        self
-    }
-
-    /// Sets the string to include in the error message if this part is missing (e.g. "what", "who", etc.).
-    pub fn with_if_missing(mut self, s: impl Into<String>) -> Self {
-        self.options.if_missing = Some(s.into());
-        self
-    }
-
-    /// Sets the literal string to include in the command's format string for this part (e.g. "get", "look", etc.).
-    pub fn with_literal_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_description_part_type =
-            CommandFormatDescriptionPartType::Literal(name.into());
-        self
-    }
-
-    /// Sets the name of the placeholder to include in the command's format string for this part (e.g. "thing", "target", etc.).
-    pub fn with_placeholder_for_format_string(mut self, name: impl Into<String>) -> Self {
-        self.options.format_description_part_type =
-            CommandFormatDescriptionPartType::Placeholder(name.into());
-        self
-    }
-
-    /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
-    pub fn never_include_in_errors(mut self) -> Self {
-        self.options.include_in_errors_behavior = IncludeInErrorsBehavior::Never;
-        self
-    }
-
-    /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
-    /// This overrides that behavior so `error_string` will be used instead of whatever the parsed value was.
-    pub fn with_error_string_override(mut self, error_string: String) -> Self {
-        self.options.error_string_override = Some(error_string);
-        self
     }
 }
 
@@ -858,7 +817,6 @@ impl CommandFormat {
     }
 }
 
-/* TODO
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -869,52 +827,42 @@ mod tests {
 
     #[test]
     fn format() {
-        let format = CommandFormat::new_with_literal("first part")
-            .then_entity(CommandPartId::new("entityPartId"), "what", None)
-            .then_literal("third part")
-            .then_any_text(CommandPartId::new("anyTextPartId"))
-            .then_maybe(
-                CommandPartId::new("optionalPartId"),
-                literal_part("optional part"),
-            )
-            .then_one_of(
-                CommandPartId::new("oneOfPartId"),
-                nonempty![literal_part("option 1"), literal_part("option 2")],
-            );
+        let format = CommandFormat::new(literal_part("first part"))
+            .then(entity_part(CommandPartId::new("entityPartId")).with_if_missing("what"))
+            .then(literal_part("third part"))
+            .then(any_text_part(CommandPartId::new("anyTextPartId")))
+            .then(optional_literal_part("optional part"))
+            .then(one_of_part(nonempty![
+                literal_part("option 1"),
+                literal_part("option 2")
+            ]));
 
         let expected = CommandFormat(nonempty![
-            (None, CommandFormatPart::Literal("first part".to_string())),
-            (
-                Some(TypedCommandPartId::Entity(CommandPartId::new(
-                    "entityPartId"
-                ))),
-                CommandFormatPart::Entity {
-                    if_missing: "what".to_string(),
-                    validator: None,
+            CommandFormatPart::Literal(
+                "first part".to_string(),
+                CommandFormatPartParams {
+                    id: None,
+                    options: CommandFormatPartOptions {
+                        if_missing: None,
+                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                            "first part".to_string()
+                        ),
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None
+                    },
+                    validator: None
                 }
             ),
-            (None, CommandFormatPart::Literal("third part".to_string())),
-            (
-                Some(TypedCommandPartId::AnyText(CommandPartId::new(
-                    "anyTextPartId"
-                ))),
-                CommandFormatPart::AnyText
-            ),
-            (
-                Some(TypedCommandPartId::Maybe(Box::new(
-                    TypedCommandPartId::Literal(CommandPartId::new("optionalPartId"))
-                ))),
-                CommandFormatPart::Maybe(Box::new(CommandFormatPart::Literal(
-                    "optional part".to_string()
-                )))
-            ),
-            (
-                Some(TypedCommandPartId::OneOf(CommandPartId::new("oneOfPartId"))),
-                CommandFormatPart::OneOf(Box::new(nonempty![
-                    CommandFormatPart::Literal("option 1".to_string()),
-                    CommandFormatPart::Literal("option 2".to_string())
-                ])),
-            ),
+            CommandFormatPart::Entity(CommandFormatPartParams {
+                id: Some(CommandPartId::new("entityPartId")),
+                options: CommandFormatPartOptions {
+                    if_missing: Some("what".to_string()),
+                    format_description_part_type: CommandFormatDescriptionPartType::Nothing,
+                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                    error_string_override: None
+                },
+                validator: None
+            })
         ]);
 
         assert_eq!(expected, format);
@@ -1028,4 +976,3 @@ mod tests {
         assert_eq!(expected, format);
     }
 }
-*/
