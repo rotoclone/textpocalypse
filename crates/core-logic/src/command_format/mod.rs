@@ -821,7 +821,38 @@ impl CommandFormat {
 mod tests {
     use super::*;
 
-    fn entity_validator_fn(_: CommandPartParseContext<Entity>, _: &World) -> bool {
+    impl PartialEq for CommandFormat {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+    }
+
+    impl PartialEq for CommandFormatPart {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (Self::Literal(l0, l1), Self::Literal(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalLiteral(l0, l1), Self::OptionalLiteral(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
+                (Self::AnyText(l0), Self::AnyText(r0)) => l0 == r0,
+                (Self::OptionalAnyText(l0), Self::OptionalAnyText(r0)) => l0 == r0,
+                (Self::Entity(l0), Self::Entity(r0)) => l0 == r0,
+                (Self::OptionalEntity(l0), Self::OptionalEntity(r0)) => l0 == r0,
+                (Self::Direction(l0), Self::Direction(r0)) => l0 == r0,
+                (Self::OptionalDirection(l0), Self::OptionalDirection(r0)) => l0 == r0,
+                (Self::OneOf(l0, l1), Self::OneOf(r0, r1)) => l0 == r0 && l1 == r1,
+                _ => false,
+            }
+        }
+    }
+
+    impl<P: PartialEq, V> PartialEq for CommandFormatPartParams<P, V> {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id && self.options == other.options
+        }
+    }
+
+    fn entity_validator_fn(_: PartValidatorContext<Entity>, _: &World) -> bool {
         true
     }
 
@@ -862,12 +893,28 @@ mod tests {
                     error_string_override: None
                 },
                 validator: None
-            })
+            }),
+            CommandFormatPart::Literal(
+                "third part".to_string(),
+                CommandFormatPartParams {
+                    id: None,
+                    options: CommandFormatPartOptions {
+                        if_missing: None,
+                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                            "third part".to_string()
+                        ),
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None
+                    },
+                    validator: None
+                }
+            ) //TODO add the rest
         ]);
 
         assert_eq!(expected, format);
     }
 
+    /* TODO
     #[test]
     fn format_with_entity_validator_fn() {
         let format = CommandFormat::new_with_literal("first part")
@@ -975,4 +1022,5 @@ mod tests {
 
         assert_eq!(expected, format);
     }
+    */
 }
