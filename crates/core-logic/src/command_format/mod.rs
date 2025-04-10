@@ -315,7 +315,7 @@ pub struct CommandFormatPartOptions {
     /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
     if_missing: Option<String>,
     /// The string to include in the command's format description for this part (e.g. "thing", "target", etc.).
-    /// If `None`, the part will not be included in the format string.
+    /// If `Nothing`, the part will not be included in the format string.
     format_description_part_type: CommandFormatDescriptionPartType,
     /// When to include this part in error messages.
     include_in_errors_behavior: IncludeInErrorsBehavior,
@@ -879,9 +879,9 @@ mod tests {
                             "first part".to_string()
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                        error_string_override: None
+                        error_string_override: None,
                     },
-                    validator: None
+                    validator: None,
                 }
             ),
             CommandFormatPart::Entity(CommandFormatPartParams {
@@ -890,9 +890,9 @@ mod tests {
                     if_missing: Some("what".to_string()),
                     format_description_part_type: CommandFormatDescriptionPartType::Nothing,
                     include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                    error_string_override: None
+                    error_string_override: None,
                 },
-                validator: None
+                validator: None,
             }),
             CommandFormatPart::Literal(
                 "third part".to_string(),
@@ -904,11 +904,80 @@ mod tests {
                             "third part".to_string()
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                        error_string_override: None
+                        error_string_override: None,
                     },
                     validator: None
                 }
-            ) //TODO add the rest
+            ),
+            CommandFormatPart::AnyText(CommandFormatPartParams {
+                id: Some(CommandPartId::new("anyTextPartId")),
+                options: CommandFormatPartOptions {
+                    if_missing: None,
+                    format_description_part_type: CommandFormatDescriptionPartType::Nothing,
+                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                    error_string_override: None,
+                },
+                validator: None,
+            }),
+            CommandFormatPart::OptionalLiteral(
+                "optional part".to_string(),
+                CommandFormatPartParams {
+                    id: None,
+                    options: CommandFormatPartOptions {
+                        if_missing: None,
+                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                            "optional part".to_string()
+                        ),
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None,
+                    },
+                    validator: None,
+                }
+            ),
+            CommandFormatPart::OneOf(
+                vec![
+                    CommandFormatPart::Literal(
+                        "option 1".to_string(),
+                        CommandFormatPartParams {
+                            id: None,
+                            options: CommandFormatPartOptions {
+                                if_missing: None,
+                                format_description_part_type:
+                                    CommandFormatDescriptionPartType::Literal(
+                                        "option 1".to_string()
+                                    ),
+                                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                                error_string_override: None,
+                            },
+                            validator: None,
+                        }
+                    ),
+                    CommandFormatPart::Literal(
+                        "option 2".to_string(),
+                        CommandFormatPartParams {
+                            id: None,
+                            options: CommandFormatPartOptions {
+                                if_missing: None,
+                                format_description_part_type:
+                                    CommandFormatDescriptionPartType::Literal(
+                                        "option 2".to_string()
+                                    ),
+                                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                                error_string_override: None,
+                            },
+                            validator: None,
+                        }
+                    )
+                ],
+                CommandFormatPartOptions {
+                    if_missing: None,
+                    format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                        "option 1".to_string()
+                    ),
+                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                    error_string_override: None,
+                },
+            ),
         ]);
 
         assert_eq!(expected, format);
