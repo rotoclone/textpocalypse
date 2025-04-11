@@ -852,8 +852,31 @@ mod tests {
         }
     }
 
-    fn entity_validator_fn(_: PartValidatorContext<Entity>, _: &World) -> bool {
-        true
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct TestValidator;
+
+    impl ValidateParsedValue<Entity> for TestValidator {
+        fn validate(
+            &self,
+            _: PartValidatorContext<Entity>,
+            _: &World,
+        ) -> CommandPartValidateResult {
+            CommandPartValidateResult::Valid
+        }
+
+        fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
+            Box::new(self.clone())
+        }
+    }
+
+    impl ValidateParsedValueUntyped for TestValidator {
+        fn validate(
+            &self,
+            _: PartValidatorContext<ParsedValue>,
+            _: &World,
+        ) -> CommandPartValidateResult {
+            CommandPartValidateResult::Valid
+        }
     }
 
     #[test]
@@ -983,52 +1006,50 @@ mod tests {
         assert_eq!(expected, format);
     }
 
-    /* TODO
     #[test]
     fn format_with_entity_validator_fn() {
-        let format = CommandFormat::new_with_literal("first part")
-            .then_entity(
-                CommandPartId::new("entityPartId"),
-                "what",
-                Some(entity_validator_fn),
-            )
-            .then_literal("third part")
-            .then_any_text(CommandPartId::new("anyTextPartId"))
-            .then_one_of(
-                CommandPartId::new("oneOfPartId"),
-                nonempty![literal_part("option 1"), literal_part("option 2")],
-            );
+        let validator = TestValidator;
+        let format = CommandFormat::new(literal_part("first part")).then(
+            entity_part_with_validator(CommandPartId::new("entityPartId"), Box::new(validator))
+                .with_if_missing("what"),
+        );
 
         let expected = CommandFormat(nonempty![
-            (None, CommandFormatPart::Literal("first part".to_string())),
-            (
-                Some(TypedCommandPartId::Entity(CommandPartId::new(
-                    "entityPartId"
-                ))),
-                CommandFormatPart::Entity {
-                    if_missing: "what".to_string(),
-                    validator: Some(entity_validator_fn),
+            CommandFormatPart::Literal(
+                "first part".to_string(),
+                CommandFormatPartParams {
+                    id: None,
+                    options: CommandFormatPartOptions {
+                        if_missing: None,
+                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                            "first part".to_string()
+                        ),
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None,
+                    },
+                    validator: None,
                 }
             ),
-            (None, CommandFormatPart::Literal("third part".to_string())),
-            (
-                Some(TypedCommandPartId::AnyText(CommandPartId::new(
-                    "anyTextPartId"
-                ))),
-                CommandFormatPart::AnyText
-            ),
-            (
-                Some(TypedCommandPartId::OneOf(CommandPartId::new("oneOfPartId"))),
-                CommandFormatPart::OneOf(Box::new(nonempty![
-                    CommandFormatPart::Literal("option 1".to_string()),
-                    CommandFormatPart::Literal("option 2".to_string())
-                ])),
-            ),
+            CommandFormatPart::Entity(CommandFormatPartParams {
+                id: Some(CommandPartId::new("entityPartId")),
+                options: CommandFormatPartOptions {
+                    if_missing: Some("what".to_string()),
+                    format_description_part_type: CommandFormatDescriptionPartType::Nothing,
+                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                    error_string_override: None,
+                },
+                validator: Some(Box::new(validator)),
+            }),
         ]);
 
         assert_eq!(expected, format);
+        assert_eq!(
+            Some(Box::new(validator)),
+            format.0.get(1).unwrap().validator()
+        )
     }
 
+    /* TODO
     #[test]
     #[should_panic = "Duplicate command part ID: somePartId"]
     fn format_duplicate_ids() {
