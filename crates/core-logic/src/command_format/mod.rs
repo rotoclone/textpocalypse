@@ -3,7 +3,6 @@ use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref}
 
 use bevy_ecs::prelude::*;
 
-use nonempty::nonempty;
 use nonempty::NonEmpty;
 
 use crate::{Direction, GameMessage};
@@ -576,7 +575,7 @@ impl CommandFormat {
                 .iter()
                 .any(|existing_part| existing_part.all_ids().contains(id))
             {
-                panic!("Duplicate command part ID: {id:?}")
+                panic!("Duplicate command part ID: {}", id.0)
             }
         }
 
@@ -820,6 +819,7 @@ impl CommandFormat {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nonempty::nonempty;
 
     impl PartialEq for CommandFormat {
         fn eq(&self, other: &Self) -> bool {
@@ -1007,62 +1007,19 @@ mod tests {
     }
 
     #[test]
-    fn format_with_entity_validator_fn() {
-        let validator = TestValidator;
-        let format = CommandFormat::new(literal_part("first part")).then(
-            entity_part_with_validator(CommandPartId::new("entityPartId"), Box::new(validator))
-                .with_if_missing("what"),
-        );
-
-        let expected = CommandFormat(nonempty![
-            CommandFormatPart::Literal(
-                "first part".to_string(),
-                CommandFormatPartParams {
-                    id: None,
-                    options: CommandFormatPartOptions {
-                        if_missing: None,
-                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                            "first part".to_string()
-                        ),
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                        error_string_override: None,
-                    },
-                    validator: None,
-                }
-            ),
-            CommandFormatPart::Entity(CommandFormatPartParams {
-                id: Some(CommandPartId::new("entityPartId")),
-                options: CommandFormatPartOptions {
-                    if_missing: Some("what".to_string()),
-                    format_description_part_type: CommandFormatDescriptionPartType::Nothing,
-                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                    error_string_override: None,
-                },
-                validator: Some(Box::new(validator)),
-            }),
-        ]);
-
-        assert_eq!(expected, format);
-        assert_eq!(
-            Some(Box::new(validator)),
-            format.0.get(1).unwrap().validator()
-        )
+    #[should_panic = "Duplicate command part ID: somePartId"]
+    fn format_duplicate_ids() {
+        CommandFormat::new(literal_part("first part"))
+            .then(entity_part(CommandPartId::new("somePartId")))
+            .then(literal_part("third part"))
+            .then(any_text_part(CommandPartId::new("anyTextPartId")))
+            .then(one_of_part(nonempty![
+                literal_part("some literal"),
+                entity_part(CommandPartId::new("somePartId")),
+            ]));
     }
 
     /* TODO
-    #[test]
-    #[should_panic = "Duplicate command part ID: somePartId"]
-    fn format_duplicate_ids() {
-        CommandFormat::new_with_literal("first part")
-            .then_entity(CommandPartId::new("somePartId"), "what", None)
-            .then_literal("third part")
-            .then_any_text(CommandPartId::new("anyTextPartId"))
-            .then_one_of(
-                CommandPartId::new("somePartId"),
-                nonempty![literal_part("option 1"), literal_part("option 2")],
-            );
-    }
-
     #[test]
     fn format_nested_one_of() {
         let format = CommandFormat::new_with_literal("first part")
