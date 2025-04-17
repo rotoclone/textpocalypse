@@ -28,6 +28,13 @@ pub fn parse_entity(
     let mut first_invalid_match = None;
     let performing_entity = context.entering_entity;
     let (to_parse, remaining) = take_until_literal_if_next(context);
+    if to_parse.is_empty() {
+        return CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched { details: None },
+            remaining,
+        };
+    }
+
     for entity in find_entities_in_presence_of(performing_entity, world) {
         for name in Description::get_all_ways_to_reference(entity, world) {
             if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {
@@ -111,7 +118,6 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
     ))
 }
 
-/* TODO
 #[cfg(test)]
 mod tests {
     use crate::{move_entity, Container, Pronouns};
@@ -150,14 +156,15 @@ mod tests {
         let context = PartParserContext {
             input: "".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched { details: None },
             remaining: "".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -170,14 +177,17 @@ mod tests {
         let context = PartParserContext {
             input: "entity 12 name".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'entity 12 name' here.".to_string()),
+            },
             remaining: "entity 12 name".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -191,15 +201,16 @@ mod tests {
         let context = PartParserContext {
             input: "entity 2 name".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Success {
-            parsed: entity_2,
+            parsed: ParsedValue::Entity(entity_2),
             consumed: "entity 2 name".to_string(),
             remaining: "".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -213,15 +224,16 @@ mod tests {
         let context = PartParserContext {
             input: "entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Success {
-            parsed: entity_2,
+            parsed: ParsedValue::Entity(entity_2),
             consumed: "entity 2 name".to_string(),
             remaining: " and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -235,15 +247,16 @@ mod tests {
         let context = PartParserContext {
             input: "the entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Success {
-            parsed: entity_2,
+            parsed: ParsedValue::Entity(entity_2),
             consumed: "the entity 2 name".to_string(),
             remaining: " and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -258,14 +271,17 @@ mod tests {
         let context = PartParserContext {
             input: "entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'entity 2 name and stuff' here.".to_string()),
+            },
             remaining: "entity 2 name and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -279,14 +295,17 @@ mod tests {
         let context = PartParserContext {
             input: "it's entity 2 name and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched,
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'it's entity 2 name and stuff' here.".to_string()),
+            },
             remaining: "it's entity 2 name and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -300,15 +319,16 @@ mod tests {
         let context = PartParserContext {
             input: "entity 2 alias 1 and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Success {
-            parsed: entity_2,
+            parsed: ParsedValue::Entity(entity_2),
             consumed: "entity 2 alias 1".to_string(),
             remaining: " and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     #[test]
@@ -322,17 +342,17 @@ mod tests {
         let context = PartParserContext {
             input: "the entity 2 alias 1 and stuff".to_string(),
             entering_entity: entity_1,
+            next_part: None,
         };
 
         let expected = CommandPartParseResult::Success {
-            parsed: entity_2,
+            parsed: ParsedValue::Entity(entity_2),
             consumed: "the entity 2 alias 1".to_string(),
             remaining: " and stuff".to_string(),
         };
 
-        assert_eq!(expected, EntityParser.parse(context, &world));
+        assert_eq!(expected, parse_entity(context, None, &world));
     }
 
     //TODO more tests
 }
-    */

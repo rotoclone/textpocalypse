@@ -5,7 +5,7 @@ use crate::{component::Description, Direction};
 use super::PartParserContext;
 
 /// A value parsed from a command.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParsedValue {
     String(String),
     Entity(Entity),
