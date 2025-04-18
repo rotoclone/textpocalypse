@@ -89,9 +89,16 @@ pub fn take_until_literal_if_next(context: PartParserContext) -> (String, String
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
 /// If `stopping_point` is `None`, returns `(input, "")`.
 pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> (String, String) {
+    //TODO tests for this
     let input = input.into();
+    dbg!(&input, &stopping_point); //TODO
     if let Some(stopping_point) = stopping_point {
-        let parsed = input._before(stopping_point);
+        let parsed = if input.starts_with(stopping_point) {
+            // apparently `_before` doesn't properly handle if the string starts with the provided substring, so deal with that case manually
+            "".to_string()
+        } else {
+            input._before(stopping_point)
+        };
         let remaining = input.strip_prefix(&parsed).unwrap_or_default();
         (parsed, remaining.to_string())
     } else {

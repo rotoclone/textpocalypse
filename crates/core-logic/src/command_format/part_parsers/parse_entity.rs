@@ -28,6 +28,7 @@ pub fn parse_entity(
     let mut first_invalid_match = None;
     let performing_entity = context.entering_entity;
     let (to_parse, remaining) = take_until_literal_if_next(context);
+    dbg!(&to_parse, &remaining); //TODO
     if to_parse.is_empty() {
         return CommandPartParseResult::Failure {
             error: CommandPartParseError::Unmatched { details: None },
@@ -106,6 +107,7 @@ struct MatchedEntityName<'a> {
 
 /// Matches the name of an entity, optionally preceded by "the".
 fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, MatchedEntityName<'i>> {
+    //TODO allow partial matches (i.e. "trou" would match "trousers" if it's unambiguous)
     let (remaining, (prefix, matched)) =
         pair(opt(tag("the ")), |i| match_literal_ignore_case(name, i))(input)?;
 
@@ -120,7 +122,10 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
 
 #[cfg(test)]
 mod tests {
-    use crate::{move_entity, Container, Pronouns};
+    use crate::{
+        command_format::{literal_part, CommandFormatPart},
+        move_entity, Container, Pronouns,
+    };
 
     use super::*;
 
@@ -191,6 +196,54 @@ mod tests {
     }
 
     #[test]
+    fn parse_no_match_input_ends_with_next_literal_part() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+
+        let next_part = literal_part(" 12 name".to_string());
+        let context = PartParserContext {
+            input: "entity 12 name".to_string(),
+            entering_entity: entity_1,
+            next_part: Some(&next_part),
+        };
+
+        let expected = CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'entity' here.".to_string()),
+            },
+            remaining: "entity 12 name".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
+    #[test]
+    fn parse_no_match_input_contains_next_literal_part() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+
+        let next_part = literal_part(" 12 ".to_string());
+        let context = PartParserContext {
+            input: "entity 12 name".to_string(),
+            entering_entity: entity_1,
+            next_part: Some(&next_part),
+        };
+
+        let expected = CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'entity' here.".to_string()),
+            },
+            remaining: "entity 12 name".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
+    #[test]
     fn parse_match_name_no_remaining() {
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -237,6 +290,30 @@ mod tests {
     }
 
     #[test]
+    fn parse_match_name_remaining_in_next_literal() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let next_part = literal_part(" and stuff".to_string());
+        let context = PartParserContext {
+            input: "entity 2 name and stuff".to_string(),
+            entering_entity: entity_1,
+            next_part: Some(&next_part),
+        };
+
+        let expected = CommandPartParseResult::Success {
+            parsed: ParsedValue::Entity(entity_2),
+            consumed: "entity 2 name".to_string(),
+            remaining: " and stuff".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
+    #[test]
     fn parse_match_name_with_the() {
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -254,6 +331,55 @@ mod tests {
             parsed: ParsedValue::Entity(entity_2),
             consumed: "the entity 2 name".to_string(),
             remaining: " and stuff".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
+    #[test]
+    fn parse_would_match_but_literal_next_part_is_entity_name() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let next_part = literal_part("entity 2 name".to_string());
+        let context = PartParserContext {
+            input: "entity 2 name and stuff".to_string(),
+            entering_entity: entity_1,
+            next_part: Some(&next_part),
+        };
+
+        let expected = CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched { details: None },
+            remaining: "entity 2 name and stuff".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
+    #[test]
+    fn parse_would_match_but_literal_next_part_is_end_of_entity_name() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+
+        let next_part = literal_part(" 2 name".to_string());
+        let context = PartParserContext {
+            input: "entity 2 name and stuff".to_string(),
+            entering_entity: entity_1,
+            next_part: Some(&next_part),
+        };
+
+        //TODO this should actually be a match as long as it's unambiguous, and if it is ambiguous (which it is here), it should have a different message which includes the possible matches
+        let expected = CommandPartParseResult::Failure {
+            error: CommandPartParseError::Unmatched {
+                details: Some("There's no 'entity' here.".to_string()),
+            },
+            remaining: "entity 2 name and stuff".to_string(),
         };
 
         assert_eq!(expected, parse_entity(context, None, &world));
