@@ -480,5 +480,28 @@ mod tests {
         assert_eq!(expected, parse_entity(context, None, &world));
     }
 
+    #[test]
+    fn parse_match_ambiguous() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2 name".to_string(),
+            entering_entity: entity_1,
+            next_part: None,
+        };
+
+        let expected = CommandPartParseResult::Success {
+            parsed: ParsedValue::Entity(entity_2),
+            consumed: "entity 2 name".to_string(),
+            remaining: "".to_string(),
+        };
+
+        assert_eq!(expected, parse_entity(context, None, &world));
+    }
+
     //TODO more tests
 }
