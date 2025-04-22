@@ -74,6 +74,7 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> 
     if let Some(stopping_point) = stopping_point {
         let parsed = if input.starts_with(stopping_point) {
             // apparently `_before` doesn't properly handle if the string starts with the provided substring, so deal with that case manually
+            // this check can be removed once https://github.com/a-merezhanyi/voca_rs/pull/27 is merged
             "".to_string()
         } else {
             input._before(stopping_point)
