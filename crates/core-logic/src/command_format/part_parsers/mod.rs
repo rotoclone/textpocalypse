@@ -27,11 +27,11 @@ pub struct PartParserContext<'c> {
     pub next_part: Option<&'c CommandFormatPart>,
 }
 
-//TODO remove generic type and just make it a ParsedValue?
+//TODO doc
 #[derive(PartialEq, Eq, Debug)]
-pub enum CommandPartParseResult<T> {
+pub enum CommandPartParseResult {
     Success {
-        parsed: T,
+        parsed: ParsedValue,
         consumed: String,
         remaining: String,
     },
@@ -41,28 +41,7 @@ pub enum CommandPartParseResult<T> {
     },
 }
 
-impl<T: Into<ParsedValue>> CommandPartParseResult<T> {
-    /// Converts the generic type on this result to `ParsedValue`, to make implementing `ParsePartUntyped` easier.
-    pub fn into_generic(self) -> CommandPartParseResult<ParsedValue> {
-        match self {
-            CommandPartParseResult::Success {
-                parsed,
-                consumed,
-                remaining,
-            } => CommandPartParseResult::Success {
-                parsed: parsed.into(),
-                consumed,
-                remaining,
-            },
-            CommandPartParseResult::Failure { error, remaining } => {
-                CommandPartParseResult::Failure { error, remaining }
-            }
-        }
-    }
-}
-
 /// An error encountered while attempting to parse a command part.
-/// TODO include additional information about why a part wasn't matched, like if it's an entity that doesn't exist the error should be able to include something like "there's no <thing> here"
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
     /// All the input was consumed before getting to this part
@@ -107,9 +86,7 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> 
 }
 
 /// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
-pub fn parse_result_to_option(
-    parse_result: CommandPartParseResult<ParsedValue>,
-) -> CommandPartParseResult<ParsedValue> {
+pub fn parse_result_to_option(parse_result: CommandPartParseResult) -> CommandPartParseResult {
     match parse_result {
         CommandPartParseResult::Success {
             parsed,

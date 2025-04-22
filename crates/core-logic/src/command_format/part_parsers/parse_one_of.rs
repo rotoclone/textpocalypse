@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use crate::command_format::{parsed_value::ParsedValue, CommandFormatPart};
+use crate::command_format::CommandFormatPart;
 
 use super::{CommandPartParseError, CommandPartParseResult, PartParserContext};
 
@@ -10,7 +10,7 @@ pub fn parse_one_of(
     parts: &[CommandFormatPart],
     context: PartParserContext,
     world: &World,
-) -> CommandPartParseResult<ParsedValue> {
+) -> CommandPartParseResult {
     let mut first_error = None;
     for part in parts {
         match part.parse(context.clone(), world) {

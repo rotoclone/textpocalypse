@@ -5,7 +5,7 @@ use super::{
 };
 
 /// Parses a direction from the provided context.
-pub fn parse_direction(context: PartParserContext) -> CommandPartParseResult<ParsedValue> {
+pub fn parse_direction(context: PartParserContext) -> CommandPartParseResult {
     let (to_parse, remaining) = take_until_literal_if_next(context);
 
     if let Some(direction) = Direction::parse(&to_parse) {

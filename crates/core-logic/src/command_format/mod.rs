@@ -35,7 +35,6 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     }
 }
 
-//TODO add a variant for some kind of "sub-list" of parts, so you can do stuff like define optionally having a whole sequence of parts as whole, rather than having to make them optional individually
 #[derive(Debug, Clone)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
@@ -133,7 +132,6 @@ impl CommandFormatPart {
 
     /// Gets the ID for this part, if it has one.
     /// This will always return `None` for `OneOf` parts.
-    /// TODO is that what should happen for `OneOf` parts?
     pub fn id(&self) -> Option<UntypedCommandPartId> {
         match self {
             CommandFormatPart::Literal(_, params) => params.id.as_ref().map(|id| id.clone().into()),
@@ -218,11 +216,7 @@ impl CommandFormatPart {
     }
 
     /// TODO doc
-    pub fn parse(
-        &self,
-        context: PartParserContext,
-        world: &World,
-    ) -> CommandPartParseResult<ParsedValue> {
+    pub fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult {
         let entering_entity = context.entering_entity;
         // first parse
         let parse_result = match self {
@@ -729,7 +723,6 @@ impl ParsedCommand {
     {
         let parsed_value = self
             .parsed_parts
-            //TODO remove this clone if possible
             .get(&UntypedCommandPartId(id.0.clone()))
             .map(|matched_part| &matched_part.parsed_value)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0));

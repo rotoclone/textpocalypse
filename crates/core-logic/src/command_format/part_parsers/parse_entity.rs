@@ -23,7 +23,7 @@ pub fn parse_entity(
     context: PartParserContext,
     validator: Option<&dyn ValidateParsedValue<Entity>>,
     world: &World,
-) -> CommandPartParseResult<ParsedValue> {
+) -> CommandPartParseResult {
     let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
     let mut first_invalid_match = None;
     let performing_entity = context.entering_entity;
