@@ -5,6 +5,8 @@ use log::debug;
 
 use crate::{find_owning_entity, is_living_entity, GameMessage};
 
+use super::Location;
+
 /// The description of an entity.
 #[derive(Component, Debug)]
 pub struct Description {
@@ -295,14 +297,27 @@ impl Description {
         }
     }
 
-    /// Finds all the strings representing ways to reference the provided entity.
-    /// TODO include "me" and "here"
-    pub fn get_all_ways_to_reference(entity: Entity, world: &World) -> HashSet<&str> {
+    /// Finds all the strings representing ways to reference `entity`` from the perspective of `pov_entity`.
+    pub fn get_all_ways_to_reference(
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> HashSet<&str> {
         let mut names = HashSet::new();
         if let Some(desc) = world.get::<Description>(entity) {
             names.insert(desc.name.as_str());
             names.insert(desc.room_name.as_str());
             names.extend(desc.aliases.iter().map(|a| a.as_str()))
+        }
+
+        if entity == pov_entity {
+            names.insert("me");
+        }
+
+        if let Some(location) = world.get::<Location>(pov_entity) {
+            if entity == location.id {
+                names.insert("here");
+            }
         }
 
         names
