@@ -36,11 +36,6 @@ pub fn parse_entity(
         };
     }
 
-    /* TODO
-    l meeee
-    Did you mean 'look at you' (without 'eee')?
-    */
-
     for entity in find_entities_in_presence_of(performing_entity, world) {
         for name in Description::get_all_ways_to_reference(entity, performing_entity, world) {
             if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {

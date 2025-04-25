@@ -655,14 +655,12 @@ impl CommandParseErrorNew {
                 matched_parts,
                 unmatched,
             } => {
-                let matched_parts_string = matched_parts
+                let matched = matched_parts
                     .into_iter()
-                    .map(|matched_part| {
-                        matched_part.to_string_for_parse_error(context.clone(), world)
-                    })
+                    .map(|matched_part| matched_part.matched_input)
                     .join("");
 
-                format!("Did you mean '{matched_parts_string}' (without '{unmatched}')?")
+                format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
         };
 
@@ -678,9 +676,9 @@ pub enum ProcessedCommandFormatPart {
 
 #[derive(Debug)]
 pub struct MatchedCommandFormatPart {
-    part: CommandFormatPart,
-    matched_input: String,
-    parsed_value: ParsedValue,
+    pub part: CommandFormatPart,
+    pub matched_input: String,
+    pub parsed_value: ParsedValue,
 }
 
 impl MatchedCommandFormatPart {
