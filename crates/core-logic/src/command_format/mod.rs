@@ -591,9 +591,8 @@ impl CommandFormat {
 }
 
 /// An error encountered while parsing input into a command.
-/// TODO rename
 #[derive(Debug)]
-pub enum CommandParseErrorNew {
+pub enum CommandParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
@@ -608,12 +607,12 @@ pub enum CommandParseErrorNew {
     },
 }
 
-impl CommandParseErrorNew {
+impl CommandParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
     pub fn any_parts_matched(&self) -> bool {
         let matched_parts = match self {
-            CommandParseErrorNew::Part { matched_parts, .. } => matched_parts,
-            CommandParseErrorNew::UnmatchedInput { matched_parts, .. } => matched_parts,
+            CommandParseError::Part { matched_parts, .. } => matched_parts,
+            CommandParseError::UnmatchedInput { matched_parts, .. } => matched_parts,
         };
 
         !matched_parts.is_empty()
@@ -626,7 +625,7 @@ impl CommandParseErrorNew {
         }
 
         let string = match self {
-            CommandParseErrorNew::Part {
+            CommandParseError::Part {
                 matched_parts,
                 unmatched_part,
                 error,
@@ -651,7 +650,7 @@ impl CommandParseErrorNew {
 
                 format!("{matched_parts_string}{unmatched_part_string}?{error_detail_string}")
             }
-            CommandParseErrorNew::UnmatchedInput {
+            CommandParseError::UnmatchedInput {
                 matched_parts,
                 unmatched,
             } => {
@@ -736,7 +735,7 @@ impl CommandFormat {
         input: impl Into<String>,
         entering_entity: Entity,
         world: &World,
-    ) -> Result<ParsedCommand, CommandParseErrorNew> {
+    ) -> Result<ParsedCommand, CommandParseError> {
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = Vec::new();
@@ -774,14 +773,14 @@ impl CommandFormat {
                         // may be optional, in which case they will parse just fine with no input, so this shouldn't pre-emptively return
                         // an end of input error without letting the part see if that's actually a problem first.
                         //TODO is it a problem to just throw away the error returned from the part?
-                        return Err(CommandParseErrorNew::Part {
+                        return Err(CommandParseError::Part {
                             matched_parts: parsed_parts,
                             unmatched_part: Box::new(part.clone()),
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
-                    return Err(CommandParseErrorNew::Part {
+                    return Err(CommandParseError::Part {
                         matched_parts: parsed_parts,
                         unmatched_part: Box::new(part.clone()),
                         error,
@@ -791,7 +790,7 @@ impl CommandFormat {
         }
 
         if !remaining_input.is_empty() {
-            return Err(CommandParseErrorNew::UnmatchedInput {
+            return Err(CommandParseError::UnmatchedInput {
                 matched_parts: parsed_parts,
                 unmatched: remaining_input,
             });

@@ -7,6 +7,7 @@ use regex::Regex;
 
 use crate::{
     action::Action,
+    command_format::CommandParseError,
     component::{Container, CustomInputParser, Location},
     Direction, StandardInputParsers,
 };
@@ -20,7 +21,7 @@ pub fn parse_input(
     input: &str,
     source_entity: Entity,
     world: &World,
-) -> Result<Box<dyn Action>, InputParseError> {
+) -> Result<Box<dyn Action>, CommandParseError> {
     let parsers = find_parsers_relevant_for(source_entity, world);
 
     //TODO run validators for this action?
@@ -217,22 +218,17 @@ impl CommandTargetName {
 }
 
 /// An error while parsing input.
-/// TODO remove
+/* TODO remove
 pub enum InputParseError {
     /// The input did not correspond to any command.
     UnknownCommand,
     /// The input was not valid for the matched command.
-    /// TODO use `CommandParseError` from `command_format`
-    CommandParseError {
-        /// The name of the verb corresponding to the command.
-        verb: String,
-        /// The error that occurred when parsing the input as the command.
-        error: CommandParseError,
-    },
+    CommandParseError(CommandParseError),
 }
+*/
 
 /// An error while parsing input into a specific command.
-/// TODO remove
+/* TODO remove
 pub enum CommandParseError {
     /// A required target was not provided.
     MissingTarget,
@@ -241,6 +237,7 @@ pub enum CommandParseError {
     /// Something else is wrong with a custom message.
     Other(String),
 }
+    */
 
 pub trait InputParser: Send + Sync {
     /// Parses input from the provided entity into an action.
@@ -250,7 +247,7 @@ pub trait InputParser: Send + Sync {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError>;
+    ) -> Result<Box<dyn Action>, CommandParseError>;
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser.
     /// Targets in the provided formats are denoted with "<>".
@@ -289,7 +286,7 @@ fn parse_input_with<'a, I>(
     source_entity: Entity,
     world: &World,
     input_parsers: I,
-) -> Result<Box<dyn Action>, InputParseError>
+) -> Result<Box<dyn Action>, CommandParseError>
 where
     I: IntoIterator<Item = &'a Box<dyn InputParser>>,
 {
@@ -302,11 +299,14 @@ where
     }
 
     for error in errors {
-        match error {
-            InputParseError::UnknownCommand => (),
-            InputParseError::CommandParseError { .. } => return Err(error),
+        if error.any_parts_matched() {
+            return Err(error);
         }
     }
 
-    Err(InputParseError::UnknownCommand)
+    // the input didn't match any parts from any parsers
+    Err(CommandParseError::UnmatchedInput {
+        matched_parts: Vec::new(),
+        unmatched: input.to_string(),
+    })
 }
