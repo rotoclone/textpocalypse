@@ -215,7 +215,7 @@ impl CommandFormatPart {
         self
     }
 
-    /// TODO doc
+    /// Parses this part from some input.
     pub fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult {
         let entering_entity = context.entering_entity;
         // first parse
@@ -666,12 +666,6 @@ impl CommandParseErrorNew {
 
         GameMessage::Error(string)
     }
-}
-
-//TODO give this a better name
-pub enum ProcessedCommandFormatPart {
-    Matched(MatchedCommandFormatPart),
-    Unmatched(CommandFormatPart),
 }
 
 #[derive(Debug)]

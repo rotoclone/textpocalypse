@@ -122,10 +122,7 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        command_format::{literal_part, CommandFormatPart},
-        move_entity, Container, Pronouns,
-    };
+    use crate::{command_format::literal_part, move_entity, Container, Pronouns};
 
     use super::*;
 
