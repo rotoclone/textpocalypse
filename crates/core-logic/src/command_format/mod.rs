@@ -605,17 +605,20 @@ pub enum CommandParseError {
         matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
     },
+    /// Some other kind of error with a string to display to the user
+    Other(String),
 }
 
 impl CommandParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
     pub fn any_parts_matched(&self) -> bool {
-        let matched_parts = match self {
-            CommandParseError::Part { matched_parts, .. } => matched_parts,
-            CommandParseError::UnmatchedInput { matched_parts, .. } => matched_parts,
+        let no_matched_parts = match self {
+            CommandParseError::Part { matched_parts, .. } => matched_parts.is_empty(),
+            CommandParseError::UnmatchedInput { matched_parts, .. } => matched_parts.is_empty(),
+            CommandParseError::Other(_) => true,
         };
 
-        !matched_parts.is_empty()
+        !no_matched_parts
     }
 
     /// Turns the error into a message to send to the entering entity describing what went wrong.
@@ -661,6 +664,7 @@ impl CommandParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
+            CommandParseError::Other(e) => e,
         };
 
         GameMessage::Error(string)

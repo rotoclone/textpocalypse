@@ -6,16 +6,16 @@ use regex::Regex;
 
 use crate::{
     can_receive_messages,
-    command_format::{entity_part, optional_literal_part, PartParserContext},
+    command_format::{entity_part, optional_literal_part, CommandParseError},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
     },
     game_map::Coordinates,
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{CommandTarget, InputParser},
     literal_part,
     notification::VerifyResult,
-    one_of_part, send_message, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
+    one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
     DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
     MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
@@ -88,10 +88,9 @@ impl InputParser for LookParser {
             let here = match CommandTarget::Here.find_target_entity(source_entity, world) {
                 Some(e) => e,
                 None => {
-                    return Err(InputParseError::CommandParseError {
-                        verb: LOOK_VERB_NAME.to_string(),
-                        error: CommandParseError::Other("There's nothing to see.".to_string()),
-                    })
+                    return Err(CommandParseError::Other(
+                        "There's nothing to see.".to_string(),
+                    ));
                 }
             };
 
@@ -117,21 +116,8 @@ impl InputParser for LookParser {
             Err(e) => {
                 dbg!(&e); //TODO
 
-                //TODO don't send message directly here
                 if e.any_parts_matched() {
-                    send_message(
-                        world,
-                        source_entity,
-                        e.into_message(
-                            PartParserContext {
-                                input: input.to_string(),
-                                entering_entity: source_entity,
-                                next_part: None,
-                            },
-                            world,
-                        ),
-                    );
-                    return Err(InputParseError::UnknownCommand);
+                    return Err(e);
                 }
             }
         };
@@ -149,28 +135,9 @@ impl InputParser for LookParser {
             Err(e) => {
                 dbg!(&e); //TODO
 
-                //TODO don't send message directly here
-                if e.any_parts_matched() {
-                    send_message(
-                        world,
-                        source_entity,
-                        e.into_message(
-                            PartParserContext {
-                                input: input.to_string(),
-                                entering_entity: source_entity,
-                                next_part: None,
-                            },
-                            world,
-                        ),
-                    );
-                    return Err(InputParseError::UnknownCommand);
-                }
+                return Err(e);
             }
         };
-
-        Err(InputParseError::UnknownCommand)
-
-        //TODO try parsing examine format too
 
         /* TODO remove
 
