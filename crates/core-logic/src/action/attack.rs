@@ -1,12 +1,16 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use nonempty::nonempty;
 use rand::seq::SliceRandom;
 use regex::Regex;
 
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
+    command_format::{
+        entity_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
+    },
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
@@ -28,15 +32,40 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
-const ATTACK_VERB_NAME: &str = "attack";
-const ATTACK_FORMAT: &str = "attack <>";
-const NAME_CAPTURE: &str = "name";
-const WEAPON_CAPTURE: &str = "weapon";
-
 static ATTACK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap());
 static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
+});
+
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("target"));
+static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("attack"),
+        literal_part("kill"),
+        literal_part("k")
+    ]))
+    .then(literal_part(" "))
+    .then(entity_part(TARGET_PART_ID.clone()))
+});
+
+static WEAPON_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("weapon"));
+static ATTACK_WITH_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("attack"),
+        literal_part("kill"),
+        literal_part("k")
+    ]))
+    .then(literal_part(" "))
+    .then(entity_part(TARGET_PART_ID.clone()))
+    .then(literal_part(" "))
+    .then(one_of_part(nonempty![
+        literal_part("with"),
+        literal_part("using")
+    ]))
+    .then(entity_part(WEAPON_PART_ID.clone()))
 });
 
 pub struct AttackParser;
@@ -47,7 +76,7 @@ impl InputParser for AttackParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
+    ) -> Result<Box<dyn Action>, CommandParseError> {
         let attack = parse_attack_input::<AttackAction>(
             input,
             source_entity,

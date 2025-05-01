@@ -5,21 +5,21 @@ use nonempty::nonempty;
 
 use crate::{
     any_text_part,
-    command_format::PartParserContext,
+    command_format::CommandParseError,
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{InputParseError, InputParser},
+    input_parser::InputParser,
     literal_part,
     notification::VerifyResult,
-    one_of_part, send_message, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat,
-    CommandPartId, DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    one_of_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
+    DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
 //TODO somehow get just "say" (no ending space) to result in a "Say what?" error rather than "I don't understand that"
-static SAY_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_part(nonempty![literal_part("say "), literal_part("\"")])
             .with_error_string_override("say "),
@@ -39,27 +39,8 @@ impl InputParser for SayParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        //TODO use `?` instead
-        let parsed = match SAY_COMMAND_FORMAT.parse(input, source_entity, world) {
-            Ok(p) => p,
-            Err(e) => {
-                //TODO don't send message directly here
-                send_message(
-                    world,
-                    source_entity,
-                    e.into_message(
-                        PartParserContext {
-                            input: input.to_string(),
-                            entering_entity: source_entity,
-                            next_part: None,
-                        },
-                        world,
-                    ),
-                );
-                return Err(InputParseError::UnknownCommand);
-            }
-        };
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = SAY_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(SayAction {
             text: parsed.get(&TEXT_PART_ID).to_string(),
@@ -68,7 +49,7 @@ impl InputParser for SayParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SAY_COMMAND_FORMAT.get_format_description().to_string()]
+        vec![SAY_FORMAT.get_format_description().to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {

@@ -2,7 +2,6 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
-use regex::Regex;
 
 use crate::{
     can_receive_messages,
@@ -22,18 +21,7 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const LOOK_VERB_NAME: &str = "look";
-const DETAILED_LOOK_VERB_NAME: &str = "examine";
-const LOOK_FORMAT: &str = "look <>";
-const DETAILED_LOOK_FORMAT: &str = "examine <>";
-const LOOK_TARGET_CAPTURE: &str = "target";
-
-static LOOK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap());
-static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
-
-static LOOK_NO_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+static LOOK_NO_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("look"),
         literal_part("l"),
@@ -42,7 +30,7 @@ static LOOK_NO_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(||
 
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
-static LOOK_WITH_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_part(nonempty![literal_part("look"), literal_part("l"),])
             .with_error_string_override("look"),
@@ -55,7 +43,7 @@ static LOOK_WITH_TARGET_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(
             .with_placeholder_for_format_string("thing/direction"),
     )
 });
-static DETAILED_LOOK_COMMAND_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_part(nonempty![
             literal_part("examine"),
@@ -81,7 +69,7 @@ impl InputParser for LookParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, CommandParseError> {
-        if LOOK_NO_TARGET_COMMAND_FORMAT
+        if LOOK_NO_TARGET_FORMAT
             .parse(input, source_entity, world)
             .is_ok()
         {
@@ -103,7 +91,7 @@ impl InputParser for LookParser {
 
         //TODO use `?` instead
         //TODO can't use `?`, because if this fails to parse then `DETAILED_LOOK_COMMAND_FORMAT` could still succeed
-        match LOOK_WITH_TARGET_COMMAND_FORMAT.parse(input, source_entity, world) {
+        match LOOK_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
             Ok(p) => {
                 let target = p.get(&TARGET_PART_ID);
 
@@ -122,7 +110,7 @@ impl InputParser for LookParser {
             }
         };
 
-        match DETAILED_LOOK_COMMAND_FORMAT.parse(input, source_entity, world) {
+        match DETAILED_LOOK_FORMAT.parse(input, source_entity, world) {
             Ok(p) => {
                 let target = p.get(&TARGET_PART_ID);
 
@@ -182,15 +170,9 @@ impl InputParser for LookParser {
 
     fn get_input_formats(&self) -> Vec<String> {
         vec![
-            LOOK_NO_TARGET_COMMAND_FORMAT
-                .get_format_description()
-                .to_string(),
-            LOOK_WITH_TARGET_COMMAND_FORMAT
-                .get_format_description()
-                .to_string(),
-            DETAILED_LOOK_COMMAND_FORMAT
-                .get_format_description()
-                .to_string(),
+            LOOK_NO_TARGET_FORMAT.get_format_description().to_string(),
+            LOOK_WITH_TARGET_FORMAT.get_format_description().to_string(),
+            DETAILED_LOOK_FORMAT.get_format_description().to_string(),
         ]
     }
 
@@ -202,11 +184,11 @@ impl InputParser for LookParser {
     ) -> Option<Vec<String>> {
         if world.get::<Description>(entity).is_some() {
             return Some(vec![
-                LOOK_WITH_TARGET_COMMAND_FORMAT
+                LOOK_WITH_TARGET_FORMAT
                     .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
                     .to_string(),
-                DETAILED_LOOK_COMMAND_FORMAT
+                DETAILED_LOOK_FORMAT
                     .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
                     .to_string(),
