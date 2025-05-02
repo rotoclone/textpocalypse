@@ -8,6 +8,7 @@ use regex::Regex;
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
+    combat_utils::AttackCommandFormats,
     command_format::{
         entity_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
     },
@@ -80,13 +81,12 @@ impl InputParser for AttackParser {
         let attack = parse_attack_input::<AttackAction>(
             input,
             source_entity,
-            AttackRegexes {
-                pattern: &ATTACK_PATTERN,
-                pattern_with_weapon: &ATTACK_PATTERN_WITH_WEAPON,
-                target_capture_name: NAME_CAPTURE,
-                weapon_capture_name: WEAPON_CAPTURE,
+            AttackCommandFormats {
+                format: &ATTACK_FORMAT,
+                format_with_weapon: &ATTACK_WITH_WEAPON_FORMAT,
+                target_part_id: &TARGET_PART_ID,
+                weapon_part_id: &WEAPON_PART_ID,
             },
-            ATTACK_VERB_NAME,
             world,
         )?;
 
@@ -98,7 +98,12 @@ impl InputParser for AttackParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![ATTACK_FORMAT.to_string()]
+        vec![
+            ATTACK_FORMAT.get_format_description().to_string(),
+            ATTACK_WITH_WEAPON_FORMAT
+                .get_format_description()
+                .to_string(),
+        ]
     }
 
     fn get_input_formats_for(
@@ -107,6 +112,8 @@ impl InputParser for AttackParser {
         _: Entity,
         world: &World,
     ) -> Option<Vec<String>> {
+        //TODO if `entity` is a valid target, fill it in for the target parts
+        //TODO if `entity` is a valid weapon, fill it in for the weapon part
         input_formats_if_has_component::<Vitals>(entity, world, &[ATTACK_FORMAT])
     }
 }

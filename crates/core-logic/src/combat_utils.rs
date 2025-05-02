@@ -7,6 +7,7 @@ use regex::{Captures, Regex};
 
 use crate::{
     body_part::BodyPartDamageMultiplier,
+    command_format::{CommandFormat, CommandPartId},
     is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
@@ -96,18 +97,18 @@ fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Opti
     None
 }
 
-/// Information about the regular expressions used to parse an attack command.
-pub struct AttackRegexes {
-    /// The pattern for an attack with no weapon specified.
-    /// Should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
-    pub pattern: &'static Regex,
-    /// The pattern for an attack with a weapon specified.
-    /// Should have capture groups with the names provided in `target_capture_name` and `weapon_capture_name`. Any other capture groups will be ignored.
-    pub pattern_with_weapon: &'static Regex,
-    /// The name of the capture group for the target of the attack.
-    pub target_capture_name: &'static str,
-    /// The name of the capture group for the weapon to attack with.
-    pub weapon_capture_name: &'static str,
+/// Information about the command formats used to parse an attack command.
+pub struct AttackCommandFormats {
+    /// The format for an attack with no weapon specified.
+    /// Must have a part with the ID provided in `target_part_id`.
+    pub format: &'static CommandFormat,
+    /// The format for an attack with a weapon specified.
+    /// Must have parts with the IDs provided in `target_part_id` and `weapon_part_id`.
+    pub format_with_weapon: &'static CommandFormat,
+    /// The ID of the part for the target of the attack.
+    pub target_part_id: &'static CommandPartId<Entity>,
+    /// The ID of the part for the weapon to attack with.
+    pub weapon_part_id: &'static CommandPartId<Entity>,
 }
 
 /// Parses input from `source_entity` as an attack command.
@@ -116,35 +117,27 @@ pub struct AttackRegexes {
 pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
-    regexes: AttackRegexes,
-    verb_name: &str,
+    command_formats: AttackCommandFormats,
     world: &World,
-) -> Result<ParsedAttack, InputParseError> {
-    if let Some(captures) = regexes.pattern_with_weapon.captures(input) {
-        return parse_attack_input_captures::<A>(
-            &captures,
-            source_entity,
-            regexes.target_capture_name,
-            regexes.weapon_capture_name,
-            verb_name,
-            world,
-        );
+) -> Result<ParsedAttack, CommandParseError> {
+    if let Ok(parsed) = command_formats
+        .format_with_weapon
+        .parse(input, source_entity, world)
+    {
+        return Ok(ParsedAttack {
+            target: parsed.get(command_formats.target_part_id),
+            weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
+        });
     }
 
-    if let Some(captures) = regexes.pattern.captures(input) {
-        return parse_attack_input_captures::<A>(
-            &captures,
-            source_entity,
-            regexes.target_capture_name,
-            regexes.weapon_capture_name,
-            verb_name,
-            world,
-        );
-    }
-
-    Err(InputParseError::UnknownCommand)
+    let parsed = command_formats.format.parse(input, source_entity, world)?;
+    Ok(ParsedAttack {
+        target: parsed.get(command_formats.target_part_id),
+        weapon: ChosenWeapon::Unspecified,
+    })
 }
 
+//TODO remove
 fn parse_attack_input_captures<A: AttackType>(
     captures: &Captures,
     source_entity: Entity,
@@ -175,6 +168,7 @@ fn parse_attack_input_captures<A: AttackType>(
 }
 
 /// Finds the target entity of an attack.
+//TODO convert this into a validator for the target part
 fn parse_attack_target(
     captures: &Captures,
     target_capture_name: &str,
@@ -219,6 +213,7 @@ fn parse_attack_target(
 }
 
 /// Finds the weapon entity to use in an attack.
+/// TODO convert this into a validator for the weapon part
 fn parse_attack_weapon<A: AttackType>(
     captures: &Captures,
     weapon_capture_name: &str,
