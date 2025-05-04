@@ -167,6 +167,11 @@ fn parse_attack_input_captures<A: AttackType>(
     })
 }
 
+/// Determines whether `target` is a valid entity to attack.
+pub fn is_valid_attack_target(target: Entity, world: &World) -> bool {
+    world.get::<Vitals>(target).is_some()
+}
+
 /// Finds the target entity of an attack.
 //TODO convert this into a validator for the target part
 fn parse_attack_target(
@@ -210,6 +215,11 @@ fn parse_attack_target(
         verb: verb_name.to_string(),
         error: CommandParseError::MissingTarget,
     })
+}
+
+/// Determines whether `entity` is a valid weapon to attack with.
+pub fn is_valid_attack_weapon<A: AttackType>(entity: Entity, world: &World) -> bool {
+    world.get::<Weapon>(entity).is_some() && A::can_perform_with(entity, world)
 }
 
 /// Finds the weapon entity to use in an attack.

@@ -8,24 +8,24 @@ use regex::Regex;
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
-    combat_utils::AttackCommandFormats,
+    combat_utils::{is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats},
     command_format::{
         entity_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
     },
-    component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
+    component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
-    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
+    input_parser::InputParser,
     notification::VerifyResult,
     parse_attack_input,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackRegexes, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon,
-    DynamicMessage, DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, SurroundingsMessageCategory, VerifyActionNotification,
-    WeaponHitMessageTokens, WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -112,9 +112,27 @@ impl InputParser for AttackParser {
         _: Entity,
         world: &World,
     ) -> Option<Vec<String>> {
-        //TODO if `entity` is a valid target, fill it in for the target parts
-        //TODO if `entity` is a valid weapon, fill it in for the weapon part
-        input_formats_if_has_component::<Vitals>(entity, world, &[ATTACK_FORMAT])
+        if is_valid_attack_target(entity, world) {
+            return Some(vec![
+                ATTACK_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .to_string(),
+                ATTACK_WITH_WEAPON_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .to_string(),
+            ]);
+        }
+
+        if is_valid_attack_weapon::<AttackAction>(entity, world) {
+            return Some(vec![ATTACK_WITH_WEAPON_FORMAT
+                .get_format_description()
+                .with_targeted_entity(WEAPON_PART_ID.clone(), entity, world)
+                .to_string()]);
+        }
+
+        None
     }
 }
 
