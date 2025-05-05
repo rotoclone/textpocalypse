@@ -3,23 +3,27 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
-use regex::{Captures, Regex};
+use regex::Captures;
 
 use crate::{
     body_part::BodyPartDamageMultiplier,
-    command_format::{CommandFormat, CommandPartId},
-    is_living_entity,
+    command_format::{
+        CommandFormat, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
+        ParsedValue, PartValidatorContext, ValidateParsedValue, ValidateParsedValueClone,
+        ValidateParsedValueUntyped, ValidateParsedValueUntypedClone,
+    },
+    in_same_room, is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
     CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
     DynamicMessage, DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification,
-    GameMessage, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
-    Location, MessageCategory, MessageDelay, MessageFormat, Notification, Skill, Stats,
-    SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
-    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
-    WeaponUnusableError, STANDARD_CHECK_XP,
+    GameMessage, InnateWeapon, IntegerExtensions, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
+    VerifyActionNotification, VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams,
+    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
+    STANDARD_CHECK_XP,
 };
 
 /// The fraction of a target's health that counts as a high amount of damage.
@@ -165,6 +169,68 @@ fn parse_attack_input_captures<A: AttackType>(
         target: target_entity,
         weapon: chosen_weapon,
     })
+}
+
+#[derive(Debug)]
+pub struct ValidateAttackTarget;
+
+impl ValidateParsedValue<Entity> for ValidateAttackTarget {
+    fn validate(
+        &self,
+        context: PartValidatorContext<Entity>,
+        world: &World,
+    ) -> CommandPartValidateResult {
+        if !is_valid_attack_target(context.parsed_value, world) {
+            let target_name = Description::get_reference_name(
+                context.parsed_value,
+                Some(context.performing_entity),
+                world,
+            );
+            let message = format!("You can't attack {target_name}.");
+            return CommandPartValidateResult::Invalid(CommandPartValidateError {
+                details: Some(message),
+            });
+        }
+        if !in_same_room(context.parsed_value, context.performing_entity, world) {
+            let target_name = Description::get_reference_name(
+                context.parsed_value,
+                Some(context.performing_entity),
+                world,
+            );
+            let message = format!("{target_name} isn't here.");
+            return CommandPartValidateResult::Invalid(CommandPartValidateError {
+                details: Some(message),
+            });
+        }
+
+        CommandPartValidateResult::Valid
+    }
+
+    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
+        todo!() //TODO
+    }
+}
+
+impl ValidateParsedValueUntyped for ValidateAttackTarget {
+    fn validate(
+        &self,
+        context: PartValidatorContext<ParsedValue>,
+        world: &World,
+    ) -> CommandPartValidateResult {
+        todo!() //TODO
+    }
+}
+
+impl ValidateParsedValueClone<Entity> for ValidateAttackTarget {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValue<Entity>> {
+        todo!() //TODO
+    }
+}
+
+impl ValidateParsedValueUntypedClone for ValidateAttackTarget {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
+        todo!() //TODO
+    }
 }
 
 /// Determines whether `target` is a valid entity to attack.
@@ -661,18 +727,12 @@ fn verify_target_in_same_room<A: AttackType>(
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.get_target();
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
-    let attacker_location = world.get::<Location>(performing_entity);
-    let target_location = world.get::<Location>(target);
-
-    if attacker_location.is_none()
-        || target_location.is_none()
-        || attacker_location != target_location
-    {
+    if !in_same_room(performing_entity, target, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         return VerifyResult::invalid(
             performing_entity,
-            GameMessage::Error(format!("{target_name} is not here.")),
+            GameMessage::Error(format!("{target_name} isn't here.")),
         );
     }
 
@@ -694,7 +754,7 @@ fn verify_target_alive<A: AttackType>(
 
     VerifyResult::invalid(
         performing_entity,
-        GameMessage::Error(format!("{target_name} is not alive.")),
+        GameMessage::Error(format!("{target_name} isn't alive.")),
     )
 }
 

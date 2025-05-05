@@ -1011,6 +1011,14 @@ fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()
 }
 
+/// Determines if two entities are in the same location.
+fn in_same_room(entity_1: Entity, entity_2: Entity, world: &World) -> bool {
+    let location_1 = world.get::<Location>(entity_1);
+    let location_2 = world.get::<Location>(entity_2);
+
+    location_1.is_some() && location_2.is_some() && location_1 == location_2
+}
+
 /// Finds the living entity that currently controls the provided entity (i.e. contains it or contains a container that contains it)
 fn find_owning_entity(entity: Entity, world: &World) -> Option<Entity> {
     if let Some(location) = world.get::<Location>(entity) {

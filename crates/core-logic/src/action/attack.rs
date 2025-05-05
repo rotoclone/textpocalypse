@@ -10,7 +10,8 @@ use crate::{
     check_for_hit,
     combat_utils::{is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats},
     command_format::{
-        entity_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
+        entity_part, entity_part_with_validator, literal_part, one_of_part, CommandFormat,
+        CommandParseError, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
@@ -48,7 +49,10 @@ static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("k")
     ]))
     .then(literal_part(" "))
-    .then(entity_part(TARGET_PART_ID.clone()))
+    .then(entity_part_with_validator(
+        TARGET_PART_ID.clone(),
+        Box::new(AttackTargetValidator),
+    ))
 });
 
 static WEAPON_PART_ID: LazyLock<CommandPartId<Entity>> =
