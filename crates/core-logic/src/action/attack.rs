@@ -8,7 +8,9 @@ use regex::Regex;
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
-    combat_utils::{is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats},
+    combat_utils::{
+        is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats, AttackTargetValidator,
+    },
     command_format::{
         entity_part, entity_part_with_validator, literal_part, one_of_part, CommandFormat,
         CommandParseError, CommandPartId,

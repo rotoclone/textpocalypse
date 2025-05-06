@@ -124,6 +124,7 @@ pub fn parse_attack_input<A: AttackType>(
     command_formats: AttackCommandFormats,
     world: &World,
 ) -> Result<ParsedAttack, CommandParseError> {
+    //TODO allow providing no target (which is fine if `source_entity` is in combat with exactly one entity)
     if let Ok(parsed) = command_formats
         .format_with_weapon
         .parse(input, source_entity, world)
@@ -171,10 +172,10 @@ fn parse_attack_input_captures<A: AttackType>(
     })
 }
 
-#[derive(Debug)]
-pub struct ValidateAttackTarget;
+#[derive(Debug, Clone, Copy)]
+pub struct AttackTargetValidator;
 
-impl ValidateParsedValue<Entity> for ValidateAttackTarget {
+impl ValidateParsedValue<Entity> for AttackTargetValidator {
     fn validate(
         &self,
         context: PartValidatorContext<Entity>,
@@ -207,29 +208,37 @@ impl ValidateParsedValue<Entity> for ValidateAttackTarget {
     }
 
     fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        todo!() //TODO
+        Box::new(*self)
     }
 }
 
-impl ValidateParsedValueUntyped for ValidateAttackTarget {
+impl ValidateParsedValueUntyped for AttackTargetValidator {
     fn validate(
         &self,
         context: PartValidatorContext<ParsedValue>,
         world: &World,
     ) -> CommandPartValidateResult {
-        todo!() //TODO
+        if let ParsedValue::Entity(e) = context.parsed_value {
+            let converted_context = PartValidatorContext {
+                parsed_value: e,
+                performing_entity: context.performing_entity,
+            };
+            ValidateParsedValue::validate(self, converted_context, world)
+        } else {
+            panic!("parsed value should be an entity")
+        }
     }
 }
 
-impl ValidateParsedValueClone<Entity> for ValidateAttackTarget {
+impl ValidateParsedValueClone<Entity> for AttackTargetValidator {
     fn clone_box(&self) -> Box<dyn ValidateParsedValue<Entity>> {
-        todo!() //TODO
+        Box::new(*self)
     }
 }
 
-impl ValidateParsedValueUntypedClone for ValidateAttackTarget {
+impl ValidateParsedValueUntypedClone for AttackTargetValidator {
     fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        todo!() //TODO
+        Box::new(*self)
     }
 }
 

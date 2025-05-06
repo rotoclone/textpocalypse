@@ -293,6 +293,7 @@ impl CommandFormatPart {
 pub struct CommandFormatPartParams<P, V> {
     id: Option<CommandPartId<P>>,
     options: CommandFormatPartOptions,
+    //TODO can this really not just be a function pointer?
     validator: Option<Box<dyn ValidateParsedValue<V>>>,
 }
 
