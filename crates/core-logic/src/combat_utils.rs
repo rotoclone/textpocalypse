@@ -103,12 +103,17 @@ fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Opti
 
 /// Information about the command formats used to parse an attack command.
 pub struct AttackCommandFormats {
-    /// The format for an attack with no weapon specified.
+    /// The format for an attach with no target or weapon specified.
+    pub format_no_target_no_weapon: &'static CommandFormat,
+    /// The format for an attack with a target but no weapon specified.
     /// Must have a part with the ID provided in `target_part_id`.
-    pub format: &'static CommandFormat,
-    /// The format for an attack with a weapon specified.
-    /// Must have parts with the IDs provided in `target_part_id` and `weapon_part_id`.
+    pub format_with_target: &'static CommandFormat,
+    /// The format for an attach with a weapon but no target specified.
+    /// Must have a part with the ID provided in `weapon_part_id`.
     pub format_with_weapon: &'static CommandFormat,
+    /// The format for an attack with a target and weapon specified.
+    /// Must have parts with the IDs provided in `target_part_id` and `weapon_part_id`.
+    pub format_with_target_and_weapon: &'static CommandFormat,
     /// The ID of the part for the target of the attack.
     pub target_part_id: &'static CommandPartId<Entity>,
     /// The ID of the part for the weapon to attack with.
@@ -117,28 +122,52 @@ pub struct AttackCommandFormats {
 
 /// Parses input from `source_entity` as an attack command.
 ///
-/// Returns `Ok` with the target entity, or `Err` if the input is invalid.
+/// Returns `Ok` with information about the attack, or `Err` if the input is invalid.
 pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
     command_formats: AttackCommandFormats,
     world: &World,
 ) -> Result<ParsedAttack, CommandParseError> {
-    //TODO allow providing no target (which is fine if `source_entity` is in combat with exactly one entity)
+    if let Some(target) = find_single_entity_in_combat_with(source_entity, world) {
+        if let Ok(parsed) = command_formats
+            .format_with_weapon
+            .parse(input, source_entity, world)
+        {
+            return Ok(ParsedAttack {
+                target,
+                weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
+            });
+        }
+
+        if let Ok(_) = command_formats
+            .format_no_target_no_weapon
+            .parse(input, source_entity, world)
+        {
+            return Ok(ParsedAttack {
+                target,
+                weapon: ChosenWeapon::Unspecified,
+            });
+        }
+    }
+
     if let Ok(parsed) = command_formats
-        .format_with_weapon
+        .format_with_target
         .parse(input, source_entity, world)
     {
         return Ok(ParsedAttack {
             target: parsed.get(command_formats.target_part_id),
-            weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
+            weapon: ChosenWeapon::Unspecified,
         });
     }
 
-    let parsed = command_formats.format.parse(input, source_entity, world)?;
+    let parsed =
+        command_formats
+            .format_with_target_and_weapon
+            .parse(input, source_entity, world)?;
     Ok(ParsedAttack {
         target: parsed.get(command_formats.target_part_id),
-        weapon: ChosenWeapon::Unspecified,
+        weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
     })
 }
 
@@ -290,6 +319,21 @@ fn parse_attack_target(
         verb: verb_name.to_string(),
         error: CommandParseError::MissingTarget,
     })
+}
+
+/// Finds the single entity in combat with the provided entity.
+/// Returns `None` if the entity isn't in combat, or is in combat with multiple entities.
+fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<Entity> {
+    let combatants = CombatState::get_entities_in_combat_with(entity, world);
+    if combatants.len() == 1 {
+        let target_entity = combatants
+            .keys()
+            .next()
+            .expect("combatants should contain an entry");
+        return Some(*target_entity);
+    }
+
+    None
 }
 
 /// Determines whether `entity` is a valid weapon to attack with.

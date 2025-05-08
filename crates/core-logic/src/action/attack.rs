@@ -42,9 +42,17 @@ static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
 });
 
+static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("attack"),
+        literal_part("kill"),
+        literal_part("k")
+    ]))
+});
+
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
-static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+static ATTACK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("attack"),
         literal_part("kill"),
@@ -60,6 +68,19 @@ static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 static WEAPON_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("weapon"));
 static ATTACK_WITH_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("attack"),
+        literal_part("kill"),
+        literal_part("k")
+    ]))
+    .then(literal_part(" "))
+    .then(one_of_part(nonempty![
+        literal_part("with"),
+        literal_part("using")
+    ]))
+    .then(entity_part(WEAPON_PART_ID.clone()))
+});
+static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("attack"),
         literal_part("kill"),
@@ -88,8 +109,10 @@ impl InputParser for AttackParser {
             input,
             source_entity,
             AttackCommandFormats {
-                format: &ATTACK_FORMAT,
+                format_no_target_no_weapon: &ATTACK_FORMAT,
+                format_with_target: &ATTACK_WITH_TARGET_FORMAT,
                 format_with_weapon: &ATTACK_WITH_WEAPON_FORMAT,
+                format_with_target_and_weapon: &ATTACK_WITH_TARGET_AND_WEAPON_FORMAT,
                 target_part_id: &TARGET_PART_ID,
                 weapon_part_id: &WEAPON_PART_ID,
             },
