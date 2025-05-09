@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
@@ -12,7 +12,7 @@ use crate::{
         ParsedValue, PartValidatorContext, ValidateParsedValue, ValidateParsedValueClone,
         ValidateParsedValueUntyped, ValidateParsedValueUntypedClone,
     },
-    in_same_room, is_living_entity,
+    find_owning_entity, in_same_room, is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
@@ -171,36 +171,6 @@ pub fn parse_attack_input<A: AttackType>(
     })
 }
 
-//TODO remove
-fn parse_attack_input_captures<A: AttackType>(
-    captures: &Captures,
-    source_entity: Entity,
-    target_capture_name: &str,
-    weapon_capture_name: &str,
-    verb_name: &str,
-    world: &World,
-) -> Result<ParsedAttack, InputParseError> {
-    let target_entity = parse_attack_target(
-        captures,
-        target_capture_name,
-        source_entity,
-        verb_name,
-        world,
-    )?;
-    let chosen_weapon = parse_attack_weapon::<A>(
-        captures,
-        weapon_capture_name,
-        source_entity,
-        verb_name,
-        world,
-    )?;
-
-    Ok(ParsedAttack {
-        target: target_entity,
-        weapon: chosen_weapon,
-    })
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct AttackTargetValidator;
 
@@ -276,51 +246,6 @@ pub fn is_valid_attack_target(target: Entity, world: &World) -> bool {
     world.get::<Vitals>(target).is_some()
 }
 
-/// Finds the target entity of an attack.
-//TODO convert this into a validator for the target part
-fn parse_attack_target(
-    captures: &Captures,
-    target_capture_name: &str,
-    source_entity: Entity,
-    verb_name: &str,
-    world: &World,
-) -> Result<Entity, InputParseError> {
-    if let Some(target_match) = captures.name(target_capture_name) {
-        let target = CommandTarget::parse(target_match.as_str());
-        if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-            if world.get::<Vitals>(target_entity).is_some() {
-                // target exists and is attackable
-                return Ok(target_entity);
-            }
-            let target_name =
-                Description::get_reference_name(target_entity, Some(source_entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::Other(format!("You can't attack {target_name}.")),
-            });
-        }
-        return Err(InputParseError::CommandParseError {
-            verb: verb_name.to_string(),
-            error: CommandParseError::TargetNotFound(target),
-        });
-    }
-
-    // no target provided
-    let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
-    if combatants.len() == 1 {
-        let target_entity = combatants
-            .keys()
-            .next()
-            .expect("combatants should contain an entry");
-        return Ok(*target_entity);
-    }
-
-    Err(InputParseError::CommandParseError {
-        verb: verb_name.to_string(),
-        error: CommandParseError::MissingTarget,
-    })
-}
-
 /// Finds the single entity in combat with the provided entity.
 /// Returns `None` if the entity isn't in combat, or is in combat with multiple entities.
 fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<Entity> {
@@ -336,6 +261,85 @@ fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<En
     None
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct AttackWeaponValidator<A: AttackType + Clone>(PhantomData<fn(A)>);
+
+impl<A: AttackType + Clone + 'static> AttackWeaponValidator<A> {
+    /// Creates an `AttackWeaponValidator`.
+    pub fn new() -> Self {
+        AttackWeaponValidator(PhantomData)
+    }
+}
+
+impl<A: AttackType + Clone + 'static> ValidateParsedValue<Entity> for AttackWeaponValidator<A> {
+    fn validate(
+        &self,
+        context: PartValidatorContext<Entity>,
+        world: &World,
+    ) -> CommandPartValidateResult {
+        if !is_valid_attack_weapon::<A>(context.parsed_value, world) {
+            let weapon_name = Description::get_reference_name(
+                context.parsed_value,
+                Some(context.performing_entity),
+                world,
+            );
+            let message = format!("You can't attack with {weapon_name}.");
+            return CommandPartValidateResult::Invalid(CommandPartValidateError {
+                details: Some(message),
+            });
+        }
+        if find_owning_entity(context.parsed_value, world) != Some(context.performing_entity) {
+            let weapon_name = Description::get_reference_name(
+                context.parsed_value,
+                Some(context.performing_entity),
+                world,
+            );
+            let message = format!("You don't have {weapon_name}.");
+            return CommandPartValidateResult::Invalid(CommandPartValidateError {
+                details: Some(message),
+            });
+        }
+
+        CommandPartValidateResult::Valid
+    }
+
+    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
+        Box::new(self.clone())
+    }
+}
+
+impl<A: AttackType + Clone + 'static> ValidateParsedValueUntyped for AttackWeaponValidator<A> {
+    fn validate(
+        &self,
+        context: PartValidatorContext<ParsedValue>,
+        world: &World,
+    ) -> CommandPartValidateResult {
+        if let ParsedValue::Entity(e) = context.parsed_value {
+            let converted_context = PartValidatorContext {
+                parsed_value: e,
+                performing_entity: context.performing_entity,
+            };
+            ValidateParsedValue::validate(self, converted_context, world)
+        } else {
+            panic!("parsed value should be an entity")
+        }
+    }
+}
+
+impl<A: AttackType + Clone + 'static> ValidateParsedValueClone<Entity>
+    for AttackWeaponValidator<A>
+{
+    fn clone_box(&self) -> Box<dyn ValidateParsedValue<Entity>> {
+        Box::new(self.clone())
+    }
+}
+
+impl<A: AttackType + Clone + 'static> ValidateParsedValueUntypedClone for AttackWeaponValidator<A> {
+    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
+        Box::new(self.clone())
+    }
+}
+
 /// Determines whether `entity` is a valid weapon to attack with.
 pub fn is_valid_attack_weapon<A: AttackType>(entity: Entity, world: &World) -> bool {
     world.get::<Weapon>(entity).is_some() && A::can_perform_with(entity, world)
@@ -343,6 +347,7 @@ pub fn is_valid_attack_weapon<A: AttackType>(entity: Entity, world: &World) -> b
 
 /// Finds the weapon entity to use in an attack.
 /// TODO convert this into a validator for the weapon part
+/*
 fn parse_attack_weapon<A: AttackType>(
     captures: &Captures,
     weapon_capture_name: &str,
@@ -375,6 +380,7 @@ fn parse_attack_weapon<A: AttackType>(
     // no weapon provided
     Ok(ChosenWeapon::Unspecified)
 }
+    */
 
 /// Finds the weapon for the provided entity to use in an attack. Returns an `Err(ActionResult)` with an error message if no weapon can be found.
 pub fn find_weapon<A: AttackType>(

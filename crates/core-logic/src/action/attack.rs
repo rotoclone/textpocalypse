@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, marker::PhantomData, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
@@ -9,7 +9,8 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     combat_utils::{
-        is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats, AttackTargetValidator,
+        is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats,
+        AttackTargetValidator, AttackWeaponValidator,
     },
     command_format::{
         entity_part, entity_part_with_validator, literal_part, one_of_part, CommandFormat,
@@ -78,7 +79,10 @@ static ATTACK_WITH_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("with"),
         literal_part("using")
     ]))
-    .then(entity_part(WEAPON_PART_ID.clone()))
+    .then(entity_part_with_validator(
+        WEAPON_PART_ID.clone(),
+        Box::new(AttackWeaponValidator::<AttackAction>::new()),
+    ))
 });
 static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
@@ -87,13 +91,19 @@ static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock:
         literal_part("k")
     ]))
     .then(literal_part(" "))
-    .then(entity_part(TARGET_PART_ID.clone()))
+    .then(entity_part_with_validator(
+        TARGET_PART_ID.clone(),
+        Box::new(AttackTargetValidator),
+    ))
     .then(literal_part(" "))
     .then(one_of_part(nonempty![
         literal_part("with"),
         literal_part("using")
     ]))
-    .then(entity_part(WEAPON_PART_ID.clone()))
+    .then(entity_part_with_validator(
+        WEAPON_PART_ID.clone(),
+        Box::new(AttackWeaponValidator::<AttackAction>::new()),
+    ))
 });
 
 pub struct AttackParser;
