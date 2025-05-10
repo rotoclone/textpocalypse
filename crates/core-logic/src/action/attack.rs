@@ -1,4 +1,4 @@
-use std::{collections::HashSet, marker::PhantomData, sync::LazyLock};
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
@@ -9,12 +9,12 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     combat_utils::{
-        is_valid_attack_target, is_valid_attack_weapon, AttackCommandFormats,
-        AttackTargetValidator, AttackWeaponValidator,
+        is_valid_attack_target, is_valid_attack_weapon, validate_attack_target,
+        validate_attack_weapon, AttackCommandFormats,
     },
     command_format::{
-        entity_part, entity_part_with_validator, literal_part, one_of_part, CommandFormat,
-        CommandParseError, CommandPartId,
+        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
+        CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
@@ -62,7 +62,7 @@ static ATTACK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(literal_part(" "))
     .then(entity_part_with_validator(
         TARGET_PART_ID.clone(),
-        Box::new(AttackTargetValidator),
+        validate_attack_target,
     ))
 });
 
@@ -81,7 +81,7 @@ static ATTACK_WITH_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(entity_part_with_validator(
         WEAPON_PART_ID.clone(),
-        Box::new(AttackWeaponValidator::<AttackAction>::new()),
+        validate_attack_weapon::<AttackAction>,
     ))
 });
 static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -93,7 +93,7 @@ static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock:
     .then(literal_part(" "))
     .then(entity_part_with_validator(
         TARGET_PART_ID.clone(),
-        Box::new(AttackTargetValidator),
+        validate_attack_target,
     ))
     .then(literal_part(" "))
     .then(one_of_part(nonempty![
@@ -102,7 +102,7 @@ static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock:
     ]))
     .then(entity_part_with_validator(
         WEAPON_PART_ID.clone(),
-        Box::new(AttackWeaponValidator::<AttackAction>::new()),
+        validate_attack_weapon::<AttackAction>,
     ))
 });
 

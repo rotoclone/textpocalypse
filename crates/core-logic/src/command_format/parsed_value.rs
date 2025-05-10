@@ -68,6 +68,25 @@ impl TryFrom<ParsedValue> for Entity {
     }
 }
 
+impl From<Direction> for ParsedValue {
+    fn from(value: Direction) -> Self {
+        ParsedValue::Direction(value)
+    }
+}
+
+impl TryFrom<ParsedValue> for Direction {
+    //TODO should this be an actual type?
+    type Error = ();
+
+    fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
+        if let ParsedValue::Direction(d) = value {
+            Ok(d)
+        } else {
+            Err(())
+        }
+    }
+}
+
 impl<T> From<Option<T>> for ParsedValue
 where
     T: Into<ParsedValue>,

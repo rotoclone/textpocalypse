@@ -21,10 +21,6 @@ mod parsed_value_validators;
 pub use parsed_value_validators::CommandPartValidateError;
 pub use parsed_value_validators::CommandPartValidateResult;
 pub use parsed_value_validators::PartValidatorContext;
-pub use parsed_value_validators::ValidateParsedValue;
-pub use parsed_value_validators::ValidateParsedValueClone;
-pub use parsed_value_validators::ValidateParsedValueUntyped;
-pub use parsed_value_validators::ValidateParsedValueUntypedClone;
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
@@ -162,27 +158,31 @@ impl CommandFormatPart {
 
     /// Gets the validator for this part, if it has one.
     /// This will always return `None` for `OneOf` parts.
-    fn validator(&self) -> Option<Box<dyn ValidateParsedValueUntyped>> {
+    fn validator(&self) -> Option<PartValidationFn<ParsedValue>> {
         match self {
             CommandFormatPart::Literal(_, params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::OptionalLiteral(_, params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::AnyText(params) => params.validator.as_ref().map(|v| v.as_untyped()),
+            CommandFormatPart::AnyText(params) => {
+                params.validator.as_ref().map(|v| genericize_validate(*v))
+            }
             CommandFormatPart::OptionalAnyText(params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::Entity(params) => params.validator.as_ref().map(|v| v.as_untyped()),
+            CommandFormatPart::Entity(params) => {
+                params.validator.as_ref().map(|v| genericize_validate(*v))
+            }
             CommandFormatPart::OptionalEntity(params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::Direction(params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::OptionalDirection(params) => {
-                params.validator.as_ref().map(|v| v.as_untyped())
+                params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::OneOf(_, _) => None,
         }
@@ -234,11 +234,9 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(_) => {
                 parse_result_to_option(parse_any_text(context))
             }
-            CommandFormatPart::Entity(params) => {
-                parse_entity(context, params.validator.as_deref(), world)
-            }
+            CommandFormatPart::Entity(params) => parse_entity(context, params.validator, world),
             CommandFormatPart::OptionalEntity(params) => {
-                parse_result_to_option(parse_entity(context, params.validator.as_deref(), world))
+                parse_result_to_option(parse_entity(context, params.validator, world))
             }
             CommandFormatPart::Direction(_) => parse_direction(context),
             CommandFormatPart::OptionalDirection(_) => {
@@ -257,7 +255,7 @@ impl CommandFormatPart {
                 let validation_result = self
                     .validator()
                     .map(|v| {
-                        v.validate(
+                        v(
                             PartValidatorContext {
                                 parsed_value: parsed.clone(),
                                 performing_entity: entering_entity,
@@ -289,12 +287,33 @@ impl CommandFormatPart {
     }
 }
 
+//TODO type PartValidationFn<T> = fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+
+type PartValidationFn<T> = dyn Fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+
+fn genericize_validate<T: TryFrom<ParsedValue>>(
+    f: Box<PartValidationFn<T>>,
+) -> Box<PartValidationFn<ParsedValue>> {
+    Box::new(|context: PartValidatorContext<ParsedValue>, world| {
+        let parsed_value = context
+            .parsed_value
+            .try_into()
+            .expect("parsed value should be a [TODO type name here]"); //TODO
+        f(
+            PartValidatorContext {
+                parsed_value,
+                performing_entity: context.performing_entity,
+            },
+            world,
+        )
+    })
+}
+
 #[derive(Debug)]
 pub struct CommandFormatPartParams<P, V> {
     id: Option<CommandPartId<P>>,
     options: CommandFormatPartOptions,
-    //TODO can this really not just be a function pointer?
-    validator: Option<Box<dyn ValidateParsedValue<V>>>,
+    validator: Option<PartValidationFn<V>>,
 }
 
 impl<P, V> Clone for CommandFormatPartParams<P, V> {
@@ -302,10 +321,7 @@ impl<P, V> Clone for CommandFormatPartParams<P, V> {
         Self {
             id: self.id.clone(),
             options: self.options.clone(),
-            validator: self
-                .validator
-                .as_ref()
-                .map(|v| ValidateParsedValueClone::clone_box(v.deref())),
+            validator: self.validator.as_ref().map(|v| v.clone()),
         }
     }
 }
@@ -341,7 +357,7 @@ pub fn literal_part(literal: impl Into<String>) -> CommandFormatPart {
 
 fn build_literal_part(
     literal: impl Into<String>,
-    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+    validator: Option<PartValidationFn<String>>,
 ) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::Literal(
@@ -366,7 +382,7 @@ pub fn optional_literal_part(literal: impl Into<String>) -> CommandFormatPart {
 
 fn build_optional_literal_part(
     literal: impl Into<String>,
-    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+    validator: Option<PartValidationFn<String>>,
 ) -> CommandFormatPart {
     let literal_string = literal.into();
     CommandFormatPart::OptionalLiteral(
@@ -392,14 +408,14 @@ pub fn any_text_part(id: CommandPartId<String>) -> CommandFormatPart {
 /// Creates a part to consume any text, with a validator function.
 pub fn any_text_part_with_validator(
     id: CommandPartId<String>,
-    validator: Box<dyn ValidateParsedValue<String>>,
+    validator: PartValidationFn<String>,
 ) -> CommandFormatPart {
     build_any_text_part(id, Some(validator))
 }
 
 fn build_any_text_part(
     id: CommandPartId<String>,
-    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+    validator: Option<PartValidationFn<String>>,
 ) -> CommandFormatPart {
     CommandFormatPart::AnyText(CommandFormatPartParams {
         id: Some(id),
@@ -416,14 +432,14 @@ pub fn optional_any_text_part(id: CommandPartId<Option<String>>) -> CommandForma
 /// Creates a part to maybe comsume any text, with a validation function.
 pub fn optional_any_text_part_with_validator(
     id: CommandPartId<Option<String>>,
-    validator: Box<dyn ValidateParsedValue<String>>,
+    validator: PartValidationFn<String>,
 ) -> CommandFormatPart {
     build_optional_any_text_part(id, Some(validator))
 }
 
 fn build_optional_any_text_part(
     id: CommandPartId<Option<String>>,
-    validator: Option<Box<dyn ValidateParsedValue<String>>>,
+    validator: Option<PartValidationFn<String>>,
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalAnyText(CommandFormatPartParams {
         id: Some(id),
@@ -440,14 +456,14 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
 /// Creates a part to parse an entity name, with a validator function.
 pub fn entity_part_with_validator(
     id: CommandPartId<Entity>,
-    validator: Box<dyn ValidateParsedValue<Entity>>,
+    validator: PartValidationFn<Entity>,
 ) -> CommandFormatPart {
     build_entity_part(id, Some(validator))
 }
 
 fn build_entity_part(
     id: CommandPartId<Entity>,
-    validator: Option<Box<dyn ValidateParsedValue<Entity>>>,
+    validator: Option<PartValidationFn<Entity>>,
 ) -> CommandFormatPart {
     CommandFormatPart::Entity(CommandFormatPartParams {
         id: Some(id),
@@ -464,14 +480,14 @@ pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatP
 /// Creates a part to parse an optional entity name, with a validator function.
 pub fn optional_entity_part_with_validator(
     id: CommandPartId<Option<Entity>>,
-    validator: Box<dyn ValidateParsedValue<Entity>>,
+    validator: PartValidationFn<Entity>,
 ) -> CommandFormatPart {
     build_optional_entity_part(id, Some(validator))
 }
 
 fn build_optional_entity_part(
     id: CommandPartId<Option<Entity>>,
-    validator: Option<Box<dyn ValidateParsedValue<Entity>>>,
+    validator: Option<PartValidationFn<Entity>>,
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalEntity(CommandFormatPartParams {
         id: Some(id),
@@ -488,14 +504,14 @@ pub fn direction_part(id: CommandPartId<Direction>) -> CommandFormatPart {
 /// Creates a part to parse a direction, with a validator function.
 pub fn direction_part_with_validator(
     id: CommandPartId<Direction>,
-    validator: Box<dyn ValidateParsedValue<Direction>>,
+    validator: PartValidationFn<Direction>,
 ) -> CommandFormatPart {
     build_direction_part(id, Some(validator))
 }
 
 fn build_direction_part(
     id: CommandPartId<Direction>,
-    validator: Option<Box<dyn ValidateParsedValue<Direction>>>,
+    validator: Option<PartValidationFn<Direction>>,
 ) -> CommandFormatPart {
     CommandFormatPart::Direction(CommandFormatPartParams {
         id: Some(id),
@@ -512,14 +528,14 @@ pub fn optional_direction_part(id: CommandPartId<Option<Direction>>) -> CommandF
 /// Creates a part to parse an optional direction, with a validator function.
 pub fn optional_direction_part_with_validator(
     id: CommandPartId<Option<Direction>>,
-    validator: Box<dyn ValidateParsedValue<Direction>>,
+    validator: PartValidationFn<Direction>,
 ) -> CommandFormatPart {
     build_optional_direction_part(id, Some(validator))
 }
 
 fn build_optional_direction_part(
     id: CommandPartId<Option<Direction>>,
-    validator: Option<Box<dyn ValidateParsedValue<Direction>>>,
+    validator: Option<PartValidationFn<Direction>>,
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalDirection(CommandFormatPartParams {
         id: Some(id),
@@ -847,6 +863,7 @@ mod tests {
         }
     }
 
+    /* TODO remove
     #[derive(Clone, PartialEq, Eq, Debug)]
     struct TestValidator;
 
@@ -873,6 +890,7 @@ mod tests {
             CommandPartValidateResult::Valid
         }
     }
+    */
 
     #[test]
     fn format() {

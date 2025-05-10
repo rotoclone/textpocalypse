@@ -6,9 +6,8 @@ use nom::{bytes::complete::tag, combinator::opt, sequence::pair, IResult};
 use crate::{
     command_format::{
         parsed_value::ParsedValue,
-        parsed_value_validators::{
-            CommandPartValidateResult, PartValidatorContext, ValidateParsedValue,
-        },
+        parsed_value_validators::{CommandPartValidateResult, PartValidatorContext},
+        PartValidationFn,
     },
     find_entities_in_presence_of, Description,
 };
@@ -21,7 +20,7 @@ use super::{
 /// Parses an entity from the provided context.
 pub fn parse_entity(
     context: PartParserContext,
-    validator: Option<&dyn ValidateParsedValue<Entity>>,
+    validator: Option<PartValidationFn<Entity>>,
     world: &World,
 ) -> CommandPartParseResult {
     let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
@@ -41,8 +40,7 @@ pub fn parse_entity(
             if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {
                 if let CommandPartValidateResult::Invalid(_) = validator
                     .map(|v| {
-                        ValidateParsedValue::validate(
-                            v,
+                        v(
                             PartValidatorContext {
                                 parsed_value: entity,
                                 performing_entity,

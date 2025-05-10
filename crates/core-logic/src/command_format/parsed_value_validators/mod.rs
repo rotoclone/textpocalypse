@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 
 use super::parsed_value::ParsedValue;
 
+/* TODO remove
 pub trait ValidateParsedValue<T>: ValidateParsedValueUntyped + ValidateParsedValueClone<T> {
     fn validate(
         &self,
@@ -45,6 +46,7 @@ impl<T: 'static + ValidateParsedValue<P> + Clone, P> ValidateParsedValueClone<P>
         Box::new(self.clone())
     }
 }
+    */
 
 pub struct PartValidatorContext<T> {
     pub parsed_value: T,

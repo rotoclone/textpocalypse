@@ -1,26 +1,24 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
-use regex::Captures;
 
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
         CommandFormat, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
-        ParsedValue, PartValidatorContext, ValidateParsedValue, ValidateParsedValueClone,
-        ValidateParsedValueUntyped, ValidateParsedValueUntypedClone,
+        PartValidatorContext,
     },
     find_owning_entity, in_same_room, is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
-    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
-    DynamicMessage, DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification,
-    GameMessage, InnateWeapon, IntegerExtensions, InternalMessageCategory, MessageCategory,
-    MessageDelay, MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
+    CombatRange, CombatState, CommandParseError, Container, Description, DynamicMessage,
+    DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification, GameMessage,
+    InnateWeapon, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
+    MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
     VerifyActionNotification, VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams,
     VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
     STANDARD_CHECK_XP,
@@ -171,74 +169,35 @@ pub fn parse_attack_input<A: AttackType>(
     })
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct AttackTargetValidator;
-
-impl ValidateParsedValue<Entity> for AttackTargetValidator {
-    fn validate(
-        &self,
-        context: PartValidatorContext<Entity>,
-        world: &World,
-    ) -> CommandPartValidateResult {
-        if !is_valid_attack_target(context.parsed_value, world) {
-            let target_name = Description::get_reference_name(
-                context.parsed_value,
-                Some(context.performing_entity),
-                world,
-            );
-            let message = format!("You can't attack {target_name}.");
-            return CommandPartValidateResult::Invalid(CommandPartValidateError {
-                details: Some(message),
-            });
-        }
-        if !in_same_room(context.parsed_value, context.performing_entity, world) {
-            let target_name = Description::get_reference_name(
-                context.parsed_value,
-                Some(context.performing_entity),
-                world,
-            );
-            let message = format!("{target_name} isn't here.");
-            return CommandPartValidateResult::Invalid(CommandPartValidateError {
-                details: Some(message),
-            });
-        }
-
-        CommandPartValidateResult::Valid
+/// Validates the chosen target for an attack.
+pub fn validate_attack_target(
+    context: PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if !is_valid_attack_target(context.parsed_value, world) {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You can't attack {target_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
+    }
+    if !in_same_room(context.parsed_value, context.performing_entity, world) {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("{target_name} isn't here.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
     }
 
-    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        Box::new(*self)
-    }
-}
-
-impl ValidateParsedValueUntyped for AttackTargetValidator {
-    fn validate(
-        &self,
-        context: PartValidatorContext<ParsedValue>,
-        world: &World,
-    ) -> CommandPartValidateResult {
-        if let ParsedValue::Entity(e) = context.parsed_value {
-            let converted_context = PartValidatorContext {
-                parsed_value: e,
-                performing_entity: context.performing_entity,
-            };
-            ValidateParsedValue::validate(self, converted_context, world)
-        } else {
-            panic!("parsed value should be an entity")
-        }
-    }
-}
-
-impl ValidateParsedValueClone<Entity> for AttackTargetValidator {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValue<Entity>> {
-        Box::new(*self)
-    }
-}
-
-impl ValidateParsedValueUntypedClone for AttackTargetValidator {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        Box::new(*self)
-    }
+    CommandPartValidateResult::Valid
 }
 
 /// Determines whether `target` is a valid entity to attack.
@@ -261,83 +220,35 @@ fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<En
     None
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct AttackWeaponValidator<A: AttackType + Clone>(PhantomData<fn(A)>);
-
-impl<A: AttackType + Clone + 'static> AttackWeaponValidator<A> {
-    /// Creates an `AttackWeaponValidator`.
-    pub fn new() -> Self {
-        AttackWeaponValidator(PhantomData)
+/// Validates the chosen weapon for an attack.
+pub fn validate_attack_weapon<A: AttackType>(
+    context: PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if !is_valid_attack_weapon::<A>(context.parsed_value, world) {
+        let weapon_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You can't attack with {weapon_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
     }
-}
-
-impl<A: AttackType + Clone + 'static> ValidateParsedValue<Entity> for AttackWeaponValidator<A> {
-    fn validate(
-        &self,
-        context: PartValidatorContext<Entity>,
-        world: &World,
-    ) -> CommandPartValidateResult {
-        if !is_valid_attack_weapon::<A>(context.parsed_value, world) {
-            let weapon_name = Description::get_reference_name(
-                context.parsed_value,
-                Some(context.performing_entity),
-                world,
-            );
-            let message = format!("You can't attack with {weapon_name}.");
-            return CommandPartValidateResult::Invalid(CommandPartValidateError {
-                details: Some(message),
-            });
-        }
-        if find_owning_entity(context.parsed_value, world) != Some(context.performing_entity) {
-            let weapon_name = Description::get_reference_name(
-                context.parsed_value,
-                Some(context.performing_entity),
-                world,
-            );
-            let message = format!("You don't have {weapon_name}.");
-            return CommandPartValidateResult::Invalid(CommandPartValidateError {
-                details: Some(message),
-            });
-        }
-
-        CommandPartValidateResult::Valid
+    if find_owning_entity(context.parsed_value, world) != Some(context.performing_entity) {
+        let weapon_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You don't have {weapon_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
     }
 
-    fn as_untyped(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        Box::new(self.clone())
-    }
-}
-
-impl<A: AttackType + Clone + 'static> ValidateParsedValueUntyped for AttackWeaponValidator<A> {
-    fn validate(
-        &self,
-        context: PartValidatorContext<ParsedValue>,
-        world: &World,
-    ) -> CommandPartValidateResult {
-        if let ParsedValue::Entity(e) = context.parsed_value {
-            let converted_context = PartValidatorContext {
-                parsed_value: e,
-                performing_entity: context.performing_entity,
-            };
-            ValidateParsedValue::validate(self, converted_context, world)
-        } else {
-            panic!("parsed value should be an entity")
-        }
-    }
-}
-
-impl<A: AttackType + Clone + 'static> ValidateParsedValueClone<Entity>
-    for AttackWeaponValidator<A>
-{
-    fn clone_box(&self) -> Box<dyn ValidateParsedValue<Entity>> {
-        Box::new(self.clone())
-    }
-}
-
-impl<A: AttackType + Clone + 'static> ValidateParsedValueUntypedClone for AttackWeaponValidator<A> {
-    fn clone_box(&self) -> Box<dyn ValidateParsedValueUntyped> {
-        Box::new(self.clone())
-    }
+    CommandPartValidateResult::Valid
 }
 
 /// Determines whether `entity` is a valid weapon to attack with.
