@@ -20,7 +20,7 @@ use super::{
 /// Parses an entity from the provided context.
 pub fn parse_entity(
     context: PartParserContext,
-    validator: Option<PartValidationFn<Entity>>,
+    validator: Option<&PartValidationFn<Entity>>,
     world: &World,
 ) -> CommandPartParseResult {
     let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
@@ -39,6 +39,7 @@ pub fn parse_entity(
         for name in Description::get_all_ways_to_reference(entity, performing_entity, world) {
             if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {
                 if let CommandPartValidateResult::Invalid(_) = validator
+                    .as_ref()
                     .map(|v| {
                         v(
                             PartValidatorContext {

@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::{any::type_name, collections::HashMap, marker::PhantomData, ops::Deref};
+use std::{any::type_name, collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 
@@ -158,7 +158,7 @@ impl CommandFormatPart {
 
     /// Gets the validator for this part, if it has one.
     /// This will always return `None` for `OneOf` parts.
-    fn validator(&self) -> Option<PartValidationFn<ParsedValue>> {
+    fn validator(&self) -> Option<PartValidationFnUntyped> {
         match self {
             CommandFormatPart::Literal(_, params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
@@ -234,9 +234,11 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(_) => {
                 parse_result_to_option(parse_any_text(context))
             }
-            CommandFormatPart::Entity(params) => parse_entity(context, params.validator, world),
+            CommandFormatPart::Entity(params) => {
+                parse_entity(context, params.validator.as_ref(), world)
+            }
             CommandFormatPart::OptionalEntity(params) => {
-                parse_result_to_option(parse_entity(context, params.validator, world))
+                parse_result_to_option(parse_entity(context, params.validator.as_ref(), world))
             }
             CommandFormatPart::Direction(_) => parse_direction(context),
             CommandFormatPart::OptionalDirection(_) => {
@@ -287,18 +289,19 @@ impl CommandFormatPart {
     }
 }
 
-//TODO type PartValidationFn<T> = fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+type PartValidationFn<T> = fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
 
-type PartValidationFn<T> = dyn Fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+type PartValidationFnUntyped =
+    Box<dyn Fn(PartValidatorContext<ParsedValue>, &World) -> CommandPartValidateResult>;
 
-fn genericize_validate<T: TryFrom<ParsedValue>>(
-    f: Box<PartValidationFn<T>>,
-) -> Box<PartValidationFn<ParsedValue>> {
-    Box::new(|context: PartValidatorContext<ParsedValue>, world| {
+fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
+    f: PartValidationFn<T>,
+) -> PartValidationFnUntyped {
+    Box::new(move |context: PartValidatorContext<ParsedValue>, world| {
         let parsed_value = context
             .parsed_value
             .try_into()
-            .expect("parsed value should be a [TODO type name here]"); //TODO
+            .unwrap_or_else(|_| panic!("parsed value should be {}", type_name::<T>()));
         f(
             PartValidatorContext {
                 parsed_value,
