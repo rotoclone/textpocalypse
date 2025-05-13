@@ -37,11 +37,13 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
+/* TODO remove
 static ATTACK_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap());
 static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
 });
+*/
 
 static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
