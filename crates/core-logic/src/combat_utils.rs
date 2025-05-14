@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
@@ -6,6 +7,7 @@ use nonempty::nonempty;
 use nonempty::NonEmpty;
 use rand::seq::SliceRandom;
 
+use crate::command_format::CommandFormatPart;
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
@@ -102,7 +104,7 @@ fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Opti
 }
 
 /// Information about the command formats used to parse an attack command.
-pub struct AttackCommandFormats {
+pub struct AttackCommandFormats<A: AttackType> {
     /// The format for an attach with no target or weapon specified.
     format_no_target_no_weapon: CommandFormat,
     /// The format for an attack with a target but no weapon specified.
@@ -118,13 +120,12 @@ pub struct AttackCommandFormats {
     target_part_id: CommandPartId<Entity>,
     /// The ID of the part for the weapon to attack with.
     weapon_part_id: CommandPartId<Entity>,
+    a: PhantomData<fn(A)>,
 }
 
-impl AttackCommandFormats {
+impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
-    pub fn new<T: Into<String>, A: AttackType>(verbs: NonEmpty<T>) -> AttackCommandFormats {
-        let first_part = one_of_part(verbs.map(|v| literal_part(v.into())));
-
+    pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
         let target_part =
             entity_part_with_validator(target_part_id.clone(), validate_attack_target);
@@ -165,7 +166,53 @@ impl AttackCommandFormats {
             format_with_target_and_weapon,
             target_part_id,
             weapon_part_id,
+            a: PhantomData,
         }
+    }
+
+    /// Builds generic input formats for an action using these command formats.
+    pub fn get_input_formats(&self) -> Vec<String> {
+        vec![
+            self.format_no_target_no_weapon
+                .get_format_description()
+                .to_string(),
+            self.format_with_target.get_format_description().to_string(),
+            self.format_with_weapon.get_format_description().to_string(),
+            self.format_with_target_and_weapon
+                .get_format_description()
+                .to_string(),
+        ]
+    }
+
+    /// Builds input formats for an action taken with `entity` using these command formats.
+    pub fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+        if is_valid_attack_target(entity, world) {
+            return Some(vec![
+                self.format_with_target
+                    .get_format_description()
+                    .with_targeted_entity(self.target_part_id.clone(), entity, world)
+                    .to_string(),
+                self.format_with_target_and_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.target_part_id.clone(), entity, world)
+                    .to_string(),
+            ]);
+        }
+
+        if is_valid_attack_weapon::<A>(entity, world) {
+            return Some(vec![
+                self.format_with_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
+                    .to_string(),
+                self.format_with_target_and_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
+                    .to_string(),
+            ]);
+        }
+
+        None
     }
 }
 
@@ -175,7 +222,7 @@ impl AttackCommandFormats {
 pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
-    command_formats: &AttackCommandFormats,
+    command_formats: &AttackCommandFormats<A>,
     world: &World,
 ) -> Result<ParsedAttack, CommandParseError> {
     if let Some(target) = find_single_entity_in_combat_with(source_entity, world) {

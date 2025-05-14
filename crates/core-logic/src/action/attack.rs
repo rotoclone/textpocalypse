@@ -3,19 +3,12 @@ use std::{collections::HashSet, sync::LazyLock};
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
-use regex::Regex;
 
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
-    combat_utils::{
-        is_valid_attack_target, is_valid_attack_weapon, validate_attack_target,
-        validate_attack_weapon, AttackCommandFormats,
-    },
-    command_format::{
-        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
-        CommandPartId,
-    },
+    combat_utils::AttackCommandFormats,
+    command_format::{literal_part, one_of_part, CommandParseError},
     component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
@@ -37,75 +30,12 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
-/* TODO remove
-static ATTACK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap());
-static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
-});
-*/
-
-static ATTACK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
+static COMMAND_FORMATS: LazyLock<AttackCommandFormats<AttackAction>> = LazyLock::new(|| {
+    AttackCommandFormats::new(one_of_part(nonempty![
         literal_part("attack"),
         literal_part("kill"),
         literal_part("k")
     ]))
-});
-
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
-static ATTACK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("attack"),
-        literal_part("kill"),
-        literal_part("k")
-    ]))
-    .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        validate_attack_target,
-    ))
-});
-
-static WEAPON_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("weapon"));
-static ATTACK_WITH_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("attack"),
-        literal_part("kill"),
-        literal_part("k")
-    ]))
-    .then(literal_part(" "))
-    .then(one_of_part(nonempty![
-        literal_part("with"),
-        literal_part("using")
-    ]))
-    .then(entity_part_with_validator(
-        WEAPON_PART_ID.clone(),
-        validate_attack_weapon::<AttackAction>,
-    ))
-});
-static ATTACK_WITH_TARGET_AND_WEAPON_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("attack"),
-        literal_part("kill"),
-        literal_part("k")
-    ]))
-    .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        validate_attack_target,
-    ))
-    .then(literal_part(" "))
-    .then(one_of_part(nonempty![
-        literal_part("with"),
-        literal_part("using")
-    ]))
-    .then(entity_part_with_validator(
-        WEAPON_PART_ID.clone(),
-        validate_attack_weapon::<AttackAction>,
-    ))
 });
 
 pub struct AttackParser;
@@ -117,19 +47,7 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, CommandParseError> {
-        let attack = parse_attack_input::<AttackAction>(
-            input,
-            source_entity,
-            AttackCommandFormats {
-                format_no_target_no_weapon: &ATTACK_FORMAT,
-                format_with_target: &ATTACK_WITH_TARGET_FORMAT,
-                format_with_weapon: &ATTACK_WITH_WEAPON_FORMAT,
-                format_with_target_and_weapon: &ATTACK_WITH_TARGET_AND_WEAPON_FORMAT,
-                target_part_id: &TARGET_PART_ID,
-                weapon_part_id: &WEAPON_PART_ID,
-            },
-            world,
-        )?;
+        let attack = parse_attack_input(input, source_entity, &COMMAND_FORMATS, world)?;
 
         Ok(Box::new(AttackAction {
             target: attack.target,
@@ -139,12 +57,7 @@ impl InputParser for AttackParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![
-            ATTACK_FORMAT.get_format_description().to_string(),
-            ATTACK_WITH_WEAPON_FORMAT
-                .get_format_description()
-                .to_string(),
-        ]
+        COMMAND_FORMATS.get_input_formats()
     }
 
     fn get_input_formats_for(
@@ -153,27 +66,7 @@ impl InputParser for AttackParser {
         _: Entity,
         world: &World,
     ) -> Option<Vec<String>> {
-        if is_valid_attack_target(entity, world) {
-            return Some(vec![
-                ATTACK_FORMAT
-                    .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
-                    .to_string(),
-                ATTACK_WITH_WEAPON_FORMAT
-                    .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
-                    .to_string(),
-            ]);
-        }
-
-        if is_valid_attack_weapon::<AttackAction>(entity, world) {
-            return Some(vec![ATTACK_WITH_WEAPON_FORMAT
-                .get_format_description()
-                .with_targeted_entity(WEAPON_PART_ID.clone(), entity, world)
-                .to_string()]);
-        }
-
-        None
+        COMMAND_FORMATS.get_input_formats_for(entity, world)
     }
 }
 
