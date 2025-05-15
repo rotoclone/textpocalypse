@@ -37,6 +37,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     }
 }
 
+//TODO add a part that must be provided if another part is provided, so for example if there's an optional part that's provided it has to be preceded with a space, but if the optional part isn't provided then there can't be a space
 #[derive(Debug, Clone)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),

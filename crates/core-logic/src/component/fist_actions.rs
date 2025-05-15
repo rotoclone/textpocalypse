@@ -2,17 +2,20 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use rand::{seq::SliceRandom, thread_rng};
-use regex::Regex;
 
 use crate::{
-    body_part::BodyPartType, check_for_hit, combat_utils, find_weapon, handle_begin_attack,
-    handle_damage, handle_hit_error, handle_miss, handle_weapon_unusable_error,
-    input_parser::InputParser, parse_attack_input, Action, ActionEndNotification,
-    ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag,
-    AfterActionPerformNotification, AttackRegexes, AttackType, BasicTokens,
-    BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
-    DynamicMessageLocation, InputParseError, IntegerExtensions, InternalMessageCategory,
-    MessageCategory, MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
+    body_part::BodyPartType,
+    check_for_hit,
+    combat_utils::{self, AttackCommandFormats},
+    command_format::{literal_part, CommandParseError},
+    find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
+    handle_weapon_unusable_error,
+    input_parser::InputParser,
+    parse_attack_input, Action, ActionEndNotification, ActionInterruptResult,
+    ActionNotificationSender, ActionResult, ActionTag, AfterActionPerformNotification, AttackType,
+    BasicTokens, BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
+    DynamicMessageLocation, IntegerExtensions, InternalMessageCategory, MessageCategory,
+    MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
     SurroundingsMessageCategory, VerifyActionNotification, VerifyNotificationHandlers,
     VerifyResult, Weapon, WeaponMessages,
 };
@@ -61,16 +64,8 @@ const UPPERCUT_TO_HIT_MODIFIER: i16 = -2;
 /// The multiplier for damage done by uppercuts.
 const UPPERCUT_DAMAGE_MULTIPLIER: f32 = 1.1;
 
-const UPPERCUT_VERB_NAME: &str = "uppercut";
-const UPPERCUT_FORMAT: &str = "uppercut <>";
-const NAME_CAPTURE: &str = "name";
-const WEAPON_CAPTURE: &str = "weapon";
-
-static UPPERCUT_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(uppercut)( (?P<name>.*))?").unwrap());
-static UPPERCUT_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(uppercut)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
-});
+static UPPERCUT_FORMATS: LazyLock<AttackCommandFormats<UppercutAction>> =
+    LazyLock::new(|| AttackCommandFormats::new(literal_part("uppercut")));
 
 struct UppercutParser;
 
@@ -80,19 +75,8 @@ impl InputParser for UppercutParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input::<UppercutAction>(
-            input,
-            source_entity,
-            AttackRegexes {
-                pattern: &UPPERCUT_PATTERN,
-                pattern_with_weapon: &UPPERCUT_PATTERN_WITH_WEAPON,
-                target_capture_name: NAME_CAPTURE,
-                weapon_capture_name: WEAPON_CAPTURE,
-            },
-            UPPERCUT_VERB_NAME,
-            world,
-        )?;
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let attack = parse_attack_input(input, source_entity, &UPPERCUT_FORMATS, world)?;
 
         Ok(Box::new(UppercutAction {
             target: attack.target,
@@ -102,11 +86,16 @@ impl InputParser for UppercutParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![UPPERCUT_FORMAT.to_string()]
+        UPPERCUT_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
+        UPPERCUT_FORMATS.get_input_formats_for(entity, world)
     }
 }
 
@@ -280,14 +269,8 @@ const HAYMAKER_DAMAGE_MULTIPLIER: f32 = 1.5;
 /// The number of ticks to wait before a haymaker lands.
 const HAYMAKER_CHARGE_TICKS: u16 = 1;
 
-const HAYMAKER_VERB_NAME: &str = "haymaker";
-const HAYMAKER_FORMAT: &str = "haymaker <>";
-
-static HAYMAKER_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(haymaker)( (?P<name>.*))?").unwrap());
-static HAYMAKER_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(haymaker)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
-});
+static HAYMAKER_FORMATS: LazyLock<AttackCommandFormats<HaymakerAction>> =
+    LazyLock::new(|| AttackCommandFormats::new(literal_part("haymaker")));
 
 struct HaymakerParser;
 
@@ -297,19 +280,8 @@ impl InputParser for HaymakerParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input::<HaymakerAction>(
-            input,
-            source_entity,
-            AttackRegexes {
-                pattern: &HAYMAKER_PATTERN,
-                pattern_with_weapon: &HAYMAKER_PATTERN_WITH_WEAPON,
-                target_capture_name: NAME_CAPTURE,
-                weapon_capture_name: WEAPON_CAPTURE,
-            },
-            HAYMAKER_VERB_NAME,
-            world,
-        )?;
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let attack = parse_attack_input(input, source_entity, &HAYMAKER_FORMATS, world)?;
 
         Ok(Box::new(HaymakerAction {
             target: attack.target,
@@ -320,11 +292,16 @@ impl InputParser for HaymakerParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![HAYMAKER_FORMAT.to_string()]
+        HAYMAKER_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        _: Entity,
+        world: &World,
+    ) -> Option<Vec<String>> {
+        HAYMAKER_FORMATS.get_input_formats_for(entity, world)
     }
 }
 
