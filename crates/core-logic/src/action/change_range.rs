@@ -1,14 +1,19 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
+    combat_utils::is_valid_attack_target,
+    command_format::{
+        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+    },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
     },
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{CommandTarget, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -17,6 +22,7 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
+/* TODO remove
 const DECREASE_RANGE_VERB_NAME: &str = "approach";
 const INCREASE_RANGE_VERB_NAME: &str = "move away";
 const DECREASE_RANGE_FORMAT: &str = "approach <>";
@@ -33,6 +39,85 @@ static INCREASE_RANGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("^(fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?")
         .unwrap()
 });
+*/
+
+static DECREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("approach"),
+        literal_part("advance"),
+        literal_part("decrease range"),
+        literal_part("dr"),
+    ]))
+});
+
+static INCREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("fall back"),
+        literal_part("increase range"),
+        literal_part("ir"),
+    ]))
+});
+
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("target"));
+
+static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("approach"),
+        literal_part("advance toward"),
+        literal_part("advance towards"),
+        literal_part("decrease range to"),
+        literal_part("dr"),
+    ]))
+    .then(literal_part(" "))
+    .then(entity_part_with_validator(
+        TARGET_PART_ID.clone(),
+        validate_target,
+    ))
+});
+
+static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("fall back"),
+        literal_part("fall back from"),
+        literal_part("increase range to"),
+        literal_part("ir"),
+    ]))
+    .then(literal_part(" "))
+    .then(entity_part_with_validator(
+        TARGET_PART_ID.clone(),
+        validate_target,
+    ))
+});
+
+/// Determines whether an entity could be a valid target for a change range command.
+fn validate_target(
+    context: PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if context.parsed_value == context.performing_entity {
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(
+                "You can't get closer or farther from yourself. At least not in a physical sense."
+                    .to_string(),
+            ),
+        });
+    }
+
+    if is_valid_attack_target(context.parsed_value, world) {
+        CommandPartValidateResult::Valid
+    } else {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You can't change your range to {target_name}.");
+        CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        })
+    }
+}
 
 pub struct ChangeRangeParser;
 
@@ -42,7 +127,7 @@ impl InputParser for ChangeRangeParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
+    ) -> Result<Box<dyn Action>, CommandParseError> {
         let valid_targets = CombatState::get_entities_in_combat_with(source_entity, world);
 
         let (captures, verb_name, direction) =
