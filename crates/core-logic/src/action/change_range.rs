@@ -13,7 +13,7 @@ use crate::{
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
     },
-    input_parser::{CommandTarget, InputParser},
+    input_parser::InputParser,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -21,25 +21,6 @@ use crate::{
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
-
-/* TODO remove
-const DECREASE_RANGE_VERB_NAME: &str = "approach";
-const INCREASE_RANGE_VERB_NAME: &str = "move away";
-const DECREASE_RANGE_FORMAT: &str = "approach <>";
-const INCREASE_RANGE_FORMAT: &str = "move away from <>";
-const NAME_CAPTURE: &str = "name";
-
-static DECREASE_RANGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        "^(advance|advance toward|decrease range to|dr|move toward|approach)( (?P<name>.*))?",
-    )
-    .unwrap()
-});
-static INCREASE_RANGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(fall back|fall back from|increase range to|ir|move away from)( (?P<name>.*))?")
-        .unwrap()
-});
-*/
 
 static DECREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
@@ -130,77 +111,51 @@ impl InputParser for ChangeRangeParser {
     ) -> Result<Box<dyn Action>, CommandParseError> {
         let valid_targets = CombatState::get_entities_in_combat_with(source_entity, world);
 
-        let (captures, verb_name, direction) =
-            if let Some(captures) = DECREASE_RANGE_PATTERN.captures(input) {
-                (
-                    captures,
-                    DECREASE_RANGE_VERB_NAME,
-                    RangeChangeDirection::Decrease,
-                )
-            } else if let Some(captures) = INCREASE_RANGE_PATTERN.captures(input) {
-                (
-                    captures,
-                    INCREASE_RANGE_VERB_NAME,
-                    RangeChangeDirection::Increase,
-                )
-            } else {
-                return Err(InputParseError::UnknownCommand);
-            };
-
         if valid_targets.is_empty() {
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::Other("You're not in combat with anyone.".to_string()),
-            });
+            return Err(CommandParseError::Other(
+                "You're not in combat with anyone.".to_string(),
+            ));
         }
 
-        if let Some(target_match) = captures.name(NAME_CAPTURE) {
-            let command_target = CommandTarget::parse(target_match.as_str());
-            if let Some(target) = command_target.find_target_entity(source_entity, world) {
-                if valid_targets.contains_key(&target) {
-                    // in combat with target
-                    Ok(Box::new(ChangeRangeAction {
-                        target,
-                        direction,
-                        notification_sender: ActionNotificationSender::new(),
-                    }))
-                } else {
-                    // not in combat with target
-                    let target_name =
-                        Description::get_reference_name(target, Some(source_entity), world);
-                    Err(InputParseError::CommandParseError {
-                        verb: verb_name.to_string(),
-                        error: CommandParseError::Other(format!(
-                            "You're not in combat with {target_name}."
-                        )),
-                    })
-                }
-            } else {
-                Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(command_target),
-                })
-            }
-        } else if valid_targets.len() == 1 {
-            // the source entity is only in combat with one other entity, so auto-choose target
+        let (direction, target) = if valid_targets.len() > 1 {
+            parse_with_required_target(input, source_entity, world)?
+        } else {
+            // already checked if there are no valid targets above, so this must mean there is only one possible target
+            let (direction, provided_target) =
+                parse_with_optional_target(input, source_entity, world)?;
+            let target = match provided_target {
+                Some(t) => t,
+                // the source entity is only in combat with one other entity, so auto-choose target
+                // unwrap is safe because we should only get here if the length is 1
+                None => *valid_targets.keys().next().unwrap(),
+            };
+            (direction, target)
+        };
+
+        if valid_targets.contains_key(&target) {
             Ok(Box::new(ChangeRangeAction {
-                // unwrap is safe here because we just checked if the length is 1
-                target: *valid_targets.keys().next().unwrap(),
                 direction,
+                target,
                 notification_sender: ActionNotificationSender::new(),
             }))
         } else {
-            Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::MissingTarget,
-            })
+            let target_name = Description::get_reference_name(target, Some(source_entity), world);
+            Err(CommandParseError::Other(format!(
+                "You're not in combat with {target_name}."
+            )))
         }
     }
 
     fn get_input_formats(&self) -> Vec<String> {
         vec![
-            DECREASE_RANGE_FORMAT.to_string(),
-            INCREASE_RANGE_FORMAT.to_string(),
+            DECREASE_RANGE_FORMAT.get_format_description().to_string(),
+            DECREASE_RANGE_WITH_TARGET_FORMAT
+                .get_format_description()
+                .to_string(),
+            INCREASE_RANGE_FORMAT.get_format_description().to_string(),
+            INCREASE_RANGE_WITH_TARGET_FORMAT
+                .get_format_description()
+                .to_string(),
         ]
     }
 
@@ -212,13 +167,59 @@ impl InputParser for ChangeRangeParser {
     ) -> Option<Vec<String>> {
         if CombatState::get_entities_in_combat_with(pov_entity, world).contains_key(&entity) {
             Some(vec![
-                DECREASE_RANGE_FORMAT.to_string(),
-                INCREASE_RANGE_FORMAT.to_string(),
+                DECREASE_RANGE_WITH_TARGET_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .to_string(),
+                INCREASE_RANGE_WITH_TARGET_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .to_string(),
             ])
         } else {
             None
         }
     }
+}
+
+/// Determines which format the command was in and what direction and target were provided.
+/// Only checks formats with targets.
+fn parse_with_required_target(
+    input: &str,
+    source_entity: Entity,
+    world: &World,
+) -> Result<(RangeChangeDirection, Entity), CommandParseError> {
+    match DECREASE_RANGE_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
+        Ok(parsed) => {
+            return Ok((RangeChangeDirection::Decrease, parsed.get(&TARGET_PART_ID)));
+        }
+        Err(e) => {
+            if e.any_parts_matched() {
+                return Err(e);
+            }
+        }
+    };
+
+    let parsed = INCREASE_RANGE_WITH_TARGET_FORMAT.parse(input, source_entity, world)?;
+    Ok((RangeChangeDirection::Increase, parsed.get(&TARGET_PART_ID)))
+}
+
+/// Determines which format the command was in and what direction and target (if any) were provided.
+fn parse_with_optional_target(
+    input: &str,
+    source_entity: Entity,
+    world: &World,
+) -> Result<(RangeChangeDirection, Option<Entity>), CommandParseError> {
+    if let Ok(_) = DECREASE_RANGE_FORMAT.parse(input, source_entity, world) {
+        return Ok((RangeChangeDirection::Decrease, None));
+    }
+
+    if let Ok(_) = INCREASE_RANGE_FORMAT.parse(input, source_entity, world) {
+        return Ok((RangeChangeDirection::Increase, None));
+    }
+
+    parse_with_required_target(input, source_entity, world)
+        .map(|(direction, target)| (direction, Some(target)))
 }
 
 /// Makes an entity attempt to change the range to another entity it's in combat with.
