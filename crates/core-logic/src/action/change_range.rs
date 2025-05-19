@@ -126,7 +126,7 @@ impl InputParser for ChangeRangeParser {
             let target = match provided_target {
                 Some(t) => t,
                 // the source entity is only in combat with one other entity, so auto-choose target
-                // unwrap is safe because we should only get here if the length is 1
+                // unwrap is safe because we should only get here if the length is 1 due to the `is_empty` and `len() > 1` checks above
                 None => *valid_targets.keys().next().unwrap(),
             };
             (direction, target)
