@@ -4,16 +4,17 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
+    command_format::{
+        entity_part_with_validator, literal_part, optional_literal_part, CommandFormat,
+        CommandParseError, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
+        PartValidatorContext,
+    },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
     },
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -25,12 +26,36 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
 
-const DRINK_VERB_NAME: &str = "drink";
-const DRINK_FORMAT: &str = "drink <>";
-const NAME_CAPTURE: &str = "name";
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("target"));
+static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("drink"))
+        .then(literal_part(" "))
+        .then(optional_literal_part("from "))
+        .then(entity_part_with_validator(
+            TARGET_PART_ID.clone(),
+            validate_target,
+        ))
+});
 
-static DRINK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^drink (from )?(the )?(?P<name>.*)").unwrap());
+/// Validates that an entity could be drunk from.
+fn validate_target(
+    context: PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if world.get::<FluidContainer>(context.parsed_value).is_some() {
+        CommandPartValidateResult::Valid
+    } else {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(format!("You can't drink from {target_name}.")),
+        })
+    }
+}
 
 pub struct DrinkParser;
 
@@ -40,70 +65,31 @@ impl InputParser for DrinkParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = DRINK_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if let Some(container) = world.get::<FluidContainer>(target_entity) {
-                        if container.contents.get_total_volume() > Volume(0.0) {
-                            // target exists and contains fluid
-                            return Ok(Box::new(DrinkAction {
-                                target: target_entity,
-                                amount: LITERS_PER_DRINK,
-                                fluids_to_volume_drank: HashMap::new(),
-                                notification_sender: ActionNotificationSender::new(),
-                            }));
-                        } else {
-                            // target is empty
-                            let target_name = Description::get_reference_name(
-                                target_entity,
-                                Some(source_entity),
-                                world,
-                            );
-                            return Err(InputParseError::CommandParseError {
-                                verb: DRINK_VERB_NAME.to_string(),
-                                error: CommandParseError::Other(format!("{target_name} is empty.")),
-                            });
-                        }
-                    } else {
-                        // target isn't a fluid container
-                        let target_name = Description::get_reference_name(
-                            target_entity,
-                            Some(source_entity),
-                            world,
-                        );
-                        return Err(InputParseError::CommandParseError {
-                            verb: DRINK_VERB_NAME.to_string(),
-                            error: CommandParseError::Other(format!(
-                                "You can't drink from {target_name}."
-                            )),
-                        });
-                    }
-                } else {
-                    // target doesn't exist
-                    return Err(InputParseError::CommandParseError {
-                        verb: DRINK_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(target),
-                    });
-                }
-            }
-        }
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = DRINK_FORMAT.parse(input, source_entity, world)?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(DrinkAction {
+            target: parsed.get(&TARGET_PART_ID),
+            amount: LITERS_PER_DRINK,
+            fluids_to_volume_drank: HashMap::new(),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![DRINK_FORMAT.to_string()]
+        vec![DRINK_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<FluidContainer>(entity, world, &[DRINK_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<FluidContainer>(
+            entity,
+            world,
+            &[DRINK_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID.clone(),
+                entity,
+                world,
+            )],
+        )
     }
 }
 

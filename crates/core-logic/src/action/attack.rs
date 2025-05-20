@@ -60,12 +60,7 @@ impl InputParser for AttackParser {
         COMMAND_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         COMMAND_FORMATS.get_input_formats_for(entity, world)
     }
 }

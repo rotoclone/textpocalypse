@@ -164,9 +164,9 @@ impl InputParser for ChangeRangeParser {
         entity: Entity,
         pov_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>> {
+    ) -> Vec<String> {
         if CombatState::get_entities_in_combat_with(pov_entity, world).contains_key(&entity) {
-            Some(vec![
+            vec![
                 DECREASE_RANGE_WITH_TARGET_FORMAT
                     .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
@@ -175,9 +175,9 @@ impl InputParser for ChangeRangeParser {
                     .get_format_description()
                     .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
                     .to_string(),
-            ])
+            ]
         } else {
-            None
+            Vec::new()
         }
     }
 }

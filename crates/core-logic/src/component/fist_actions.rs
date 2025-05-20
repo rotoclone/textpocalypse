@@ -89,12 +89,7 @@ impl InputParser for UppercutParser {
         UPPERCUT_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         UPPERCUT_FORMATS.get_input_formats_for(entity, world)
     }
 }
@@ -295,12 +290,7 @@ impl InputParser for HaymakerParser {
         HAYMAKER_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         HAYMAKER_FORMATS.get_input_formats_for(entity, world)
     }
 }

@@ -185,9 +185,9 @@ impl<A: AttackType> AttackCommandFormats<A> {
     }
 
     /// Builds input formats for an action taken with `entity` using these command formats.
-    pub fn get_input_formats_for(&self, entity: Entity, world: &World) -> Option<Vec<String>> {
+    pub fn get_input_formats_for(&self, entity: Entity, world: &World) -> Vec<String> {
         if is_valid_attack_target(entity, world) {
-            return Some(vec![
+            return vec![
                 self.format_with_target
                     .get_format_description()
                     .with_targeted_entity(self.target_part_id.clone(), entity, world)
@@ -196,11 +196,11 @@ impl<A: AttackType> AttackCommandFormats<A> {
                     .get_format_description()
                     .with_targeted_entity(self.target_part_id.clone(), entity, world)
                     .to_string(),
-            ]);
+            ];
         }
 
         if is_valid_attack_weapon::<A>(entity, world) {
-            return Some(vec![
+            return vec![
                 self.format_with_weapon
                     .get_format_description()
                     .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
@@ -209,10 +209,10 @@ impl<A: AttackType> AttackCommandFormats<A> {
                     .get_format_description()
                     .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
                     .to_string(),
-            ]);
+            ];
         }
 
-        None
+        Vec::new()
     }
 }
 

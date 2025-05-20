@@ -8,6 +8,7 @@ use nonempty::NonEmpty;
 use crate::{Direction, GameMessage};
 
 mod command_format_string;
+pub use command_format_string::CommandFormatDescription;
 use command_format_string::*;
 
 mod parsed_value;

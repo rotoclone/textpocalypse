@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    command_format::CommandParseError,
+    command_format::{CommandFormatDescription, CommandParseError},
     component::{Container, CustomInputParser, Location},
     Direction, StandardInputParsers,
 };
@@ -265,20 +265,19 @@ pub trait InputParser: Send + Sync {
         entity: Entity,
         pov_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>>;
+    ) -> Vec<String>;
 }
 
-//TODO update this to use CommandFormatString
 pub fn input_formats_if_has_component<C: Component>(
     entity: Entity,
     world: &World,
-    formats: &[&str],
-) -> Option<Vec<String>> {
+    formats: &[CommandFormatDescription],
+) -> Vec<String> {
     if world.get::<C>(entity).is_some() {
-        return Some(formats.iter().map(|s| s.to_string()).collect());
+        return formats.iter().map(|s| s.to_string()).collect();
     }
 
-    None
+    Vec::new()
 }
 
 fn parse_input_with<'a, I>(

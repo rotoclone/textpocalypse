@@ -139,7 +139,6 @@ fn build_action_descriptions_for_entity(
 ) -> Vec<ActionDescription> {
     find_parsers_relevant_for(looking_entity, world)
         .flat_map(|p| p.get_input_formats_for(entity, looking_entity, world))
-        .flatten()
         .unique()
         .map(|format| ActionDescription { format })
         .collect()
