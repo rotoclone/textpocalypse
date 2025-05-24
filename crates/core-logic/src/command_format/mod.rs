@@ -19,6 +19,7 @@ pub use part_parsers::PartParserContext;
 use part_parsers::*;
 
 mod parsed_value_validators;
+pub use parsed_value_validators::validate_parsed_value_has_component;
 pub use parsed_value_validators::CommandPartValidateError;
 pub use parsed_value_validators::CommandPartValidateResult;
 pub use parsed_value_validators::PartValidatorContext;

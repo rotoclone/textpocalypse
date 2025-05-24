@@ -1,11 +1,11 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
+    command_format::{literal_part, CommandFormat, CommandParseError},
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{InputParseError, InputParser},
+    input_parser::InputParser,
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, HelpDescription, VerifyActionNotification,
     World,
@@ -13,29 +13,30 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const HELP_FORMAT: &str = "help";
-
-static HELP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^help$").unwrap());
+static HELP_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(literal_part("help")));
 
 pub struct HelpParser;
 
 impl InputParser for HelpParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if HELP_PATTERN.is_match(input) {
-            return Ok(Box::new(HelpAction {
-                notification_sender: ActionNotificationSender::new(),
-            }));
-        }
-
-        Err(InputParseError::UnknownCommand)
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        HELP_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(HelpAction {
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![HELP_FORMAT.to_string()]
+        vec![HELP_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

@@ -11,7 +11,7 @@ use crate::{
         Room,
     },
     game_map::Coordinates,
-    input_parser::{CommandTarget, InputParser},
+    input_parser::{input_formats_if_has_component, CommandTarget, InputParser},
     literal_part,
     notification::VerifyResult,
     one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
@@ -176,39 +176,19 @@ impl InputParser for LookParser {
         ]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        if world.get::<Description>(entity).is_some() {
-            return Some(vec![
-                LOOK_WITH_TARGET_FORMAT
-                    .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
-                    .to_string(),
-                DETAILED_LOOK_FORMAT
-                    .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
-                    .to_string(),
-            ]);
-        }
-
-        None
-
-        /* TODO remove
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         input_formats_if_has_component::<Description>(
             entity,
             world,
             &[
-                LOOK_COMMAND_FORMAT
-                    .get_format_string()
-                    .with_targeted_entity(TARGET_PART_ID, entity, world),
-                DETAILED_LOOK_FORMAT,
+                LOOK_WITH_TARGET_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world),
+                DETAILED_LOOK_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world),
             ],
         )
-        */
     }
 }
 

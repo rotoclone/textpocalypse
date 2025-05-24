@@ -4,8 +4,8 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, CommandFormat, CommandParseError, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
+        CommandFormat, CommandParseError, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Edible},
     despawn_entity,
@@ -25,28 +25,9 @@ static EAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(literal_part(" "))
         .then(entity_part_with_validator(
             TARGET_PART_ID.clone(),
-            validate_target,
+            |context, world| validate_parsed_value_has_component::<Edible>(context, "eat", world),
         ))
 });
-
-/// Validates that an entity could be eaten.
-fn validate_target(
-    context: PartValidatorContext<Entity>,
-    world: &World,
-) -> CommandPartValidateResult {
-    if world.get::<Edible>(context.parsed_value).is_some() {
-        CommandPartValidateResult::Valid
-    } else {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
-        CommandPartValidateResult::Invalid(CommandPartValidateError {
-            details: Some(format!("You can't eat {target_name}.")),
-        })
-    }
-}
 
 pub struct EatParser;
 

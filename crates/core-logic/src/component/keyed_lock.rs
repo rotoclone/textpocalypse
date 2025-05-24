@@ -1,14 +1,14 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction},
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
+    command_format::{
+        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
+        CommandFormat, CommandParseError, CommandPartId,
     },
+    input_parser::{input_formats_if_has_component, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, AttributeDescription, BasicTokens, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -21,16 +21,28 @@ use super::{
     Description, Location, ParseCustomInput, VerifyActionNotification,
 };
 
-const UNLOCK_VERB_NAME: &str = "unlock";
-const LOCK_VERB_NAME: &str = "lock";
-const UNLOCK_FORMAT: &str = "unlock <>";
-const LOCK_FORMAT: &str = "lock <>";
-const NAME_CAPTURE: &str = "name";
-
-static UNLOCK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^unlock (the )?(?P<name>.*)").unwrap());
-static LOCK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^lock (the )?(?P<name>.*)").unwrap());
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("target"));
+static UNLOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("unlock"))
+        .then(literal_part(" "))
+        .then(entity_part_with_validator(
+            TARGET_PART_ID.clone(),
+            |context, world| {
+                validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
+            },
+        ))
+});
+static LOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("lock"))
+        .then(literal_part(" "))
+        .then(entity_part_with_validator(
+            TARGET_PART_ID.clone(),
+            |context, world| {
+                validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
+            },
+        ))
+});
 
 pub struct LockParser;
 
@@ -40,44 +52,54 @@ impl InputParser for LockParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        let (captures, verb_name, should_be_locked) =
-            if let Some(captures) = UNLOCK_PATTERN.captures(input) {
-                (captures, UNLOCK_VERB_NAME, false)
-            } else if let Some(captures) = LOCK_PATTERN.captures(input) {
-                (captures, LOCK_VERB_NAME, true)
-            } else {
-                return Err(InputParseError::UnknownCommand);
-            };
-
-        if let Some(target_match) = captures.name(NAME_CAPTURE) {
-            let command_target = CommandTarget::parse(target_match.as_str());
-            if let Some(target) = command_target.find_target_entity(source_entity, world) {
-                Ok(Box::new(LockAction {
-                    target,
-                    should_be_locked,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        match UNLOCK_FORMAT.parse(input, source_entity, world) {
+            Ok(parsed) => {
+                return Ok(Box::new(LockAction {
+                    target: parsed.get(&TARGET_PART_ID),
+                    should_be_locked: false,
                     notification_sender: ActionNotificationSender::new(),
-                }))
-            } else {
-                Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(command_target),
-                })
+                }));
             }
-        } else {
-            Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::MissingTarget,
-            })
+            Err(e) => {
+                if e.any_parts_matched() {
+                    return Err(e);
+                }
+            }
         }
+
+        let parsed = LOCK_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(LockAction {
+            target: parsed.get(&TARGET_PART_ID),
+            should_be_locked: true,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![UNLOCK_FORMAT.to_string(), LOCK_FORMAT.to_string()]
+        vec![
+            UNLOCK_FORMAT.get_format_description().to_string(),
+            LOCK_FORMAT.get_format_description().to_string(),
+        ]
     }
 
     fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
-        input_formats_if_has_component::<KeyedLock>(entity, world, &[UNLOCK_FORMAT, LOCK_FORMAT])
+        input_formats_if_has_component::<KeyedLock>(
+            entity,
+            world,
+            &[
+                UNLOCK_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID.clone(),
+                    entity,
+                    world,
+                ),
+                LOCK_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID.clone(),
+                    entity,
+                    world,
+                ),
+            ],
+        )
     }
 }
 

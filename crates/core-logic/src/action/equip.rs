@@ -5,8 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
+        CommandFormat, CommandParseError, CommandPartId,
     },
     component::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
@@ -35,7 +35,7 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(literal_part(" "))
     .then(entity_part_with_validator(
         TARGET_PART_ID.clone(),
-        validate_equip_target,
+        |context, world| validate_parsed_value_has_component::<Item>(context, "equip", world),
     ))
 });
 static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -49,45 +49,9 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(literal_part(" "))
     .then(entity_part_with_validator(
         TARGET_PART_ID.clone(),
-        validate_unequip_target,
+        |context, world| validate_parsed_value_has_component::<Item>(context, "unequip", world),
     ))
 });
-
-/// Validates that an entity could be equipped.
-fn validate_equip_target(
-    context: PartValidatorContext<Entity>,
-    world: &World,
-) -> CommandPartValidateResult {
-    validate_target(context, "equip", world)
-}
-
-/// Validates that an entity could be unequipped.
-fn validate_unequip_target(
-    context: PartValidatorContext<Entity>,
-    world: &World,
-) -> CommandPartValidateResult {
-    validate_target(context, "unequip", world)
-}
-
-/// Validates that an entity could be equipped or unequipped.
-fn validate_target(
-    context: PartValidatorContext<Entity>,
-    verb_name: &str,
-    world: &World,
-) -> CommandPartValidateResult {
-    if world.get::<Item>(context.parsed_value).is_some() {
-        CommandPartValidateResult::Valid
-    } else {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
-        CommandPartValidateResult::Invalid(CommandPartValidateError {
-            details: Some(format!("You can't {verb_name} {target_name}.")),
-        })
-    }
-}
 
 pub struct EquipParser;
 

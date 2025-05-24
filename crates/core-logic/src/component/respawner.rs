@@ -1,12 +1,13 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
+    command_format::{literal_part, one_of_part, CommandFormat, CommandParseError},
     find_spawn_room,
-    input_parser::{CommandTarget, InputParseError, InputParser},
+    input_parser::{CommandTarget, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
@@ -18,29 +19,34 @@ use super::{
     ActionEndNotification, ActionQueue, AfterActionPerformNotification, ParseCustomInput, Vitals,
 };
 
-const RESPAWN_FORMAT: &str = "respawn";
-
-static RESPAWN_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(respawn|live)$").unwrap());
+static RESPAWN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("respawn"),
+        literal_part("live")
+    ]))
+});
 
 struct RespawnParser;
 
 impl InputParser for RespawnParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if RESPAWN_PATTERN.is_match(input) {
-            return Ok(Box::new(RespawnAction {
-                notification_sender: ActionNotificationSender::new(),
-            }));
-        }
-
-        Err(InputParseError::UnknownCommand)
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        RESPAWN_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(RespawnAction {
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![RESPAWN_FORMAT.to_string()]
+        vec![RESPAWN_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

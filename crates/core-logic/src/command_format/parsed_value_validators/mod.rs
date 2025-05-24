@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::*;
 
+use crate::component::Description;
+
 use super::parsed_value::ParsedValue;
 
 /* TODO remove
@@ -61,4 +63,24 @@ pub enum CommandPartValidateResult {
 #[derive(PartialEq, Eq, Debug)]
 pub struct CommandPartValidateError {
     pub details: Option<String>,
+}
+
+/// Validates that an entity has the provided component, and if not returns an error in the format `"You can't {verb_name} {parsed_value_reference_name}."`.
+pub fn validate_parsed_value_has_component<T: Component>(
+    context: PartValidatorContext<Entity>,
+    verb_name: &str,
+    world: &World,
+) -> CommandPartValidateResult {
+    if world.get::<T>(context.parsed_value).is_some() {
+        CommandPartValidateResult::Valid
+    } else {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(format!("You can't {verb_name} {target_name}.")),
+        })
+    }
 }

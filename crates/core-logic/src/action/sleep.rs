@@ -2,14 +2,14 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use rand::Rng;
-use regex::Regex;
 
 use crate::{
+    command_format::{literal_part, CommandFormat, CommandParseError},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, SleepState,
         Vitals,
     },
-    input_parser::{CommandParseError, CommandTarget, InputParseError, InputParser},
+    input_parser::{CommandTarget, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -24,10 +24,8 @@ const WAKE_THRESHOLD: f32 = 0.75;
 /// The probability of an entity waking up each tick once it's reached the wake threshold.
 const WAKE_CHANCE_PER_TICK: f32 = 0.003;
 
-const SLEEP_FORMAT: &str = "sleep";
-const SLEEP_VERB_NAME: &str = "sleep";
-
-static SLEEP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^sleep$").unwrap());
+static SLEEP_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(literal_part("sleep")));
 
 pub struct SleepParser;
 
@@ -35,47 +33,38 @@ impl InputParser for SleepParser {
     fn parse(
         &self,
         input: &str,
-        entity: Entity,
+        source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        if SLEEP_PATTERN.is_match(input) {
-            if let Some(vitals) = world.get::<Vitals>(entity) {
-                let energy_fraction = vitals.energy.get() / vitals.energy.get_max();
-                if energy_fraction < WAKE_THRESHOLD {
-                    // has vitals, and energy is under wake threshold
-                    return Ok(Box::new(SleepAction {
-                        ticks_slept: 0,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                } else {
-                    // has vitals, but energy not under wake threshold
-                    return Err(InputParseError::CommandParseError {
-                        verb: SLEEP_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(
-                            "You're not tired enough to sleep.".to_string(),
-                        ),
-                    });
-                }
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        SLEEP_FORMAT.parse(input, source_entity, world)?;
+        if let Some(vitals) = world.get::<Vitals>(source_entity) {
+            let energy_fraction = vitals.energy.get() / vitals.energy.get_max();
+            if energy_fraction < WAKE_THRESHOLD {
+                // has vitals, and energy is under wake threshold
+                Ok(Box::new(SleepAction {
+                    ticks_slept: 0,
+                    notification_sender: ActionNotificationSender::new(),
+                }))
             } else {
-                // doesn't have vitals
-                return Err(InputParseError::CommandParseError {
-                    verb: SLEEP_VERB_NAME.to_string(),
-                    error: CommandParseError::Other(
-                        "You have no energy to regain by sleeping.".to_string(),
-                    ),
-                });
+                // has vitals, but energy not under wake threshold
+                Err(CommandParseError::Other(
+                    "You're not tired enough to sleep.".to_string(),
+                ))
             }
+        } else {
+            // doesn't have vitals
+            Err(CommandParseError::Other(
+                "You have no energy to regain by sleeping.".to_string(),
+            ))
         }
-
-        Err(InputParseError::UnknownCommand)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SLEEP_FORMAT.to_string()]
+        vec![SLEEP_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

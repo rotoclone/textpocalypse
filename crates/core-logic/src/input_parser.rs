@@ -217,28 +217,6 @@ impl CommandTargetName {
     }
 }
 
-/// An error while parsing input.
-/* TODO remove
-pub enum InputParseError {
-    /// The input did not correspond to any command.
-    UnknownCommand,
-    /// The input was not valid for the matched command.
-    CommandParseError(CommandParseError),
-}
-*/
-
-/// An error while parsing input into a specific command.
-/* TODO remove
-pub enum CommandParseError {
-    /// A required target was not provided.
-    MissingTarget,
-    /// A provided target is not in the presence of the entity that provided the input.
-    TargetNotFound(CommandTarget),
-    /// Something else is wrong with a custom message.
-    Other(String),
-}
-    */
-
 pub trait InputParser: Send + Sync {
     /// Parses input from the provided entity into an action.
     /// TODO should this be in 2 stages: first convert from the input string to some intermediate representation, then convert from that into an action?

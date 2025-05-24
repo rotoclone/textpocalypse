@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
 use nonempty::nonempty;
-use nonempty::NonEmpty;
 use rand::seq::SliceRandom;
 
 use crate::command_format::CommandFormatPart;
