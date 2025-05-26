@@ -82,7 +82,7 @@ impl InputParser for MoveParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![MOVE_WITH_VERB_FORMAT.get_format_description().to_string()]
+        vec![MOVE_FORMAT.get_format_description().to_string()]
     }
 
     fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {

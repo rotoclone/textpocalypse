@@ -40,6 +40,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 }
 
 //TODO add a part that must be provided if another part is provided, so for example if there's an optional part that's provided it has to be preceded with a space, but if the optional part isn't provided then there can't be a space
+//TODO add a part that parses into a custom type, so for example the open command doesn't need 2 separate formats (one that starts with "open" and one that starts with "close"), instead the first part could be parsed into an enum
 #[derive(Debug, Clone)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
@@ -559,6 +560,7 @@ pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
 /// `T` is the type that the part will be parsed into.
+/// TODO change the `String` to a `&'static str` and implement `Copy`
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct CommandPartId<T>(String, PhantomData<fn(T)>);
 

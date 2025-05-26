@@ -22,6 +22,7 @@ pub use r#move::MoveAction;
 pub use r#move::MoveParser;
 
 mod open;
+pub use open::CloseParser;
 pub use open::OpenAction;
 pub use open::OpenParser;
 
@@ -44,7 +45,9 @@ pub use throw::ThrowAction;
 pub use throw::ThrowParser;
 
 mod pour;
+pub use pour::FillParser;
 pub use pour::PourAction;
+pub use pour::PourAllParser;
 pub use pour::PourAmount;
 pub use pour::PourParser;
 
