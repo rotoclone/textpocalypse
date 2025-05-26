@@ -26,22 +26,24 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
 static UNLOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("unlock"))
         .then(literal_part(" "))
-        .then(entity_part_with_validator(
-            TARGET_PART_ID.clone(),
-            |context, world| {
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
-            },
-        ))
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("thing"),
+        )
 });
 static LOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("lock"))
         .then(literal_part(" "))
-        .then(entity_part_with_validator(
-            TARGET_PART_ID.clone(),
-            |context, world| {
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
-            },
-        ))
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("thing"),
+        )
 });
 
 pub struct LockParser;

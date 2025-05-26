@@ -51,10 +51,11 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
         literal_part("dr"),
     ]))
     .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        validate_target,
-    ))
+    .then(
+        entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+            .with_if_missing("who")
+            .with_placeholder_for_format_string("target"),
+    )
 });
 
 static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -65,10 +66,11 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
         literal_part("ir"),
     ]))
     .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        validate_target,
-    ))
+    .then(
+        entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+            .with_if_missing("who")
+            .with_placeholder_for_format_string("target"),
+    )
 });
 
 /// Determines whether an entity could be a valid target for a change range command.

@@ -1,15 +1,18 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
+    command_format::{
+        direction_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
+    },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
         Container, Location, Stats,
     },
-    input_parser::{CommandTarget, InputParseError, InputParser},
+    input_parser::{CommandTarget, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
@@ -22,36 +25,68 @@ use super::{
     LookAction,
 };
 
-const MOVE_FORMAT: &str = "go <>";
-const MOVE_DIRECTION_CAPTURE: &str = "direction";
-
-static MOVE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^((go|move) (to (the )?)?)?(?P<direction>.*)").unwrap());
+static DIRECTION_PART_ID: LazyLock<CommandPartId<Direction>> =
+    LazyLock::new(|| CommandPartId::new("direction"));
+static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(
+        direction_part(DIRECTION_PART_ID.clone())
+            .with_if_missing("where")
+            .with_placeholder_for_format_string("direction"),
+    )
+});
+static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("move"),
+        literal_part("go")
+    ]))
+    .then(one_of_part(nonempty![
+        literal_part(" "),
+        literal_part(" to "),
+        literal_part(" to the ")
+    ]))
+    .then(
+        direction_part(DIRECTION_PART_ID.clone())
+            .with_if_missing("where")
+            .with_placeholder_for_format_string("direction"),
+    )
+});
 
 pub struct MoveParser;
 
 impl InputParser for MoveParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = MOVE_PATTERN.captures(input) {
-            if let Some(dir_match) = captures.name(MOVE_DIRECTION_CAPTURE) {
-                if let Some(direction) = Direction::parse(dir_match.as_str()) {
-                    return Ok(Box::new(MoveAction {
-                        direction,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        match MOVE_FORMAT.parse(input, source_entity, world) {
+            Ok(parsed) => {
+                return Ok(Box::new(MoveAction {
+                    direction: parsed.get(&DIRECTION_PART_ID),
+                    notification_sender: ActionNotificationSender::new(),
+                }));
+            }
+            Err(e) => {
+                if e.any_parts_matched() {
+                    return Err(e);
                 }
             }
         }
 
-        Err(InputParseError::UnknownCommand)
+        let parsed = MOVE_WITH_VERB_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(MoveAction {
+            direction: parsed.get(&DIRECTION_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![MOVE_FORMAT.to_string()]
+        vec![MOVE_WITH_VERB_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

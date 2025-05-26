@@ -33,10 +33,13 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("take out"),
     ]))
     .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        |context, world| validate_parsed_value_has_component::<Item>(context, "equip", world),
-    ))
+    .then(
+        entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
+            validate_parsed_value_has_component::<Item>(context, "equip", world)
+        })
+        .with_if_missing("what")
+        .with_literal_for_format_string("thing"),
+    )
 });
 static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
@@ -47,10 +50,13 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("put away"),
     ]))
     .then(literal_part(" "))
-    .then(entity_part_with_validator(
-        TARGET_PART_ID.clone(),
-        |context, world| validate_parsed_value_has_component::<Item>(context, "unequip", world),
-    ))
+    .then(
+        entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
+            validate_parsed_value_has_component::<Item>(context, "unequip", world)
+        })
+        .with_if_missing("what")
+        .with_literal_for_format_string("thing"),
+    )
 });
 
 pub struct EquipParser;

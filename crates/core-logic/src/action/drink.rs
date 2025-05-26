@@ -31,12 +31,13 @@ static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drink"))
         .then(literal_part(" "))
         .then(optional_literal_part("from "))
-        .then(entity_part_with_validator(
-            TARGET_PART_ID.clone(),
-            |context, world| {
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<FluidContainer>(context, "drink from", world)
-            },
-        ))
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("container"),
+        )
 });
 
 pub struct DrinkParser;

@@ -29,12 +29,13 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
 static SLAM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("slam"))
         .then(literal_part(" "))
-        .then(entity_part_with_validator(
-            TARGET_PART_ID.clone(),
-            |context, world| {
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<OpenState>(context, "slam", world)
-            },
-        ))
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("door"),
+        )
 });
 
 struct SlamParser;
