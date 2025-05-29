@@ -84,6 +84,7 @@ pub use sleep::SleepParser;
 mod say;
 pub use say::SayAction;
 pub use say::SayParser;
+pub use say::SayWithoutVerbParser;
 
 mod stop;
 #[expect(unused)]
@@ -115,11 +116,12 @@ pub use ranges::RangesAction;
 pub use ranges::RangesParser;
 
 mod spend_advacement_point;
-pub use spend_advacement_point::SpendAdvancementPointParser;
 #[expect(unused)]
 pub use spend_advacement_point::SpendAttributePointAction;
+pub use spend_advacement_point::SpendAttributePointParser;
 #[expect(unused)]
 pub use spend_advacement_point::SpendSkillPointAction;
+pub use spend_advacement_point::SpendSkillPointParser;
 
 mod cheat;
 pub use cheat::CheatParser;

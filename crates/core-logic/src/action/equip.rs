@@ -59,6 +59,7 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     )
 });
 
+//TODO split into 2 parsers
 pub struct EquipParser;
 
 impl InputParser for EquipParser {

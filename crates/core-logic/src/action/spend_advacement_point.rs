@@ -1,11 +1,15 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{
+        any_text_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+    },
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{CommandParseError, InputParseError, InputParser},
+    input_parser::InputParser,
     notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     ActionTag, Attribute, BeforeActionNotification, MessageCategory, MessageDelay, Skill, Stats,
@@ -14,119 +18,160 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const SPEND_ADVANCEMENT_POINT_VERB_NAME: &str = "spend";
-const SPEND_SKILL_POINT_FORMAT: &str = "spend skill point on <>";
-const SPEND_ATTRIBUTE_POINT_FORMAT: &str = "spend attribute point on <>";
-const TARGET_CAPTURE: &str = "target";
+static ADVANCEMENT_TYPE_PART_ID: LazyLock<CommandPartId<String>> =
+    LazyLock::new(|| CommandPartId::new("advancement_type"));
 
-static SPEND_SKILL_POINT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(spend skill point on|assign skill point to|increase skill) (?P<target>.*)")
-        .unwrap()
-});
-static SPEND_ATTRIBUTE_POINT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        "^(spend attribute point on|assign attribute point to|increase attribute) (?P<target>.*)",
+static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("spend skill point on"),
+        literal_part("assign skill point to"),
+        literal_part("increase skill")
+    ]))
+    .then(literal_part(" "))
+    .then(
+        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_skill_name)
+            .with_if_missing("which skill")
+            .with_placeholder_for_format_string("skill"),
     )
-    .unwrap()
+});
+static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("spend attribute point on"),
+        literal_part("assign attribute point to"),
+        literal_part("increase attribute")
+    ]))
+    .then(literal_part(" "))
+    .then(
+        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_attribute_name)
+            .with_if_missing("which attribute")
+            .with_placeholder_for_format_string("attribute"),
+    )
 });
 
-pub struct SpendAdvancementPointParser;
+/// Validates that the parsed value is the name of a skill, ignoring case.
+fn validate_skill_name(
+    context: PartValidatorContext<String>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if SkillNameCatalog::get_skill(&context.parsed_value, world).is_some() {
+        return CommandPartValidateResult::Valid;
+    }
 
-impl InputParser for SpendAdvancementPointParser {
+    CommandPartValidateResult::Invalid(CommandPartValidateError {
+        details: Some(format!("'{}' is not a skill.", context.parsed_value)),
+    })
+}
+
+/// Validates that the parsed value is the name of an attribute, ignoring case.
+fn validate_attribute_name(
+    context: PartValidatorContext<String>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if AttributeNameCatalog::get_attribute(&context.parsed_value, world).is_some() {
+        return CommandPartValidateResult::Valid;
+    }
+
+    CommandPartValidateResult::Invalid(CommandPartValidateError {
+        details: Some(format!("'{}' is not an attribute.", context.parsed_value)),
+    })
+}
+
+pub struct SpendSkillPointParser;
+pub struct SpendAttributePointParser;
+
+impl InputParser for SpendSkillPointParser {
     fn parse(
         &self,
         input: &str,
-        _: Entity,
+        source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = SPEND_SKILL_POINT_PATTERN.captures(input) {
-            // attempting to spend a skill point
-            if let Some(skill_match) = captures.name(TARGET_CAPTURE) {
-                // the name of a skill was provided
-                let skill_name = skill_match.as_str();
-                if let Some(skill) = SkillNameCatalog::get_skill(skill_name, world) {
-                    // it's actually a skill that exists
-                    return Ok(Box::new(SpendSkillPointAction {
-                        skill,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                } else {
-                    // invalid skill name
-                    return Err(InputParseError::CommandParseError {
-                        verb: SPEND_ADVANCEMENT_POINT_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!("{skill_name} is not a skill.")),
-                    });
-                }
-            } else {
-                // no skill name provided
-                return Err(InputParseError::CommandParseError {
-                    verb: SPEND_ADVANCEMENT_POINT_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        } else if let Some(captures) = SPEND_ATTRIBUTE_POINT_PATTERN.captures(input) {
-            // attempting to spend an attribute point
-            if let Some(attribute_match) = captures.name(TARGET_CAPTURE) {
-                // the name of an attribute was provided
-                let attribute_name = attribute_match.as_str();
-                if let Some(attribute) = AttributeNameCatalog::get_attribute(attribute_name, world)
-                {
-                    // it's actually an attribute that exists
-                    return Ok(Box::new(SpendAttributePointAction {
-                        attribute,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                } else {
-                    // invalid attribute name
-                    return Err(InputParseError::CommandParseError {
-                        verb: SPEND_ADVANCEMENT_POINT_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!(
-                            "{attribute_name} is not an attribute."
-                        )),
-                    });
-                }
-            } else {
-                // no attribute name provided
-                return Err(InputParseError::CommandParseError {
-                    verb: SPEND_ADVANCEMENT_POINT_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = SPEND_SKILL_POINT_FORMAT.parse(input, source_entity, world)?;
+        let skill_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
+        if let Some(skill) = SkillNameCatalog::get_skill(&skill_name, world) {
+            Ok(Box::new(SpendSkillPointAction {
+                skill,
+                notification_sender: ActionNotificationSender::new(),
+            }))
+        } else {
+            // this should never happen due to the validator, but ya never know
+            Err(CommandParseError::Other(format!(
+                "'{skill_name}' is not a skill."
+            )))
         }
-
-        Err(InputParseError::UnknownCommand)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![
-            SPEND_SKILL_POINT_FORMAT.to_string(),
-            SPEND_ATTRIBUTE_POINT_FORMAT.to_string(),
-        ]
+        vec![SPEND_SKILL_POINT_FORMAT
+            .get_format_description()
+            .to_string()]
     }
 
     fn get_input_formats_for(
         &self,
         entity: Entity,
-        _: Entity,
+        pov_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>> {
-        let mut formats = None;
-
-        if let Some(stats) = world.get::<Stats>(entity) {
-            if stats.advancement.skill_points.available > 0 {
-                formats
-                    .get_or_insert_with(Vec::new)
-                    .push(SPEND_SKILL_POINT_FORMAT.to_string());
-            }
-
-            if stats.advancement.attribute_points.available > 0 {
-                formats
-                    .get_or_insert_with(Vec::new)
-                    .push(SPEND_ATTRIBUTE_POINT_FORMAT.to_string());
+    ) -> Vec<String> {
+        if entity == pov_entity {
+            if let Some(stats) = world.get::<Stats>(entity) {
+                if stats.advancement.skill_points.available > 0 {
+                    return vec![SPEND_SKILL_POINT_FORMAT
+                        .get_format_description()
+                        .to_string()];
+                }
             }
         }
 
-        formats
+        Vec::new()
+    }
+}
+
+impl InputParser for SpendAttributePointParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = SPEND_ATTRIBUTE_POINT_FORMAT.parse(input, source_entity, world)?;
+        let attribute_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
+        if let Some(attribute) = AttributeNameCatalog::get_attribute(&attribute_name, world) {
+            Ok(Box::new(SpendAttributePointAction {
+                attribute,
+                notification_sender: ActionNotificationSender::new(),
+            }))
+        } else {
+            // this should never happen due to the validator, but ya never know
+            Err(CommandParseError::Other(format!(
+                "'{attribute_name}' is not an attribute."
+            )))
+        }
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![SPEND_ATTRIBUTE_POINT_FORMAT
+            .get_format_description()
+            .to_string()]
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        if entity == pov_entity {
+            if let Some(stats) = world.get::<Stats>(entity) {
+                if stats.advancement.attribute_points.available > 0 {
+                    return vec![SPEND_ATTRIBUTE_POINT_FORMAT
+                        .get_format_description()
+                        .to_string()];
+                }
+            }
+        }
+
+        Vec::new()
     }
 }
 

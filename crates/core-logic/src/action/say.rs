@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use nonempty::nonempty;
 
 use crate::{
     any_text_part,
@@ -10,21 +9,26 @@ use crate::{
     input_parser::InputParser,
     literal_part,
     notification::VerifyResult,
-    one_of_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
-    DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
+    ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId, DynamicMessage,
+    DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
-//TODO somehow get just "say" (no ending space) to result in a "Say what?" error rather than "I don't understand that"
+
 static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(
-        one_of_part(nonempty![literal_part("say "), literal_part("\"")])
-            .with_error_string_override("say "),
-    )
-    .then(
+    CommandFormat::new(literal_part("say"))
+        .then(literal_part(" "))
+        .then(
+            any_text_part(TEXT_PART_ID.clone())
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("statement"),
+        )
+});
+static SAY_WITHOUT_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("\"")).then(
         any_text_part(TEXT_PART_ID.clone())
             .with_if_missing("what")
             .with_placeholder_for_format_string("statement"),
@@ -32,6 +36,7 @@ static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 
 pub struct SayParser;
+pub struct SayWithoutVerbParser;
 
 impl InputParser for SayParser {
     fn parse(
@@ -52,8 +57,32 @@ impl InputParser for SayParser {
         vec![SAY_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+impl InputParser for SayWithoutVerbParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = SAY_WITHOUT_VERB_FORMAT.parse(input, source_entity, world)?;
+
+        Ok(Box::new(SayAction {
+            text: parsed.get(&TEXT_PART_ID).to_string(),
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![SAY_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

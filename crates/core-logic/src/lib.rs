@@ -146,6 +146,7 @@ impl StandardInputParsers {
             Box::new(RemoveParser),
             Box::new(EquipParser),
             Box::new(SayParser),
+            Box::new(SayWithoutVerbParser),
             Box::new(VitalsParser),
             Box::new(StatsParser),
             Box::new(EatParser),
@@ -157,7 +158,8 @@ impl StandardInputParsers {
             Box::new(RangesParser),
             Box::new(StopParser),
             Box::new(PlayersParser),
-            Box::new(SpendAdvancementPointParser),
+            Box::new(SpendSkillPointParser),
+            Box::new(SpendAttributePointParser),
             Box::new(HelpParser),
         ];
 
