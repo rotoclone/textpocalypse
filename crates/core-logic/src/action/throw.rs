@@ -4,19 +4,20 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
+    command_format::{
+        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
+        CommandFormat, CommandParseError, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext,
+    },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
     handle_enter_combat,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     vital_change::{
@@ -55,13 +56,47 @@ const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 /// The maximum amount to multiply throw check difficulty by due to the size of the target
 const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
 
-const THROW_VERB_NAME: &str = "throw";
-const THROW_FORMAT: &str = "throw <> at <>";
-const NAME_CAPTURE: &str = "name";
-const TARGET_CAPTURE: &str = "target";
+static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
+static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("target"));
+static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("throw"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Item>(context, "throw", world)
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("thing"),
+        )
+        .then(literal_part(" at "))
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("target"),
+        )
+});
 
-static THROW_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^throw (the )?(?P<name>.*) at (the )?(?P<target>.*)").unwrap());
+/// Checks that an entity can have things thrown at it.
+fn validate_target(
+    context: PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if world.get::<Item>(context.parsed_value).is_some()
+        || is_living_entity(context.parsed_value, world)
+    {
+        return CommandPartValidateResult::Valid;
+    }
+
+    let target_name = Description::get_reference_name(
+        context.parsed_value,
+        Some(context.performing_entity),
+        world,
+    );
+    CommandPartValidateResult::Invalid(CommandPartValidateError {
+        details: Some(format!("You can't throw anything at {target_name}.")),
+    })
+}
 
 pub struct ThrowParser;
 
@@ -71,155 +106,64 @@ impl InputParser for ThrowParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = THROW_PATTERN.captures(input) {
-            if let Some(item_match) = captures.name(NAME_CAPTURE) {
-                // item to throw was provided
-                if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-                    // target was provided
-                    let item = CommandTarget::parse(item_match.as_str());
-                    if let Some(item_entity) = item.find_target_entity(source_entity, world) {
-                        // item to throw exists
-                        let target = CommandTarget::parse(target_match.as_str());
-                        if let Some(target_entity) = target.find_target_entity(source_entity, world)
-                        {
-                            // target exists
-                            if target_entity == item_entity {
-                                let item_name = Description::get_reference_name(
-                                    item_entity,
-                                    Some(source_entity),
-                                    world,
-                                );
-                                return Err(InputParseError::CommandParseError {
-                                    verb: THROW_VERB_NAME.to_string(),
-                                    error: CommandParseError::Other(format!(
-                                        "You can't throw {item_name} at itself."
-                                    )),
-                                });
-                            }
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = THROW_FORMAT.parse(input, source_entity, world)?;
+        let item = parsed.get(&ITEM_PART_ID);
+        let target = parsed.get(&TARGET_PART_ID);
 
-                            if target_entity == source_entity {
-                                return Err(InputParseError::CommandParseError {
-                                    verb: THROW_VERB_NAME.to_string(),
-                                    error: CommandParseError::Other(
-                                        "You can't throw things at yourself.".to_string(),
-                                    ),
-                                });
-                            }
-
-                            match get_cannot_throw_reason(source_entity, item_entity, world) {
-                                Some(CannotThrowReason::NotThrowable) => {
-                                    let item_name = Description::get_reference_name(
-                                        item_entity,
-                                        Some(source_entity),
-                                        world,
-                                    );
-                                    return Err(InputParseError::CommandParseError {
-                                        verb: THROW_VERB_NAME.to_string(),
-                                        error: CommandParseError::Other(format!(
-                                            "You can't throw {item_name}."
-                                        )),
-                                    });
-                                }
-                                Some(CannotThrowReason::TooWeak) => {
-                                    let item_name = Description::get_reference_name(
-                                        item_entity,
-                                        Some(source_entity),
-                                        world,
-                                    );
-                                    return Err(InputParseError::CommandParseError {
-                                        verb: THROW_VERB_NAME.to_string(),
-                                        error: CommandParseError::Other(format!(
-                                            "You aren't strong enough to throw {item_name}."
-                                        )),
-                                    });
-                                }
-                                None => {
-                                    // item to throw is throwable
-                                    if world.get::<Item>(target_entity).is_some()
-                                        || is_living_entity(target_entity, world)
-                                    {
-                                        // target is valid
-                                        return Ok(Box::new(ThrowAction {
-                                            item: item_entity,
-                                            target: target_entity,
-                                            notification_sender: ActionNotificationSender::new(),
-                                        }));
-                                    } else {
-                                        // target is not valid
-                                        let target_name = Description::get_reference_name(
-                                            target_entity,
-                                            Some(source_entity),
-                                            world,
-                                        );
-                                        return Err(InputParseError::CommandParseError {
-                                            verb: THROW_VERB_NAME.to_string(),
-                                            error: CommandParseError::Other(format!(
-                                                "You can't throw anything at {target_name}."
-                                            )),
-                                        });
-                                    }
-                                }
-                            }
-                        } else {
-                            // target doesn't exist
-                            return Err(InputParseError::CommandParseError {
-                                verb: THROW_VERB_NAME.to_string(),
-                                error: CommandParseError::TargetNotFound(target),
-                            });
-                        }
-                    } else {
-                        // item to throw doesn't exist
-                        return Err(InputParseError::CommandParseError {
-                            verb: THROW_VERB_NAME.to_string(),
-                            error: CommandParseError::TargetNotFound(item),
-                        });
-                    }
-                } else {
-                    // target wasn't provided
-                    return Err(InputParseError::CommandParseError {
-                        verb: THROW_VERB_NAME.to_string(),
-                        error: CommandParseError::MissingTarget,
-                    });
-                }
-            }
+        if target == source_entity {
+            return Err(CommandParseError::Other(
+                "You can't throw things at yourself.".to_string(),
+            ));
         }
 
-        Err(InputParseError::UnknownCommand)
+        if item == target {
+            let item_name = Description::get_reference_name(item, Some(source_entity), world);
+            return Err(CommandParseError::Other(format!(
+                "You can't throw {item_name} at itself."
+            )));
+        }
+
+        Ok(Box::new(ThrowAction {
+            item,
+            target,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![THROW_FORMAT.to_string()]
+        vec![THROW_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Item>(entity, world, &[THROW_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        if is_living_entity(entity, world) {
+            return vec![THROW_FORMAT
+                .get_format_description()
+                .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                .to_string()];
+        }
+
+        input_formats_if_has_component::<Item>(
+            entity,
+            world,
+            &[
+                THROW_FORMAT.get_format_description().with_targeted_entity(
+                    ITEM_PART_ID.clone(),
+                    entity,
+                    world,
+                ),
+                THROW_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID.clone(),
+                    entity,
+                    world,
+                ),
+            ],
+        )
     }
 }
 
-enum CannotThrowReason {
-    NotThrowable,
-    TooWeak,
-}
-
-/// Determines if there's anything preventing the provided entity from throwing the provided item.
-///
-/// Returns `None` if the entity can throw the item, `Some` otherwise.
-fn get_cannot_throw_reason(
-    thrower: Entity,
-    item: Entity,
-    world: &World,
-) -> Option<CannotThrowReason> {
-    if world.get::<Item>(item).is_none() {
-        // only items can be thrown
-        return Some(CannotThrowReason::NotThrowable);
-    }
-
+/// Determines if the provided entity is strong enough to throw the provided item.
+fn is_strong_enough_to_throw(thrower: Entity, item: Entity, world: &World) -> bool {
     let item_weight = Weight::get(item, world);
 
     let max_weight_can_throw = if let Some(stats) = world.get::<Stats>(thrower) {
@@ -230,11 +174,7 @@ fn get_cannot_throw_reason(
         Weight(0.0)
     };
 
-    if item_weight > max_weight_can_throw {
-        return Some(CannotThrowReason::TooWeak);
-    }
-
-    None
+    item_weight <= max_weight_can_throw
 }
 
 /// Makes an entity throw an item.
@@ -648,5 +588,25 @@ pub fn verify_target_in_same_room(
     VerifyResult::invalid(
         performing_entity,
         GameMessage::Error(format!("{target_name} isn't here.")),
+    )
+}
+
+/// Verifies that the thrower is strong enough to throw the thing they're trying to throw.
+/// TODO register this
+pub fn verify_strong_enough_to_throw_item(
+    notification: &Notification<VerifyActionNotification, ThrowAction>,
+    world: &World,
+) -> VerifyResult {
+    let item = notification.contents.item;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if is_strong_enough_to_throw(performing_entity, item, world) {
+        return VerifyResult::valid();
+    }
+
+    let item_name = Description::get_reference_name(item, Some(performing_entity), world);
+    VerifyResult::invalid(
+        performing_entity,
+        GameMessage::Error(format!("You're not strong enough to throw {item_name}.")),
     )
 }

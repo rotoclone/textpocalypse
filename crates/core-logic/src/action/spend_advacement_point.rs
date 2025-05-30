@@ -107,22 +107,7 @@ impl InputParser for SpendSkillPointParser {
             .to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        pov_entity: Entity,
-        world: &World,
-    ) -> Vec<String> {
-        if entity == pov_entity {
-            if let Some(stats) = world.get::<Stats>(entity) {
-                if stats.advancement.skill_points.available > 0 {
-                    return vec![SPEND_SKILL_POINT_FORMAT
-                        .get_format_description()
-                        .to_string()];
-                }
-            }
-        }
-
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
         Vec::new()
     }
 }
@@ -155,22 +140,7 @@ impl InputParser for SpendAttributePointParser {
             .to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        pov_entity: Entity,
-        world: &World,
-    ) -> Vec<String> {
-        if entity == pov_entity {
-            if let Some(stats) = world.get::<Stats>(entity) {
-                if stats.advancement.attribute_points.available > 0 {
-                    return vec![SPEND_ATTRIBUTE_POINT_FORMAT
-                        .get_format_description()
-                        .to_string()];
-                }
-            }
-        }
-
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
         Vec::new()
     }
 }
