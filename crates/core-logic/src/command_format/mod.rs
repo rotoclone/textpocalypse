@@ -702,6 +702,12 @@ impl CommandParseError {
     }
 }
 
+impl From<String> for CommandParseError {
+    fn from(value: String) -> Self {
+        CommandParseError::Other(value)
+    }
+}
+
 #[derive(Debug)]
 pub struct MatchedCommandFormatPart {
     pub part: CommandFormatPart,

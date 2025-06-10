@@ -31,6 +31,7 @@ pub use help::HelpParser;
 
 mod wait;
 pub use wait::WaitParser;
+pub use wait::WaitWithDurationParser;
 
 mod inventory;
 pub use inventory::InventoryParser;

@@ -153,6 +153,7 @@ impl StandardInputParsers {
             Box::new(DrinkParser),
             Box::new(SleepParser),
             Box::new(WaitParser),
+            Box::new(WaitWithDurationParser),
             Box::new(AttackParser),
             Box::new(ChangeRangeParser),
             Box::new(RangesParser),

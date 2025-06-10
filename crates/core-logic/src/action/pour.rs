@@ -93,14 +93,7 @@ static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 fn validate_amount(context: PartValidatorContext<String>, _: &World) -> CommandPartValidateResult {
     match parse_pour_amount(&context.parsed_value) {
         Ok(_) => CommandPartValidateResult::Valid,
-        Err(e) => match e {
-            CommandParseError::Other(s) => {
-                CommandPartValidateResult::Invalid(CommandPartValidateError { details: Some(s) })
-            }
-            _ => CommandPartValidateResult::Invalid(CommandPartValidateError {
-                details: Some("That is an invalid amount to pour.".to_string()),
-            }),
-        },
+        Err(e) => CommandPartValidateResult::Invalid(CommandPartValidateError { details: Some(e) }),
     }
 }
 
@@ -293,7 +286,7 @@ fn parse_targets(
 }
     */
 
-fn parse_pour_amount(input: &str) -> Result<PourAmount, CommandParseError> {
+fn parse_pour_amount(input: &str) -> Result<PourAmount, String> {
     if ALL_PATTERN.is_match(input) {
         return Ok(PourAmount::All);
     }
@@ -308,17 +301,16 @@ fn parse_pour_amount(input: &str) -> Result<PourAmount, CommandParseError> {
             match amount_match.as_str().parse::<f32>() {
                 Ok(a) => return Ok(PourAmount::Some(Volume(a))),
                 Err(_) => {
-                    return Err(CommandParseError::Other(
-                        "That is an invalid amount to pour.".to_string(),
+                    return Err(format!(
+                        "'{}' is an invalid amount to pour.",
+                        amount_match.as_str()
                     ))
                 }
             }
         }
     }
 
-    Err(CommandParseError::Other(
-        "You can only pour 'all' or some amount of liters.".to_string(),
-    ))
+    Err("You can only pour 'all' or some amount of liters.".to_string())
 }
 
 /// Makes an entity pour some liquid from one fluid container to another.
