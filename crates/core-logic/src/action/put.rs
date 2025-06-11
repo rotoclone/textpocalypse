@@ -1,15 +1,16 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{
+        entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
+        CommandFormat, CommandParseError, CommandPartId,
+    },
     component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
     find_owning_entity,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -19,29 +20,97 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const GET_VERB_NAME: &str = "get";
-const PUT_VERB_NAME: &str = "put";
-const DROP_VERB_NAME: &str = "drop";
+static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
+static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
+    LazyLock::new(|| CommandPartId::new("container"));
 
-const GET_FORMAT: &str = "get <>";
-const GET_FROM_FORMAT: &str = "get <> from <>";
-const PUT_FORMAT: &str = "put <> in <>";
-const DROP_FORMAT: &str = "drop <>";
-
-const ITEM_CAPTURE: &str = "item";
-const CONTAINER_CAPTURE: &str = "container";
-
-static GET_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(get|take|pick up) (the )?(?P<item>.*)").unwrap());
-static GET_FROM_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(get|take) (the )?(?P<item>.*) (from|out of) (the )?(?P<container>.*)").unwrap()
+static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("get"),
+        literal_part("take"),
+        literal_part("pick up")
+    ]))
+    .then(literal_part(" "))
+    .then(
+        entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+            validate_parsed_value_has_component::<Item>(context, "get", world)
+        })
+        .with_if_missing("what")
+        .with_placeholder_for_format_string("item"),
+    )
 });
-static PUT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^put (the )?(?P<item>.*) (in|into) (the )?(?P<container>.*)").unwrap()
-});
-static DROP_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^drop (the )?(?P<item>.*)").unwrap());
 
+static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("drop"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Item>(context, "drop", world)
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("item"),
+        )
+});
+
+static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("get"),
+        literal_part("take")
+    ]))
+    .then(literal_part(" "))
+    .then(
+        entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+            validate_parsed_value_has_component::<Item>(context, "get", world)
+        })
+        .with_if_missing("what")
+        .with_placeholder_for_format_string("item"),
+    )
+    .then(literal_part(" "))
+    .then(one_of_part(nonempty![
+        literal_part("from"),
+        literal_part("out of")
+    ]))
+    .then(
+        entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
+            validate_parsed_value_has_component::<Container>(context, "get anything from", world)
+        })
+        .with_if_missing("where")
+        .with_placeholder_for_format_string("container"),
+    )
+});
+
+static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("put"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+                //TODO ideally the error here would be "you can't put <item name> anywhere" instead of just "you can't put <item name>"
+                validate_parsed_value_has_component::<Item>(context, "put", world)
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("item"),
+        )
+        .then(literal_part(" "))
+        .then(one_of_part(nonempty![
+            literal_part("into"),
+            literal_part("in")
+        ]))
+        .then(
+            entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Container>(
+                    context,
+                    "put anything into",
+                    world,
+                )
+            })
+            .with_if_missing("where")
+            .with_placeholder_for_format_string("container"),
+        )
+});
+
+pub struct GetParser;
+pub struct DropParser;
+pub struct GetFromParser;
 pub struct PutParser;
 
 impl InputParser for PutParser {
@@ -50,18 +119,23 @@ impl InputParser for PutParser {
         input: &str,
         entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        let (verb_name, item_target, source_target, destination_target) = parse_targets(input)?;
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = PUT_FORMAT.parse(input, entity, world)?;
+        let item = parsed.get(&ITEM_PART_ID);
+        let destination = parsed.get(&CONTAINER_PART_ID);
 
-        let source_container = match source_target.find_target_entity(entity, world) {
-            Some(c) => c,
-            None => {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::TargetNotFound(source_target),
-                });
-            }
-        };
+        if item == entity {
+            return Err(CommandParseError::Other(
+                "You can't put yourself anywhere.".to_string(),
+            ));
+        }
+
+        if item == destination {
+            let item_name = Description::get_reference_name(item, Some(entity), world);
+            return Err(CommandParseError::Other(format!(
+                "You can't put {item_name} inside itself."
+            )));
+        }
 
         /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
            other entity actually has the thing you're trying to get
@@ -358,6 +432,7 @@ impl Action for PutAction {
 //TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item?
 
 /// Verifies that the source and destination entities are containers.
+/// TODO remove since the validators cover this now
 pub fn verify_source_and_destination_are_containers(
     notification: &Notification<VerifyActionNotification, PutAction>,
     world: &World,
@@ -521,6 +596,7 @@ pub fn prevent_put_item_inside_itself(
 }
 
 /// Prevents picking up or dropping entities not marked as items.
+/// TODO remove since the validators cover this now
 pub fn prevent_put_non_item(
     notification: &Notification<VerifyActionNotification, PutAction>,
     world: &World,

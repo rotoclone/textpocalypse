@@ -1,11 +1,12 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{literal_part, one_of_part, CommandFormat, CommandParseError},
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{InputParseError, InputParser},
+    input_parser::InputParser,
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, VerifyActionNotification, World,
     WornItemsDescription,
@@ -13,30 +14,36 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const WORN_FORMAT: &str = "worn";
-
-static WORN_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(worn|wearing|clothes|clothing)$").unwrap());
+static WORN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_part(nonempty![
+        literal_part("worn"),
+        literal_part("wearing"),
+        literal_part("clothes"),
+        literal_part("clothing")
+    ]))
+});
 
 pub struct WornParser;
 
 impl InputParser for WornParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if WORN_PATTERN.is_match(input) {
-            return Ok(Box::new(WornAction {
-                notification_sender: ActionNotificationSender::new(),
-            }));
-        }
-
-        Err(InputParseError::UnknownCommand)
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        WORN_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(WornAction {
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![WORN_FORMAT.to_string()]
+        vec![WORN_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

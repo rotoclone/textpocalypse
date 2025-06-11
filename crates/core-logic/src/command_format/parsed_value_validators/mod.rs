@@ -2,8 +2,6 @@ use bevy_ecs::prelude::*;
 
 use crate::component::Description;
 
-use super::parsed_value::ParsedValue;
-
 /* TODO remove
 pub trait ValidateParsedValue<T>: ValidateParsedValueUntyped + ValidateParsedValueClone<T> {
     fn validate(
