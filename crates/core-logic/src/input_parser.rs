@@ -53,6 +53,7 @@ pub fn find_parsers_relevant_for(
 ///
 /// Entities in `entity`'s inventory will appear first, then entities in `entity`'s location, then the location itself.
 /// Within those groupings the entities will be sorted in their natural order for consistency.
+/// TODO this is used to find valid entities to target for commands, so how will it work for a command like "get thing from box"?
 pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity> {
     let location_id = world
         .get::<Location>(entity)
@@ -236,7 +237,7 @@ pub trait InputParser: Send + Sync {
     /// Targets in the provided formats are denoted with "<>".
     ///
     /// For example, if this parser returns actions that act on entities with a `Location` component, then passing in an entity with that
-    /// component might produce an output of `Some(["move <> to <>"])`, whereas passing in an entity without that component would produce `None`.
+    /// component might produce an output of `Some(["move <thing> to <place>"])`, whereas passing in an entity without that component would produce `None`.
     //// TODO have this return a Vec<Vec<FormatStringPart>> or Vec<InputFormatDescription> or something
     fn get_input_formats_for(
         &self,

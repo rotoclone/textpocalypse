@@ -37,6 +37,9 @@ mod inventory;
 pub use inventory::InventoryParser;
 
 mod put;
+pub use put::DropParser;
+pub use put::GetFromParser;
+pub use put::GetParser;
 pub use put::PutAction;
 pub use put::PutParser;
 

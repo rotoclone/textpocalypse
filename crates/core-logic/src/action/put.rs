@@ -10,7 +10,7 @@ use crate::{
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
     find_owning_entity,
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::InputParser,
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -113,6 +113,59 @@ pub struct DropParser;
 pub struct GetFromParser;
 pub struct PutParser;
 
+impl InputParser for GetParser {
+    fn parse(
+        &self,
+        input: &str,
+        entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = GET_FORMAT.parse(input, entity, world)?;
+
+        let item = parsed.get(&ITEM_PART_ID);
+        let Some(source_location) = world.get::<Location>(entity) else {
+            return Err(CommandParseError::Other("You aren't anywhere.".to_string()));
+        };
+        let source = source_location.id;
+        let destination = entity;
+
+        if item == entity {
+            return Err(CommandParseError::Other(
+                "You can't get yourself. At least not in a physical sense.".to_string(),
+            ));
+        }
+
+        Ok(Box::new(PutAction {
+            item,
+            source,
+            destination,
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![GET_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        if world.get::<Item>(entity).is_some()
+            && find_owning_entity(entity, world) != Some(pov_entity)
+        {
+            vec![GET_FORMAT
+                .get_format_description()
+                .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                .to_string()]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
 impl InputParser for PutParser {
     fn parse(
         &self,
@@ -121,7 +174,9 @@ impl InputParser for PutParser {
         world: &World,
     ) -> Result<Box<dyn Action>, CommandParseError> {
         let parsed = PUT_FORMAT.parse(input, entity, world)?;
+
         let item = parsed.get(&ITEM_PART_ID);
+        let source = entity;
         let destination = parsed.get(&CONTAINER_PART_ID);
 
         if item == entity {
@@ -137,9 +192,17 @@ impl InputParser for PutParser {
             )));
         }
 
+        Ok(Box::new(PutAction {
+            item,
+            source,
+            destination,
+            notification_sender: ActionNotificationSender::new(),
+        }))
+
         /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
            other entity actually has the thing you're trying to get
         */
+        /* TODO
         let source_owned_by_other_living_entity = find_owning_entity(source_container, world)
             .map(|h| h != entity)
             .unwrap_or(false);
@@ -187,42 +250,46 @@ impl InputParser for PutParser {
                 });
             }
         };
-
-        Ok(Box::new(PutAction {
-            item,
-            source: source_container,
-            destination: destination_container,
-            notification_sender: ActionNotificationSender::new(),
-        }))
+        */
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![
-            GET_FORMAT.to_string(),
-            GET_FROM_FORMAT.to_string(),
-            PUT_FORMAT.to_string(),
-            DROP_FORMAT.to_string(),
-        ]
+        vec![PUT_FORMAT.get_format_description().to_string()]
     }
 
     fn get_input_formats_for(
         &self,
         entity: Entity,
-        _: Entity,
+        pov_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>> {
-        let mut formats =
-            input_formats_if_has_component::<Item>(entity, world, &[GET_FORMAT, DROP_FORMAT])
-                .unwrap_or_default();
-        if world.get::<Container>(entity).is_some() {
-            formats.push(GET_FROM_FORMAT.to_string());
-            formats.push(PUT_FORMAT.to_string());
+    ) -> Vec<String> {
+        let mut formats = Vec::new();
+
+        if world.get::<Item>(entity).is_some()
+            && find_owning_entity(entity, world) == Some(pov_entity)
+        {
+            formats.push(
+                PUT_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                    .to_string(),
+            )
         }
 
-        Some(formats)
+        if world.get::<Container>(entity).is_some() {
+            formats.push(
+                PUT_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(CONTAINER_PART_ID.clone(), entity, world)
+                    .to_string(),
+            );
+        }
+
+        formats
     }
 }
 
+/* TODO remove
 fn parse_targets(
     input: &str,
 ) -> Result<(String, CommandTarget, CommandTarget, CommandTarget), InputParseError> {
@@ -296,6 +363,7 @@ fn parse_targets(
 
     Err(InputParseError::UnknownCommand)
 }
+    */
 
 /// Makes an entity move an item between containers.
 #[derive(Debug)]
