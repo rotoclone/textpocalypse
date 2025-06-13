@@ -24,6 +24,12 @@ static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandP
 static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("container"));
 
+/* TODO
+> get
+Get?
+
+(it should say "Get what?")
+ */
 static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("get"),
@@ -70,6 +76,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("from"),
         literal_part("out of")
     ]))
+    .then(literal_part(" "))
     .then(
         entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
             validate_parsed_value_has_component::<Container>(context, "get anything from", world)
@@ -95,6 +102,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             literal_part("into"),
             literal_part("in")
         ]))
+        .then(literal_part(" "))
         .then(
             entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<Container>(
