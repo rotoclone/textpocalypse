@@ -592,7 +592,6 @@ pub fn verify_target_in_same_room(
 }
 
 /// Verifies that the thrower is strong enough to throw the thing they're trying to throw.
-/// TODO register this
 pub fn verify_strong_enough_to_throw_item(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
     world: &World,

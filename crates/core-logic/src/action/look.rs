@@ -60,6 +60,7 @@ static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     )
 });
 
+//TODO split into multiple parsers for different formats
 pub struct LookParser;
 
 impl InputParser for LookParser {
@@ -110,62 +111,12 @@ impl InputParser for LookParser {
             }
         };
 
-        match DETAILED_LOOK_FORMAT.parse(input, source_entity, world) {
-            Ok(p) => {
-                let target = p.get(&TARGET_PART_ID);
-
-                return Ok(Box::new(LookAction {
-                    target,
-                    detailed: true,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            }
-            Err(e) => {
-                dbg!(&e); //TODO
-
-                return Err(e);
-            }
-        };
-
-        /* TODO remove
-
-        let (captures, verb_name, detailed) = if let Some(captures) = LOOK_PATTERN.captures(input) {
-            (captures, LOOK_VERB_NAME, false)
-        } else if let Some(captures) = DETAILED_LOOK_PATTERN.captures(input) {
-            (captures, DETAILED_LOOK_VERB_NAME, true)
-        } else {
-            return Err(InputParseError::UnknownCommand);
-        };
-
-        if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
-            // looking at something specific
-            let target = CommandTarget::parse(target_match.as_str());
-            if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                // looking at something they can see
-                return Ok(Box::new(LookAction {
-                    target: target_entity,
-                    detailed,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(target),
-                });
-            }
-        } else {
-            // just looking in general
-            if let Some(target) = CommandTarget::Here.find_target_entity(source_entity, world) {
-                return Ok(Box::new(LookAction {
-                    target,
-                    detailed,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            }
-        }
-
-        Err(InputParseError::UnknownCommand)
-        */
+        let parsed = DETAILED_LOOK_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(LookAction {
+            target: parsed.get(&TARGET_PART_ID),
+            detailed: true,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {

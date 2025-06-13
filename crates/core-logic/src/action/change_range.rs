@@ -213,11 +213,17 @@ fn parse_with_optional_target(
     source_entity: Entity,
     world: &World,
 ) -> Result<(RangeChangeDirection, Option<Entity>), CommandParseError> {
-    if let Ok(_) = DECREASE_RANGE_FORMAT.parse(input, source_entity, world) {
+    if DECREASE_RANGE_FORMAT
+        .parse(input, source_entity, world)
+        .is_ok()
+    {
         return Ok((RangeChangeDirection::Decrease, None));
     }
 
-    if let Ok(_) = INCREASE_RANGE_FORMAT.parse(input, source_entity, world) {
+    if INCREASE_RANGE_FORMAT
+        .parse(input, source_entity, world)
+        .is_ok()
+    {
         return Ok((RangeChangeDirection::Increase, None));
     }
 

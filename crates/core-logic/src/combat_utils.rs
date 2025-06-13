@@ -239,9 +239,10 @@ pub fn parse_attack_input<A: AttackType>(
             });
         }
 
-        if let Ok(_) = command_formats
+        if command_formats
             .format_no_target_no_weapon
             .parse(input, source_entity, world)
+            .is_ok()
         {
             return Ok(ParsedAttack {
                 target,

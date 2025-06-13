@@ -166,6 +166,144 @@ impl InputParser for GetParser {
     }
 }
 
+impl InputParser for DropParser {
+    fn parse(
+        &self,
+        input: &str,
+        entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = DROP_FORMAT.parse(input, entity, world)?;
+
+        let item = parsed.get(&ITEM_PART_ID);
+        let source = entity;
+        let Some(destination_location) = world.get::<Location>(entity) else {
+            return Err(CommandParseError::Other("You aren't anywhere.".to_string()));
+        };
+        let destination = destination_location.id;
+
+        if item == entity {
+            return Err(CommandParseError::Other(
+                "You can't drop yourself.".to_string(),
+            ));
+        }
+
+        Ok(Box::new(PutAction {
+            item,
+            source,
+            destination,
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![DROP_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        if world.get::<Item>(entity).is_some()
+            && find_owning_entity(entity, world) == Some(pov_entity)
+        {
+            vec![DROP_FORMAT
+                .get_format_description()
+                .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                .to_string()]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+impl InputParser for GetFromParser {
+    fn parse(
+        &self,
+        input: &str,
+        entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, CommandParseError> {
+        let parsed = GET_FROM_FORMAT.parse(input, entity, world)?;
+
+        let item = parsed.get(&ITEM_PART_ID);
+        let source = parsed.get(&CONTAINER_PART_ID);
+        let destination = entity;
+
+        if item == entity {
+            return Err(CommandParseError::Other(
+                "You can't get yourself. At least not in a physical sense.".to_string(),
+            ));
+        }
+
+        if item == source {
+            let item_name = Description::get_reference_name(item, Some(entity), world);
+            return Err(CommandParseError::Other(format!(
+                "You can't take {item_name} out of itself."
+            )));
+        }
+
+        /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
+           other entity actually has the thing you're trying to get
+        */
+        let source_owned_by_other_living_entity = find_owning_entity(source, world)
+            .map(|h| h != entity)
+            .unwrap_or(false);
+        if source_owned_by_other_living_entity
+            || (source != entity && is_living_entity(source, world))
+        {
+            let source_name = Description::get_reference_name(source, Some(entity), world);
+            return Err(CommandParseError::Other(format!(
+                "You can't get anything from {source_name}."
+            )));
+        }
+
+        Ok(Box::new(PutAction {
+            item,
+            source,
+            destination,
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![GET_FROM_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        let mut formats = Vec::new();
+
+        if world.get::<Item>(entity).is_some()
+            && find_owning_entity(entity, world) != Some(pov_entity)
+        {
+            formats.push(
+                GET_FROM_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                    .to_string(),
+            )
+        }
+
+        if world.get::<Container>(entity).is_some() {
+            formats.push(
+                GET_FROM_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(CONTAINER_PART_ID.clone(), entity, world)
+                    .to_string(),
+            );
+        }
+
+        formats
+    }
+}
+
 impl InputParser for PutParser {
     fn parse(
         &self,
@@ -192,6 +330,8 @@ impl InputParser for PutParser {
             )));
         }
 
+        //TODO ensure the destination isn't a living entity or a container a living entity owns, similar to the check in GetFromParser
+
         Ok(Box::new(PutAction {
             item,
             source,
@@ -199,25 +339,7 @@ impl InputParser for PutParser {
             notification_sender: ActionNotificationSender::new(),
         }))
 
-        /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
-           other entity actually has the thing you're trying to get
-        */
         /* TODO
-        let source_owned_by_other_living_entity = find_owning_entity(source_container, world)
-            .map(|h| h != entity)
-            .unwrap_or(false);
-        if source_owned_by_other_living_entity
-            || (source_container != entity && is_living_entity(source_container, world))
-        {
-            let source_name =
-                Description::get_reference_name(source_container, Some(entity), world);
-            let message = format!("You can't get anything from {source_name}.");
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(message),
-            });
-        }
-
         let item = match &item_target {
             CommandTarget::Named(n) => {
                 //TODO have better error message if the item exists, but isn't in your inventory or whatever

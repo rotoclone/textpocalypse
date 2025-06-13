@@ -152,6 +152,7 @@ pub fn register_action_handlers(world: &mut World) {
     NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
+    VerifyNotificationHandlers::add_handler(throw::verify_strong_enough_to_throw_item, world);
 
     NotificationHandlers::add_handler(r#move::look_after_move, world);
 
