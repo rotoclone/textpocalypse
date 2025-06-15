@@ -355,6 +355,10 @@ enum IncludeInErrorsBehavior {
     /// The part is only included in an error message if it was in the entered command, or if parsing it was the cause of the error.
     #[default]
     OnlyIfMatched,
+    /// The part is only included in an error message if it was in the entered command, if parsing it was the cause of the error, or if the previous part in the format was included in the error message
+    OnlyIfMatchedOrPreviousPartIncluded,
+    /// The part is always included in error messages, even if it was not included in the entered command.
+    Always,
 }
 
 /// Creates a part to consume a literal value.
@@ -627,8 +631,7 @@ pub enum CommandParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
-        // boxed to reduce size
-        unmatched_part: Box<CommandFormatPart>,
+        unmatched_parts: NonEmpty<CommandFormatPart>,
         error: CommandPartParseError,
     },
     /// Some of the input remained unmatched after all the parsers were run
@@ -661,7 +664,7 @@ impl CommandParseError {
         let string = match self {
             CommandParseError::Part {
                 matched_parts,
-                unmatched_part,
+                unmatched_parts,
                 error,
             } => {
                 let matched_parts_string = matched_parts
@@ -679,6 +682,7 @@ impl CommandParseError {
                 .map(|message| format!(" ({message})"))
                 .unwrap_or_default();
 
+                //TODO check IncludeInErrorsBehavior
                 let unmatched_part_string =
                     unmatched_part.options().if_missing.as_deref().unwrap_or("");
 
@@ -809,6 +813,10 @@ impl CommandFormat {
                     remaining_input = remaining;
                 }
                 CommandPartParseResult::Failure { error, .. } => {
+                    let mut unmatched_parts = NonEmpty::new(part.clone());
+                    // +1 to account for the failed part already added above
+                    unmatched_parts.extend(self.0.iter().skip(parsed_parts.len() + 1).cloned());
+
                     if !has_remaining_input {
                         // Assume that this part failed to parse due to the input being empty. This has to be down here because some parts
                         // may be optional, in which case they will parse just fine with no input, so this shouldn't pre-emptively return
@@ -816,14 +824,14 @@ impl CommandFormat {
                         //TODO is it a problem to just throw away the error returned from the part?
                         return Err(CommandParseError::Part {
                             matched_parts: parsed_parts,
-                            unmatched_part: Box::new(part.clone()),
+                            unmatched_parts,
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
                     return Err(CommandParseError::Part {
                         matched_parts: parsed_parts,
-                        unmatched_part: Box::new(part.clone()),
+                        unmatched_parts,
                         error,
                     });
                 }
