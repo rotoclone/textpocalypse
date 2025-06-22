@@ -24,23 +24,18 @@ static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandP
 static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("container"));
 
-/* TODO
-> get
-Get?
-
-(it should say "Get what?")
- */
 static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("get"),
         literal_part("take"),
         literal_part("pick up")
     ]))
-    .then(literal_part(" "))
+    .then(literal_part(" ").always_include_in_errors())
     .then(
         entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
             validate_parsed_value_has_component::<Item>(context, "get", world)
         })
+        .always_include_in_errors()
         .with_if_missing("what")
         .with_placeholder_for_format_string("item"),
     )
@@ -48,11 +43,12 @@ static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drop"))
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<Item>(context, "drop", world)
             })
+            .always_include_in_errors()
             .with_if_missing("what")
             .with_placeholder_for_format_string("item"),
         )
@@ -63,24 +59,26 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         literal_part("get"),
         literal_part("take")
     ]))
-    .then(literal_part(" "))
+    .then(literal_part(" ").always_include_in_errors())
     .then(
         entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
             validate_parsed_value_has_component::<Item>(context, "get", world)
         })
+        .always_include_in_errors()
         .with_if_missing("what")
         .with_placeholder_for_format_string("item"),
     )
-    .then(literal_part(" "))
-    .then(one_of_part(nonempty![
-        literal_part("from"),
-        literal_part("out of")
-    ]))
-    .then(literal_part(" "))
+    .then(literal_part(" ").always_include_in_errors())
+    .then(
+        one_of_part(nonempty![literal_part("from"), literal_part("out of")])
+            .always_include_in_errors(),
+    )
+    .then(literal_part(" ").always_include_in_errors())
     .then(
         entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
             validate_parsed_value_has_component::<Container>(context, "get anything from", world)
         })
+        .always_include_in_errors()
         .with_if_missing("where")
         .with_placeholder_for_format_string("container"),
     )

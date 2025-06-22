@@ -218,6 +218,19 @@ impl CommandFormatPart {
         self
     }
 
+    /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
+    pub fn always_include_in_errors(mut self) -> Self {
+        self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Always;
+        self
+    }
+
+    /// Sets the part to be included in error messages if the previous part was included in the error message.
+    pub fn include_in_errors_if_previous_part_included(mut self) -> Self {
+        self.options_mut().include_in_errors_behavior =
+            IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded;
+        self
+    }
+
     /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
     /// This overrides that behavior so `error_string` will be used instead of whatever the parsed value was.
     pub fn with_error_string_override(mut self, error_string: impl Into<String>) -> Self {
@@ -328,7 +341,7 @@ impl<P, V> Clone for CommandFormatPartParams<P, V> {
         Self {
             id: self.id.clone(),
             options: self.options.clone(),
-            validator: self.validator.as_ref().map(|v| v.clone()),
+            validator: self.validator,
         }
     }
 }
@@ -377,8 +390,9 @@ fn build_literal_part(
             id: None,
             options: CommandFormatPartOptions {
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                    literal_string,
+                    literal_string.clone(),
                 ),
+                if_missing: Some(literal_string),
                 ..Default::default()
             },
             validator,
