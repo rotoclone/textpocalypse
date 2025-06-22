@@ -682,11 +682,40 @@ impl CommandParseError {
                 .map(|message| format!(" ({message})"))
                 .unwrap_or_default();
 
-                //TODO check IncludeInErrorsBehavior
-                let unmatched_part_string =
-                    unmatched_part.options().if_missing.as_deref().unwrap_or("");
+                // figure out which unmatched parts (if any) to include in the error message
+                let mut unmatched_parts_to_include = Vec::new();
+                let mut previous_part_was_included = false;
+                if unmatched_parts.first().options().include_in_errors_behavior
+                    != IncludeInErrorsBehavior::Never
+                {
+                    // include the first unmatched part because it caused the error
+                    previous_part_was_included = true;
+                    unmatched_parts_to_include.push(unmatched_parts.first());
+                }
+                for unmatched_part in unmatched_parts.tail() {
+                    let should_be_included =
+                        match unmatched_part.options().include_in_errors_behavior {
+                            IncludeInErrorsBehavior::Never => false,
+                            IncludeInErrorsBehavior::OnlyIfMatched => false,
+                            IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
+                                previous_part_was_included
+                            }
+                            IncludeInErrorsBehavior::Always => true,
+                        };
 
-                format!("{matched_parts_string}{unmatched_part_string}?{error_detail_string}")
+                    previous_part_was_included = should_be_included;
+
+                    if should_be_included {
+                        unmatched_parts_to_include.push(unmatched_part);
+                    }
+                }
+
+                let unmatched_parts_string = unmatched_parts_to_include
+                    .iter()
+                    .map(|part| part.options().if_missing.as_deref().unwrap_or(""))
+                    .join("");
+
+                format!("{matched_parts_string}{unmatched_parts_string}?{error_detail_string}")
             }
             CommandParseError::UnmatchedInput {
                 matched_parts,
