@@ -140,27 +140,28 @@ impl<A: AttackType> AttackCommandFormats<A> {
         let format_no_target_no_weapon = CommandFormat::new(first_part.clone());
 
         let format_with_target = CommandFormat::new(first_part.clone())
-            .then(literal_part(" "))
-            .then(target_part.clone());
+            .then(literal_part(" ").always_include_in_errors())
+            .then(target_part.clone().always_include_in_errors());
 
         let format_with_weapon = CommandFormat::new(first_part.clone())
-            .then(literal_part(" "))
-            .then(one_of_part(nonempty![
-                literal_part("with"),
-                literal_part("using")
-            ]))
-            .then(literal_part(" "))
-            .then(weapon_part.clone());
+            .then(literal_part(" ").always_include_in_errors())
+            .then(
+                one_of_part(nonempty![literal_part("with"), literal_part("using")])
+                    .always_include_in_errors(),
+            )
+            .then(literal_part(" ").always_include_in_errors())
+            .then(weapon_part.clone().always_include_in_errors());
 
         let format_with_target_and_weapon = CommandFormat::new(first_part)
-            .then(literal_part(" "))
-            .then(target_part)
-            .then(literal_part(" "))
-            .then(one_of_part(nonempty![
-                literal_part("with"),
-                literal_part("using")
-            ]))
-            .then(weapon_part);
+            .then(literal_part(" ").always_include_in_errors())
+            .then(target_part.always_include_in_errors())
+            .then(literal_part(" ").always_include_in_errors())
+            .then(
+                one_of_part(nonempty![literal_part("with"), literal_part("using")])
+                    .always_include_in_errors(),
+            )
+            .then(literal_part(" ").always_include_in_errors())
+            .then(weapon_part.always_include_in_errors());
 
         AttackCommandFormats {
             format_no_target_no_weapon,
