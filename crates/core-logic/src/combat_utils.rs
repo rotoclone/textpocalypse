@@ -155,13 +155,13 @@ impl<A: AttackType> AttackCommandFormats<A> {
         let format_with_target_and_weapon = CommandFormat::new(first_part)
             .then(literal_part(" ").always_include_in_errors())
             .then(target_part.always_include_in_errors())
-            .then(literal_part(" ").always_include_in_errors())
+            .then(literal_part(" "))
             .then(
                 one_of_part(nonempty![literal_part("with"), literal_part("using")])
-                    .always_include_in_errors(),
+                    .include_in_errors_if_previous_part_included(),
             )
-            .then(literal_part(" ").always_include_in_errors())
-            .then(weapon_part.always_include_in_errors());
+            .then(literal_part(" ").include_in_errors_if_previous_part_included())
+            .then(weapon_part.include_in_errors_if_previous_part_included());
 
         AttackCommandFormats {
             format_no_target_no_weapon,
