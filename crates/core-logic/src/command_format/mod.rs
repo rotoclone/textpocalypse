@@ -416,8 +416,9 @@ fn build_optional_literal_part(
             id: None,
             options: CommandFormatPartOptions {
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                    literal_string,
+                    literal_string.clone(),
                 ),
+                if_missing: Some(literal_string),
                 ..Default::default()
             },
             validator,

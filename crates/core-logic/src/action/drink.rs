@@ -29,12 +29,13 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drink"))
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(optional_literal_part("from "))
         .then(
             entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<FluidContainer>(context, "drink from", world)
             })
+            .always_include_in_errors()
             .with_if_missing("what")
             .with_placeholder_for_format_string("container"),
         )
