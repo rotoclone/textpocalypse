@@ -121,31 +121,9 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
 
 #[cfg(test)]
 mod tests {
-    use crate::{command_format::literal_part, move_entity, Container, Pronouns};
+    use crate::{command_format::literal_part, test_utils::spawn_entity_in_location, Container};
 
     use super::*;
-
-    fn spawn_entity_in_location(id: &str, location: Entity, world: &mut World) -> Entity {
-        let entity = world.spawn(build_entity_description(id)).id();
-        move_entity(entity, location, world);
-        entity
-    }
-
-    fn build_entity_description(id: &str) -> Description {
-        Description {
-            name: format!("entity {id} name"),
-            room_name: format!("entity {id} room name"),
-            plural_name: format!("entity {id} plural name"),
-            article: None,
-            pronouns: Pronouns::it(),
-            aliases: vec![
-                format!("entity {id} alias 1"),
-                format!("entity {id} alias 2"),
-            ],
-            description: format!("entity {id} description"),
-            attribute_describers: Vec::new(),
-        }
-    }
 
     #[test]
     fn parse_empty_input() {

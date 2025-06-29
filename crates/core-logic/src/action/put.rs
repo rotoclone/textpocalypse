@@ -820,3 +820,48 @@ pub fn prevent_put_non_item(
 
     VerifyResult::valid()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::{test_utils::spawn_entity_in_location, Game, GameOptions};
+
+    use super::*;
+
+    #[test]
+    fn errors() {
+        let mut game = Game::new(GameOptions::default());
+        let mut world = game.world.write().unwrap();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        spawn_entity_in_location("3", location_1, &mut world);
+        drop(world);
+
+        let inputs_and_expected_errors = vec![
+            ("get", "get what?"),
+            ("get ", "get what?"),
+            ("get blorp", "get what? (There's no 'blorp' here.)"),
+            ("get me", "get what? (You can't get you.)"),
+            //TODO more
+        ];
+
+        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
+
+        // skip past any intro messages (like a description of the the player spawned in)
+        message_receiver.drain();
+
+        for (input, expected_error) in inputs_and_expected_errors {
+            command_sender.send(input.to_string()).unwrap();
+            let message = message_receiver
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap();
+
+            let GameMessage::Error(actual_error) = message.0 else {
+                panic!("Message was not an error: {:?}", message.0);
+            };
+            assert_eq!(expected_error, actual_error);
+        }
+    }
+}
