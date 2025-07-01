@@ -54,6 +54,7 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         )
 });
 
+//TODO this doesn't work because the target part doesn't know to look in the container for the target, since parsing happens in a single pass so that part won't have been parsed yet
 static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_part(nonempty![
         literal_part("get"),
@@ -833,8 +834,107 @@ mod tests {
     use super::*;
 
     #[test]
-    fn errors() {
-        let mut game = Game::new(GameOptions {
+    fn no_target() {
+        test_error("get", "get what?");
+    }
+
+    #[test]
+    fn no_target_with_space() {
+        test_error("get ", "get what?");
+    }
+
+    #[test]
+    fn target_does_not_exist() {
+        test_error("get blorp", "get what? (There's no 'blorp' here.)");
+    }
+
+    #[test]
+    fn target_self() {
+        test_error("get me", "get what? (You can't get you.)");
+    }
+
+    #[test]
+    fn target_location() {
+        //TODO make the error include the name of the room
+        test_error("get here", "get what? (You can't get it.)");
+    }
+
+    #[test]
+    fn target_not_item() {
+        test_error(
+            "get entity non_item name",
+            "get what? (You can't get the entity non_item name.)",
+        );
+    }
+
+    #[test]
+    fn target_not_item_with_alias() {
+        test_error(
+            "get entity non_item alias 1",
+            "get what? (You can't get the entity non_item name.)",
+        )
+    }
+
+    #[test]
+    fn with_container_target_does_not_exist() {
+        //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
+        test_error(
+            "get blorp from entity container name",
+            "get what? (There's no 'blorp' in the entity container name.)",
+        )
+    }
+
+    #[test]
+    fn target_in_container() {
+        test_error(
+            "get entity item_in_container name",
+            "get what? (There's no 'entity item_in_container name' here.)",
+        )
+    }
+
+    #[test]
+    fn from_but_no_container_name() {
+        test_error(
+            "get entity item_in_container name from",
+            "get 'entity item_in_container name' from where?",
+        )
+    }
+
+    #[test]
+    fn container_does_not_exist() {
+        test_error(
+            "get entity item_in_container name from blorp",
+            "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
+        )
+    }
+
+    #[test]
+    fn with_container_target_not_in_container() {
+        test_error(
+            "get entity item name from entity container name",
+            "get the entity item name from where? (The entity item name isn't in the entity container name.)"
+        )
+    }
+
+    fn test_error(input: &str, expected_error: &str) {
+        let mut game = set_up_game();
+        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
+
+        // skip past any intro messages (like a description of the the player spawned in)
+        message_receiver.drain();
+        command_sender.send(input.to_string()).unwrap();
+        let message = message_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap();
+
+        let GameMessage::Error(actual_error) = message.0 else {
+            panic!("Message was not an error: {:?}", message.0);
+        };
+        assert_eq!(expected_error, actual_error);
+    }
+
+    fn set_up_game() -> Game {
+        let game = Game::new(GameOptions {
             skip_worldgen: true,
             ..GameOptions::default()
         });
@@ -855,34 +955,23 @@ mod tests {
             &mut world,
         );
         world.insert_resource(SpawnRoom(room_coords));
-        let entity_1 = spawn_entity_in_location("1", room, &mut world);
-        let entity_2 = spawn_entity_in_location("2", room, &mut world);
-        spawn_entity_in_location("3", room, &mut world);
+        spawn_entity_in_location("non_item", room, &mut world);
+
+        let item_entity = spawn_entity_in_location("item", room, &mut world);
+        world.entity_mut(item_entity).insert(Item::new_one_handed());
+
+        let container_entity = spawn_entity_in_location("container", room, &mut world);
+        world
+            .entity_mut(container_entity)
+            .insert(Container::new_infinite());
+
+        let item_entity_in_container =
+            spawn_entity_in_location("item_in_container", container_entity, &mut world);
+        world
+            .entity_mut(item_entity_in_container)
+            .insert(Item::new_one_handed());
         drop(world);
 
-        let inputs_and_expected_errors = vec![
-            ("get", "get what?"),
-            ("get ", "get what?"),
-            ("get blorp", "get what? (There's no 'blorp' here.)"),
-            ("get me", "get what? (You can't get you.)"),
-            //TODO more
-        ];
-
-        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
-
-        // skip past any intro messages (like a description of the the player spawned in)
-        message_receiver.drain();
-
-        for (input, expected_error) in inputs_and_expected_errors {
-            command_sender.send(input.to_string()).unwrap();
-            let message = message_receiver
-                .recv_timeout(Duration::from_secs(5))
-                .unwrap();
-
-            let GameMessage::Error(actual_error) = message.0 else {
-                panic!("Message was not an error: {:?}", message.0);
-            };
-            assert_eq!(expected_error, actual_error);
-        }
+        game
     }
 }

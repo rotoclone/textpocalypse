@@ -12,11 +12,12 @@ pub fn spawn_entity_in_location(id: &str, location: Entity, world: &mut World) -
 pub fn build_entity_description(id: &str) -> Description {
     use crate::Pronouns;
 
+    //TODO remove "entity" from the beginning of all these strings
     Description {
         name: format!("entity {id} name"),
         room_name: format!("entity {id} room name"),
         plural_name: format!("entity {id} plural name"),
-        article: None,
+        article: Some("an".to_string()),
         pronouns: Pronouns::it(),
         aliases: vec![
             format!("entity {id} alias 1"),
