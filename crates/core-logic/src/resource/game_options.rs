@@ -8,4 +8,8 @@ pub struct GameOptions {
     ///
     /// If not set, players will never be considered AFK.
     pub afk_timeout: Option<Duration>,
+    /// Whether to skip generating the world.
+    ///
+    /// If true, no rooms or items or anything will be generated.
+    pub skip_worldgen: bool,
 }

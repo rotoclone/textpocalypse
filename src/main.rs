@@ -46,6 +46,7 @@ async fn main() -> Result<()> {
 
     let game = Game::new(GameOptions {
         afk_timeout: Some(AFK_TIMEOUT),
+        skip_worldgen: false,
     });
 
     if SERVER_MODE {

@@ -181,6 +181,8 @@ impl StandardInputParsers {
 impl Game {
     /// Creates a game with a new, empty world
     pub fn new(game_options: GameOptions) -> Game {
+        let skip_worldgen = game_options.skip_worldgen;
+
         let mut world = World::new();
         world.insert_resource(game_options);
         world.insert_resource(Time::new());
@@ -191,9 +193,10 @@ impl Game {
         world.insert_resource(PlayerIdMapping(HashMap::new()));
         insert_resources(&mut world);
 
-        let spawn_room_coords = set_up_world(&mut world);
-
-        world.insert_resource(SpawnRoom(spawn_room_coords));
+        if !skip_worldgen {
+            let spawn_room_coords = set_up_world(&mut world);
+            world.insert_resource(SpawnRoom(spawn_room_coords));
+        }
 
         register_action_handlers(&mut world);
         register_resource_handlers(&mut world);

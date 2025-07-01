@@ -825,18 +825,39 @@ pub fn prevent_put_non_item(
 mod tests {
     use std::time::Duration;
 
-    use crate::{test_utils::spawn_entity_in_location, Game, GameOptions};
+    use crate::{
+        component::Room, game_map::Coordinates, test_utils::spawn_entity_in_location,
+        world_setup::spawn_room, Color, Game, GameOptions, MapIcon, SpawnRoom,
+    };
 
     use super::*;
 
     #[test]
     fn errors() {
-        let mut game = Game::new(GameOptions::default());
+        let mut game = Game::new(GameOptions {
+            skip_worldgen: true,
+            ..GameOptions::default()
+        });
         let mut world = game.world.write().unwrap();
-        let location_1 = world.spawn(Container::new_infinite()).id();
-        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
-        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
-        spawn_entity_in_location("3", location_1, &mut world);
+        let room_coords = Coordinates {
+            x: 0,
+            y: 0,
+            z: 0,
+            parent: None,
+        };
+        let room = spawn_room(
+            Room {
+                name: "room".to_string(),
+                description: "it's a room".to_string(),
+                map_icon: MapIcon::new_uniform(Color::Black, Color::White, ['[', ']']),
+            },
+            room_coords.clone(),
+            &mut world,
+        );
+        world.insert_resource(SpawnRoom(room_coords));
+        let entity_1 = spawn_entity_in_location("1", room, &mut world);
+        let entity_2 = spawn_entity_in_location("2", room, &mut world);
+        spawn_entity_in_location("3", room, &mut world);
         drop(world);
 
         let inputs_and_expected_errors = vec![
