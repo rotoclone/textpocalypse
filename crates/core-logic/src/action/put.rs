@@ -834,33 +834,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn no_target() {
+    fn get_no_target() {
         test_error("get", "get what?");
     }
 
     #[test]
-    fn no_target_with_space() {
+    fn get_no_target_with_space() {
         test_error("get ", "get what?");
     }
 
     #[test]
-    fn target_does_not_exist() {
+    fn get_target_does_not_exist() {
         test_error("get blorp", "get what? (There's no 'blorp' here.)");
     }
 
     #[test]
-    fn target_self() {
+    fn get_target_self() {
         test_error("get me", "get what? (You can't get you.)");
     }
 
     #[test]
-    fn target_location() {
+    fn get_target_location() {
         //TODO make the error include the name of the room
         test_error("get here", "get what? (You can't get it.)");
     }
 
     #[test]
-    fn target_not_item() {
+    fn get_target_not_item() {
         test_error(
             "get entity non_item name",
             "get what? (You can't get the entity non_item name.)",
@@ -868,7 +868,7 @@ mod tests {
     }
 
     #[test]
-    fn target_not_item_with_alias() {
+    fn get_target_not_item_with_alias() {
         test_error(
             "get entity non_item alias 1",
             "get what? (You can't get the entity non_item name.)",
@@ -876,7 +876,7 @@ mod tests {
     }
 
     #[test]
-    fn with_container_target_does_not_exist() {
+    fn get_with_container_target_does_not_exist() {
         //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
         test_error(
             "get blorp from entity container name",
@@ -885,7 +885,7 @@ mod tests {
     }
 
     #[test]
-    fn target_in_container() {
+    fn get_target_in_container() {
         test_error(
             "get entity item_in_container name",
             "get what? (There's no 'entity item_in_container name' here.)",
@@ -893,7 +893,7 @@ mod tests {
     }
 
     #[test]
-    fn from_but_no_container_name() {
+    fn get_from_but_no_container_name() {
         test_error(
             "get entity item_in_container name from",
             "get 'entity item_in_container name' from where?",
@@ -901,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn container_does_not_exist() {
+    fn get_container_does_not_exist() {
         test_error(
             "get entity item_in_container name from blorp",
             "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
@@ -909,13 +909,47 @@ mod tests {
     }
 
     #[test]
-    fn with_container_target_not_in_container() {
+    fn get_with_container_target_not_in_container() {
         test_error(
             "get entity item name from entity container name",
             "get the entity item name from where? (The entity item name isn't in the entity container name.)"
         )
     }
 
+    #[test]
+    fn get_already_have_target() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn get_valid_target() {
+        //TODO add another player and make sure they get the correct 3rd-person message
+        let mut game = set_up_game();
+        test_success(
+            "get entity item name",
+            "You pick up the entity item name.",
+            &mut game,
+        );
+        //TODO assert that the item was moved
+    }
+
+    #[test]
+    fn get_valid_target_from_container() {
+        //TODO add another player and make sure they get the correct 3rd-person message
+        let mut game = set_up_game();
+        test_success(
+            "get entity item_in_container name from entity container name",
+            "You get the entity item_in_container name from the entity container name.",
+            &mut game,
+        );
+        //TODO assert that the item was moved
+    }
+
+    //TODO tests for drop
+
+    //TODO tests for put
+
+    /// Asserts that the provided input results in the provided error
     fn test_error(input: &str, expected_error: &str) {
         let mut game = set_up_game();
         let (command_sender, message_receiver) = game.add_player("player 1".to_string());
@@ -931,6 +965,27 @@ mod tests {
             panic!("Message was not an error: {:?}", message.0);
         };
         assert_eq!(expected_error, actual_error);
+    }
+
+    /// Asserts that the provided input results in the provided message
+    fn test_success(input: &str, expected_message: &str, game: &mut Game) {
+        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
+
+        // skip past any intro messages (like a description of the the player spawned in)
+        message_receiver.drain();
+        command_sender.send(input.to_string()).unwrap();
+        let message = message_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap();
+
+        let GameMessage::Message {
+            content: actual_message,
+            ..
+        } = message.0
+        else {
+            panic!("Message was not a message: {:?}", message.0);
+        };
+        assert_eq!(expected_message, actual_message);
     }
 
     fn set_up_game() -> Game {
