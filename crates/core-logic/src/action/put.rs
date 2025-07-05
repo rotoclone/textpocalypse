@@ -826,99 +826,162 @@ pub fn prevent_put_non_item(
 mod tests {
     use std::time::Duration;
 
+    use flume::{Receiver, Sender};
+
     use crate::{
         component::Room, game_map::Coordinates, test_utils::spawn_entity_in_location,
-        world_setup::spawn_room, Color, Game, GameOptions, MapIcon, SpawnRoom,
+        world_setup::spawn_room, Color, Game, GameOptions, MapIcon, SpawnRoom, Time,
     };
 
     use super::*;
 
+    //TODO move this to a common place probably
+    struct TestGame {
+        game: Game,
+        player_1: TestPlayer,
+    }
+
+    struct TestPlayer {
+        entity: Entity,
+        command_sender: Sender<String>,
+        message_receiver: Receiver<(GameMessage, Time)>,
+    }
+
     #[test]
     fn get_no_target() {
-        test_error("get", "get what?");
+        let mut game = set_up_game();
+        test_error("get", "get what?", &mut game);
     }
 
     #[test]
     fn get_no_target_with_space() {
-        test_error("get ", "get what?");
+        let mut game = set_up_game();
+        test_error("get ", "get what?", &mut game);
     }
 
     #[test]
     fn get_target_does_not_exist() {
-        test_error("get blorp", "get what? (There's no 'blorp' here.)");
+        let mut game = set_up_game();
+        test_error(
+            "get blorp",
+            "get what? (There's no 'blorp' here.)",
+            &mut game,
+        );
     }
 
     #[test]
     fn get_target_self() {
-        test_error("get me", "get what? (You can't get you.)");
+        let mut game = set_up_game();
+        test_error("get me", "get what? (You can't get you.)", &mut game);
     }
 
     #[test]
     fn get_target_location() {
+        let mut game = set_up_game();
         //TODO make the error include the name of the room
-        test_error("get here", "get what? (You can't get it.)");
+        test_error("get here", "get what? (You can't get it.)", &mut game);
     }
 
     #[test]
     fn get_target_not_item() {
+        let mut game = set_up_game();
         test_error(
             "get entity non_item name",
             "get what? (You can't get the entity non_item name.)",
+            &mut game,
         );
     }
 
     #[test]
     fn get_target_not_item_with_alias() {
+        let mut game = set_up_game();
         test_error(
             "get entity non_item alias 1",
             "get what? (You can't get the entity non_item name.)",
+            &mut game,
         )
     }
 
     #[test]
     fn get_with_container_target_does_not_exist() {
+        let mut game = set_up_game();
         //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
         test_error(
             "get blorp from entity container name",
             "get what? (There's no 'blorp' in the entity container name.)",
+            &mut game,
         )
     }
 
     #[test]
     fn get_target_in_container() {
+        let mut game = set_up_game();
         test_error(
             "get entity item_in_container name",
             "get what? (There's no 'entity item_in_container name' here.)",
+            &mut game,
         )
     }
 
     #[test]
     fn get_from_but_no_container_name() {
+        let mut game = set_up_game();
         test_error(
             "get entity item_in_container name from",
             "get 'entity item_in_container name' from where?",
+            &mut game,
         )
     }
 
     #[test]
     fn get_container_does_not_exist() {
+        let mut game = set_up_game();
         test_error(
             "get entity item_in_container name from blorp",
             "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
+            &mut game,
         )
     }
 
     #[test]
     fn get_with_container_target_not_in_container() {
+        let mut game = set_up_game();
         test_error(
             "get entity item name from entity container name",
-            "get the entity item name from where? (The entity item name isn't in the entity container name.)"
+            "get the entity item name from where? (The entity item name isn't in the entity container name.)",
+            &mut game
         )
     }
 
     #[test]
+    fn get_already_have_non_item_target() {
+        let mut game = set_up_game();
+        let mut world = game.game.world.write().unwrap();
+        spawn_entity_in_location("owned", game.player_1.entity, &mut world);
+        drop(world);
+
+        test_error(
+            "get entity owned name",
+            "You can't get your entity owned name.",
+            &mut game,
+        );
+    }
+
+    #[test]
     fn get_already_have_target() {
-        todo!() //TODO
+        let mut game = set_up_game();
+        let mut world = game.game.world.write().unwrap();
+        let owned_entity = spawn_entity_in_location("owned", game.player_1.entity, &mut world);
+        world
+            .entity_mut(owned_entity)
+            .insert(Item::new_one_handed());
+        drop(world);
+
+        test_error(
+            "get entity owned name",
+            "You already have the entity owned name.",
+            &mut game,
+        );
     }
 
     #[test]
@@ -950,9 +1013,9 @@ mod tests {
     //TODO tests for put
 
     /// Asserts that the provided input results in the provided error
-    fn test_error(input: &str, expected_error: &str) {
-        let mut game = set_up_game();
-        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
+    fn test_error(input: &str, expected_error: &str, game: &mut TestGame) {
+        let message_receiver = &game.player_1.message_receiver;
+        let command_sender = &game.player_1.command_sender;
 
         // skip past any intro messages (like a description of the the player spawned in)
         message_receiver.drain();
@@ -968,8 +1031,9 @@ mod tests {
     }
 
     /// Asserts that the provided input results in the provided message
-    fn test_success(input: &str, expected_message: &str, game: &mut Game) {
-        let (command_sender, message_receiver) = game.add_player("player 1".to_string());
+    fn test_success(input: &str, expected_message: &str, game: &mut TestGame) {
+        let message_receiver = &game.player_1.message_receiver;
+        let command_sender = &game.player_1.command_sender;
 
         // skip past any intro messages (like a description of the the player spawned in)
         message_receiver.drain();
@@ -988,8 +1052,8 @@ mod tests {
         assert_eq!(expected_message, actual_message);
     }
 
-    fn set_up_game() -> Game {
-        let game = Game::new(GameOptions {
+    fn set_up_game() -> TestGame {
+        let mut game = Game::new(GameOptions {
             skip_worldgen: true,
             ..GameOptions::default()
         });
@@ -1027,6 +1091,16 @@ mod tests {
             .insert(Item::new_one_handed());
         drop(world);
 
-        game
+        let (player_entity, command_sender, message_receiver) =
+            game.add_player("player 1".to_string());
+
+        TestGame {
+            game,
+            player_1: TestPlayer {
+                entity: player_entity,
+                command_sender,
+                message_receiver,
+            },
+        }
     }
 }

@@ -214,7 +214,10 @@ impl Game {
     }
 
     /// Adds a player to the game in the default spawn location.
-    pub fn add_player(&mut self, name: String) -> (Sender<String>, Receiver<(GameMessage, Time)>) {
+    pub fn add_player(
+        &mut self,
+        name: String,
+    ) -> (Entity, Sender<String>, Receiver<(GameMessage, Time)>) {
         // create channels for communication between the player and the world
         let (commands_sender, commands_receiver) = flume::unbounded::<String>();
         let (messages_sender, messages_receiver) = flume::unbounded::<(GameMessage, Time)>();
@@ -312,7 +315,7 @@ impl Game {
         // send the player an initial message with their location
         send_current_location_message(player_entity, &world);
 
-        (commands_sender, messages_receiver)
+        (player_entity, commands_sender, messages_receiver)
     }
 
     /// Gets the next player ID to use.
