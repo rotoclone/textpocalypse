@@ -839,6 +839,7 @@ mod tests {
     struct TestGame {
         game: Game,
         player_1: TestPlayer,
+        player_2: TestPlayer,
     }
 
     struct TestPlayer {
@@ -986,11 +987,11 @@ mod tests {
 
     #[test]
     fn get_valid_target() {
-        //TODO add another player and make sure they get the correct 3rd-person message
         let mut game = set_up_game();
         test_success(
             "get entity item name",
             "You pick up the entity item name.",
+            "Player 1 picks up the entity item name.",
             &mut game,
         );
         //TODO assert that the item was moved
@@ -998,11 +999,11 @@ mod tests {
 
     #[test]
     fn get_valid_target_from_container() {
-        //TODO add another player and make sure they get the correct 3rd-person message
         let mut game = set_up_game();
         test_success(
             "get entity item_in_container name from entity container name",
             "You get the entity item_in_container name from the entity container name.",
+            "Player 1 gets their entity item_in_container name from their entity container name.",
             &mut game,
         );
         //TODO assert that the item was moved
@@ -1031,13 +1032,35 @@ mod tests {
     }
 
     /// Asserts that the provided input results in the provided message
-    fn test_success(input: &str, expected_message: &str, game: &mut TestGame) {
-        let message_receiver = &game.player_1.message_receiver;
-        let command_sender = &game.player_1.command_sender;
+    fn test_success(
+        input: &str,
+        expected_message: &str,
+        expected_third_person_message: &str,
+        game: &mut TestGame,
+    ) {
+        let p1_message_receiver = &game.player_1.message_receiver;
+        let p1_command_sender = &game.player_1.command_sender;
+
+        let p2_message_receiver = &game.player_2.message_receiver;
+        let p2_command_sender = &game.player_2.command_sender;
 
         // skip past any intro messages (like a description of the the player spawned in)
-        message_receiver.drain();
-        command_sender.send(input.to_string()).unwrap();
+        p1_message_receiver.drain();
+        p2_message_receiver.drain();
+
+        p1_command_sender.send(input.to_string()).unwrap();
+        assert_message_received(p1_message_receiver, "Action queued.");
+
+        p2_command_sender.send("wait".to_string()).unwrap();
+
+        assert_message_received(p1_message_receiver, expected_message);
+        assert_message_received(p2_message_receiver, expected_third_person_message);
+    }
+
+    fn assert_message_received(
+        message_receiver: &Receiver<(GameMessage, Time)>,
+        expected_message: &str,
+    ) {
         let message = message_receiver
             .recv_timeout(Duration::from_secs(5))
             .unwrap();
@@ -1091,15 +1114,22 @@ mod tests {
             .insert(Item::new_one_handed());
         drop(world);
 
-        let (player_entity, command_sender, message_receiver) =
+        let (p1_entity, p1_command_sender, p1_message_receiver) =
             game.add_player("player 1".to_string());
+        let (p2_entity, p2_command_sender, p2_message_receiver) =
+            game.add_player("player 2".to_string());
 
         TestGame {
             game,
             player_1: TestPlayer {
-                entity: player_entity,
-                command_sender,
-                message_receiver,
+                entity: p1_entity,
+                command_sender: p1_command_sender,
+                message_receiver: p1_message_receiver,
+            },
+            player_2: TestPlayer {
+                entity: p2_entity,
+                command_sender: p2_command_sender,
+                message_receiver: p2_message_receiver,
             },
         }
     }
