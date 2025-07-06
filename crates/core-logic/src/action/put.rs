@@ -835,13 +835,17 @@ mod tests {
 
     use super::*;
 
-    //TODO move this to a common place probably
     struct TestGame {
         game: Game,
+        item_entity: Entity,
+        item_entity_in_container: Entity,
+        container_entity: Entity,
+        room: Entity,
         player_1: TestPlayer,
         player_2: TestPlayer,
     }
 
+    //TODO move this to a common place probably
     struct TestPlayer {
         entity: Entity,
         command_sender: Sender<String>,
@@ -994,7 +998,21 @@ mod tests {
             "Player 1 picks up the entity item name.",
             &mut game,
         );
-        //TODO assert that the item was moved
+
+        let world = game.game.world.read().unwrap();
+
+        let location = world.get::<Location>(game.item_entity).unwrap();
+        assert_eq!(game.player_1.entity, location.id);
+
+        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
+        assert!(player_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+
+        let room_container = world.get::<Container>(game.room).unwrap();
+        assert!(!room_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
     }
 
     #[test]
@@ -1006,7 +1024,22 @@ mod tests {
             "Player 1 gets their entity item_in_container name from their entity container name.",
             &mut game,
         );
-        //TODO assert that the item was moved
+
+        let world = game.game.world.read().unwrap();
+        let location = world
+            .get::<Location>(game.item_entity_in_container)
+            .unwrap();
+        assert_eq!(game.player_1.entity, location.id);
+
+        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
+        assert!(player_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity_in_container));
+
+        let container_container = world.get::<Container>(game.container_entity).unwrap();
+        assert!(!container_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity_in_container));
     }
 
     //TODO tests for drop
@@ -1121,6 +1154,10 @@ mod tests {
 
         TestGame {
             game,
+            item_entity,
+            item_entity_in_container,
+            container_entity,
+            room,
             player_1: TestPlayer {
                 entity: p1_entity,
                 command_sender: p1_command_sender,
