@@ -845,6 +845,18 @@ mod tests {
         player_2: TestPlayer,
     }
 
+    impl TestGame {
+        /// Gets an immutable reference to the world for this game
+        fn get_world(&self) -> std::sync::RwLockReadGuard<'_, World> {
+            self.game.world.read().unwrap()
+        }
+
+        /// Gets a mutable reference to the world for this game
+        fn get_world_mut(&mut self) -> std::sync::RwLockWriteGuard<'_, World> {
+            self.game.world.write().unwrap()
+        }
+    }
+
     //TODO move this to a common place probably
     struct TestPlayer {
         entity: Entity,
@@ -854,129 +866,149 @@ mod tests {
 
     #[test]
     fn get_no_target() {
-        let mut game = set_up_game();
-        test_error("get", "get what?", &mut game);
+        let game = set_up_game();
+        test_error("get", "get what?", &game);
     }
 
     #[test]
     fn get_no_target_with_space() {
-        let mut game = set_up_game();
-        test_error("get ", "get what?", &mut game);
+        let game = set_up_game();
+        test_error("get ", "get what?", &game);
     }
 
     #[test]
     fn get_target_does_not_exist() {
-        let mut game = set_up_game();
-        test_error(
-            "get blorp",
-            "get what? (There's no 'blorp' here.)",
-            &mut game,
-        );
+        let game = set_up_game();
+        test_error("get blorp", "get what? (There's no 'blorp' here.)", &game);
     }
 
     #[test]
     fn get_target_self() {
-        let mut game = set_up_game();
-        test_error("get me", "get what? (You can't get you.)", &mut game);
+        let game = set_up_game();
+        test_error("get me", "get what? (You can't get you.)", &game);
     }
 
     #[test]
     fn get_target_location() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         //TODO make the error include the name of the room
-        test_error("get here", "get what? (You can't get it.)", &mut game);
+        test_error("get here", "get what? (You can't get it.)", &game);
     }
 
     #[test]
     fn get_target_not_item() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity non_item name",
             "get what? (You can't get the entity non_item name.)",
-            &mut game,
+            &game,
+        );
+    }
+
+    #[test]
+    fn get_target_not_item_with_the() {
+        let game = set_up_game();
+        test_error(
+            "get the entity non_item name",
+            "get what? (You can't get the entity non_item name.)",
+            &game,
         );
     }
 
     #[test]
     fn get_target_not_item_with_alias() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity non_item alias 1",
             "get what? (You can't get the entity non_item name.)",
-            &mut game,
+            &game,
+        )
+    }
+
+    #[test]
+    fn get_target_not_item_with_alias_and_the() {
+        let game = set_up_game();
+        test_error(
+            "get the entity non_item alias 1",
+            "get what? (You can't get the entity non_item name.)",
+            &game,
         )
     }
 
     #[test]
     fn get_with_container_target_does_not_exist() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
         test_error(
             "get blorp from entity container name",
             "get what? (There's no 'blorp' in the entity container name.)",
-            &mut game,
+            &game,
         )
     }
 
     #[test]
     fn get_target_in_container() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity item_in_container name",
             "get what? (There's no 'entity item_in_container name' here.)",
-            &mut game,
+            &game,
         )
     }
 
     #[test]
     fn get_from_but_no_container_name() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity item_in_container name from",
             "get 'entity item_in_container name' from where?",
-            &mut game,
+            &game,
         )
     }
 
     #[test]
     fn get_container_does_not_exist() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity item_in_container name from blorp",
             "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
-            &mut game,
+            &game,
         )
     }
 
     #[test]
     fn get_with_container_target_not_in_container() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_error(
             "get entity item name from entity container name",
             "get the entity item name from where? (The entity item name isn't in the entity container name.)",
-            &mut game
+            &game
         )
     }
 
     #[test]
     fn get_already_have_non_item_target() {
         let mut game = set_up_game();
-        let mut world = game.game.world.write().unwrap();
-        spawn_entity_in_location("owned", game.player_1.entity, &mut world);
+
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        spawn_entity_in_location("owned", player_1, &mut world);
         drop(world);
 
         test_error(
             "get entity owned name",
             "You can't get your entity owned name.",
-            &mut game,
+            &game,
         );
     }
 
     #[test]
     fn get_already_have_target() {
         let mut game = set_up_game();
-        let mut world = game.game.world.write().unwrap();
-        let owned_entity = spawn_entity_in_location("owned", game.player_1.entity, &mut world);
+
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
         world
             .entity_mut(owned_entity)
             .insert(Item::new_one_handed());
@@ -985,18 +1017,44 @@ mod tests {
         test_error(
             "get entity owned name",
             "You already have the entity owned name.",
-            &mut game,
+            &game,
         );
     }
 
     #[test]
     fn get_valid_target() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_success(
             "get entity item name",
             "You pick up the entity item name.",
             "Player 1 picks up the entity item name.",
-            &mut game,
+            &game,
+        );
+
+        let world = game.game.world.read().unwrap();
+
+        let location = world.get::<Location>(game.item_entity).unwrap();
+        assert_eq!(game.player_1.entity, location.id);
+
+        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
+        assert!(player_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+
+        let room_container = world.get::<Container>(game.room).unwrap();
+        assert!(!room_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+    }
+
+    #[test]
+    fn get_valid_target_with_the() {
+        let game = set_up_game();
+        test_success(
+            "get the entity item name",
+            "You pick up the entity item name.",
+            "Player 1 picks up the entity item name.",
+            &game,
         );
 
         let world = game.game.world.read().unwrap();
@@ -1017,15 +1075,15 @@ mod tests {
 
     #[test]
     fn get_valid_target_from_container() {
-        let mut game = set_up_game();
+        let game = set_up_game();
         test_success(
             "get entity item_in_container name from entity container name",
             "You get the entity item_in_container name from the entity container name.",
             "Player 1 gets their entity item_in_container name from their entity container name.",
-            &mut game,
+            &game,
         );
 
-        let world = game.game.world.read().unwrap();
+        let world = game.get_world();
         let location = world
             .get::<Location>(game.item_entity_in_container)
             .unwrap();
@@ -1042,12 +1100,169 @@ mod tests {
             .contains(&game.item_entity_in_container));
     }
 
-    //TODO tests for drop
+    #[test]
+    fn drop_no_target() {
+        let game = set_up_game();
+        test_error("drop", "drop what?", &game);
+    }
+
+    #[test]
+    fn drop_no_target_with_space() {
+        let game = set_up_game();
+        test_error("drop ", "drop what?", &game);
+    }
+
+    #[test]
+    fn drop_target_does_not_exist() {
+        let game = set_up_game();
+        test_error("drop blorp", "drop what? (There's no 'blorp' here.)", &game);
+    }
+
+    #[test]
+    fn drop_target_self() {
+        let game = set_up_game();
+        test_error("drop me", "drop what? (You can't drop you.)", &game);
+    }
+
+    #[test]
+    fn drop_target_location() {
+        let game = set_up_game();
+        //TODO make the error include the name of the room
+        test_error("drop here", "drop what? (You can't drop it.)", &game);
+    }
+
+    #[test]
+    fn drop_target_not_item() {
+        let game = set_up_game();
+        test_error(
+            "drop entity non_item name",
+            "drop what? (You can't drop the entity non_item name.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn drop_target_not_item_with_the() {
+        let game = set_up_game();
+        test_error(
+            "drop the entity non_item name",
+            "drop what? (You can't drop the entity non_item name.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn drop_target_not_item_with_alias() {
+        let game = set_up_game();
+        test_error(
+            "drop entity non_item alias 1",
+            "drop what? (You can't drop the entity non_item name.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn drop_target_not_item_with_alias_and_the() {
+        let game = set_up_game();
+        test_error(
+            "drop the entity non_item alias 1",
+            "drop what? (You can't drop the entity non_item name.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn drop_do_not_have_target() {
+        let game = set_up_game();
+        test_error(
+            "drop the entity item name",
+            "drop what? (You don't have the entity item name.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn drop_entity_in_container_do_not_have() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn drop_entity_in_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn drop_valid_target() {
+        let mut game = set_up_game();
+
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
+        world
+            .entity_mut(owned_entity)
+            .insert(Item::new_one_handed());
+        drop(world);
+
+        test_success(
+            "drop entity owned name",
+            "You drop your entity owned name.",
+            "Player 1 drops their entity owned name.",
+            &game,
+        );
+
+        let world = game.get_world();
+        let location = world.get::<Location>(game.item_entity).unwrap();
+        assert_eq!(game.room, location.id);
+
+        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
+        assert!(!player_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+
+        let room_container = world.get::<Container>(game.room).unwrap();
+        assert!(room_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+    }
+
+    #[test]
+    fn drop_valid_target_with_the() {
+        let mut game = set_up_game();
+
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
+        world
+            .entity_mut(owned_entity)
+            .insert(Item::new_one_handed());
+        drop(world);
+
+        test_success(
+            "drop the entity owned name",
+            "You drop your entity owned name.",
+            "Player 1 drops their entity owned name.",
+            &game,
+        );
+
+        let world = game.get_world();
+        let location = world.get::<Location>(game.item_entity).unwrap();
+        assert_eq!(game.room, location.id);
+
+        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
+        assert!(!player_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+
+        let room_container = world.get::<Container>(game.room).unwrap();
+        assert!(room_container
+            .get_entities_including_invisible()
+            .contains(&game.item_entity));
+    }
 
     //TODO tests for put
 
     /// Asserts that the provided input results in the provided error
-    fn test_error(input: &str, expected_error: &str, game: &mut TestGame) {
+    fn test_error(input: &str, expected_error: &str, game: &TestGame) {
         let message_receiver = &game.player_1.message_receiver;
         let command_sender = &game.player_1.command_sender;
 
@@ -1069,7 +1284,7 @@ mod tests {
         input: &str,
         expected_message: &str,
         expected_third_person_message: &str,
-        game: &mut TestGame,
+        game: &TestGame,
     ) {
         let p1_message_receiver = &game.player_1.message_receiver;
         let p1_command_sender = &game.player_1.command_sender;
