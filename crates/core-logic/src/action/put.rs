@@ -987,6 +987,36 @@ mod tests {
     }
 
     #[test]
+    fn get_with_container_not_container() {
+        let game = set_up_game();
+        test_error(
+            "get entity item_in_container name from entity item name",
+            "Get 'entity item_in_container name' from where? (You can't get anything from the entity item name.)",
+            &game,
+        )
+    }
+
+    #[test]
+    fn get_with_container_target_same_as_container() {
+        let game = set_up_game();
+        test_error(
+            "get entity container name from entity container name",
+            "You can't get the entity container name from itself.",
+            &game,
+        );
+    }
+
+    #[test]
+    fn get_with_container_not_container_and_same_as_target() {
+        let game = set_up_game();
+        test_error(
+            "get entity item name from entity item name",
+            "get 'entity item name' from where? (You can't get anything from the entity item name.)",
+            &game,
+        );
+    }
+
+    #[test]
     fn get_already_have_non_item_target() {
         let mut game = set_up_game();
 
@@ -1259,7 +1289,85 @@ mod tests {
             .contains(&game.item_entity));
     }
 
-    //TODO tests for put
+    #[test]
+    fn put_no_target() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_no_target_with_space() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_does_not_exist() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_not_item() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_self() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_location() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_no_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_no_container_with_space() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_container_does_not_exist() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_container_not_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_does_not_exist_valid_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_not_item_valid_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_do_not_have_target_valid_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_target_same_as_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_valid_container() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_valid_container_with_into() {
+        todo!() //TODO
+    }
 
     /// Asserts that the provided input results in the provided error
     fn test_error(input: &str, expected_error: &str, game: &TestGame) {
@@ -1353,7 +1461,7 @@ mod tests {
         let container_entity = spawn_entity_in_location("container", room, &mut world);
         world
             .entity_mut(container_entity)
-            .insert(Container::new_infinite());
+            .insert((Container::new_infinite(), Item::new_one_handed()));
 
         let item_entity_in_container =
             spawn_entity_in_location("item_in_container", container_entity, &mut world);
