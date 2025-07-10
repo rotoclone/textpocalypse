@@ -87,21 +87,22 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("put"))
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
                 //TODO ideally the error here would be "you can't put <item name> anywhere" instead of just "you can't put <item name>"
                 validate_parsed_value_has_component::<Item>(context, "put", world)
             })
+            .always_include_in_errors()
             .with_if_missing("what")
             .with_placeholder_for_format_string("item"),
         )
-        .then(literal_part(" "))
-        .then(one_of_part(nonempty![
-            literal_part("into"),
-            literal_part("in")
-        ]))
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
+        .then(
+            one_of_part(nonempty![literal_part("into"), literal_part("in")])
+                .always_include_in_errors(),
+        )
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<Container>(
@@ -110,6 +111,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     world,
                 )
             })
+            .always_include_in_errors()
             .with_if_missing("where")
             .with_placeholder_for_format_string("container"),
         )
@@ -1131,6 +1133,16 @@ mod tests {
     }
 
     #[test]
+    fn get_valid_target_with_extra_input() {
+        let game = set_up_game();
+        test_error(
+            "get entity item name and how",
+            "Did you mean 'get entity item name' (without ' and how')?",
+            &game,
+        );
+    }
+
+    #[test]
     fn drop_no_target() {
         let game = set_up_game();
         test_error("drop", "drop what?", &game);
@@ -1213,12 +1225,29 @@ mod tests {
 
     #[test]
     fn drop_entity_in_container_do_not_have() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "drop entity item_in_container name",
+            "drop what? (There's no 'entity item_in_container name' here.)",
+            &game,
+        );
     }
 
     #[test]
     fn drop_entity_in_container() {
-        todo!() //TODO
+        let mut game = set_up_game();
+
+        let container_entity = game.container_entity;
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        move_entity(container_entity, player_1, &mut world);
+        drop(world);
+
+        test_error(
+            "drop entity item_in_container name",
+            "drop what? (There's no 'entity item_in_container name' here.)",
+            &game,
+        );
     }
 
     #[test]
@@ -1291,17 +1320,84 @@ mod tests {
 
     #[test]
     fn put_no_target() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error("put", "put what into where?", &game);
     }
 
     #[test]
     fn put_no_target_with_space() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error("put ", "put what into where?", &game);
     }
 
     #[test]
     fn put_target_does_not_exist() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put blorp",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_with_into() {
+        let game = set_up_game();
+        test_error(
+            "put blorp into",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_with_into_and_space() {
+        let game = set_up_game();
+        test_error(
+            "put blorp into ",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_with_in() {
+        let game = set_up_game();
+        test_error(
+            "put blorp in",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_with_in_and_space() {
+        let game = set_up_game();
+        test_error(
+            "put blorp in ",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_container_does_not_exist() {
+        let game = set_up_game();
+        test_error(
+            "put blorp into florp",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
+    }
+
+    #[test]
+    fn put_target_does_not_exist_container_does_not_exist_with_in() {
+        let game = set_up_game();
+        test_error(
+            "put blorp in florp",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
     }
 
     #[test]
@@ -1326,6 +1422,21 @@ mod tests {
 
     #[test]
     fn put_valid_target_no_container_with_space() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_no_container_with_into() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_no_container_with_into_and_space() {
+        todo!() //TODO
+    }
+
+    #[test]
+    fn put_valid_target_no_container_with_in() {
         todo!() //TODO
     }
 
@@ -1365,7 +1476,7 @@ mod tests {
     }
 
     #[test]
-    fn put_valid_target_valid_container_with_into() {
+    fn put_valid_target_valid_container_with_in() {
         todo!() //TODO
     }
 
