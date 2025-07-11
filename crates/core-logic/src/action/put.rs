@@ -69,12 +69,11 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .with_if_missing("what")
         .with_placeholder_for_format_string("item"),
     )
-    .then(literal_part(" ").always_include_in_errors())
+    //TODO include spaces in other connecting word parts for other commands
     .then(
-        one_of_part(nonempty![literal_part("from"), literal_part("out of")])
+        one_of_part(nonempty![literal_part(" from "), literal_part(" out of ")])
             .always_include_in_errors(),
     )
-    .then(literal_part(" ").always_include_in_errors())
     .then(
         entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
             validate_parsed_value_has_component::<Container>(context, "get anything from", world)
@@ -97,12 +96,10 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             .with_if_missing("what")
             .with_placeholder_for_format_string("item"),
         )
-        .then(literal_part(" ").always_include_in_errors())
         .then(
-            one_of_part(nonempty![literal_part("into"), literal_part("in")])
+            one_of_part(nonempty![literal_part(" into "), literal_part(" in ")])
                 .always_include_in_errors(),
         )
-        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<Container>(
@@ -842,6 +839,7 @@ mod tests {
         item_entity: Entity,
         item_entity_in_container: Entity,
         container_entity: Entity,
+        owned_entity: Entity,
         room: Entity,
         player_1: TestPlayer,
         player_2: TestPlayer,
@@ -1024,27 +1022,19 @@ mod tests {
 
         let player_1 = game.player_1.entity;
         let mut world = game.get_world_mut();
-        spawn_entity_in_location("owned", player_1, &mut world);
+        spawn_entity_in_location("owned_non_item", player_1, &mut world);
         drop(world);
 
         test_error(
-            "get entity owned name",
-            "You can't get your entity owned name.",
+            "get entity owned_non_item name",
+            "You can't get your entity owned_non_item name.",
             &game,
         );
     }
 
     #[test]
     fn get_already_have_target() {
-        let mut game = set_up_game();
-
-        let player_1 = game.player_1.entity;
-        let mut world = game.get_world_mut();
-        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
-        world
-            .entity_mut(owned_entity)
-            .insert(Item::new_one_handed());
-        drop(world);
+        let game = set_up_game();
 
         test_error(
             "get entity owned name",
@@ -1063,20 +1053,8 @@ mod tests {
             &game,
         );
 
-        let world = game.game.world.read().unwrap();
-
-        let location = world.get::<Location>(game.item_entity).unwrap();
-        assert_eq!(game.player_1.entity, location.id);
-
-        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
-        assert!(player_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
-
-        let room_container = world.get::<Container>(game.room).unwrap();
-        assert!(!room_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity, game.room, &game);
     }
 
     #[test]
@@ -1089,20 +1067,8 @@ mod tests {
             &game,
         );
 
-        let world = game.game.world.read().unwrap();
-
-        let location = world.get::<Location>(game.item_entity).unwrap();
-        assert_eq!(game.player_1.entity, location.id);
-
-        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
-        assert!(player_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
-
-        let room_container = world.get::<Container>(game.room).unwrap();
-        assert!(!room_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity, game.room, &game);
     }
 
     #[test]
@@ -1115,21 +1081,8 @@ mod tests {
             &game,
         );
 
-        let world = game.get_world();
-        let location = world
-            .get::<Location>(game.item_entity_in_container)
-            .unwrap();
-        assert_eq!(game.player_1.entity, location.id);
-
-        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
-        assert!(player_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity_in_container));
-
-        let container_container = world.get::<Container>(game.container_entity).unwrap();
-        assert!(!container_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity_in_container));
+        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
     }
 
     #[test]
@@ -1252,15 +1205,7 @@ mod tests {
 
     #[test]
     fn drop_valid_target() {
-        let mut game = set_up_game();
-
-        let player_1 = game.player_1.entity;
-        let mut world = game.get_world_mut();
-        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
-        world
-            .entity_mut(owned_entity)
-            .insert(Item::new_one_handed());
-        drop(world);
+        let game = set_up_game();
 
         test_success(
             "drop entity owned name",
@@ -1269,32 +1214,13 @@ mod tests {
             &game,
         );
 
-        let world = game.get_world();
-        let location = world.get::<Location>(game.item_entity).unwrap();
-        assert_eq!(game.room, location.id);
-
-        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
-        assert!(!player_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
-
-        let room_container = world.get::<Container>(game.room).unwrap();
-        assert!(room_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
+        assert_entity_in_container(game.owned_entity, game.room, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
     }
 
     #[test]
     fn drop_valid_target_with_the() {
-        let mut game = set_up_game();
-
-        let player_1 = game.player_1.entity;
-        let mut world = game.get_world_mut();
-        let owned_entity = spawn_entity_in_location("owned", player_1, &mut world);
-        world
-            .entity_mut(owned_entity)
-            .insert(Item::new_one_handed());
-        drop(world);
+        let game = set_up_game();
 
         test_success(
             "drop the entity owned name",
@@ -1303,19 +1229,8 @@ mod tests {
             &game,
         );
 
-        let world = game.get_world();
-        let location = world.get::<Location>(game.item_entity).unwrap();
-        assert_eq!(game.room, location.id);
-
-        let player_container = world.get::<Container>(game.player_1.entity).unwrap();
-        assert!(!player_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
-
-        let room_container = world.get::<Container>(game.room).unwrap();
-        assert!(room_container
-            .get_entities_including_invisible()
-            .contains(&game.item_entity));
+        assert_entity_in_container(game.owned_entity, game.room, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
     }
 
     #[test]
@@ -1402,82 +1317,192 @@ mod tests {
 
     #[test]
     fn put_target_not_item() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity non_item name into entity container name",
+            "put what into where? (You can't put the entity non_item name anywhere.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_target_self() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put me into entity container name",
+            "put what into where? (You can't put you anywhere.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_target_location() {
-        todo!() //TODO
+        let game = set_up_game();
+        //TODO include location name in error
+        test_error(
+            "put here into entity container name",
+            "put what into where? (You can't put it anywhere.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_no_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name",
+            "put your entity owned name into where?",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_no_container_with_space() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name ",
+            "put your entity owned name into where?",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_no_container_with_into() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name into",
+            "put your entity owned name into where?",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_no_container_with_into_and_space() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name into ",
+            "put your entity owned name into where?",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_no_container_with_in() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name in",
+            "put your entity owned name into where?",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_container_does_not_exist() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name into blorp",
+            "put your entity owned name into where? (There's no 'blorp' here.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_container_not_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity owned name into entity item name",
+            "put your entity owned name into where? (You can't put anything into the entity item name.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_target_does_not_exist_valid_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put blorp into entity container name",
+            "put what into where? (There's no 'blorp' here.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_target_not_item_valid_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity non_item name into entity container name",
+            "put what into where? (You can't put the entity non_item name anywhere.)",
+            &game,
+        );
     }
 
     #[test]
     fn put_do_not_have_target_valid_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity item name into entity container name",
+            "You don't have the entity item name.",
+            &game,
+        );
     }
 
     #[test]
     fn put_target_same_as_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_error(
+            "put entity container name into entity container name",
+            "You can't put the entity container name into itself.",
+            &game,
+        );
     }
 
     #[test]
     fn put_valid_target_valid_container() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_success(
+            "put entity owned name into entity container name",
+            "You put your entity owned name into the entity container name.",
+            "Player 1 puts their entity owned name into the entity container name.",
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
     }
 
     #[test]
     fn put_valid_target_valid_container_with_in() {
-        todo!() //TODO
+        let game = set_up_game();
+        test_success(
+            "put entity owned name in entity container name",
+            "You put your entity owned name into the entity container name.",
+            "Player 1 puts their entity owned name into the entity container name.",
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn put_valid_target_valid_container_have_container() {
+        let mut game = set_up_game();
+
+        let container_entity = game.container_entity;
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        move_entity(container_entity, player_1, &mut world);
+        drop(world);
+
+        test_success(
+            "put entity owned name into entity container name",
+            "You put your entity owned name into your entity container name.",
+            "Player 1 puts their entity owned name into their entity container name.",
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
     }
 
     /// Asserts that the provided input results in the provided error
@@ -1547,6 +1572,7 @@ mod tests {
             skip_worldgen: true,
             ..GameOptions::default()
         });
+
         let mut world = game.world.write().unwrap();
         let room_coords = Coordinates {
             x: 0,
@@ -1564,6 +1590,15 @@ mod tests {
             &mut world,
         );
         world.insert_resource(SpawnRoom(room_coords));
+        drop(world);
+
+        let (p1_entity, p1_command_sender, p1_message_receiver) =
+            game.add_player("player 1".to_string());
+        let (p2_entity, p2_command_sender, p2_message_receiver) =
+            game.add_player("player 2".to_string());
+
+        let mut world = game.world.write().unwrap();
+
         spawn_entity_in_location("non_item", room, &mut world);
 
         let item_entity = spawn_entity_in_location("item", room, &mut world);
@@ -1579,18 +1614,19 @@ mod tests {
         world
             .entity_mut(item_entity_in_container)
             .insert(Item::new_one_handed());
-        drop(world);
 
-        let (p1_entity, p1_command_sender, p1_message_receiver) =
-            game.add_player("player 1".to_string());
-        let (p2_entity, p2_command_sender, p2_message_receiver) =
-            game.add_player("player 2".to_string());
+        let owned_entity = spawn_entity_in_location("owned", p1_entity, &mut world);
+        world
+            .entity_mut(owned_entity)
+            .insert(Item::new_one_handed());
+        drop(world);
 
         TestGame {
             game,
             item_entity,
             item_entity_in_container,
             container_entity,
+            owned_entity,
             room,
             player_1: TestPlayer {
                 entity: p1_entity,
@@ -1603,5 +1639,37 @@ mod tests {
                 message_receiver: p2_message_receiver,
             },
         }
+    }
+
+    /// Asserts that `entity` is in `containing_entity`.
+    /// TODO move to a common place
+    fn assert_entity_in_container(entity: Entity, containing_entity: Entity, game: &TestGame) {
+        let world = game.get_world();
+
+        let location = world.get::<Location>(entity).unwrap();
+        assert_eq!(containing_entity, location.id);
+
+        let container = world.get::<Container>(containing_entity).unwrap();
+        assert!(container
+            .get_entities_including_invisible()
+            .contains(&entity));
+    }
+
+    /// Asserts that `entity` is not in `not_containing_entity`.
+    /// TODO move to a common place
+    fn assert_entity_not_in_container(
+        entity: Entity,
+        not_containing_entity: Entity,
+        game: &TestGame,
+    ) {
+        let world = game.get_world();
+
+        let location = world.get::<Location>(entity).unwrap();
+        assert_ne!(not_containing_entity, location.id);
+
+        let container = world.get::<Container>(not_containing_entity).unwrap();
+        assert!(!container
+            .get_entities_including_invisible()
+            .contains(&entity));
     }
 }
