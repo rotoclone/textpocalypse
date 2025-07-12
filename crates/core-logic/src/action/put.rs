@@ -1332,9 +1332,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_with_into() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp into",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp into' here.)",
             &game,
         );
     }
@@ -1342,9 +1343,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_with_into_and_space() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp into ",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp into ' here.)",
             &game,
         );
     }
@@ -1352,9 +1354,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_with_in() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp in",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp in' here.)",
             &game,
         );
     }
@@ -1362,9 +1365,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_with_in_and_space() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp in ",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp in ' here.)",
             &game,
         );
     }
@@ -1372,9 +1376,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_container_does_not_exist() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp into florp",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp into florp' here.)",
             &game,
         );
     }
@@ -1382,9 +1387,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_container_does_not_exist_with_in() {
         let game = set_up_game(NumPlayers::One);
+        //TODO is this error ok?
         test_error(
             "put blorp in florp",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp in florp' here.)",
             &game,
         );
     }
@@ -1493,9 +1499,10 @@ mod tests {
     #[test]
     fn put_target_does_not_exist_valid_container() {
         let game = set_up_game(NumPlayers::One);
+        //TODO the error should say "There's no 'blorp' here"
         test_error(
             "put blorp into entity container name",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what into where? (There's no 'blorp into entity container name' here.)",
             &game,
         );
     }

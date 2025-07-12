@@ -808,6 +808,7 @@ fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World
 
 /// Sends a message to an entity based on the provided parsing error.
 fn handle_input_error(entity: Entity, input: String, error: CommandParseError, world: &World) {
+    dbg!(&error); //TODO remove
     if !error.any_parts_matched() {
         send_message(
             world,
