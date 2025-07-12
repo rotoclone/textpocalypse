@@ -70,6 +70,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .with_placeholder_for_format_string("item"),
     )
     //TODO include spaces in other connecting word parts for other commands
+    //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
     .then(
         one_of_part(nonempty![literal_part(" from "), literal_part(" out of ")])
             .always_include_in_errors(),
@@ -842,7 +843,7 @@ mod tests {
         owned_entity: Entity,
         room: Entity,
         player_1: TestPlayer,
-        player_2: TestPlayer,
+        player_2: Option<TestPlayer>,
     }
 
     impl TestGame {
@@ -866,38 +867,38 @@ mod tests {
 
     #[test]
     fn get_no_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("get", "get what?", &game);
     }
 
     #[test]
     fn get_no_target_with_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("get ", "get what?", &game);
     }
 
     #[test]
     fn get_target_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("get blorp", "get what? (There's no 'blorp' here.)", &game);
     }
 
     #[test]
     fn get_target_self() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("get me", "get what? (You can't get you.)", &game);
     }
 
     #[test]
     fn get_target_location() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         //TODO make the error include the name of the room
         test_error("get here", "get what? (You can't get it.)", &game);
     }
 
     #[test]
     fn get_target_not_item() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity non_item name",
             "get what? (You can't get the entity non_item name.)",
@@ -907,7 +908,7 @@ mod tests {
 
     #[test]
     fn get_target_not_item_with_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get the entity non_item name",
             "get what? (You can't get the entity non_item name.)",
@@ -917,7 +918,7 @@ mod tests {
 
     #[test]
     fn get_target_not_item_with_alias() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity non_item alias 1",
             "get what? (You can't get the entity non_item name.)",
@@ -927,7 +928,7 @@ mod tests {
 
     #[test]
     fn get_target_not_item_with_alias_and_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get the entity non_item alias 1",
             "get what? (You can't get the entity non_item name.)",
@@ -937,7 +938,7 @@ mod tests {
 
     #[test]
     fn get_with_container_target_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
         test_error(
             "get blorp from entity container name",
@@ -948,7 +949,7 @@ mod tests {
 
     #[test]
     fn get_target_in_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name",
             "get what? (There's no 'entity item_in_container name' here.)",
@@ -958,7 +959,7 @@ mod tests {
 
     #[test]
     fn get_from_but_no_container_name() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from",
             "get 'entity item_in_container name' from where?",
@@ -968,7 +969,7 @@ mod tests {
 
     #[test]
     fn get_container_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from blorp",
             "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
@@ -978,7 +979,7 @@ mod tests {
 
     #[test]
     fn get_with_container_target_not_in_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name from entity container name",
             "get the entity item name from where? (The entity item name isn't in the entity container name.)",
@@ -988,7 +989,7 @@ mod tests {
 
     #[test]
     fn get_with_container_not_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from entity item name",
             "Get 'entity item_in_container name' from where? (You can't get anything from the entity item name.)",
@@ -998,7 +999,7 @@ mod tests {
 
     #[test]
     fn get_with_container_target_same_as_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity container name from entity container name",
             "You can't get the entity container name from itself.",
@@ -1008,7 +1009,7 @@ mod tests {
 
     #[test]
     fn get_with_container_not_container_and_same_as_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name from entity item name",
             "get 'entity item name' from where? (You can't get anything from the entity item name.)",
@@ -1018,7 +1019,7 @@ mod tests {
 
     #[test]
     fn get_already_have_non_item_target() {
-        let mut game = set_up_game();
+        let mut game = set_up_game(NumPlayers::One);
 
         let player_1 = game.player_1.entity;
         let mut world = game.get_world_mut();
@@ -1027,29 +1028,44 @@ mod tests {
 
         test_error(
             "get entity owned_non_item name",
-            "You can't get your entity owned_non_item name.",
+            "get what? (You can't get your entity owned_non_item name.)",
             &game,
         );
     }
 
     #[test]
     fn get_already_have_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
 
+        //TODO this sometimes fails because the error is "your entity owned name is not in it."
         test_error(
             "get entity owned name",
-            "You already have the entity owned name.",
+            "You already have your entity owned name.",
             &game,
         );
     }
 
     #[test]
     fn get_valid_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_success(
             "get entity item name",
             "You pick up the entity item name.",
-            "Player 1 picks up the entity item name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity, game.room, &game);
+    }
+
+    #[test]
+    fn get_valid_target_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+        test_success(
+            "get entity item name",
+            "You pick up the entity item name.",
+            Some("Player 1 picks up the entity item name."),
             &game,
         );
 
@@ -1059,11 +1075,25 @@ mod tests {
 
     #[test]
     fn get_valid_target_with_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_success(
             "get the entity item name",
             "You pick up the entity item name.",
-            "Player 1 picks up the entity item name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity, game.room, &game);
+    }
+
+    #[test]
+    fn get_valid_target_with_the_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+        test_success(
+            "get the entity item name",
+            "You pick up the entity item name.",
+            Some("Player 1 picks up the entity item name."),
             &game,
         );
 
@@ -1073,11 +1103,25 @@ mod tests {
 
     #[test]
     fn get_valid_target_from_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_success(
             "get entity item_in_container name from entity container name",
             "You get the entity item_in_container name from the entity container name.",
-            "Player 1 gets their entity item_in_container name from their entity container name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+    }
+
+    #[test]
+    fn get_valid_target_from_container_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+        test_success(
+            "get entity item_in_container name from entity container name",
+            "You get the entity item_in_container name from the entity container name.",
+            Some("Player 1 gets their entity item_in_container name from their entity container name."),
             &game,
         );
 
@@ -1087,7 +1131,7 @@ mod tests {
 
     #[test]
     fn get_valid_target_with_extra_input() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name and how",
             "Did you mean 'get entity item name' (without ' and how')?",
@@ -1097,38 +1141,38 @@ mod tests {
 
     #[test]
     fn drop_no_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("drop", "drop what?", &game);
     }
 
     #[test]
     fn drop_no_target_with_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("drop ", "drop what?", &game);
     }
 
     #[test]
     fn drop_target_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("drop blorp", "drop what? (There's no 'blorp' here.)", &game);
     }
 
     #[test]
     fn drop_target_self() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("drop me", "drop what? (You can't drop you.)", &game);
     }
 
     #[test]
     fn drop_target_location() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         //TODO make the error include the name of the room
         test_error("drop here", "drop what? (You can't drop it.)", &game);
     }
 
     #[test]
     fn drop_target_not_item() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop entity non_item name",
             "drop what? (You can't drop the entity non_item name.)",
@@ -1138,7 +1182,7 @@ mod tests {
 
     #[test]
     fn drop_target_not_item_with_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop the entity non_item name",
             "drop what? (You can't drop the entity non_item name.)",
@@ -1148,7 +1192,7 @@ mod tests {
 
     #[test]
     fn drop_target_not_item_with_alias() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop entity non_item alias 1",
             "drop what? (You can't drop the entity non_item name.)",
@@ -1158,7 +1202,7 @@ mod tests {
 
     #[test]
     fn drop_target_not_item_with_alias_and_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop the entity non_item alias 1",
             "drop what? (You can't drop the entity non_item name.)",
@@ -1168,17 +1212,17 @@ mod tests {
 
     #[test]
     fn drop_do_not_have_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop the entity item name",
-            "drop what? (You don't have the entity item name.)",
+            "You don't have the entity item name.",
             &game,
         );
     }
 
     #[test]
     fn drop_entity_in_container_do_not_have() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "drop entity item_in_container name",
             "drop what? (There's no 'entity item_in_container name' here.)",
@@ -1188,7 +1232,7 @@ mod tests {
 
     #[test]
     fn drop_entity_in_container() {
-        let mut game = set_up_game();
+        let mut game = set_up_game(NumPlayers::One);
 
         let container_entity = game.container_entity;
         let player_1 = game.player_1.entity;
@@ -1205,12 +1249,27 @@ mod tests {
 
     #[test]
     fn drop_valid_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
 
         test_success(
             "drop entity owned name",
             "You drop your entity owned name.",
-            "Player 1 drops their entity owned name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.room, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn drop_valid_target_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+
+        test_success(
+            "drop entity owned name",
+            "You drop your entity owned name.",
+            Some("Player 1 drops their entity owned name."),
             &game,
         );
 
@@ -1220,12 +1279,27 @@ mod tests {
 
     #[test]
     fn drop_valid_target_with_the() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
 
         test_success(
             "drop the entity owned name",
             "You drop your entity owned name.",
-            "Player 1 drops their entity owned name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.room, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn drop_valid_target_with_the_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+
+        test_success(
+            "drop the entity owned name",
+            "You drop your entity owned name.",
+            Some("Player 1 drops their entity owned name."),
             &game,
         );
 
@@ -1235,19 +1309,19 @@ mod tests {
 
     #[test]
     fn put_no_target() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("put", "put what into where?", &game);
     }
 
     #[test]
     fn put_no_target_with_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error("put ", "put what into where?", &game);
     }
 
     #[test]
     fn put_target_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp",
             "put what into where? (There's no 'blorp' here.)",
@@ -1257,7 +1331,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_with_into() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp into",
             "put what into where? (There's no 'blorp' here.)",
@@ -1267,7 +1341,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_with_into_and_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp into ",
             "put what into where? (There's no 'blorp' here.)",
@@ -1277,7 +1351,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_with_in() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in",
             "put what into where? (There's no 'blorp' here.)",
@@ -1287,7 +1361,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_with_in_and_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in ",
             "put what into where? (There's no 'blorp' here.)",
@@ -1297,7 +1371,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_container_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp into florp",
             "put what into where? (There's no 'blorp' here.)",
@@ -1307,7 +1381,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_container_does_not_exist_with_in() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in florp",
             "put what into where? (There's no 'blorp' here.)",
@@ -1317,38 +1391,38 @@ mod tests {
 
     #[test]
     fn put_target_not_item() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity non_item name into entity container name",
-            "put what into where? (You can't put the entity non_item name anywhere.)",
+            "put what into where? (You can't put the entity non_item name.)",
             &game,
         );
     }
 
     #[test]
     fn put_target_self() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put me into entity container name",
-            "put what into where? (You can't put you anywhere.)",
+            "put what into where? (You can't put you.)",
             &game,
         );
     }
 
     #[test]
     fn put_target_location() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         //TODO include location name in error
         test_error(
             "put here into entity container name",
-            "put what into where? (You can't put it anywhere.)",
+            "put what into where? (You can't put it.)",
             &game,
         );
     }
 
     #[test]
     fn put_valid_target_no_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name",
             "put your entity owned name into where?",
@@ -1358,7 +1432,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_no_container_with_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name ",
             "put your entity owned name into where?",
@@ -1368,7 +1442,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_no_container_with_into() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name into",
             "put your entity owned name into where?",
@@ -1378,7 +1452,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_no_container_with_into_and_space() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name into ",
             "put your entity owned name into where?",
@@ -1388,7 +1462,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_no_container_with_in() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name in",
             "put your entity owned name into where?",
@@ -1398,7 +1472,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_container_does_not_exist() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name into blorp",
             "put your entity owned name into where? (There's no 'blorp' here.)",
@@ -1408,7 +1482,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_container_not_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name into entity item name",
             "put your entity owned name into where? (You can't put anything into the entity item name.)",
@@ -1418,7 +1492,7 @@ mod tests {
 
     #[test]
     fn put_target_does_not_exist_valid_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp into entity container name",
             "put what into where? (There's no 'blorp' here.)",
@@ -1428,17 +1502,17 @@ mod tests {
 
     #[test]
     fn put_target_not_item_valid_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity non_item name into entity container name",
-            "put what into where? (You can't put the entity non_item name anywhere.)",
+            "put what into where? (You can't put the entity non_item name.)",
             &game,
         );
     }
 
     #[test]
     fn put_do_not_have_target_valid_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity item name into entity container name",
             "You don't have the entity item name.",
@@ -1448,7 +1522,7 @@ mod tests {
 
     #[test]
     fn put_target_same_as_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity container name into entity container name",
             "You can't put the entity container name into itself.",
@@ -1458,11 +1532,25 @@ mod tests {
 
     #[test]
     fn put_valid_target_valid_container() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_success(
             "put entity owned name into entity container name",
             "You put your entity owned name into the entity container name.",
-            "Player 1 puts their entity owned name into the entity container name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn put_valid_target_valid_container_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+        test_success(
+            "put entity owned name into entity container name",
+            "You put your entity owned name into the entity container name.",
+            Some("Player 1 puts their entity owned name into the entity container name."),
             &game,
         );
 
@@ -1472,11 +1560,25 @@ mod tests {
 
     #[test]
     fn put_valid_target_valid_container_with_in() {
-        let game = set_up_game();
+        let game = set_up_game(NumPlayers::One);
         test_success(
             "put entity owned name in entity container name",
             "You put your entity owned name into the entity container name.",
-            "Player 1 puts their entity owned name into the entity container name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn put_valid_target_valid_container_with_in_multiple_players() {
+        let game = set_up_game(NumPlayers::Two);
+        test_success(
+            "put entity owned name in entity container name",
+            "You put your entity owned name into the entity container name.",
+            Some("Player 1 puts their entity owned name into the entity container name."),
             &game,
         );
 
@@ -1486,7 +1588,7 @@ mod tests {
 
     #[test]
     fn put_valid_target_valid_container_have_container() {
-        let mut game = set_up_game();
+        let mut game = set_up_game(NumPlayers::One);
 
         let container_entity = game.container_entity;
         let player_1 = game.player_1.entity;
@@ -1497,7 +1599,28 @@ mod tests {
         test_success(
             "put entity owned name into entity container name",
             "You put your entity owned name into your entity container name.",
-            "Player 1 puts their entity owned name into their entity container name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+    }
+
+    #[test]
+    fn put_valid_target_valid_container_have_container_multiple_players() {
+        let mut game = set_up_game(NumPlayers::Two);
+
+        let container_entity = game.container_entity;
+        let player_1 = game.player_1.entity;
+        let mut world = game.get_world_mut();
+        move_entity(container_entity, player_1, &mut world);
+        drop(world);
+
+        test_success(
+            "put entity owned name into entity container name",
+            "You put your entity owned name into your entity container name.",
+            Some("Player 1 puts their entity owned name into their entity container name."),
             &game,
         );
 
@@ -1527,26 +1650,39 @@ mod tests {
     fn test_success(
         input: &str,
         expected_message: &str,
-        expected_third_person_message: &str,
+        expected_third_person_message: Option<&str>,
         game: &TestGame,
     ) {
         let p1_message_receiver = &game.player_1.message_receiver;
         let p1_command_sender = &game.player_1.command_sender;
 
-        let p2_message_receiver = &game.player_2.message_receiver;
-        let p2_command_sender = &game.player_2.command_sender;
+        let multiplayer = expected_third_person_message.is_some();
+
+        let (p2_message_receiver, p2_command_sender) = if multiplayer {
+            let p2 = game.player_2.as_ref().expect("no player 2 found");
+            (Some(&p2.message_receiver), Some(&p2.command_sender))
+        } else {
+            (None, None)
+        };
 
         // skip past any intro messages (like a description of the the player spawned in)
         p1_message_receiver.drain();
-        p2_message_receiver.drain();
+        if let Some(mr) = p2_message_receiver.as_ref() {
+            mr.drain();
+        }
 
         p1_command_sender.send(input.to_string()).unwrap();
-        assert_message_received(p1_message_receiver, "Action queued.");
-
-        p2_command_sender.send("wait".to_string()).unwrap();
+        if let Some(sender) = p2_command_sender.as_ref() {
+            assert_message_received(p1_message_receiver, "Action queued.");
+            sender.send("wait".to_string()).unwrap();
+        }
 
         assert_message_received(p1_message_receiver, expected_message);
-        assert_message_received(p2_message_receiver, expected_third_person_message);
+
+        if let Some(receiver) = p2_message_receiver.as_ref() {
+            // unwrap is fine because p2_message_receiver will only be Some if expected_third_person_message is also Some
+            assert_message_received(receiver, expected_third_person_message.unwrap());
+        }
     }
 
     fn assert_message_received(
@@ -1567,7 +1703,12 @@ mod tests {
         assert_eq!(expected_message, actual_message);
     }
 
-    fn set_up_game() -> TestGame {
+    enum NumPlayers {
+        One,
+        Two,
+    }
+
+    fn set_up_game(num_players: NumPlayers) -> TestGame {
         let mut game = Game::new(GameOptions {
             skip_worldgen: true,
             ..GameOptions::default()
@@ -1594,8 +1735,23 @@ mod tests {
 
         let (p1_entity, p1_command_sender, p1_message_receiver) =
             game.add_player("player 1".to_string());
-        let (p2_entity, p2_command_sender, p2_message_receiver) =
-            game.add_player("player 2".to_string());
+        let player_1 = TestPlayer {
+            entity: p1_entity,
+            command_sender: p1_command_sender,
+            message_receiver: p1_message_receiver,
+        };
+
+        let player_2 = if let NumPlayers::Two = num_players {
+            let (p2_entity, p2_command_sender, p2_message_receiver) =
+                game.add_player("player 2".to_string());
+            Some(TestPlayer {
+                entity: p2_entity,
+                command_sender: p2_command_sender,
+                message_receiver: p2_message_receiver,
+            })
+        } else {
+            None
+        };
 
         let mut world = game.world.write().unwrap();
 
@@ -1628,16 +1784,8 @@ mod tests {
             container_entity,
             owned_entity,
             room,
-            player_1: TestPlayer {
-                entity: p1_entity,
-                command_sender: p1_command_sender,
-                message_receiver: p1_message_receiver,
-            },
-            player_2: TestPlayer {
-                entity: p2_entity,
-                command_sender: p2_command_sender,
-                message_receiver: p2_message_receiver,
-            },
+            player_1,
+            player_2,
         }
     }
 
