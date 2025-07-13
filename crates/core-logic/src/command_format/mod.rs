@@ -640,9 +640,9 @@ impl CommandFormat {
     }
 }
 
-/// An error encountered while parsing input into a command.
+/// An error encountered while parsing input using a command format.
 #[derive(Debug)]
-pub enum CommandParseError {
+pub enum CommandFormatParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
@@ -654,17 +654,16 @@ pub enum CommandParseError {
         matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
     },
-    /// Some other kind of error with a string to display to the user
-    Other(String),
 }
 
-impl CommandParseError {
+impl CommandFormatParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
     pub fn any_parts_matched(&self) -> bool {
         let no_matched_parts = match self {
-            CommandParseError::Part { matched_parts, .. } => matched_parts.is_empty(),
-            CommandParseError::UnmatchedInput { matched_parts, .. } => matched_parts.is_empty(),
-            CommandParseError::Other(_) => true,
+            CommandFormatParseError::Part { matched_parts, .. } => matched_parts.is_empty(),
+            CommandFormatParseError::UnmatchedInput { matched_parts, .. } => {
+                matched_parts.is_empty()
+            }
         };
 
         !no_matched_parts
@@ -677,7 +676,7 @@ impl CommandParseError {
         }
 
         let string = match self {
-            CommandParseError::Part {
+            CommandFormatParseError::Part {
                 matched_parts,
                 unmatched_parts,
                 error,
@@ -732,7 +731,7 @@ impl CommandParseError {
 
                 format!("{matched_parts_string}{unmatched_parts_string}?{error_detail_string}")
             }
-            CommandParseError::UnmatchedInput {
+            CommandFormatParseError::UnmatchedInput {
                 matched_parts,
                 unmatched,
             } => {
@@ -743,16 +742,9 @@ impl CommandParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
-            CommandParseError::Other(e) => e,
         };
 
         GameMessage::Error(string)
-    }
-}
-
-impl From<String> for CommandParseError {
-    fn from(value: String) -> Self {
-        CommandParseError::Other(value)
     }
 }
 
@@ -889,6 +881,7 @@ impl CommandFormat {
             });
         }
 
+        dbg!("success"); //TODO
         Ok(ParsedCommand::new(parsed_parts))
     }
 }

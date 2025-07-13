@@ -319,6 +319,7 @@ impl InputParser for PutParser {
         world: &World,
     ) -> Result<Box<dyn Action>, CommandParseError> {
         let parsed = PUT_FORMAT.parse(input, entity, world)?;
+        dbg!("put parsed"); //TODO remove
 
         let item = parsed.get(&ITEM_PART_ID);
         let source = entity;
@@ -1530,6 +1531,7 @@ mod tests {
     #[test]
     fn put_target_same_as_container() {
         let game = set_up_game(NumPlayers::One);
+        //TODO this fails
         test_error(
             "put entity container name into entity container name",
             "You can't put the entity container name into itself.",
