@@ -643,11 +643,18 @@ impl CommandFormat {
 /// An error encountered while parsing input using a command format.
 #[derive(Debug)]
 pub enum CommandFormatParseError {
-    /// An error occurred when attempting to parse a part
-    Part {
+    /// An error occurred when attempting to match a part to a portion of the input string
+    Matching {
         matched_parts: Vec<MatchedCommandFormatPart>,
         // Boxed to reduce size
         unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
+        error: CommandPartMatchError,
+    },
+    /// An error occurred when attempting to parse a part
+    Parsing {
+        parsed_parts: Vec<ParsedCommandFormatPart>,
+        // Boxed to reduce size
+        unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
         error: CommandPartParseError,
     },
     /// Some of the input remained unmatched after all the parsers were run
@@ -661,7 +668,9 @@ impl CommandFormatParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
     pub fn any_parts_matched(&self) -> bool {
         let no_matched_parts = match self {
-            CommandFormatParseError::Part { matched_parts, .. } => matched_parts.is_empty(),
+            CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.is_empty(),
+            // If the parsing stage was reached, all parts were matched
+            CommandFormatParseError::Parsing { .. } => false,
             CommandFormatParseError::UnmatchedInput { matched_parts, .. } => {
                 matched_parts.is_empty()
             }
@@ -677,7 +686,7 @@ impl CommandFormatParseError {
         }
 
         let string = match self {
-            CommandFormatParseError::Part {
+            CommandFormatParseError::Matching {
                 matched_parts,
                 unmatched_parts,
                 error,
@@ -732,6 +741,13 @@ impl CommandFormatParseError {
 
                 format!("{matched_parts_string}{unmatched_parts_string}?{error_detail_string}")
             }
+            CommandFormatParseError::Parsing {
+                parsed_parts,
+                unparsed_parts,
+                error,
+            } => {
+                todo!() //TODO
+            }
             CommandFormatParseError::UnmatchedInput {
                 matched_parts,
                 unmatched,
@@ -749,17 +765,24 @@ impl CommandFormatParseError {
     }
 }
 
+/// A part that has been associated with a portion of the input string
 #[derive(Debug)]
-pub struct MatchedCommandFormatPart {
-    pub part: CommandFormatPart,
-    pub matched_input: String,
+struct MatchedCommandFormatPart {
+    part: CommandFormatPart,
+    matched_input: String,
+}
+
+/// A part that has been parsed into some concrete value
+#[derive(Debug)]
+pub struct ParsedCommandFormatPart {
+    pub matched_part: MatchedCommandFormatPart,
     pub parsed_value: ParsedValue,
 }
 
-impl MatchedCommandFormatPart {
+impl ParsedCommandFormatPart {
     /// Builds a string representing this part to use in a parsing error message.
     fn to_string_for_parse_error(&self, context: PartParserContext, world: &World) -> String {
-        let options = self.part.options();
+        let options = self.matched_part.part.options();
         if let IncludeInErrorsBehavior::Never = options.include_in_errors_behavior {
             return "".to_string();
         }
@@ -771,16 +794,21 @@ impl MatchedCommandFormatPart {
     }
 }
 
+/// An intermediate state during command parsing, where each part has been associated with a portion of the input string, but the parts haven't actually been parsed yet.
+struct SegmentedCommand {
+    //TODO
+}
+
 pub struct ParsedCommand {
-    parsed_parts: HashMap<UntypedCommandPartId, MatchedCommandFormatPart>,
+    parsed_parts: HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
 }
 
 impl ParsedCommand {
     /// Creates a `ParsedCommand` from a list of matched parts.
-    fn new(all_parsed_parts: Vec<MatchedCommandFormatPart>) -> ParsedCommand {
+    fn new(all_parsed_parts: Vec<ParsedCommandFormatPart>) -> ParsedCommand {
         let mut parsed_parts = HashMap::new();
         for parsed_part in all_parsed_parts {
-            if let Some(id) = parsed_part.part.id() {
+            if let Some(id) = parsed_part.matched_part.part.id() {
                 parsed_parts.insert(id, parsed_part);
             }
         }
@@ -821,6 +849,8 @@ impl CommandFormat {
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = Vec::new();
+
+        //TODO first turn parts into `MatchedCommandFormatPart`s
         for (i, part) in self.0.iter().enumerate() {
             if remaining_input.is_empty() {
                 has_remaining_input = false;
@@ -841,7 +871,7 @@ impl CommandFormat {
                 } => {
                     dbg!(&parsed, &consumed, &remaining); //TODO
 
-                    parsed_parts.push(MatchedCommandFormatPart {
+                    parsed_parts.push(ParsedCommandFormatPart {
                         part: part.clone(),
                         matched_input: consumed,
                         parsed_value: parsed,
@@ -859,16 +889,16 @@ impl CommandFormat {
                         // may be optional, in which case they will parse just fine with no input, so this shouldn't pre-emptively return
                         // an end of input error without letting the part see if that's actually a problem first.
                         //TODO is it a problem to just throw away the error returned from the part?
-                        return Err(CommandFormatParseError::Part {
-                            matched_parts: parsed_parts,
-                            unmatched_parts: Box::new(unmatched_parts),
+                        return Err(CommandFormatParseError::Parsing {
+                            parsed_parts,
+                            unparsed_parts: Box::new(unparsed_parts),
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
-                    return Err(CommandFormatParseError::Part {
-                        matched_parts: parsed_parts,
-                        unmatched_parts: Box::new(unmatched_parts),
+                    return Err(CommandFormatParseError::Parsing {
+                        parsed_parts,
+                        unparsed_parts: Box::new(unparsed_parts),
                         error,
                     });
                 }
@@ -877,7 +907,7 @@ impl CommandFormat {
 
         if !remaining_input.is_empty() {
             return Err(CommandFormatParseError::UnmatchedInput {
-                matched_parts: parsed_parts,
+                matched_parts,
                 unmatched: remaining_input,
             });
         }
