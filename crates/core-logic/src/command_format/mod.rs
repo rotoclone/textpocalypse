@@ -646,7 +646,8 @@ pub enum CommandFormatParseError {
     /// An error occurred when attempting to parse a part
     Part {
         matched_parts: Vec<MatchedCommandFormatPart>,
-        unmatched_parts: NonEmpty<CommandFormatPart>,
+        // Boxed to reduce size
+        unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
         error: CommandPartParseError,
     },
     /// Some of the input remained unmatched after all the parsers were run
@@ -860,14 +861,14 @@ impl CommandFormat {
                         //TODO is it a problem to just throw away the error returned from the part?
                         return Err(CommandFormatParseError::Part {
                             matched_parts: parsed_parts,
-                            unmatched_parts,
+                            unmatched_parts: Box::new(unmatched_parts),
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
                     return Err(CommandFormatParseError::Part {
                         matched_parts: parsed_parts,
-                        unmatched_parts,
+                        unmatched_parts: Box::new(unmatched_parts),
                         error,
                     });
                 }
