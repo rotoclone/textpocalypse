@@ -4,12 +4,12 @@ use bevy_ecs::prelude::*;
 use rand::Rng;
 
 use crate::{
-    command_format::{literal_part, CommandFormat, CommandParseError},
+    command_format::{literal_part, CommandFormat},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, SleepState,
         Vitals,
     },
-    input_parser::{CommandTarget, InputParser},
+    input_parser::{CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -35,7 +35,7 @@ impl InputParser for SleepParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         SLEEP_FORMAT.parse(input, source_entity, world)?;
         if let Some(vitals) = world.get::<Vitals>(source_entity) {
             let energy_fraction = vitals.energy.get() / vitals.energy.get_max();
@@ -47,13 +47,13 @@ impl InputParser for SleepParser {
                 }))
             } else {
                 // has vitals, but energy not under wake threshold
-                Err(CommandParseError::Other(
+                Err(InputParseError::Other(
                     "You're not tired enough to sleep.".to_string(),
                 ))
             }
         } else {
             // doesn't have vitals
-            Err(CommandParseError::Other(
+            Err(InputParseError::Other(
                 "You have no energy to regain by sleeping.".to_string(),
             ))
         }

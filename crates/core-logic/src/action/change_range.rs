@@ -7,13 +7,14 @@ use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        entity_part_with_validator, literal_part, one_of_part, CommandFormat,
+        CommandFormatParseError, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
     },
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -113,11 +114,11 @@ impl InputParser for ChangeRangeParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let valid_targets = CombatState::get_entities_in_combat_with(source_entity, world);
 
         if valid_targets.is_empty() {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You're not in combat with anyone.".to_string(),
             ));
         }
@@ -145,7 +146,7 @@ impl InputParser for ChangeRangeParser {
             }))
         } else {
             let target_name = Description::get_reference_name(target, Some(source_entity), world);
-            Err(CommandParseError::Other(format!(
+            Err(InputParseError::Other(format!(
                 "You're not in combat with {target_name}."
             )))
         }
@@ -193,7 +194,7 @@ fn parse_with_required_target(
     input: &str,
     source_entity: Entity,
     world: &World,
-) -> Result<(RangeChangeDirection, Entity), CommandParseError> {
+) -> Result<(RangeChangeDirection, Entity), CommandFormatParseError> {
     match DECREASE_RANGE_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
         Ok(parsed) => {
             return Ok((RangeChangeDirection::Decrease, parsed.get(&TARGET_PART_ID)));
@@ -214,7 +215,7 @@ fn parse_with_optional_target(
     input: &str,
     source_entity: Entity,
     world: &World,
-) -> Result<(RangeChangeDirection, Option<Entity>), CommandParseError> {
+) -> Result<(RangeChangeDirection, Option<Entity>), CommandFormatParseError> {
     if DECREASE_RANGE_FORMAT
         .parse(input, source_entity, world)
         .is_ok()

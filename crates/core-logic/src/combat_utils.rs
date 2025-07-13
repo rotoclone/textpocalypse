@@ -6,7 +6,7 @@ use itertools::Itertools;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
 
-use crate::command_format::CommandFormatPart;
+use crate::command_format::{CommandFormatParseError, CommandFormatPart};
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
@@ -18,13 +18,12 @@ use crate::{
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
-    CombatRange, CombatState, CommandParseError, Container, Description, DynamicMessage,
-    DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification, GameMessage,
-    InnateWeapon, IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, Notification, Skill, Stats, SurroundingsMessageCategory,
-    VerifyActionNotification, VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams,
-    VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError,
-    STANDARD_CHECK_XP,
+    CombatRange, CombatState, Container, Description, DynamicMessage, DynamicMessageLocation,
+    EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    Notification, Skill, Stats, SurroundingsMessageCategory, VerifyActionNotification,
+    VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon,
+    WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError, STANDARD_CHECK_XP,
 };
 
 /// The fraction of a target's health that counts as a high amount of damage.
@@ -228,7 +227,7 @@ pub fn parse_attack_input<A: AttackType>(
     source_entity: Entity,
     command_formats: &AttackCommandFormats<A>,
     world: &World,
-) -> Result<ParsedAttack, CommandParseError> {
+) -> Result<ParsedAttack, CommandFormatParseError> {
     if let Some(target) = find_single_entity_in_combat_with(source_entity, world) {
         if let Ok(parsed) = command_formats
             .format_with_weapon

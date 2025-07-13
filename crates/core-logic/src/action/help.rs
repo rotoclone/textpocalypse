@@ -3,9 +3,9 @@ use std::{collections::HashSet, sync::LazyLock};
 use bevy_ecs::prelude::*;
 
 use crate::{
-    command_format::{literal_part, CommandFormat, CommandParseError},
+    command_format::{literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, HelpDescription, VerifyActionNotification,
     World,
@@ -24,7 +24,7 @@ impl InputParser for HelpParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         HELP_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(HelpAction {
             notification_sender: ActionNotificationSender::new(),

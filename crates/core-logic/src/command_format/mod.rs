@@ -816,7 +816,7 @@ impl CommandFormat {
         input: impl Into<String>,
         entering_entity: Entity,
         world: &World,
-    ) -> Result<ParsedCommand, CommandParseError> {
+    ) -> Result<ParsedCommand, CommandFormatParseError> {
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = Vec::new();
@@ -858,14 +858,14 @@ impl CommandFormat {
                         // may be optional, in which case they will parse just fine with no input, so this shouldn't pre-emptively return
                         // an end of input error without letting the part see if that's actually a problem first.
                         //TODO is it a problem to just throw away the error returned from the part?
-                        return Err(CommandParseError::Part {
+                        return Err(CommandFormatParseError::Part {
                             matched_parts: parsed_parts,
                             unmatched_parts,
                             error: CommandPartParseError::EndOfInput,
                         });
                     }
 
-                    return Err(CommandParseError::Part {
+                    return Err(CommandFormatParseError::Part {
                         matched_parts: parsed_parts,
                         unmatched_parts,
                         error,
@@ -875,13 +875,12 @@ impl CommandFormat {
         }
 
         if !remaining_input.is_empty() {
-            return Err(CommandParseError::UnmatchedInput {
+            return Err(CommandFormatParseError::UnmatchedInput {
                 matched_parts: parsed_parts,
                 unmatched: remaining_input,
             });
         }
 
-        dbg!("success"); //TODO
         Ok(ParsedCommand::new(parsed_parts))
     }
 }

@@ -9,15 +9,15 @@ use crate::{
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     command_format::{
         entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId, CommandPartValidateError,
-        CommandPartValidateResult, PartValidatorContext,
+        CommandFormat, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
+        PartValidatorContext,
     },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
     handle_enter_combat,
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     vital_change::{
@@ -106,20 +106,20 @@ impl InputParser for ThrowParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = THROW_FORMAT.parse(input, source_entity, world)?;
         let item = parsed.get(&ITEM_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
 
         if target == source_entity {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You can't throw things at yourself.".to_string(),
             ));
         }
 
         if item == target {
             let item_name = Description::get_reference_name(item, Some(source_entity), world);
-            return Err(CommandParseError::Other(format!(
+            return Err(InputParseError::Other(format!(
                 "You can't throw {item_name} at itself."
             )));
         }

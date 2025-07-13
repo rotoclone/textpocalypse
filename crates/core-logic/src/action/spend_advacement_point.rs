@@ -5,11 +5,11 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, literal_part, one_of_part, CommandFormat, CommandParseError,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, literal_part, one_of_part, CommandFormat, CommandPartId,
+        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     ActionTag, Attribute, BeforeActionNotification, MessageCategory, MessageDelay, Skill, Stats,
@@ -85,7 +85,7 @@ impl InputParser for SpendSkillPointParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SPEND_SKILL_POINT_FORMAT.parse(input, source_entity, world)?;
         let skill_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
         if let Some(skill) = SkillNameCatalog::get_skill(&skill_name, world) {
@@ -95,7 +95,7 @@ impl InputParser for SpendSkillPointParser {
             }))
         } else {
             // this should never happen due to the validator, but ya never know
-            Err(CommandParseError::Other(format!(
+            Err(InputParseError::Other(format!(
                 "'{skill_name}' is not a skill."
             )))
         }
@@ -118,7 +118,7 @@ impl InputParser for SpendAttributePointParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SPEND_ATTRIBUTE_POINT_FORMAT.parse(input, source_entity, world)?;
         let attribute_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
         if let Some(attribute) = AttributeNameCatalog::get_attribute(&attribute_name, world) {
@@ -128,7 +128,7 @@ impl InputParser for SpendAttributePointParser {
             }))
         } else {
             // this should never happen due to the validator, but ya never know
-            Err(CommandParseError::Other(format!(
+            Err(InputParseError::Other(format!(
                 "'{attribute_name}' is not an attribute."
             )))
         }

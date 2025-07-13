@@ -7,10 +7,10 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     combat_utils::{self, AttackCommandFormats},
-    command_format::{literal_part, CommandParseError},
+    command_format::literal_part,
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     parse_attack_input, Action, ActionEndNotification, ActionInterruptResult,
     ActionNotificationSender, ActionResult, ActionTag, AfterActionPerformNotification, AttackType,
     BasicTokens, BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
@@ -75,7 +75,7 @@ impl InputParser for UppercutParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let attack = parse_attack_input(input, source_entity, &UPPERCUT_FORMATS, world)?;
 
         Ok(Box::new(UppercutAction {
@@ -275,7 +275,7 @@ impl InputParser for HaymakerParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let attack = parse_attack_input(input, source_entity, &HAYMAKER_FORMATS, world)?;
 
         Ok(Box::new(HaymakerAction {

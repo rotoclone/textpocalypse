@@ -5,11 +5,11 @@ use bevy_ecs::prelude::*;
 use crate::{
     command_format::{
         entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Edible},
     despawn_entity,
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -41,7 +41,7 @@ impl InputParser for EatParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = EAT_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(EatAction {

@@ -11,13 +11,13 @@ use regex::Regex;
 use crate::{
     command_format::{
         any_text_part_with_validator, entity_part_with_validator, literal_part, one_of_part,
-        validate_parsed_value_has_component, CommandFormat, CommandFormatPart, CommandParseError,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        validate_parsed_value_has_component, CommandFormat, CommandFormatPart, CommandPartId,
+        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
     },
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     resource::get_fluid_name,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -126,7 +126,7 @@ impl InputParser for FillParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = FILL_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(&SOURCE_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
@@ -163,7 +163,7 @@ impl InputParser for PourAllParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = POUR_ALL_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(&SOURCE_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
@@ -196,7 +196,7 @@ impl InputParser for PourParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = POUR_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(&SOURCE_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
@@ -234,10 +234,10 @@ fn build_action(
     target: Entity,
     amount: PourAmount,
     world: &World,
-) -> Result<Box<dyn Action>, CommandParseError> {
+) -> Result<Box<dyn Action>, InputParseError> {
     if source == target {
         let target_name = Description::get_reference_name(target, Some(target), world);
-        return Err(CommandParseError::Other(format!(
+        return Err(InputParseError::Other(format!(
             "You can't pour {target_name} into itself."
         )));
     }

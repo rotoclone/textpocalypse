@@ -5,14 +5,12 @@ use nonempty::nonempty;
 
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
-    command_format::{
-        direction_part, literal_part, one_of_part, CommandFormat, CommandParseError, CommandPartId,
-    },
+    command_format::{direction_part, literal_part, one_of_part, CommandFormat, CommandPartId},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
         Container, Location, Stats,
     },
-    input_parser::{CommandTarget, InputParser},
+    input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
@@ -63,7 +61,7 @@ impl InputParser for MoveParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         match MOVE_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(MoveAction {
@@ -73,7 +71,7 @@ impl InputParser for MoveParser {
             }
             Err(e) => {
                 if e.any_parts_matched() {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }

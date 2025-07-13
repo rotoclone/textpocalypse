@@ -8,11 +8,11 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     combat_utils::AttackCommandFormats,
-    command_format::{literal_part, one_of_part, CommandParseError},
+    command_format::{literal_part, one_of_part},
     component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
     vital_change::{
@@ -46,7 +46,7 @@ impl InputParser for AttackParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let attack = parse_attack_input(input, source_entity, &COMMAND_FORMATS, world)?;
 
         Ok(Box::new(AttackAction {

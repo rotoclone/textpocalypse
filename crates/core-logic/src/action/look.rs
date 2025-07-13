@@ -5,13 +5,13 @@ use nonempty::nonempty;
 
 use crate::{
     can_receive_messages,
-    command_format::{entity_part, optional_literal_part, CommandParseError},
+    command_format::{entity_part, optional_literal_part},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
     },
     game_map::Coordinates,
-    input_parser::{input_formats_if_has_component, CommandTarget, InputParser},
+    input_parser::{input_formats_if_has_component, CommandTarget, InputParseError, InputParser},
     literal_part,
     notification::VerifyResult,
     one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
@@ -71,7 +71,7 @@ impl InputParser for LookParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         if LOOK_NO_TARGET_FORMAT
             .parse(input, source_entity, world)
             .is_ok()
@@ -79,7 +79,7 @@ impl InputParser for LookParser {
             let here = match CommandTarget::Here.find_target_entity(source_entity, world) {
                 Some(e) => e,
                 None => {
-                    return Err(CommandParseError::Other(
+                    return Err(InputParseError::Other(
                         "There's nothing to see.".to_string(),
                     ));
                 }
@@ -106,7 +106,7 @@ impl InputParser for LookParser {
             }
             Err(e) => {
                 if e.any_parts_matched() {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         };

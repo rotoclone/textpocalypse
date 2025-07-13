@@ -6,13 +6,13 @@ use nonempty::nonempty;
 use crate::{
     command_format::{
         entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
         WornItems,
     },
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     resource::BodyPartTypeNameCatalog,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -47,7 +47,7 @@ impl InputParser for WearParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WEAR_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(WearAction {
             target: parsed.get(&TARGET_PART_ID),

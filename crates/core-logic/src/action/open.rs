@@ -5,10 +5,10 @@ use bevy_ecs::prelude::*;
 use crate::{
     command_format::{
         entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -54,7 +54,7 @@ impl InputParser for OpenParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = OPEN_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(OpenAction {
             target: parsed.get(&TARGET_PART_ID),
@@ -86,7 +86,7 @@ impl InputParser for CloseParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = CLOSE_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(OpenAction {
             target: parsed.get(&TARGET_PART_ID),

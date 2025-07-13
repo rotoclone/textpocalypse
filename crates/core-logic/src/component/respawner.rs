@@ -5,9 +5,9 @@ use nonempty::nonempty;
 
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
-    command_format::{literal_part, one_of_part, CommandFormat, CommandParseError},
+    command_format::{literal_part, one_of_part, CommandFormat},
     find_spawn_room,
-    input_parser::{CommandTarget, InputParser},
+    input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
@@ -34,7 +34,7 @@ impl InputParser for RespawnParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         RESPAWN_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(RespawnAction {
             notification_sender: ActionNotificationSender::new(),

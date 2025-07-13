@@ -6,9 +6,9 @@ use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction},
     command_format::{
         entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, AttributeDescription, BasicTokens, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -54,7 +54,7 @@ impl InputParser for LockParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         match UNLOCK_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(LockAction {
@@ -65,7 +65,7 @@ impl InputParser for LockParser {
             }
             Err(e) => {
                 if e.any_parts_matched() {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }

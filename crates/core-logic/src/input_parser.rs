@@ -7,9 +7,9 @@ use regex::Regex;
 
 use crate::{
     action::Action,
-    command_format::{CommandFormatDescription, CommandFormatParseError},
+    command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
     component::{Container, CustomInputParser, Location},
-    Direction, StandardInputParsers,
+    Direction, GameMessage, StandardInputParsers,
 };
 
 static SELF_TARGET_PATTERN: LazyLock<Regex> =
@@ -260,6 +260,22 @@ pub enum InputParseError {
 impl From<String> for InputParseError {
     fn from(value: String) -> Self {
         InputParseError::Other(value)
+    }
+}
+
+impl From<CommandFormatParseError> for InputParseError {
+    fn from(value: CommandFormatParseError) -> Self {
+        InputParseError::CommandFormatParseError(value)
+    }
+}
+
+impl InputParseError {
+    /// Turns the error into a message to send to the entering entity describing what went wrong.
+    pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
+        match self {
+            InputParseError::CommandFormatParseError(e) => e.into_message(context, world),
+            InputParseError::Other(s) => GameMessage::Error(s),
+        }
     }
 }
 

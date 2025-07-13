@@ -3,11 +3,9 @@ use std::{collections::HashSet, sync::LazyLock};
 use bevy_ecs::prelude::*;
 
 use crate::{
-    command_format::{
-        any_text_part, literal_part, CommandFormat, CommandParseError, CommandPartId,
-    },
+    command_format::{any_text_part, literal_part, CommandFormat, CommandPartId},
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
@@ -37,7 +35,7 @@ impl InputParser for CheatParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = CHEAT_FORMAT.parse(input, source_entity, world)?;
         let args = parsed
             .get(&ARGS_PART_ID)

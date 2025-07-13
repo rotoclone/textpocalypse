@@ -5,11 +5,11 @@ use regex::Regex;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, literal_part, CommandFormat, CommandParseError,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, literal_part, CommandFormat, CommandPartId,
+        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player},
-    input_parser::{CommandTarget, InputParser},
+    input_parser::{CommandTarget, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
     ActionTag, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -65,7 +65,7 @@ impl InputParser for WaitParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         WAIT_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(WaitAction {
             total_ticks_to_wait: 1,
@@ -89,7 +89,7 @@ impl InputParser for WaitWithDurationParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WAIT_WITH_DURATION_FORMAT.parse(input, source_entity, world)?;
         let total_ticks_to_wait = parse_time_to_ticks(parsed.get(&DURATION_PART_ID).as_str())?;
         Ok(Box::new(WaitAction {

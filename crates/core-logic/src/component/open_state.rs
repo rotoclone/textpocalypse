@@ -9,9 +9,9 @@ use crate::{
     },
     command_format::{
         entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -46,7 +46,7 @@ impl InputParser for SlamParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SLAM_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(SlamAction {
             target: parsed.get(&TARGET_PART_ID),

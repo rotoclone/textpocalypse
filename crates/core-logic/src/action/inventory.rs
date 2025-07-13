@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    command_format::{literal_part, one_of_part, CommandFormat, CommandParseError},
+    command_format::{literal_part, one_of_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, Container},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, ContainerDescription, GameMessage,
     VerifyActionNotification, World,
@@ -30,7 +30,7 @@ impl InputParser for InventoryParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         INVENTORY_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(InventoryAction {
             notification_sender: ActionNotificationSender::new(),

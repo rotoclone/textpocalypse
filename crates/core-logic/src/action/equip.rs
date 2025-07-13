@@ -6,14 +6,14 @@ use nonempty::nonempty;
 use crate::{
     command_format::{
         entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
     component::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
         EquipError, EquippedItems, Item, Location, UnequipError,
     },
     find_wearing_entity, find_wielding_entity,
-    input_parser::{input_formats_if_has_component, InputParser},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -70,7 +70,7 @@ impl InputParser for EquipParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         match EQUIP_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(EquipAction {
@@ -81,7 +81,7 @@ impl InputParser for EquipParser {
             }
             Err(e) => {
                 if e.any_parts_matched() {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }

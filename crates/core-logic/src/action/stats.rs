@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    command_format::{literal_part, one_of_part, CommandFormat, CommandParseError},
+    command_format::{literal_part, one_of_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, Stats},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, StatsDescription, VerifyActionNotification,
     World,
@@ -30,7 +30,7 @@ impl InputParser for StatsParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         STATS_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(StatsAction {
             notification_sender: ActionNotificationSender::new(),

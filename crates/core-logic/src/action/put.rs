@@ -6,11 +6,11 @@ use nonempty::nonempty;
 use crate::{
     command_format::{
         entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandParseError, CommandPartId,
+        CommandFormat, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
     find_owning_entity,
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -126,18 +126,18 @@ impl InputParser for GetParser {
         input: &str,
         entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = GET_FORMAT.parse(input, entity, world)?;
 
         let item = parsed.get(&ITEM_PART_ID);
         let Some(source_location) = world.get::<Location>(entity) else {
-            return Err(CommandParseError::Other("You aren't anywhere.".to_string()));
+            return Err(InputParseError::Other("You aren't anywhere.".to_string()));
         };
         let source = source_location.id;
         let destination = entity;
 
         if item == entity {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You can't get yourself. At least not in a physical sense.".to_string(),
             ));
         }
@@ -179,18 +179,18 @@ impl InputParser for DropParser {
         input: &str,
         entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = DROP_FORMAT.parse(input, entity, world)?;
 
         let item = parsed.get(&ITEM_PART_ID);
         let source = entity;
         let Some(destination_location) = world.get::<Location>(entity) else {
-            return Err(CommandParseError::Other("You aren't anywhere.".to_string()));
+            return Err(InputParseError::Other("You aren't anywhere.".to_string()));
         };
         let destination = destination_location.id;
 
         if item == entity {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You can't drop yourself.".to_string(),
             ));
         }
@@ -232,7 +232,7 @@ impl InputParser for GetFromParser {
         input: &str,
         entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = GET_FROM_FORMAT.parse(input, entity, world)?;
 
         let item = parsed.get(&ITEM_PART_ID);
@@ -240,14 +240,14 @@ impl InputParser for GetFromParser {
         let destination = entity;
 
         if item == entity {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You can't get yourself. At least not in a physical sense.".to_string(),
             ));
         }
 
         if item == source {
             let item_name = Description::get_reference_name(item, Some(entity), world);
-            return Err(CommandParseError::Other(format!(
+            return Err(InputParseError::Other(format!(
                 "You can't take {item_name} out of itself."
             )));
         }
@@ -262,7 +262,7 @@ impl InputParser for GetFromParser {
             || (source != entity && is_living_entity(source, world))
         {
             let source_name = Description::get_reference_name(source, Some(entity), world);
-            return Err(CommandParseError::Other(format!(
+            return Err(InputParseError::Other(format!(
                 "You can't get anything from {source_name}."
             )));
         }
@@ -317,23 +317,22 @@ impl InputParser for PutParser {
         input: &str,
         entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = PUT_FORMAT.parse(input, entity, world)?;
-        dbg!("put parsed"); //TODO remove
 
         let item = parsed.get(&ITEM_PART_ID);
         let source = entity;
         let destination = parsed.get(&CONTAINER_PART_ID);
 
         if item == entity {
-            return Err(CommandParseError::Other(
+            return Err(InputParseError::Other(
                 "You can't put yourself anywhere.".to_string(),
             ));
         }
 
         if item == destination {
             let item_name = Description::get_reference_name(item, Some(entity), world);
-            return Err(CommandParseError::Other(format!(
+            return Err(InputParseError::Other(format!(
                 "You can't put {item_name} inside itself."
             )));
         }
@@ -1214,6 +1213,7 @@ mod tests {
     #[test]
     fn drop_do_not_have_target() {
         let game = set_up_game(NumPlayers::One);
+        //TODO this sometimes fails because the error is "the entity item name is already in it"
         test_error(
             "drop the entity item name",
             "You don't have the entity item name.",
@@ -1531,10 +1531,9 @@ mod tests {
     #[test]
     fn put_target_same_as_container() {
         let game = set_up_game(NumPlayers::One);
-        //TODO this fails
         test_error(
             "put entity container name into entity container name",
-            "You can't put the entity container name into itself.",
+            "You can't put the entity container name inside itself.",
             &game,
         );
     }

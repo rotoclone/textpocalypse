@@ -4,9 +4,8 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     any_text_part,
-    command_format::CommandParseError,
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     literal_part,
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId, DynamicMessage,
@@ -44,7 +43,7 @@ impl InputParser for SayParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SAY_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(SayAction {
@@ -68,7 +67,7 @@ impl InputParser for SayWithoutVerbParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn Action>, CommandParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SAY_WITHOUT_VERB_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(SayAction {
