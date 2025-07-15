@@ -657,11 +657,16 @@ pub enum CommandFormatParseError {
         unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
         error: CommandPartParseError,
     },
-    /// Some of the input remained unmatched after all the parsers were run
+    /// Some of the input remained unmatched after matching all the parts
     UnmatchedInput {
         matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
     },
+}
+
+#[derive(Debug)]
+pub enum CommandPartMatchError {
+    //TODO
 }
 
 impl CommandFormatParseError {
@@ -846,16 +851,13 @@ impl CommandFormat {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
+        let matched_parts = self.match_parts(input, entering_entity)?;
+
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = Vec::new();
 
-        //TODO first turn parts into `MatchedCommandFormatPart`s
-        for (i, part) in self.0.iter().enumerate() {
-            if remaining_input.is_empty() {
-                has_remaining_input = false;
-            }
-
+        for part in matched_parts {
             match part.parse(
                 PartParserContext {
                     input: remaining_input,
@@ -913,6 +915,68 @@ impl CommandFormat {
         }
 
         Ok(ParsedCommand::new(parsed_parts))
+    }
+
+    /// Attempts to match parts from this format to portions of the provided input.
+    fn match_parts(
+        &self,
+        input: impl Into<String>,
+    ) -> Result<Vec<MatchedCommandFormatPart>, CommandFormatParseError> {
+        let mut remaining_input = input.into();
+        let mut has_remaining_input = true;
+        let mut matched_parts = Vec::new();
+
+        for (i, part) in self.0.iter().enumerate() {
+            if remaining_input.is_empty() {
+                has_remaining_input = false;
+            }
+
+            match part.match_from(PartMatcherContext {
+                input: remaining_input,
+                next_part: self.0.get(i + 1),
+            }) {
+                CommandPartMatchResult::Success { matched, remaining } => {
+                    matched_parts.push(MatchedCommandFormatPart {
+                        part: part.clone(),
+                        matched_input: matched,
+                    });
+
+                    remaining_input = remaining;
+                }
+                CommandPartMatchResult::Failure { error, .. } => {
+                    let mut unmatched_parts = NonEmpty::new(part.clone());
+                    // +1 to account for the failed part already added above
+                    unmatched_parts.extend(self.0.iter().skip(matched_parts.len() + 1).cloned());
+
+                    if !has_remaining_input {
+                        // Assume that this part failed to match due to the input being empty. This has to be down here because some parts
+                        // may be optional, in which case they will match just fine with no input, so this shouldn't pre-emptively return
+                        // an end of input error without letting the part see if that's actually a problem first.
+                        //TODO is it a problem to just throw away the error returned from the part?
+                        return Err(CommandFormatParseError::Matching {
+                            matched_parts,
+                            unmatched_parts: Box::new(unmatched_parts),
+                            error: CommandPartParseError::EndOfInput,
+                        });
+                    }
+
+                    return Err(CommandFormatParseError::Matching {
+                        matched_parts,
+                        unmatched_parts: Box::new(unmatched_parts),
+                        error,
+                    });
+                }
+            }
+        }
+
+        if !remaining_input.is_empty() {
+            return Err(CommandFormatParseError::UnmatchedInput {
+                matched_parts,
+                unmatched: remaining_input,
+            });
+        }
+
+        Ok(matched_parts)
     }
 }
 

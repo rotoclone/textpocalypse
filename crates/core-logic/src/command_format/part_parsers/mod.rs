@@ -21,35 +21,55 @@ use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateErr
 
 /// TODO doc
 #[derive(Clone)]
-pub struct PartParserContext<'c> {
+pub struct PartParserContext {
     pub input: String,
     pub entering_entity: Entity,
-    pub next_part: Option<&'c CommandFormatPart>,
 }
 
 //TODO doc
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseResult {
-    Success {
-        parsed: ParsedValue,
-        consumed: String,
-        remaining: String,
-    },
-    Failure {
-        error: CommandPartParseError,
-        remaining: String,
-    },
+    Success(ParsedValue),
+    Failure(CommandPartParseError),
 }
 
 /// An error encountered while attempting to parse a command part.
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
+    /// The part could not be parsed from a string
+    Unparseable { details: Option<String> },
+    /// The parsed value failed validation
+    Invalid(CommandPartValidateError),
+}
+
+//TODO move matcher stuff into a different directory
+/// TODO doc
+#[derive(Clone)]
+pub struct PartMatcherContext<'c> {
+    pub input: String,
+    pub next_part: Option<&'c CommandFormatPart>,
+}
+
+//TODO doc
+#[derive(PartialEq, Eq, Debug)]
+pub enum CommandPartMatchResult {
+    Success {
+        matched: String,
+        remaining: String,
+    },
+    Failure {
+        error: CommandPartMatchError,
+        remaining: String,
+    },
+}
+
+/// An error encountered while attempting to match a command part.
+#[derive(PartialEq, Eq, Debug)]
+pub enum CommandPartMatchError {
     /// All the input was consumed before getting to this part
     EndOfInput,
     /// The part was not matched
     Unmatched { details: Option<String> },
-    /// The part was found, but was invalid
-    Invalid(CommandPartValidateError),
 }
 
 /// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
