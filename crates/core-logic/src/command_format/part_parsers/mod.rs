@@ -42,36 +42,6 @@ pub enum CommandPartParseError {
     Invalid(CommandPartValidateError),
 }
 
-//TODO move matcher stuff into a different directory
-/// TODO doc
-#[derive(Clone)]
-pub struct PartMatcherContext<'c> {
-    pub input: String,
-    pub next_part: Option<&'c CommandFormatPart>,
-}
-
-//TODO doc
-#[derive(PartialEq, Eq, Debug)]
-pub enum CommandPartMatchResult {
-    Success {
-        matched: String,
-        remaining: String,
-    },
-    Failure {
-        error: CommandPartMatchError,
-        remaining: String,
-    },
-}
-
-/// An error encountered while attempting to match a command part.
-#[derive(PartialEq, Eq, Debug)]
-pub enum CommandPartMatchError {
-    /// All the input was consumed before getting to this part
-    EndOfInput,
-    /// The part was not matched
-    Unmatched { details: Option<String> },
-}
-
 /// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
 ///
 /// If the next part is not a literal: returns `(input, "")`.

@@ -11,6 +11,9 @@ mod command_format_string;
 pub use command_format_string::CommandFormatDescription;
 use command_format_string::*;
 
+mod part_matching;
+use part_matching::*;
+
 mod parsed_value;
 pub use parsed_value::ParsedValue;
 
@@ -770,13 +773,6 @@ impl CommandFormatParseError {
     }
 }
 
-/// A part that has been associated with a portion of the input string
-#[derive(Debug)]
-struct MatchedCommandFormatPart {
-    part: CommandFormatPart,
-    matched_input: String,
-}
-
 /// A part that has been parsed into some concrete value
 #[derive(Debug)]
 pub struct ParsedCommandFormatPart {
@@ -797,11 +793,6 @@ impl ParsedCommandFormatPart {
             .clone()
             .unwrap_or_else(|| self.parsed_value.to_string_for_parse_error(context, world))
     }
-}
-
-/// An intermediate state during command parsing, where each part has been associated with a portion of the input string, but the parts haven't actually been parsed yet.
-struct SegmentedCommand {
-    //TODO
 }
 
 pub struct ParsedCommand {
@@ -851,7 +842,7 @@ impl CommandFormat {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
-        let matched_parts = self.match_parts(input, entering_entity)?;
+        let matched_parts = self.match_parts(input)?;
 
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
@@ -918,6 +909,7 @@ impl CommandFormat {
     }
 
     /// Attempts to match parts from this format to portions of the provided input.
+    /// TODO move to part_matching.rs?
     fn match_parts(
         &self,
         input: impl Into<String>,
