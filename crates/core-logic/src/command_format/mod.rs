@@ -241,6 +241,11 @@ impl CommandFormatPart {
         self
     }
 
+    /// Matches some of an input with the portion corresponding to this part.
+    pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
+        todo!() //TODO
+    }
+
     /// Parses this part from some input.
     pub fn parse(&self, context: PartParserContext, world: &World) -> CommandPartParseResult {
         let entering_entity = context.entering_entity;
@@ -667,11 +672,6 @@ pub enum CommandFormatParseError {
     },
 }
 
-#[derive(Debug)]
-pub enum CommandPartMatchError {
-    //TODO
-}
-
 impl CommandFormatParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
     pub fn any_parts_matched(&self) -> bool {
@@ -906,69 +906,6 @@ impl CommandFormat {
         }
 
         Ok(ParsedCommand::new(parsed_parts))
-    }
-
-    /// Attempts to match parts from this format to portions of the provided input.
-    /// TODO move to part_matching.rs?
-    fn match_parts(
-        &self,
-        input: impl Into<String>,
-    ) -> Result<Vec<MatchedCommandFormatPart>, CommandFormatParseError> {
-        let mut remaining_input = input.into();
-        let mut has_remaining_input = true;
-        let mut matched_parts = Vec::new();
-
-        for (i, part) in self.0.iter().enumerate() {
-            if remaining_input.is_empty() {
-                has_remaining_input = false;
-            }
-
-            match part.match_from(PartMatcherContext {
-                input: remaining_input,
-                next_part: self.0.get(i + 1),
-            }) {
-                CommandPartMatchResult::Success { matched, remaining } => {
-                    matched_parts.push(MatchedCommandFormatPart {
-                        part: part.clone(),
-                        matched_input: matched,
-                    });
-
-                    remaining_input = remaining;
-                }
-                CommandPartMatchResult::Failure { error, .. } => {
-                    let mut unmatched_parts = NonEmpty::new(part.clone());
-                    // +1 to account for the failed part already added above
-                    unmatched_parts.extend(self.0.iter().skip(matched_parts.len() + 1).cloned());
-
-                    if !has_remaining_input {
-                        // Assume that this part failed to match due to the input being empty. This has to be down here because some parts
-                        // may be optional, in which case they will match just fine with no input, so this shouldn't pre-emptively return
-                        // an end of input error without letting the part see if that's actually a problem first.
-                        //TODO is it a problem to just throw away the error returned from the part?
-                        return Err(CommandFormatParseError::Matching {
-                            matched_parts,
-                            unmatched_parts: Box::new(unmatched_parts),
-                            error: CommandPartParseError::EndOfInput,
-                        });
-                    }
-
-                    return Err(CommandFormatParseError::Matching {
-                        matched_parts,
-                        unmatched_parts: Box::new(unmatched_parts),
-                        error,
-                    });
-                }
-            }
-        }
-
-        if !remaining_input.is_empty() {
-            return Err(CommandFormatParseError::UnmatchedInput {
-                matched_parts,
-                unmatched: remaining_input,
-            });
-        }
-
-        Ok(matched_parts)
     }
 }
 
