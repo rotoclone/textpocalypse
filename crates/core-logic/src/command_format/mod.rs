@@ -699,34 +699,45 @@ impl CommandFormatParseError {
                 unmatched_parts,
                 error,
             } => {
-                let matched_parts_string = matched_parts
+                todo!() //TODO
+            }
+            CommandFormatParseError::Parsing {
+                parsed_parts,
+                unparsed_parts,
+                error,
+            } => {
+                let parsed_parts_string = parsed_parts
                     .into_iter()
-                    .map(|matched_part| {
-                        matched_part.to_string_for_parse_error(context.clone(), world)
+                    .map(|parsed_part| {
+                        parsed_part.to_string_for_parse_error(context.clone(), world)
                     })
                     .join("");
 
                 let error_detail_string = match error {
-                    CommandPartParseError::EndOfInput => None,
-                    CommandPartParseError::Unmatched { details } => details,
+                    CommandPartParseError::Unparseable { details } => details,
                     CommandPartParseError::Invalid(error) => error.details,
                 }
                 .map(|message| format!(" ({message})"))
                 .unwrap_or_default();
 
-                // figure out which unmatched parts (if any) to include in the error message
-                let mut unmatched_parts_to_include = Vec::new();
+                // figure out which unparsed parts (if any) to include in the error message
+                //TODO this needs to change because the parts might not be parsed in order
+                let mut unparsed_parts_to_include = Vec::new();
                 let mut previous_part_was_included = false;
-                if unmatched_parts.first().options().include_in_errors_behavior
+                if unparsed_parts
+                    .first()
+                    .part
+                    .options()
+                    .include_in_errors_behavior
                     != IncludeInErrorsBehavior::Never
                 {
-                    // include the first unmatched part because it caused the error
+                    // include the first unparsed part because it caused the error
                     previous_part_was_included = true;
-                    unmatched_parts_to_include.push(unmatched_parts.first());
+                    unparsed_parts_to_include.push(unparsed_parts.first());
                 }
-                for unmatched_part in unmatched_parts.tail() {
+                for unparsed_part in unparsed_parts.tail() {
                     let should_be_included =
-                        match unmatched_part.options().include_in_errors_behavior {
+                        match unparsed_part.part.options().include_in_errors_behavior {
                             IncludeInErrorsBehavior::Never => false,
                             IncludeInErrorsBehavior::OnlyIfMatched => false,
                             IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
@@ -738,23 +749,16 @@ impl CommandFormatParseError {
                     previous_part_was_included = should_be_included;
 
                     if should_be_included {
-                        unmatched_parts_to_include.push(unmatched_part);
+                        unparsed_parts_to_include.push(unparsed_part);
                     }
                 }
 
-                let unmatched_parts_string = unmatched_parts_to_include
+                let unparsed_parts_string = unparsed_parts_to_include
                     .iter()
-                    .map(|part| part.options().if_missing.as_deref().unwrap_or(""))
+                    .map(|part| part.part.options().if_missing.as_deref().unwrap_or(""))
                     .join("");
 
-                format!("{matched_parts_string}{unmatched_parts_string}?{error_detail_string}")
-            }
-            CommandFormatParseError::Parsing {
-                parsed_parts,
-                unparsed_parts,
-                error,
-            } => {
-                todo!() //TODO
+                format!("{parsed_parts_string}{unparsed_parts_string}?{error_detail_string}")
             }
             CommandFormatParseError::UnmatchedInput {
                 matched_parts,
