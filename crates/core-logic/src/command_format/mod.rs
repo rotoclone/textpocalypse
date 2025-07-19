@@ -11,8 +11,8 @@ mod command_format_string;
 pub use command_format_string::CommandFormatDescription;
 use command_format_string::*;
 
-mod part_matching;
-use part_matching::*;
+mod matched_command;
+use matched_command::*;
 
 mod parsed_value;
 pub use parsed_value::ParsedValue;
@@ -804,6 +804,15 @@ pub struct ParsedCommand {
 }
 
 impl ParsedCommand {
+    /// Attempts to parse the matched parts from `matched_command`.
+    fn from_matched_command(
+        matched_command: MatchedCommand,
+        entering_entity: Entity,
+        world: &World,
+    ) -> Result<ParsedCommand, CommandFormatParseError> {
+        todo!() //TODO
+    }
+
     /// Creates a `ParsedCommand` from a list of matched parts.
     fn new(all_parsed_parts: Vec<ParsedCommandFormatPart>) -> ParsedCommand {
         let mut parsed_parts = HashMap::new();
@@ -846,8 +855,10 @@ impl CommandFormat {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
-        let matched_parts = self.match_parts(input)?;
+        let matched_command = MatchedCommand::from_format(self, input);
+        ParsedCommand::from_matched_command(matched_command, entering_entity, world)
 
+        /* TODO
         let mut remaining_input = input.into();
         let mut has_remaining_input = true;
         let mut parsed_parts = Vec::new();
@@ -910,6 +921,7 @@ impl CommandFormat {
         }
 
         Ok(ParsedCommand::new(parsed_parts))
+        */
     }
 }
 
