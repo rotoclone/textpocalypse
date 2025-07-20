@@ -1,4 +1,8 @@
-use crate::command_format::{CommandFormat, CommandFormatPart};
+use bevy_ecs::prelude::*;
+
+use crate::command_format::{
+    part_parsers::CommandPartParseResult, CommandFormat, CommandFormatPart, PartParserContext,
+};
 
 /// TODO doc
 #[derive(Clone)]
@@ -30,20 +34,33 @@ pub enum CommandPartMatchError {
 }
 
 /// A part that has been associated with a portion of the input string
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MatchedCommandFormatPart {
     pub part: CommandFormatPart,
     pub matched_input: String,
 }
 
+impl MatchedCommandFormatPart {
+    /// Parses this matched part into an actual parsed value.
+    pub fn parse(&self, entering_entity: Entity, world: &World) -> CommandPartParseResult {
+        self.part.parse(
+            PartParserContext {
+                input: self.matched_input.clone(),
+                entering_entity,
+            },
+            world,
+        )
+    }
+}
+
 /// An intermediate state during command parsing, where some parts may have been associated with a portion of the input string, but the part(s) haven't actually been parsed yet.
 pub struct MatchedCommand {
     /// The parts that were successfully matched
-    matched_parts: Vec<MatchedCommandFormatPart>,
+    pub matched_parts: Vec<MatchedCommandFormatPart>,
     /// Any parts that weren't matched
-    unmatched_parts: Vec<CommandFormatPart>,
+    pub unmatched_parts: Vec<CommandFormatPart>,
     /// Any remaining un-matched input
-    remaining_input: String,
+    pub remaining_input: String,
 }
 
 impl MatchedCommand {

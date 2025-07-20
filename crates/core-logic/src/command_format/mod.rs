@@ -652,6 +652,7 @@ impl CommandFormat {
 #[derive(Debug)]
 pub enum CommandFormatParseError {
     /// An error occurred when attempting to match a part to a portion of the input string
+    /// TODO remove?
     Matching {
         matched_parts: Vec<MatchedCommandFormatPart>,
         // Boxed to reduce size
@@ -664,11 +665,22 @@ pub enum CommandFormatParseError {
         // Boxed to reduce size
         unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
         error: CommandPartParseError,
+        unmatched_parts: Vec<CommandFormatPart>,
     },
-    /// Some of the input remained unmatched after matching all the parts
+    /// Some of the input remained unmatched after matching all the parts.
+    /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
     UnmatchedInput {
         matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
+        parsed_parts: Vec<ParsedCommandFormatPart>,
+    },
+    /// At least one part remained unmatched after consuming all the input.
+    /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
+    UnmatchedPart {
+        matched_parts: Vec<MatchedCommandFormatPart>,
+        // Boxed to reduce size
+        unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
+        parsed_parts: Vec<ParsedCommandFormatPart>,
     },
 }
 
@@ -810,7 +822,59 @@ impl ParsedCommand {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
-        todo!() //TODO
+        let mut parsed_parts = Vec::new();
+
+        //TODO handle part dependencies
+        for part in &matched_command.matched_parts {
+            match part.parse(entering_entity, world) {
+                CommandPartParseResult::Success(parsed_value) => {
+                    dbg!(&part, &parsed_value); //TODO
+
+                    parsed_parts.push(ParsedCommandFormatPart {
+                        matched_part: part.clone(),
+                        parsed_value,
+                    });
+                }
+                CommandPartParseResult::Failure(error) => {
+                    let mut unparsed_parts = NonEmpty::new(part.clone());
+                    // +1 to account for the failed part already added above
+                    unparsed_parts.extend(
+                        matched_command
+                            .matched_parts
+                            .iter()
+                            .skip(parsed_parts.len() + 1)
+                            .cloned(),
+                    );
+
+                    return Err(CommandFormatParseError::Parsing {
+                        parsed_parts,
+                        unparsed_parts: Box::new(unparsed_parts),
+                        error,
+                        unmatched_parts: matched_command.unmatched_parts,
+                    });
+                }
+            }
+        }
+
+        if !matched_command.remaining_input.is_empty() {
+            return Err(CommandFormatParseError::UnmatchedInput {
+                matched_parts: matched_command.matched_parts,
+                unmatched: matched_command.remaining_input,
+                parsed_parts,
+            });
+        }
+
+        if !matched_command.unmatched_parts.is_empty() {
+            // unwrap is safe because of the `is_empty` check immediately above
+            let unmatched_parts = NonEmpty::collect(matched_command.unmatched_parts).unwrap();
+            return Err(CommandFormatParseError::UnmatchedPart {
+                matched_parts: matched_command.matched_parts,
+                unmatched_parts: Box::new(unmatched_parts),
+                parsed_parts,
+            });
+        }
+
+        Ok(ParsedCommand::new(parsed_parts))
     }
 
     /// Creates a `ParsedCommand` from a list of matched parts.
