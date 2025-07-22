@@ -17,6 +17,8 @@ pub use parse_direction::parse_direction;
 mod parse_one_of;
 pub use parse_one_of::parse_one_of;
 
+use crate::command_format::matched_command::PartMatcherContext;
+
 use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateError};
 
 /// TODO doc
@@ -36,7 +38,7 @@ pub enum CommandPartParseResult {
 /// An error encountered while attempting to parse a command part.
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseError {
-    /// The part could not be parsed from a string
+    /// The part could not be parsed from the matched string
     Unparseable { details: Option<String> },
     /// The parsed value failed validation
     Invalid(CommandPartValidateError),
@@ -45,7 +47,9 @@ pub enum CommandPartParseError {
 /// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
 ///
 /// If the next part is not a literal: returns `(input, "")`.
-pub fn take_until_literal_if_next(context: PartParserContext) -> (String, String) {
+///
+/// TODO deal with if the next part is an optional literal or a one of part with a bunch of literals
+pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, String) {
     let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
         Some(literal)
     } else {
@@ -85,23 +89,12 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> 
 /// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
 pub fn parse_result_to_option(parse_result: CommandPartParseResult) -> CommandPartParseResult {
     match parse_result {
-        CommandPartParseResult::Success {
-            parsed,
-            consumed,
-            remaining,
-        } => CommandPartParseResult::Success {
-            parsed: ParsedValue::Option(Some(Box::new(parsed))),
-            consumed,
-            remaining,
-        },
-        CommandPartParseResult::Failure {
-            error: _,
-            remaining,
-        } => CommandPartParseResult::Success {
-            parsed: ParsedValue::Option(None),
-            consumed: "".to_string(),
-            remaining,
-        },
+        CommandPartParseResult::Success(parsed) => {
+            CommandPartParseResult::Success(ParsedValue::Option(Some(Box::new(parsed))))
+        }
+        CommandPartParseResult::Failure(_) => {
+            CommandPartParseResult::Success(ParsedValue::Option(None))
+        }
     }
 }
 

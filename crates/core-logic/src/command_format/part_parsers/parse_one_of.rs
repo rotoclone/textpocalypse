@@ -14,25 +14,16 @@ pub fn parse_one_of(
     let mut first_error = None;
     for part in parts {
         match part.parse(context.clone(), world) {
-            CommandPartParseResult::Success {
-                parsed,
-                consumed,
-                remaining,
-            } => {
-                return CommandPartParseResult::Success {
-                    parsed,
-                    consumed,
-                    remaining,
-                };
+            CommandPartParseResult::Success(parsed) => {
+                return CommandPartParseResult::Success(parsed);
             }
-            CommandPartParseResult::Failure { error, .. } => {
+            CommandPartParseResult::Failure(error) => {
                 first_error.get_or_insert(error);
             }
         }
     }
 
-    CommandPartParseResult::Failure {
-        error: first_error.unwrap_or(CommandPartParseError::Unmatched { details: None }),
-        remaining: context.input,
-    }
+    CommandPartParseResult::Failure(
+        first_error.unwrap_or(CommandPartParseError::Unparseable { details: None }),
+    )
 }

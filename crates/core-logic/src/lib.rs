@@ -812,8 +812,6 @@ fn handle_input_error(entity: Entity, input: String, error: InputParseError, wor
     let context = PartParserContext {
         input,
         entering_entity: entity,
-        //TODO this is silly, make a `ParseFailureContext` or something without this field?
-        next_part: None,
     };
     send_message(world, entity, error.into_message(context, world));
 

@@ -324,6 +324,7 @@ where
     Err(CommandFormatParseError::UnmatchedInput {
         matched_parts: Vec::new(),
         unmatched: input.to_string(),
+        parsed_parts: Vec::new(),
     }
     .into())
 }

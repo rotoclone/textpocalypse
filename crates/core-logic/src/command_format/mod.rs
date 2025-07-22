@@ -251,9 +251,9 @@ impl CommandFormatPart {
         let entering_entity = context.entering_entity;
         // first parse
         let parse_result = match self {
-            CommandFormatPart::Literal(literal, _) => parse_literal(literal, context),
-            CommandFormatPart::OptionalLiteral(literal, _) => {
-                parse_result_to_option(parse_literal(literal, context))
+            CommandFormatPart::Literal(..) => parse_literal(context),
+            CommandFormatPart::OptionalLiteral(..) => {
+                parse_result_to_option(parse_literal(context))
             }
             CommandFormatPart::AnyText(_) => parse_any_text(context),
             CommandFormatPart::OptionalAnyText(_) => {
@@ -274,11 +274,7 @@ impl CommandFormatPart {
 
         // now validate
         match parse_result {
-            CommandPartParseResult::Success {
-                parsed,
-                consumed,
-                remaining,
-            } => {
+            CommandPartParseResult::Success(parsed) => {
                 let validation_result = self
                     .validator()
                     .map(|v| {
@@ -293,17 +289,9 @@ impl CommandFormatPart {
                     .unwrap_or(CommandPartValidateResult::Valid);
 
                 if let CommandPartValidateResult::Invalid(e) = validation_result {
-                    CommandPartParseResult::Failure {
-                        error: CommandPartParseError::Invalid(e),
-                        // re-combine these to effectively un-do the consumption since it's invalid
-                        remaining: format!("{consumed}{remaining}"),
-                    }
+                    CommandPartParseResult::Failure(CommandPartParseError::Invalid(e))
                 } else {
-                    CommandPartParseResult::Success {
-                        parsed,
-                        consumed,
-                        remaining,
-                    }
+                    CommandPartParseResult::Success(parsed)
                 }
             }
             CommandPartParseResult::Failure { .. } => {
@@ -689,9 +677,11 @@ impl CommandFormatParseError {
     pub fn any_parts_matched(&self) -> bool {
         let no_matched_parts = match self {
             CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.is_empty(),
-            // If the parsing stage was reached, all parts were matched
             CommandFormatParseError::Parsing { .. } => false,
             CommandFormatParseError::UnmatchedInput { matched_parts, .. } => {
+                matched_parts.is_empty()
+            }
+            CommandFormatParseError::UnmatchedPart { matched_parts, .. } => {
                 matched_parts.is_empty()
             }
         };
@@ -717,6 +707,7 @@ impl CommandFormatParseError {
                 parsed_parts,
                 unparsed_parts,
                 error,
+                unmatched_parts,
             } => {
                 let parsed_parts_string = parsed_parts
                     .into_iter()
@@ -775,6 +766,7 @@ impl CommandFormatParseError {
             CommandFormatParseError::UnmatchedInput {
                 matched_parts,
                 unmatched,
+                ..
             } => {
                 let matched = matched_parts
                     .into_iter()
@@ -783,6 +775,11 @@ impl CommandFormatParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
+            CommandFormatParseError::UnmatchedPart {
+                matched_parts,
+                unmatched_parts,
+                parsed_parts,
+            } => todo!(),
         };
 
         GameMessage::Error(string)
