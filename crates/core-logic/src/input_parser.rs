@@ -9,6 +9,7 @@ use crate::{
     action::Action,
     command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
     component::{Container, CustomInputParser, Location},
+    found_entities::FoundEntities,
     Direction, GameMessage, StandardInputParsers,
 };
 
@@ -124,16 +125,31 @@ impl CommandTarget {
 
     /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
     pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+        let potential_targets = self.find_target_entities(looking_entity, world);
+
+        potential_targets
+            .exact
+            .first()
+            .or(potential_targets.partial.first())
+            .copied()
+    }
+
+    /// Finds all the possible entities described by this target, if any exist from the perspective of the looking entity.
+    pub fn find_target_entities(
+        &self,
+        looking_entity: Entity,
+        world: &World,
+    ) -> FoundEntities<PortionMatched> {
         debug!("Finding {self:?} from the perspective of {looking_entity:?}");
 
         match self {
-            CommandTarget::Myself => Some(looking_entity),
+            CommandTarget::Myself => FoundEntities::new_single_exact(looking_entity),
             CommandTarget::Here => {
                 let location_id = world
                     .get::<Location>(looking_entity)
                     .expect("Looking entity should have a location")
                     .id;
-                Some(location_id)
+                FoundEntities::new_single_exact(location_id)
             }
             CommandTarget::Direction(dir) => {
                 let location_id = world
@@ -146,13 +162,13 @@ impl CommandTarget {
                 if let Some((connecting_entity, _)) =
                     container.get_connection_in_direction(dir, looking_entity, world)
                 {
-                    Some(connecting_entity)
+                    FoundEntities::new_single_exact(connecting_entity)
                 } else {
-                    None
+                    FoundEntities::new()
                 }
             }
             CommandTarget::Named(target_name) => {
-                target_name.find_target_entity(looking_entity, world)
+                target_name.find_target_entities(looking_entity, world)
             }
         }
     }
@@ -173,18 +189,24 @@ impl Display for CommandTargetName {
 }
 
 impl CommandTargetName {
-    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
-    pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+    /// Finds all the entities described by this target, if any exist from the perspective of the looking entity.
+    pub fn find_target_entities(
+        &self,
+        looking_entity: Entity,
+        world: &World,
+    ) -> FoundEntities<PortionMatched> {
         //TODO take location chain into account
+
+        let mut found_entities = FoundEntities::new();
 
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first
         if let Some(container) = world.get::<Container>(looking_entity) {
-            if let Some(found_entity) =
-                container.find_entity_by_name(&self.name, looking_entity, world)
-            {
-                return Some(found_entity);
-            }
+            found_entities.extend(container.find_entities_by_name(
+                &self.name,
+                looking_entity,
+                world,
+            ));
         }
 
         // search the looking entity's location
@@ -195,27 +217,25 @@ impl CommandTargetName {
         let location = world
             .get::<Container>(location_id)
             .expect("Looking entity's location should be a container");
-        location.find_entity_by_name(&self.name, looking_entity, world)
+        found_entities.extend(location.find_entities_by_name(&self.name, looking_entity, world));
+
+        found_entities
     }
 
-    /// Finds the entity described by this target, if it exists in the provided container.
-    pub fn find_target_entity_in_container(
+    /// Finds all the entities described by this target, if any exist in the provided container.
+    pub fn find_target_entities_in_container(
         &self,
         containing_entity: Entity,
         looking_entity: Entity,
         world: &World,
-    ) -> Option<Entity> {
+    ) -> Vec<Entity> {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
-            if let Some(found_entity) =
-                container.find_entity_by_name(&self.name, looking_entity, world)
-            {
-                return Some(found_entity);
-            }
+            return container.find_entities_by_name(&self.name, looking_entity, world);
         }
 
-        None
+        Vec::new()
     }
 }
 

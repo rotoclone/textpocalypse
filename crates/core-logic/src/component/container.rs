@@ -5,6 +5,7 @@ use bevy_ecs::prelude::*;
 use crate::{
     action::PutAction,
     find_wearing_entity,
+    found_entities::FoundEntities,
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
@@ -87,22 +88,23 @@ impl Container {
             .collect()
     }
 
-    /// Finds the entity with the provided name, if it exists in this container from the perspective of the provided entity.
-    pub fn find_entity_by_name(
+    /// Finds the entities with the provided name, if any exist in this container from the perspective of the provided entity.
+    pub fn find_entities_by_name(
         &self,
         entity_name: &str,
         pov_entity: Entity,
         world: &World,
-    ) -> Option<Entity> {
-        for entity_id in &self.get_entities(pov_entity, world) {
-            if let Some(desc) = world.get::<Description>(*entity_id) {
-                if desc.matches(entity_name) {
-                    return Some(*entity_id);
-                }
-            }
-        }
-
-        None
+    ) -> FoundEntities<PortionMatched> {
+        self.get_entities(pov_entity, world)
+            .iter()
+            .filter(|entity| {
+                world
+                    .get::<Description>(**entity)
+                    .map(|desc| desc.matches(entity_name))
+                    .unwrap_or(false)
+            })
+            .copied()
+            .collect()
     }
 
     /// Determines if the provided entity is inside this container, or inside any container in this container, etc.

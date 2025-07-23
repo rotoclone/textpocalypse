@@ -9,12 +9,13 @@ use crate::{
         parsed_value_validators::{CommandPartValidateResult, PartValidatorContext},
         PartValidationFn,
     },
-    find_entities_in_presence_of, Description,
+    find_entities_in_presence_of,
+    input_parser::CommandTarget,
+    Description,
 };
 
 use super::{
-    match_literal_ignore_case, take_until_literal_if_next, CommandPartParseError,
-    CommandPartParseResult, PartParserContext,
+    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, PartParserContext,
 };
 
 /// Parses an entity from the provided context.
@@ -26,18 +27,21 @@ pub fn parse_entity(
     let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
     let mut first_invalid_match = None;
     let performing_entity = context.entering_entity;
-    let (to_parse, remaining) = take_until_literal_if_next(context);
-    dbg!(&to_parse, &remaining); //TODO
-    if to_parse.is_empty() {
-        return CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched { details: None },
-            remaining,
-        };
+    if context.input.is_empty() {
+        return CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: None,
+        });
     }
+
+    let potential_targets =
+        CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world);
 
     for entity in find_entities_in_presence_of(performing_entity, world) {
         for name in Description::get_all_ways_to_reference(entity, performing_entity, world) {
-            if let Ok((extra, matched)) = match_entity_name(name, &to_parse) {
+            if let Ok((extra, matched)) = match_entity_name(name, &context.input) {
+                if !extra.is_empty() {
+                    //
+                }
                 if let CommandPartValidateResult::Invalid(_) = validator
                     .as_ref()
                     .map(|v| {

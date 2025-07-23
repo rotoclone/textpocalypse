@@ -94,6 +94,8 @@ use dynamic_message::*;
 mod name_with_article;
 use name_with_article::*;
 
+mod found_entities;
+
 const CHEATS_ENABLED: bool = true;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {

@@ -220,7 +220,9 @@ impl Pronouns {
 impl Description {
     /// Determines whether the provided input refers to the entity with this description.
     pub fn matches(&self, input: &str) -> bool {
-        //TODO use get_all_ways_to_reference here
+        //TODO use get_all_ways_to_reference here?
+        //TODO allow partial matches (e.g. "thi" should match "thing")
+        //TODO allow optionally prefixing with "the"
         debug!("Checking if {input:?} matches {self:?}");
         self.name.eq_ignore_ascii_case(input)
             || self.room_name.eq_ignore_ascii_case(input)
