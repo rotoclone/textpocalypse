@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy_ecs::prelude::*;
 use log::debug;
 
-use crate::{find_owning_entity, is_living_entity, GameMessage};
+use crate::{find_owning_entity, is_living_entity, ConstrainedValue, GameMessage};
 
 use super::Location;
 
@@ -217,9 +217,22 @@ impl Pronouns {
     }
 }
 
+/// Describes how closely a given input matches with an entity's description.
+pub enum Matchness {
+    /// The input matches one of the entity's identifiers exactly
+    Exact,
+    /// The input partially matches one of the entity's identifiers (such as "pan" against the name "pants")
+    Partial(PortionMatched),
+    /// The input doesn't match at all with any of the entity's identifiers
+    None,
+}
+
+/// Contains a float between 0 and 1 (exclusive) representing the fraction of a name that matched with a given input.
+pub struct PortionMatched(pub f32);
+
 impl Description {
-    /// Determines whether the provided input refers to the entity with this description.
-    pub fn matches(&self, input: &str) -> bool {
+    /// Determines how closely the provided input refers to the entity with this description.
+    pub fn matches(&self, input: &str) -> Matchness {
         //TODO use get_all_ways_to_reference here?
         //TODO allow partial matches (e.g. "thi" should match "thing")
         //TODO allow optionally prefixing with "the"

@@ -8,7 +8,9 @@ pub use description::AttributeSection;
 pub use description::AttributeSectionName;
 pub use description::DescribeAttributes;
 pub use description::Description;
+pub use description::Matchness;
 pub use description::NonSectionAttributeType;
+pub use description::PortionMatched;
 pub use description::Pronouns;
 pub use description::SectionAttributeDescription;
 

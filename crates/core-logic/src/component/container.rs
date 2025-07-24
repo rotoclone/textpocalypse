@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
+    component::description::PortionMatched,
     find_wearing_entity,
     found_entities::FoundEntities,
     notification::{Notification, VerifyResult},

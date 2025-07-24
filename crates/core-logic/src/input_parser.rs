@@ -8,7 +8,7 @@ use regex::Regex;
 use crate::{
     action::Action,
     command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
-    component::{Container, CustomInputParser, Location},
+    component::{Container, CustomInputParser, Location, PortionMatched},
     found_entities::FoundEntities,
     Direction, GameMessage, StandardInputParsers,
 };
