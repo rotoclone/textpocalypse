@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use log::debug;
+use voca_rs::Voca;
 
 use crate::{find_owning_entity, is_living_entity, ConstrainedValue, GameMessage};
 
@@ -221,28 +222,50 @@ impl Pronouns {
 pub enum Matchness {
     /// The input matches one of the entity's identifiers exactly
     Exact,
-    /// The input partially matches one of the entity's identifiers (such as "pan" against the name "pants")
+    /// The input partially matches one of the entity's identifiers (such as "pan" and the name "pants")
     Partial(PortionMatched),
     /// The input doesn't match at all with any of the entity's identifiers
     None,
 }
 
 /// Contains a float between 0 and 1 (exclusive) representing the fraction of a name that matched with a given input.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct PortionMatched(pub f32);
 
 impl Description {
     /// Determines how closely the provided input refers to the entity with this description.
     pub fn matches(&self, input: &str) -> Matchness {
         //TODO use get_all_ways_to_reference here?
-        //TODO allow partial matches (e.g. "thi" should match "thing")
         //TODO allow optionally prefixing with "the"
         debug!("Checking if {input:?} matches {self:?}");
-        self.name.eq_ignore_ascii_case(input)
-            || self.room_name.eq_ignore_ascii_case(input)
-            || self
-                .aliases
-                .iter()
-                .any(|alias| alias.eq_ignore_ascii_case(input))
+        let mut identifiers = Vec::new();
+        identifiers.push(self.name.to_ascii_lowercase());
+        identifiers.push(self.room_name.to_ascii_lowercase());
+        identifiers.extend(self.aliases.iter().map(|alias| alias.to_ascii_lowercase()));
+
+        let mut best_portion_matched = None;
+        for identifier in identifiers {
+            let unmatched_part = identifier._removeprefix(&input.to_ascii_lowercase());
+            let identifier_length = identifier._count_graphemes();
+            let graphemes_matched = identifier_length - unmatched_part._count_graphemes();
+
+            if graphemes_matched == identifier_length {
+                return Matchness::Exact;
+            }
+            if graphemes_matched > 0 {
+                let portion_matched =
+                    PortionMatched(graphemes_matched as f32 / identifier_length as f32);
+                if portion_matched > best_portion_matched.unwrap_or(PortionMatched(0.0)) {
+                    best_portion_matched = Some(portion_matched);
+                }
+            }
+        }
+
+        if let Some(portion_matched) = best_portion_matched {
+            return Matchness::Partial(portion_matched);
+        }
+
+        Matchness::None
     }
 
     /// Gets the name of the provided entity, if it has one.
