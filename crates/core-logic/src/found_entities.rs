@@ -8,8 +8,8 @@ pub struct FoundEntities<T> {
 
 //TODO doc
 pub struct PartialMatchingEntity<T> {
-    entity: Entity,
-    match_info: T,
+    pub entity: Entity,
+    pub match_info: T,
 }
 
 impl<T> FoundEntities<T> {

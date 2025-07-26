@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    component::description::PortionMatched,
+    component::{description::PortionMatched, Matchness},
     find_wearing_entity,
-    found_entities::FoundEntities,
+    found_entities::{FoundEntities, PartialMatchingEntity},
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
@@ -96,16 +96,25 @@ impl Container {
         pov_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        self.get_entities(pov_entity, world)
-            .iter()
-            .filter(|entity| {
-                world
-                    .get::<Description>(**entity)
-                    .map(|desc| desc.matches(entity_name))
-                    .unwrap_or(false)
-            })
-            .copied()
-            .collect()
+        let mut found_entities = FoundEntities::new();
+        for entity in self.get_entities(pov_entity, world) {
+            match world
+                .get::<Description>(entity)
+                .map(|desc| desc.matches(entity_name))
+                .unwrap_or(Matchness::None)
+            {
+                super::Matchness::Exact => found_entities.exact_matches.push(entity),
+                super::Matchness::Partial(portion_matched) => {
+                    found_entities.partial_matches.push(PartialMatchingEntity {
+                        entity,
+                        match_info: portion_matched,
+                    })
+                }
+                super::Matchness::None => todo!(),
+            }
+        }
+
+        found_entities
     }
 
     /// Determines if the provided entity is inside this container, or inside any container in this container, etc.
