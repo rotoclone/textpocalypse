@@ -1,18 +1,19 @@
 use bevy_ecs::prelude::*;
 
 //TODO doc
-pub struct FoundEntities<T> {
+pub struct FoundEntities<T: Ord> {
     pub exact_matches: Vec<Entity>,
     pub partial_matches: Vec<PartialMatchingEntity<T>>,
 }
 
 //TODO doc
-pub struct PartialMatchingEntity<T> {
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct PartialMatchingEntity<T: Ord> {
     pub entity: Entity,
     pub match_info: T,
 }
 
-impl<T> FoundEntities<T> {
+impl<T: Ord> FoundEntities<T> {
     /// Creates a new `FoundEntities` with no matches.
     pub fn new() -> FoundEntities<T> {
         FoundEntities {

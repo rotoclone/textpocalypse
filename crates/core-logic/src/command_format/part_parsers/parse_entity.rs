@@ -36,6 +36,31 @@ pub fn parse_entity(
     let potential_targets =
         CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world);
 
+    for entity in potential_targets {
+        if let CommandPartValidateResult::Invalid(_) = validator
+            .as_ref()
+            .map(|v| {
+                v(
+                    PartValidatorContext {
+                        parsed_value: entity,
+                        performing_entity,
+                    },
+                    world,
+                )
+            })
+            .unwrap_or(CommandPartValidateResult::Valid)
+        {
+            if first_invalid_match.is_none() {
+                first_invalid_match = Some(entity);
+            }
+            continue;
+        }
+
+        // entity was valid
+        //TODO
+    }
+
+    /* TODO remove
     for entity in find_entities_in_presence_of(performing_entity, world) {
         for name in Description::get_all_ways_to_reference(entity, performing_entity, world) {
             if let Ok((extra, matched)) = match_entity_name(name, &context.input) {
@@ -78,6 +103,7 @@ pub fn parse_entity(
             }
         }
     }
+    */
 
     //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
     if let Some((entity, extra, matched)) = best_matches

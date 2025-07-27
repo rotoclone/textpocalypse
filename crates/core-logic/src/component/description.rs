@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use log::debug;
+use ordered_float::OrderedFloat;
 use voca_rs::Voca;
 
 use crate::{find_owning_entity, is_living_entity, ConstrainedValue, GameMessage};
@@ -229,8 +230,8 @@ pub enum Matchness {
 }
 
 /// Contains a float between 0 and 1 (exclusive) representing the fraction of a name that matched with a given input.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct PortionMatched(pub f32);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortionMatched(pub OrderedFloat<f32>);
 
 impl Description {
     /// Determines how closely the provided input refers to the entity with this description.
@@ -245,17 +246,24 @@ impl Description {
 
         let mut best_portion_matched = None;
         for identifier in identifiers {
-            let unmatched_part = identifier._removeprefix(&input.to_ascii_lowercase());
             let identifier_length = identifier._count_graphemes();
+            if input._count_graphemes() > identifier_length {
+                // if the input is longer than this identifier then it can't match
+                continue;
+            }
+            let unmatched_part = identifier._removeprefix(&input.to_ascii_lowercase());
             let graphemes_matched = identifier_length - unmatched_part._count_graphemes();
 
             if graphemes_matched == identifier_length {
                 return Matchness::Exact;
             }
             if graphemes_matched > 0 {
-                let portion_matched =
-                    PortionMatched(graphemes_matched as f32 / identifier_length as f32);
-                if portion_matched > best_portion_matched.unwrap_or(PortionMatched(0.0)) {
+                let portion_matched = PortionMatched(OrderedFloat(
+                    graphemes_matched as f32 / identifier_length as f32,
+                ));
+                if portion_matched
+                    > best_portion_matched.unwrap_or(PortionMatched(OrderedFloat(0.0)))
+                {
                     best_portion_matched = Some(portion_matched);
                 }
             }

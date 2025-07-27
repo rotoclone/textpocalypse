@@ -123,15 +123,22 @@ impl CommandTarget {
         })
     }
 
-    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
+    /// Finds the entity best described by this target, if it exists from the perspective of the looking entity.
     pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
         let potential_targets = self.find_target_entities(looking_entity, world);
 
         potential_targets
-            .exact
+            .exact_matches
             .first()
-            .or(potential_targets.partial.first())
             .copied()
+            .or_else(|| {
+                potential_targets
+                    .partial_matches
+                    .iter()
+                    .sorted()
+                    .max()
+                    .map(|best_partial_match| best_partial_match.entity)
+            })
     }
 
     /// Finds all the possible entities described by this target, if any exist from the perspective of the looking entity.
@@ -228,14 +235,14 @@ impl CommandTargetName {
         containing_entity: Entity,
         looking_entity: Entity,
         world: &World,
-    ) -> Vec<Entity> {
+    ) -> FoundEntities<PortionMatched> {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
             return container.find_entities_by_name(&self.name, looking_entity, world);
         }
 
-        Vec::new()
+        FoundEntities::new()
     }
 }
 
