@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use nom::{bytes::complete::tag, combinator::opt, sequence::pair, IResult};
 
 use crate::{
@@ -9,9 +8,7 @@ use crate::{
         parsed_value_validators::{CommandPartValidateResult, PartValidatorContext},
         PartValidationFn,
     },
-    find_entities_in_presence_of,
     input_parser::CommandTarget,
-    Description,
 };
 
 use super::{
@@ -24,7 +21,7 @@ pub fn parse_entity(
     validator: Option<&PartValidationFn<Entity>>,
     world: &World,
 ) -> CommandPartParseResult {
-    let mut best_matches: Vec<(Entity, &str, MatchedEntityName)> = Vec::new();
+    let mut best_matches: Vec<Entity> = Vec::new();
     let mut first_invalid_match = None;
     let performing_entity = context.entering_entity;
     if context.input.is_empty() {
@@ -36,7 +33,15 @@ pub fn parse_entity(
     let potential_targets =
         CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world);
 
-    for entity in potential_targets {
+    let sorted_targets = potential_targets.exact_matches.iter().copied().chain(
+        potential_targets
+            .partial_matches
+            .iter()
+            .sorted()
+            .map(|partial_match| partial_match.entity),
+    );
+
+    for entity in sorted_targets {
         if let CommandPartValidateResult::Invalid(_) = validator
             .as_ref()
             .map(|v| {
@@ -57,7 +62,7 @@ pub fn parse_entity(
         }
 
         // entity was valid
-        //TODO
+        best_matches.push(entity);
     }
 
     /* TODO remove
@@ -106,26 +111,18 @@ pub fn parse_entity(
     */
 
     //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
-    if let Some((entity, extra, matched)) = best_matches
+    if let Some(entity) = best_matches
         .first()
         // if no valid targets were found, return the first invalid one so the user will get a nice error message about why they can't target that entity
         .or(first_invalid_match.as_ref())
     {
         // matched at least one target
-        CommandPartParseResult::Success {
-            parsed: ParsedValue::Entity(*entity),
-            consumed: format!("{}{}", matched.prefix.unwrap_or_default(), matched.name),
-            remaining: format!("{extra}{remaining}"),
-        }
+        CommandPartParseResult::Success(ParsedValue::Entity(*entity))
     } else {
         // matched no targets
-        CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched {
-                details: Some(format!("There's no '{to_parse}' here.")),
-            },
-            // re-combine input string to undo split from earlier
-            remaining: format!("{to_parse}{remaining}"),
-        }
+        CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: Some(format!("There's no '{}' here.", context.input)),
+        })
     }
 }
 

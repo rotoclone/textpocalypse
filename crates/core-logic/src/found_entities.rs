@@ -7,10 +7,22 @@ pub struct FoundEntities<T: Ord> {
 }
 
 //TODO doc
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq)]
 pub struct PartialMatchingEntity<T: Ord> {
     pub entity: Entity,
     pub match_info: T,
+}
+
+impl<T: Ord> PartialOrd for PartialMatchingEntity<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.match_info.partial_cmp(&other.match_info)
+    }
+}
+
+impl<T: Ord> Ord for PartialMatchingEntity<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.match_info.cmp(&other.match_info)
+    }
 }
 
 impl<T: Ord> FoundEntities<T> {
