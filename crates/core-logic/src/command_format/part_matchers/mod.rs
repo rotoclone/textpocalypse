@@ -4,6 +4,9 @@ use crate::command_format::{
     part_parsers::CommandPartParseResult, CommandFormat, CommandFormatPart, PartParserContext,
 };
 
+mod match_literal;
+pub use match_literal::match_literal;
+
 /// TODO doc
 #[derive(Clone)]
 pub struct PartMatcherContext<'c> {
@@ -100,5 +103,19 @@ impl MatchedCommand {
             unmatched_parts: Vec::new(),
             remaining_input,
         }
+    }
+}
+
+/// Converts `CommandPartMatchResult::Failure` to `CommandPartMatchResult::Success` with a matched value of an empty string.
+/// Doesn't touch `CommandPartMatchResult::Success`.
+pub fn match_result_to_option(match_result: CommandPartMatchResult) -> CommandPartMatchResult {
+    match match_result {
+        CommandPartMatchResult::Success { matched, remaining } => {
+            CommandPartMatchResult::Success { matched, remaining }
+        }
+        CommandPartMatchResult::Failure { remaining, .. } => CommandPartMatchResult::Success {
+            matched: String::new(),
+            remaining,
+        },
     }
 }

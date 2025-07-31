@@ -11,8 +11,8 @@ mod command_format_string;
 pub use command_format_string::CommandFormatDescription;
 use command_format_string::*;
 
-mod matched_command;
-use matched_command::*;
+mod part_matchers;
+use part_matchers::*;
 
 mod parsed_value;
 pub use parsed_value::ParsedValue;
@@ -55,6 +55,7 @@ pub enum CommandFormatPart {
     OptionalEntity(CommandFormatPartParams<Option<Entity>, Entity>),
     Direction(CommandFormatPartParams<Direction, Direction>),
     OptionalDirection(CommandFormatPartParams<Option<Direction>, Direction>),
+    //TODO replace this with something for one of multiple literals
     OneOf(Vec<CommandFormatPart>, CommandFormatPartOptions),
 }
 
@@ -243,7 +244,23 @@ impl CommandFormatPart {
 
     /// Matches some of an input with the portion corresponding to this part.
     pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
-        todo!() //TODO
+        match self {
+            CommandFormatPart::Literal(literal, ..) => match_literal(literal, context),
+            CommandFormatPart::OptionalLiteral(literal, ..) => {
+                match_result_to_option(match_literal(literal, context))
+            }
+            CommandFormatPart::AnyText(_) => match_any_text(context),
+            CommandFormatPart::OptionalAnyText(_) => {
+                match_result_to_option(match_any_text(context))
+            }
+            CommandFormatPart::Entity(_) => match_entity(context),
+            CommandFormatPart::OptionalEntity(_) => match_result_to_option(match_entity(context)),
+            CommandFormatPart::Direction(_) => match_direction(context),
+            CommandFormatPart::OptionalDirection(_) => {
+                match_result_to_option(match_direction(context))
+            }
+            CommandFormatPart::OneOf(parts, _) => match_one_of(parts, context),
+        }
     }
 
     /// Parses this part from some input.

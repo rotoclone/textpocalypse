@@ -103,14 +103,14 @@ impl Container {
                 .map(|desc| desc.matches(entity_name))
                 .unwrap_or(Matchness::None)
             {
-                super::Matchness::Exact => found_entities.exact_matches.push(entity),
-                super::Matchness::Partial(portion_matched) => {
+                Matchness::Exact => found_entities.exact_matches.push(entity),
+                Matchness::Partial(portion_matched) => {
                     found_entities.partial_matches.push(PartialMatchingEntity {
                         entity,
                         match_info: portion_matched,
                     })
                 }
-                super::Matchness::None => todo!(),
+                Matchness::None => (),
             }
         }
 

@@ -17,7 +17,7 @@ pub use parse_direction::parse_direction;
 mod parse_one_of;
 pub use parse_one_of::parse_one_of;
 
-use crate::command_format::matched_command::PartMatcherContext;
+use crate::command_format::part_matchers::PartMatcherContext;
 
 use super::{parsed_value::ParsedValue, CommandFormatPart, CommandPartValidateError};
 

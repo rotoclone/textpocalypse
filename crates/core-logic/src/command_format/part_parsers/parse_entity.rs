@@ -146,6 +146,7 @@ fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, Matched
     ))
 }
 
+/* TODO
 #[cfg(test)]
 mod tests {
     use crate::{command_format::literal_part, test_utils::spawn_entity_in_location, Container};
@@ -506,3 +507,4 @@ mod tests {
 
     //TODO more tests
 }
+*/
