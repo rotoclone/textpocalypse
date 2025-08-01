@@ -49,7 +49,6 @@ pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
     OptionalLiteral(String, CommandFormatPartParams<Option<String>, String>),
     AnyText(CommandFormatPartParams<String, String>),
-    //TODO empty input already parses successfully for an AnyText part, so is OptionalAnyText necessary?
     OptionalAnyText(CommandFormatPartParams<Option<String>, String>),
     Entity(CommandFormatPartParams<Entity, Entity>),
     OptionalEntity(CommandFormatPartParams<Option<Entity>, Entity>),
@@ -244,17 +243,21 @@ impl CommandFormatPart {
 
     /// Matches some of an input with the portion corresponding to this part.
     pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
+        //TODO instead of greedily matching each part in order, build a regex out of the parts as part of format building and match based on that here?
+        // that would fix the issue of entity parts followed by literal space parts not properly matching entity names that include spaces
         match self {
             CommandFormatPart::Literal(literal, ..) => match_literal(literal, context),
             CommandFormatPart::OptionalLiteral(literal, ..) => {
                 match_result_to_option(match_literal(literal, context))
             }
-            CommandFormatPart::AnyText(_) => match_any_text(context),
+            CommandFormatPart::AnyText(_) => match_until_next_literal(context),
             CommandFormatPart::OptionalAnyText(_) => {
-                match_result_to_option(match_any_text(context))
+                match_result_to_option(match_until_next_literal(context))
             }
-            CommandFormatPart::Entity(_) => match_entity(context),
-            CommandFormatPart::OptionalEntity(_) => match_result_to_option(match_entity(context)),
+            CommandFormatPart::Entity(_) => match_until_next_literal(context),
+            CommandFormatPart::OptionalEntity(_) => {
+                match_result_to_option(match_until_next_literal(context))
+            }
             CommandFormatPart::Direction(_) => match_direction(context),
             CommandFormatPart::OptionalDirection(_) => {
                 match_result_to_option(match_direction(context))
