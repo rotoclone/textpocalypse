@@ -5,7 +5,7 @@ use nonempty::nonempty;
 
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
-    command_format::{literal_part, one_of_part, CommandFormat},
+    command_format::{one_of_literal_part, CommandFormat},
     find_spawn_room,
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
@@ -19,12 +19,8 @@ use super::{
     ActionEndNotification, ActionQueue, AfterActionPerformNotification, ParseCustomInput, Vitals,
 };
 
-static RESPAWN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("respawn"),
-        literal_part("live")
-    ]))
-});
+static RESPAWN_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(one_of_literal_part(nonempty!["respawn", "live"])));
 
 struct RespawnParser;
 

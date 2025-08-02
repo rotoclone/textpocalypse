@@ -8,8 +8,14 @@ use crate::command_format::{
 mod match_literal;
 pub use match_literal::match_literal;
 
+mod match_one_of_literal;
+pub use match_one_of_literal::match_one_of_literal;
+
 mod match_until_next_literal;
 pub use match_until_next_literal::match_until_next_literal;
+
+mod match_direction;
+pub use match_direction::match_direction;
 
 /// TODO doc
 #[derive(Clone)]
@@ -122,12 +128,12 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
         None
     };
 
-    take_until(context.input, stopping_point)
+    take_until(context.input, stopping_point.map(|s| s.as_str()))
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
 /// If `stopping_point` is `None`, or `stopping_point` isn't in `input`, returns `(input, "")`.
-pub fn take_until(input: impl Into<String>, stopping_point: Option<&String>) -> (String, String) {
+pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (String, String) {
     //TODO tests for this
     let input = input.into();
     dbg!(&input, &stopping_point); //TODO

@@ -48,14 +48,17 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
     OptionalLiteral(String, CommandFormatPartParams<Option<String>, String>),
+    OneOfLiteral(NonEmpty<String>, CommandFormatPartParams<String, String>),
+    OptionalOneOfLiteral(
+        NonEmpty<String>,
+        CommandFormatPartParams<Option<String>, String>,
+    ),
     AnyText(CommandFormatPartParams<String, String>),
     OptionalAnyText(CommandFormatPartParams<Option<String>, String>),
     Entity(CommandFormatPartParams<Entity, Entity>),
     OptionalEntity(CommandFormatPartParams<Option<Entity>, Entity>),
     Direction(CommandFormatPartParams<Direction, Direction>),
     OptionalDirection(CommandFormatPartParams<Option<Direction>, Direction>),
-    //TODO replace this with something for one of multiple literals
-    OneOf(Vec<CommandFormatPart>, CommandFormatPartOptions),
 }
 
 impl CommandFormatPart {
@@ -64,13 +67,14 @@ impl CommandFormatPart {
         match self {
             CommandFormatPart::Literal(_, params) => &params.options,
             CommandFormatPart::OptionalLiteral(_, params) => &params.options,
+            CommandFormatPart::OneOfLiteral(_, params) => &params.options,
+            CommandFormatPart::OptionalOneOfLiteral(_, params) => &params.options,
             CommandFormatPart::AnyText(params) => &params.options,
             CommandFormatPart::OptionalAnyText(params) => &params.options,
             CommandFormatPart::Entity(params) => &params.options,
             CommandFormatPart::OptionalEntity(params) => &params.options,
             CommandFormatPart::Direction(params) => &params.options,
             CommandFormatPart::OptionalDirection(params) => &params.options,
-            CommandFormatPart::OneOf(_, options) => options,
         }
     }
 
@@ -79,72 +83,28 @@ impl CommandFormatPart {
         match self {
             CommandFormatPart::Literal(_, params) => &mut params.options,
             CommandFormatPart::OptionalLiteral(_, params) => &mut params.options,
+            CommandFormatPart::OneOfLiteral(_, params) => &mut params.options,
+            CommandFormatPart::OptionalOneOfLiteral(_, params) => &mut params.options,
             CommandFormatPart::AnyText(params) => &mut params.options,
             CommandFormatPart::OptionalAnyText(params) => &mut params.options,
             CommandFormatPart::Entity(params) => &mut params.options,
             CommandFormatPart::OptionalEntity(params) => &mut params.options,
             CommandFormatPart::Direction(params) => &mut params.options,
             CommandFormatPart::OptionalDirection(params) => &mut params.options,
-            CommandFormatPart::OneOf(_, options) => options,
-        }
-    }
-
-    /// Gets all the IDs associated with this part.
-    /// This will usually return 0 or 1 ID, but `OneOf` parts can have more than 1.
-    pub fn all_ids(&self) -> Vec<UntypedCommandPartId> {
-        match self {
-            CommandFormatPart::Literal(_, params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::OptionalLiteral(_, params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::AnyText(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::OptionalAnyText(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::Entity(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::OptionalEntity(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::Direction(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::OptionalDirection(params) => params
-                .id
-                .as_ref()
-                .map(|id| vec![id.clone().into()])
-                .unwrap_or_default(),
-            CommandFormatPart::OneOf(parts, _) => {
-                parts.iter().flat_map(|part| part.all_ids()).collect()
-            }
         }
     }
 
     /// Gets the ID for this part, if it has one.
-    /// This will always return `None` for `OneOf` parts.
     pub fn id(&self) -> Option<UntypedCommandPartId> {
         match self {
             CommandFormatPart::Literal(_, params) => params.id.as_ref().map(|id| id.clone().into()),
             CommandFormatPart::OptionalLiteral(_, params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::OneOfLiteral(_, params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::OptionalOneOfLiteral(_, params) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
             CommandFormatPart::AnyText(params) => params.id.as_ref().map(|id| id.clone().into()),
@@ -159,18 +119,22 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalDirection(params) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
-            CommandFormatPart::OneOf(_, _) => None,
         }
     }
 
     /// Gets the validator for this part, if it has one.
-    /// This will always return `None` for `OneOf` parts.
     fn validator(&self) -> Option<PartValidationFnUntyped> {
         match self {
             CommandFormatPart::Literal(_, params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::OptionalLiteral(_, params) => {
+                params.validator.as_ref().map(|v| genericize_validate(*v))
+            }
+            CommandFormatPart::OneOfLiteral(_, params) => {
+                params.validator.as_ref().map(|v| genericize_validate(*v))
+            }
+            CommandFormatPart::OptionalOneOfLiteral(_, params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::AnyText(params) => {
@@ -191,7 +155,6 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalDirection(params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::OneOf(_, _) => None,
         }
     }
 
@@ -245,10 +208,18 @@ impl CommandFormatPart {
     pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
         //TODO instead of greedily matching each part in order, build a regex out of the parts as part of format building and match based on that here?
         // that would fix the issue of entity parts followed by literal space parts not properly matching entity names that include spaces
+        // but it would make it harder to provide good error messages
+        // maybe instead add logic to collapse multiple literal parts into one, so if the next part is " " and the part after that is oneof("a", "b") then parse until " a" or " b" instead of just " "
         match self {
             CommandFormatPart::Literal(literal, ..) => match_literal(literal, context),
             CommandFormatPart::OptionalLiteral(literal, ..) => {
                 match_result_to_option(match_literal(literal, context))
+            }
+            CommandFormatPart::OneOfLiteral(literals, ..) => {
+                match_one_of_literal(literals, context)
+            }
+            CommandFormatPart::OptionalOneOfLiteral(literals, ..) => {
+                match_result_to_option(match_one_of_literal(literals, context))
             }
             CommandFormatPart::AnyText(_) => match_until_next_literal(context),
             CommandFormatPart::OptionalAnyText(_) => {
@@ -262,7 +233,6 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalDirection(_) => {
                 match_result_to_option(match_direction(context))
             }
-            CommandFormatPart::OneOf(parts, _) => match_one_of(parts, context),
         }
     }
 
@@ -273,6 +243,10 @@ impl CommandFormatPart {
         let parse_result = match self {
             CommandFormatPart::Literal(..) => parse_literal(context),
             CommandFormatPart::OptionalLiteral(..) => {
+                parse_result_to_option(parse_literal(context))
+            }
+            CommandFormatPart::OneOfLiteral(..) => parse_literal(context),
+            CommandFormatPart::OptionalOneOfLiteral(..) => {
                 parse_result_to_option(parse_literal(context))
             }
             CommandFormatPart::AnyText(_) => parse_any_text(context),
@@ -289,7 +263,6 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalDirection(_) => {
                 parse_result_to_option(parse_direction(context))
             }
-            CommandFormatPart::OneOf(parts, _) => parse_one_of(parts, context, world),
         };
 
         // now validate
@@ -345,6 +318,7 @@ fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
     })
 }
 
+//TODO doc
 #[derive(Debug)]
 pub struct CommandFormatPartParams<P, V> {
     id: Option<CommandPartId<P>>,
@@ -437,6 +411,62 @@ fn build_optional_literal_part(
                 if_missing: Some(literal_string),
                 ..Default::default()
             },
+            validator,
+        },
+    )
+}
+
+/// Creates a part that consumes one of a set of possible literals.
+/// Uses the first literal for the format description.
+pub fn one_of_literal_part(literals: NonEmpty<impl Into<String>>) -> CommandFormatPart {
+    build_one_of_literal_part(literals, None)
+}
+
+fn build_one_of_literal_part(
+    literals: NonEmpty<impl Into<String>>,
+    validator: Option<PartValidationFn<String>>,
+) -> CommandFormatPart {
+    let literal_strings = literals.map(|s| s.into());
+    let options = CommandFormatPartOptions {
+        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+            literal_strings.first().clone(),
+        ),
+        if_missing: Some(literal_strings.first().clone()),
+        ..Default::default()
+    };
+    CommandFormatPart::OneOfLiteral(
+        literal_strings,
+        CommandFormatPartParams {
+            id: None,
+            options,
+            validator,
+        },
+    )
+}
+
+/// Creates a part to maybe consume one of a set of possible literals.
+/// Uses the first literal for the format description.
+pub fn optional_one_of_literal_part(literals: NonEmpty<impl Into<String>>) -> CommandFormatPart {
+    build_optional_one_of_literal_part(literals, None)
+}
+
+fn build_optional_one_of_literal_part(
+    literals: NonEmpty<impl Into<String>>,
+    validator: Option<PartValidationFn<String>>,
+) -> CommandFormatPart {
+    let literal_strings = literals.map(|s| s.into());
+    let options = CommandFormatPartOptions {
+        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+            literal_strings.first().clone(),
+        ),
+        if_missing: Some(literal_strings.first().clone()),
+        ..Default::default()
+    };
+    CommandFormatPart::OptionalOneOfLiteral(
+        literal_strings,
+        CommandFormatPartParams {
+            id: None,
+            options,
             validator,
         },
     )
@@ -586,13 +616,6 @@ fn build_optional_direction_part(
     })
 }
 
-/// Creates a part that consumes one of a set of possible things.
-/// Inherits the options from the first part in the provided list.
-pub fn one_of_part(parts: NonEmpty<CommandFormatPart>) -> CommandFormatPart {
-    let options = parts.first().options().clone();
-    CommandFormatPart::OneOf(parts.into_iter().collect(), options)
-}
-
 /// An identifier for a part of a command to be used to retrieve the parsed value.
 /// `T` is the type that the part will be parsed into.
 /// TODO change the `String` to a `&'static str` and implement `Copy`
@@ -629,13 +652,14 @@ impl CommandFormat {
     /// Adds a part to the format.
     /// Panics if the part has an ID and there is already a part with the same ID.
     fn add_part(&mut self, part: CommandFormatPart) {
-        for id in &part.all_ids() {
+        if let Some(part_id) = part.id() {
             if self
                 .0
                 .iter()
-                .any(|existing_part| existing_part.all_ids().contains(id))
+                .filter_map(|existing_part| existing_part.id())
+                .any(|existing_id| existing_id == part_id)
             {
-                panic!("Duplicate command part ID: {}", id.0)
+                panic!("Duplicate command part ID: {}", part_id.0)
             }
         }
 
@@ -1024,13 +1048,16 @@ mod tests {
                 (Self::OptionalLiteral(l0, l1), Self::OptionalLiteral(r0, r1)) => {
                     l0 == r0 && l1 == r1
                 }
+                (Self::OneOfLiteral(l0, l1), Self::OneOfLiteral(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalOneOfLiteral(l0, l1), Self::OptionalOneOfLiteral(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
                 (Self::AnyText(l0), Self::AnyText(r0)) => l0 == r0,
                 (Self::OptionalAnyText(l0), Self::OptionalAnyText(r0)) => l0 == r0,
                 (Self::Entity(l0), Self::Entity(r0)) => l0 == r0,
                 (Self::OptionalEntity(l0), Self::OptionalEntity(r0)) => l0 == r0,
                 (Self::Direction(l0), Self::Direction(r0)) => l0 == r0,
                 (Self::OptionalDirection(l0), Self::OptionalDirection(r0)) => l0 == r0,
-                (Self::OneOf(l0, l1), Self::OneOf(r0, r1)) => l0 == r0 && l1 == r1,
                 _ => false,
             }
         }
@@ -1078,10 +1105,7 @@ mod tests {
             .then(literal_part("third part"))
             .then(any_text_part(CommandPartId::new("anyTextPartId")))
             .then(optional_literal_part("optional part"))
-            .then(one_of_part(nonempty![
-                literal_part("option 1"),
-                literal_part("option 2")
-            ]));
+            .then(one_of_literal_part(nonempty!["option 1", "option 2"]));
 
         let expected = CommandFormat(nonempty![
             CommandFormatPart::Literal(
@@ -1149,49 +1173,20 @@ mod tests {
                     validator: None,
                 }
             ),
-            CommandFormatPart::OneOf(
-                vec![
-                    CommandFormatPart::Literal(
-                        "option 1".to_string(),
-                        CommandFormatPartParams {
-                            id: None,
-                            options: CommandFormatPartOptions {
-                                if_missing: None,
-                                format_description_part_type:
-                                    CommandFormatDescriptionPartType::Literal(
-                                        "option 1".to_string()
-                                    ),
-                                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                                error_string_override: None,
-                            },
-                            validator: None,
-                        }
-                    ),
-                    CommandFormatPart::Literal(
-                        "option 2".to_string(),
-                        CommandFormatPartParams {
-                            id: None,
-                            options: CommandFormatPartOptions {
-                                if_missing: None,
-                                format_description_part_type:
-                                    CommandFormatDescriptionPartType::Literal(
-                                        "option 2".to_string()
-                                    ),
-                                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                                error_string_override: None,
-                            },
-                            validator: None,
-                        }
-                    )
-                ],
-                CommandFormatPartOptions {
-                    if_missing: None,
-                    format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                        "option 1".to_string()
-                    ),
-                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                    error_string_override: None,
-                },
+            CommandFormatPart::OneOfLiteral(
+                nonempty!["option 1".to_string(), "option 2".to_string()],
+                CommandFormatPartParams {
+                    id: None,
+                    options: CommandFormatPartOptions {
+                        if_missing: None,
+                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
+                            "option 1".to_string()
+                        ),
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None,
+                    },
+                    validator: None
+                }
             ),
         ]);
 
@@ -1204,115 +1199,8 @@ mod tests {
         CommandFormat::new(literal_part("first part"))
             .then(entity_part(CommandPartId::new("somePartId")))
             .then(literal_part("third part"))
-            .then(any_text_part(CommandPartId::new("anyTextPartId")))
-            .then(one_of_part(nonempty![
-                literal_part("some literal"),
-                entity_part(CommandPartId::new("somePartId")),
-            ]));
+            .then(any_text_part(CommandPartId::new("somePartId")));
     }
 
-    #[test]
-    fn format_nested_one_of() {
-        let format = CommandFormat::new(literal_part("first part")).then(one_of_part(nonempty![
-            literal_part("option 1"),
-            one_of_part(nonempty![
-                literal_part("option 2.1"),
-                literal_part("option 2.2"),
-            ]),
-        ]));
-
-        let expected = CommandFormat(nonempty![
-            CommandFormatPart::Literal(
-                "first part".to_string(),
-                CommandFormatPartParams {
-                    id: None,
-                    options: CommandFormatPartOptions {
-                        if_missing: None,
-                        format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                            "first part".to_string()
-                        ),
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                        error_string_override: None,
-                    },
-                    validator: None,
-                }
-            ),
-            CommandFormatPart::OneOf(
-                vec![
-                    CommandFormatPart::Literal(
-                        "option 1".to_string(),
-                        CommandFormatPartParams {
-                            id: None,
-                            options: CommandFormatPartOptions {
-                                if_missing: None,
-                                format_description_part_type:
-                                    CommandFormatDescriptionPartType::Literal(
-                                        "option 1".to_string()
-                                    ),
-                                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                                error_string_override: None
-                            },
-                            validator: None
-                        }
-                    ),
-                    CommandFormatPart::OneOf(
-                        vec![
-                            CommandFormatPart::Literal(
-                                "option 2.1".to_string(),
-                                CommandFormatPartParams {
-                                    id: None,
-                                    options: CommandFormatPartOptions {
-                                        if_missing: None,
-                                        format_description_part_type:
-                                            CommandFormatDescriptionPartType::Literal(
-                                                "option 2.1".to_string()
-                                            ),
-                                        include_in_errors_behavior:
-                                            IncludeInErrorsBehavior::OnlyIfMatched,
-                                        error_string_override: None
-                                    },
-                                    validator: None
-                                }
-                            ),
-                            CommandFormatPart::Literal(
-                                "option 2.2".to_string(),
-                                CommandFormatPartParams {
-                                    id: None,
-                                    options: CommandFormatPartOptions {
-                                        if_missing: None,
-                                        format_description_part_type:
-                                            CommandFormatDescriptionPartType::Literal(
-                                                "option 2.2".to_string()
-                                            ),
-                                        include_in_errors_behavior:
-                                            IncludeInErrorsBehavior::OnlyIfMatched,
-                                        error_string_override: None
-                                    },
-                                    validator: None
-                                }
-                            ),
-                        ],
-                        CommandFormatPartOptions {
-                            if_missing: None,
-                            format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                                "option 2.1".to_string()
-                            ),
-                            include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                            error_string_override: None,
-                        }
-                    ),
-                ],
-                CommandFormatPartOptions {
-                    if_missing: None,
-                    format_description_part_type: CommandFormatDescriptionPartType::Literal(
-                        "option 1".to_string()
-                    ),
-                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                    error_string_override: None
-                },
-            ),
-        ]);
-
-        assert_eq!(expected, format);
-    }
+    //TODO more tests
 }

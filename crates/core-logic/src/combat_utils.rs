@@ -6,11 +6,11 @@ use itertools::Itertools;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
 
-use crate::command_format::{CommandFormatParseError, CommandFormatPart};
+use crate::command_format::{one_of_literal_part, CommandFormatParseError, CommandFormatPart};
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, CommandFormat, CommandPartId,
+        entity_part_with_validator, literal_part, CommandFormat, CommandPartId,
         CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     find_owning_entity, in_same_room, is_living_entity,
@@ -144,10 +144,7 @@ impl<A: AttackType> AttackCommandFormats<A> {
 
         let format_with_weapon = CommandFormat::new(first_part.clone())
             .then(literal_part(" ").always_include_in_errors())
-            .then(
-                one_of_part(nonempty![literal_part("with"), literal_part("using")])
-                    .always_include_in_errors(),
-            )
+            .then(one_of_literal_part(nonempty!["with", "using"]).always_include_in_errors())
             .then(literal_part(" ").always_include_in_errors())
             .then(weapon_part.clone().always_include_in_errors());
 
@@ -156,7 +153,7 @@ impl<A: AttackType> AttackCommandFormats<A> {
             .then(target_part.always_include_in_errors())
             .then(literal_part(" "))
             .then(
-                one_of_part(nonempty![literal_part("with"), literal_part("using")])
+                one_of_literal_part(nonempty!["with", "using"])
                     .include_in_errors_if_previous_part_included(),
             )
             .then(literal_part(" ").include_in_errors_if_previous_part_included())
