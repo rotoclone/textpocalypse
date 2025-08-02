@@ -7,7 +7,7 @@ use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, CommandFormat,
+        entity_part_with_validator, literal_part, one_of_literal_part, CommandFormat,
         CommandFormatParseError, CommandPartId, CommandPartValidateError,
         CommandPartValidateResult, PartValidatorContext,
     },
@@ -24,19 +24,19 @@ use crate::{
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static DECREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("approach"),
-        literal_part("advance"),
-        literal_part("decrease range"),
-        literal_part("dr"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "approach",
+        "advance",
+        "decrease range",
+        "dr",
     ]))
 });
 
 static INCREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("fall back"),
-        literal_part("increase range"),
-        literal_part("ir"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "fall back",
+        "increase range",
+        "ir",
     ]))
 });
 
@@ -44,12 +44,12 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 
 static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("approach"),
-        literal_part("advance toward"),
-        literal_part("advance towards"),
-        literal_part("decrease range to"),
-        literal_part("dr"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "approach",
+        "advance toward",
+        "advance towards",
+        "decrease range to",
+        "dr",
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
@@ -61,11 +61,11 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
 });
 
 static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("fall back"),
-        literal_part("fall back from"),
-        literal_part("increase range to"),
-        literal_part("ir"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "fall back",
+        "fall back from",
+        "increase range to",
+        "ir",
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(

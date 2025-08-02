@@ -8,7 +8,7 @@ use crate::{
     body_part::BodyPartType,
     check_for_hit,
     combat_utils::AttackCommandFormats,
-    command_format::{literal_part, one_of_part},
+    command_format::one_of_literal_part,
     component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
@@ -31,11 +31,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
 static COMMAND_FORMATS: LazyLock<AttackCommandFormats<AttackAction>> = LazyLock::new(|| {
-    AttackCommandFormats::new(one_of_part(nonempty![
-        literal_part("attack"),
-        literal_part("kill"),
-        literal_part("k")
-    ]))
+    AttackCommandFormats::new(one_of_literal_part(nonempty!["attack", "kill", "k"]))
 });
 
 pub struct AttackParser;
