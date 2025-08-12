@@ -5,8 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId,
+        entity_part_with_validator, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
     find_owning_entity,
@@ -25,20 +25,16 @@ static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("container"));
 
 static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("get"),
-        literal_part("take"),
-        literal_part("pick up")
-    ]))
-    .then(literal_part(" ").always_include_in_errors())
-    .then(
-        entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Item>(context, "get", world)
-        })
-        .always_include_in_errors()
-        .with_if_missing("what")
-        .with_placeholder_for_format_string("item"),
-    )
+    CommandFormat::new(one_of_literal_part(nonempty!["get", "take", "pick up"]))
+        .then(literal_part(" ").always_include_in_errors())
+        .then(
+            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Item>(context, "get", world)
+            })
+            .always_include_in_errors()
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("item"),
+        )
 });
 
 static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -56,33 +52,31 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 //TODO this doesn't work because the target part doesn't know to look in the container for the target, since parsing happens in a single pass so that part won't have been parsed yet
 static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("get"),
-        literal_part("take")
-    ]))
-    .then(literal_part(" ").always_include_in_errors())
-    .then(
-        entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Item>(context, "get", world)
-        })
-        .always_include_in_errors()
-        .with_if_missing("what")
-        .with_placeholder_for_format_string("item"),
-    )
-    //TODO include spaces in other connecting word parts for other commands
-    //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
-    .then(
-        one_of_part(nonempty![literal_part(" from "), literal_part(" out of ")])
-            .always_include_in_errors(),
-    )
-    .then(
-        entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Container>(context, "get anything from", world)
-        })
-        .always_include_in_errors()
-        .with_if_missing("where")
-        .with_placeholder_for_format_string("container"),
-    )
+    CommandFormat::new(one_of_literal_part(nonempty!["get", "take"]))
+        .then(literal_part(" ").always_include_in_errors())
+        .then(
+            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Item>(context, "get", world)
+            })
+            .always_include_in_errors()
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("item"),
+        )
+        //TODO include spaces in other connecting word parts for other commands or make the parsing smarter and collapse multiple literal parts into one
+        //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
+        .then(one_of_literal_part(nonempty![" from ", " out of "]).always_include_in_errors())
+        .then(
+            entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Container>(
+                    context,
+                    "get anything from",
+                    world,
+                )
+            })
+            .always_include_in_errors()
+            .with_if_missing("where")
+            .with_placeholder_for_format_string("container"),
+        )
 });
 
 static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -97,10 +91,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             .with_if_missing("what")
             .with_placeholder_for_format_string("item"),
         )
-        .then(
-            one_of_part(nonempty![literal_part(" into "), literal_part(" in ")])
-                .always_include_in_errors(),
-        )
+        .then(one_of_literal_part(nonempty![" into ", " in "]).always_include_in_errors())
         .then(
             entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
                 validate_parsed_value_has_component::<Container>(

@@ -5,8 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, literal_part, one_of_part, CommandFormat, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, literal_part, one_of_literal_part, CommandFormat,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{InputParseError, InputParser},
@@ -22,10 +22,10 @@ static ADVANCEMENT_TYPE_PART_ID: LazyLock<CommandPartId<String>> =
     LazyLock::new(|| CommandPartId::new("advancement_type"));
 
 static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("spend skill point on"),
-        literal_part("assign skill point to"),
-        literal_part("increase skill")
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "spend skill point on",
+        "assign skill point to",
+        "increase skill"
     ]))
     .then(literal_part(" "))
     .then(
@@ -35,10 +35,10 @@ static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     )
 });
 static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("spend attribute point on"),
-        literal_part("assign attribute point to"),
-        literal_part("increase attribute")
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "spend attribute point on",
+        "assign attribute point to",
+        "increase attribute"
     ]))
     .then(literal_part(" "))
     .then(

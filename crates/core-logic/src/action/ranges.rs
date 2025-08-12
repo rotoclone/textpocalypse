@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    command_format::{literal_part, one_of_part, CommandFormat},
+    command_format::{one_of_literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, CombatState, Weapon},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
@@ -15,11 +15,8 @@ use crate::{
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static RANGES_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("ranges"),
-        literal_part("range"),
-        literal_part("combat"),
-        literal_part("com"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "ranges", "range", "combat", "com",
     ]))
 });
 

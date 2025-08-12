@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    command_format::{literal_part, one_of_part, CommandFormat},
+    command_format::{one_of_literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
@@ -15,11 +15,8 @@ use crate::{
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
 static WORN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("worn"),
-        literal_part("wearing"),
-        literal_part("clothes"),
-        literal_part("clothing")
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "worn", "wearing", "clothes", "clothing"
     ]))
 });
 

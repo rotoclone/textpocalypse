@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    command_format::{literal_part, one_of_part, CommandFormat},
+    command_format::{one_of_literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, Stats},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
@@ -14,13 +14,8 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static STATS_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("stats"),
-        literal_part("stat"),
-        literal_part("st")
-    ]))
-});
+static STATS_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(one_of_literal_part(nonempty!["stats", "stat", "st"])));
 
 pub struct StatsParser;
 

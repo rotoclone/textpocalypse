@@ -5,8 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId,
+        entity_part_with_validator, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
@@ -25,18 +25,15 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static WEAR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("wear"),
-        literal_part("put on")
-    ]))
-    .then(literal_part(" "))
-    .then(
-        entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Wearable>(context, "wear", world)
-        })
-        .with_if_missing("what")
-        .with_placeholder_for_format_string("wearable item"),
-    )
+    CommandFormat::new(one_of_literal_part(nonempty!["wear", "put on"]))
+        .then(literal_part(" "))
+        .then(
+            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
+                validate_parsed_value_has_component::<Wearable>(context, "wear", world)
+            })
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("wearable item"),
+        )
 });
 
 pub struct WearParser;

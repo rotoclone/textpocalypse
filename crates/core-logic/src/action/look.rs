@@ -5,7 +5,7 @@ use nonempty::nonempty;
 
 use crate::{
     can_receive_messages,
-    command_format::{entity_part, optional_literal_part},
+    command_format::{entity_part, one_of_literal_part, optional_literal_part},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
@@ -14,26 +14,21 @@ use crate::{
     input_parser::{input_formats_if_has_component, CommandTarget, InputParseError, InputParser},
     literal_part,
     notification::VerifyResult,
-    one_of_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
-    DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
-    MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
+    ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
+    EntityDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static LOOK_NO_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("look"),
-        literal_part("l"),
-    ]))
-});
+static LOOK_NO_TARGET_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(one_of_literal_part(nonempty!["look", "l",])));
 
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
-        one_of_part(nonempty![literal_part("look"), literal_part("l"),])
-            .with_error_string_override("look"),
+        one_of_literal_part(nonempty!["look", "l",]).with_error_string_override("look"),
     )
     .then(literal_part(" ").always_include_in_errors())
     .then(optional_literal_part("at ").always_include_in_errors())
@@ -46,12 +41,7 @@ static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
-        one_of_part(nonempty![
-            literal_part("examine"),
-            literal_part("ex"),
-            literal_part("x"),
-        ])
-        .with_error_string_override("examine"),
+        one_of_literal_part(nonempty!["examine", "ex", "x",]).with_error_string_override("examine"),
     )
     .then(literal_part(" ").always_include_in_errors())
     .then(

@@ -5,7 +5,7 @@ use nonempty::nonempty;
 
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
-    command_format::{direction_part, literal_part, one_of_part, CommandFormat, CommandPartId},
+    command_format::{direction_part, one_of_literal_part, CommandFormat, CommandPartId},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
         Container, Location, Stats,
@@ -33,24 +33,14 @@ static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     )
 });
 static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("move"),
-        literal_part("go")
-    ]))
-    .then(
-        one_of_part(nonempty![
-            literal_part(" "),
-            literal_part(" to "),
-            literal_part(" to the ")
-        ])
-        .always_include_in_errors(),
-    )
-    .then(
-        direction_part(DIRECTION_PART_ID.clone())
-            .always_include_in_errors()
-            .with_if_missing("where")
-            .with_placeholder_for_format_string("direction"),
-    )
+    CommandFormat::new(one_of_literal_part(nonempty!["move", "go"]))
+        .then(one_of_literal_part(nonempty![" ", " to ", " to the "]).always_include_in_errors())
+        .then(
+            direction_part(DIRECTION_PART_ID.clone())
+                .always_include_in_errors()
+                .with_if_missing("where")
+                .with_placeholder_for_format_string("direction"),
+        )
 });
 
 pub struct MoveParser;

@@ -5,8 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId,
+        entity_part_with_validator, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
@@ -25,12 +25,12 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("equip"),
-        literal_part("hold"),
-        literal_part("wield"),
-        literal_part("unholster"),
-        literal_part("take out"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "equip",
+        "hold",
+        "wield",
+        "unholster",
+        "take out",
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
@@ -43,12 +43,8 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     )
 });
 static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(one_of_part(nonempty![
-        literal_part("unequip"),
-        literal_part("unhold"),
-        literal_part("unwield"),
-        literal_part("holster"),
-        literal_part("put away"),
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "unequip", "unhold", "unwield", "holster", "put away",
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(

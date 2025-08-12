@@ -10,9 +10,9 @@ use regex::Regex;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, entity_part_with_validator, literal_part, one_of_part,
-        validate_parsed_value_has_component, CommandFormat, CommandFormatPart, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, entity_part_with_validator, literal_part,
+        one_of_literal_part, validate_parsed_value_has_component, CommandFormat, CommandFormatPart,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
@@ -74,14 +74,7 @@ static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
-        .then(
-            one_of_part(nonempty![
-                literal_part(" "),
-                literal_part(" all "),
-                literal_part(" all of ")
-            ])
-            .always_include_in_errors(),
-        )
+        .then(one_of_literal_part(nonempty![" ", " all ", " all of "]).always_include_in_errors())
         .then(SOURCE_PART.clone().always_include_in_errors())
         .then(literal_part(" into "))
         .then(
