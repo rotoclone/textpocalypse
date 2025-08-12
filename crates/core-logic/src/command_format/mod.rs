@@ -204,6 +204,12 @@ impl CommandFormatPart {
         self
     }
 
+    /// Adds an ID to the list of parts that must be parsed before this one.
+    pub fn with_prerequisite_part<T>(mut self, id: CommandPartId<T>) -> Self {
+        self.options_mut().prerequisite_part_ids.push(id.into());
+        self
+    }
+
     /// Matches some of an input with the portion corresponding to this part.
     pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
         //TODO instead of greedily matching each part in order, build a regex out of the parts as part of format building and match based on that here?
@@ -348,6 +354,8 @@ pub struct CommandFormatPartOptions {
     /// By default, when building an invalid command error, all the matched parts' parsed values are converted into strings to include in the error message.
     /// If this string is set, it will be used instead of whatever the parsed value was.
     error_string_override: Option<String>,
+    /// IDs of any parts that need to be parsed before this one.
+    prerequisite_part_ids: Vec<UntypedCommandPartId>,
 }
 
 /// Specifies when to include a part in an error message.
@@ -1119,6 +1127,7 @@ mod tests {
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                         error_string_override: None,
+                        prerequisite_part_ids: Vec::new(),
                     },
                     validator: None,
                 }
@@ -1130,6 +1139,7 @@ mod tests {
                     format_description_part_type: CommandFormatDescriptionPartType::Nothing,
                     include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                     error_string_override: None,
+                    prerequisite_part_ids: Vec::new(),
                 },
                 validator: None,
             }),
@@ -1144,6 +1154,7 @@ mod tests {
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                         error_string_override: None,
+                        prerequisite_part_ids: Vec::new(),
                     },
                     validator: None
                 }
@@ -1155,6 +1166,7 @@ mod tests {
                     format_description_part_type: CommandFormatDescriptionPartType::Nothing,
                     include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                     error_string_override: None,
+                    prerequisite_part_ids: Vec::new(),
                 },
                 validator: None,
             }),
@@ -1169,6 +1181,7 @@ mod tests {
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                         error_string_override: None,
+                        prerequisite_part_ids: Vec::new(),
                     },
                     validator: None,
                 }
@@ -1184,6 +1197,7 @@ mod tests {
                         ),
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                         error_string_override: None,
+                        prerequisite_part_ids: Vec::new(),
                     },
                     validator: None
                 }

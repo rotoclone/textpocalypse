@@ -60,7 +60,8 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             })
             .always_include_in_errors()
             .with_if_missing("what")
-            .with_placeholder_for_format_string("item"),
+            .with_placeholder_for_format_string("item")
+            .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
         //TODO include spaces in other connecting word parts for other commands or make the parsing smarter and collapse multiple literal parts into one
         //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
