@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
 use nom::{bytes::complete::tag_no_case, IResult};
-use voca_rs::Voca;
 
 mod parse_literal;
 pub use parse_literal::parse_literal;
@@ -9,6 +8,7 @@ mod parse_any_text;
 pub use parse_any_text::parse_any_text;
 
 mod parse_entity;
+pub use parse_entity::default_entity_target_finder;
 pub use parse_entity::parse_entity;
 
 mod parse_direction;

@@ -5,6 +5,8 @@ use bevy_ecs::prelude::*;
 
 use nonempty::NonEmpty;
 
+use crate::component::PortionMatched;
+use crate::found_entities::FoundEntities;
 use crate::{Direction, GameMessage};
 
 mod command_format_string;
@@ -55,8 +57,14 @@ pub enum CommandFormatPart {
     ),
     AnyText(CommandFormatPartParams<String, String>),
     OptionalAnyText(CommandFormatPartParams<Option<String>, String>),
-    Entity(CommandFormatPartParams<Entity, Entity>),
-    OptionalEntity(CommandFormatPartParams<Option<Entity>, Entity>),
+    Entity(
+        CommandFormatPartParams<Entity, Entity>,
+        EntityTargetFinderFn,
+    ),
+    OptionalEntity(
+        CommandFormatPartParams<Option<Entity>, Entity>,
+        EntityTargetFinderFn,
+    ),
     Direction(CommandFormatPartParams<Direction, Direction>),
     OptionalDirection(CommandFormatPartParams<Option<Direction>, Direction>),
 }
@@ -71,8 +79,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalOneOfLiteral(_, params) => &params.options,
             CommandFormatPart::AnyText(params) => &params.options,
             CommandFormatPart::OptionalAnyText(params) => &params.options,
-            CommandFormatPart::Entity(params) => &params.options,
-            CommandFormatPart::OptionalEntity(params) => &params.options,
+            CommandFormatPart::Entity(params, _) => &params.options,
+            CommandFormatPart::OptionalEntity(params, _) => &params.options,
             CommandFormatPart::Direction(params) => &params.options,
             CommandFormatPart::OptionalDirection(params) => &params.options,
         }
@@ -87,8 +95,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalOneOfLiteral(_, params) => &mut params.options,
             CommandFormatPart::AnyText(params) => &mut params.options,
             CommandFormatPart::OptionalAnyText(params) => &mut params.options,
-            CommandFormatPart::Entity(params) => &mut params.options,
-            CommandFormatPart::OptionalEntity(params) => &mut params.options,
+            CommandFormatPart::Entity(params, _) => &mut params.options,
+            CommandFormatPart::OptionalEntity(params, _) => &mut params.options,
             CommandFormatPart::Direction(params) => &mut params.options,
             CommandFormatPart::OptionalDirection(params) => &mut params.options,
         }
@@ -111,8 +119,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(params) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
-            CommandFormatPart::Entity(params) => params.id.as_ref().map(|id| id.clone().into()),
-            CommandFormatPart::OptionalEntity(params) => {
+            CommandFormatPart::Entity(params, _) => params.id.as_ref().map(|id| id.clone().into()),
+            CommandFormatPart::OptionalEntity(params, _) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
             CommandFormatPart::Direction(params) => params.id.as_ref().map(|id| id.clone().into()),
@@ -143,10 +151,10 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::Entity(params) => {
+            CommandFormatPart::Entity(params, _) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::OptionalEntity(params) => {
+            CommandFormatPart::OptionalEntity(params, _) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
             CommandFormatPart::Direction(params) => {
@@ -231,8 +239,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(_) => {
                 match_result_to_option(match_until_next_literal(context))
             }
-            CommandFormatPart::Entity(_) => match_until_next_literal(context),
-            CommandFormatPart::OptionalEntity(_) => {
+            CommandFormatPart::Entity(_, _) => match_until_next_literal(context),
+            CommandFormatPart::OptionalEntity(_, _) => {
                 match_result_to_option(match_until_next_literal(context))
             }
             CommandFormatPart::Direction(_) => match_direction(context),
@@ -259,12 +267,12 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(_) => {
                 parse_result_to_option(parse_any_text(context))
             }
-            CommandFormatPart::Entity(params) => {
-                parse_entity(context, params.validator.as_ref(), world)
+            CommandFormatPart::Entity(params, target_finder_fn) => {
+                parse_entity(context, target_finder_fn, params.validator.as_ref(), world)
             }
-            CommandFormatPart::OptionalEntity(params) => {
-                parse_result_to_option(parse_entity(context, params.validator.as_ref(), world))
-            }
+            CommandFormatPart::OptionalEntity(params, target_finder_fn) => parse_result_to_option(
+                parse_entity(context, target_finder_fn, params.validator.as_ref(), world),
+            ),
             CommandFormatPart::Direction(_) => parse_direction(context),
             CommandFormatPart::OptionalDirection(_) => {
                 parse_result_to_option(parse_direction(context))
@@ -300,6 +308,14 @@ impl CommandFormatPart {
         }
     }
 }
+
+type EntityTargetFinderFn = fn(&PartParserContext, &World) -> FoundEntities<PortionMatched>;
+
+/* TODO remove probably
+type PartParseFn<T> = fn(PartParserContext, &World) -> Result<T, CommandPartParseError>;
+
+type PartParseFnUntyped = Box<dyn Fn(PartParserContext, &World) -> CommandPartParseResult>;
+*/
 
 type PartValidationFn<T> = fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
 
@@ -528,52 +544,80 @@ fn build_optional_any_text_part(
     })
 }
 
-/// Creates a part to parse an entity name.
-pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
-    build_entity_part(id, None)
-}
-
-/// Creates a part to parse an entity name, with a validator function.
-pub fn entity_part_with_validator(
-    id: CommandPartId<Entity>,
-    validator: PartValidationFn<Entity>,
-) -> CommandFormatPart {
-    build_entity_part(id, Some(validator))
-}
-
-fn build_entity_part(
+//TODO make something similar for optional entity parts
+pub struct EntityPartBuilder {
     id: CommandPartId<Entity>,
     validator: Option<PartValidationFn<Entity>>,
-) -> CommandFormatPart {
-    CommandFormatPart::Entity(CommandFormatPartParams {
-        id: Some(id),
-        options: CommandFormatPartOptions::default(),
-        validator,
-    })
+    target_finder: Option<EntityTargetFinderFn>,
+}
+
+impl EntityPartBuilder {
+    /// Adds a validation function to the part.
+    pub fn with_validator(mut self, validator: PartValidationFn<Entity>) -> Self {
+        self.validator = Some(validator);
+        self
+    }
+
+    /// Adds a target finder function to the part.
+    pub fn with_target_finder(mut self, target_finder: EntityTargetFinderFn) -> Self {
+        self.target_finder = Some(target_finder);
+        self
+    }
+
+    /// Builds the part.
+    pub fn build(self) -> CommandFormatPart {
+        CommandFormatPart::Entity(
+            CommandFormatPartParams {
+                id: Some(self.id),
+                options: CommandFormatPartOptions::default(),
+                validator: self.validator,
+            },
+            self.target_finder.unwrap_or(default_entity_target_finder),
+        )
+    }
+}
+
+/// Creates a builder to build a part to parse an entity name.
+pub fn entity_part_builder(id: CommandPartId<Entity>) -> EntityPartBuilder {
+    EntityPartBuilder {
+        id,
+        validator: None,
+        target_finder: None,
+    }
+}
+
+/// Creates a part to parse an entity name.
+pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
+    entity_part_builder(id).build()
 }
 
 /// Creates a part to parse an optional entity name.
 pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatPart {
-    build_optional_entity_part(id, None)
+    build_optional_entity_part(id, None, None)
 }
 
 /// Creates a part to parse an optional entity name, with a validator function.
-pub fn optional_entity_part_with_validator(
+pub fn optional_entity_part_with_extras(
     id: CommandPartId<Option<Entity>>,
-    validator: PartValidationFn<Entity>,
+    validator: Option<PartValidationFn<Entity>>,
+    target_finder_fn: Option<EntityTargetFinderFn>,
 ) -> CommandFormatPart {
-    build_optional_entity_part(id, Some(validator))
+    build_optional_entity_part(id, validator, target_finder_fn)
 }
 
 fn build_optional_entity_part(
     id: CommandPartId<Option<Entity>>,
     validator: Option<PartValidationFn<Entity>>,
+    target_finder_fn: Option<EntityTargetFinderFn>,
 ) -> CommandFormatPart {
-    CommandFormatPart::OptionalEntity(CommandFormatPartParams {
-        id: Some(id),
-        options: CommandFormatPartOptions::default(),
-        validator,
-    })
+    CommandFormatPart::OptionalEntity(
+        CommandFormatPartParams {
+            id: Some(id),
+            options: CommandFormatPartOptions::default(),
+            validator,
+        },
+        target_finder_fn.unwrap_or(default_entity_target_finder_fn),
+    )
 }
 
 /// Creates a part to parse a direction.
@@ -1062,8 +1106,10 @@ mod tests {
                 }
                 (Self::AnyText(l0), Self::AnyText(r0)) => l0 == r0,
                 (Self::OptionalAnyText(l0), Self::OptionalAnyText(r0)) => l0 == r0,
-                (Self::Entity(l0), Self::Entity(r0)) => l0 == r0,
-                (Self::OptionalEntity(l0), Self::OptionalEntity(r0)) => l0 == r0,
+                (Self::Entity(l0, l1), Self::Entity(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalEntity(l0, l1), Self::OptionalEntity(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
                 (Self::Direction(l0), Self::Direction(r0)) => l0 == r0,
                 (Self::OptionalDirection(l0), Self::OptionalDirection(r0)) => l0 == r0,
                 _ => false,
@@ -1132,17 +1178,20 @@ mod tests {
                     validator: None,
                 }
             ),
-            CommandFormatPart::Entity(CommandFormatPartParams {
-                id: Some(CommandPartId::new("entityPartId")),
-                options: CommandFormatPartOptions {
-                    if_missing: Some("what".to_string()),
-                    format_description_part_type: CommandFormatDescriptionPartType::Nothing,
-                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
-                    error_string_override: None,
-                    prerequisite_part_ids: Vec::new(),
+            CommandFormatPart::Entity(
+                CommandFormatPartParams {
+                    id: Some(CommandPartId::new("entityPartId")),
+                    options: CommandFormatPartOptions {
+                        if_missing: Some("what".to_string()),
+                        format_description_part_type: CommandFormatDescriptionPartType::Nothing,
+                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        error_string_override: None,
+                        prerequisite_part_ids: Vec::new(),
+                    },
+                    validator: None,
                 },
-                validator: None,
-            }),
+                default_entity_target_finder_fn
+            ),
             CommandFormatPart::Literal(
                 "third part".to_string(),
                 CommandFormatPartParams {

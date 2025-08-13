@@ -5,11 +5,15 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_literal_part,
-        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+        entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId, PartParserContext,
     },
-    component::{ActionEndNotification, AfterActionPerformNotification, Container, Item, Location},
+    component::{
+        ActionEndNotification, AfterActionPerformNotification, Container, Item, Location,
+        PortionMatched,
+    },
     find_owning_entity,
+    found_entities::FoundEntities,
     input_parser::{InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
@@ -28,12 +32,14 @@ static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take", "pick up"]))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Item>(context, "get", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("item"),
+            entity_part_builder(ITEM_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Item>(context, "get", world)
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("item"),
         )
 });
 
@@ -41,12 +47,14 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drop"))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Item>(context, "drop", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("item"),
+            entity_part_builder(ITEM_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Item>(context, "drop", world)
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("item"),
         )
 });
 
@@ -55,28 +63,33 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take"]))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Item>(context, "get", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("item")
-            .with_prerequisite_part(CONTAINER_PART_ID.clone()),
+            entity_part_builder(ITEM_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Item>(context, "get", world)
+                })
+                .with_target_finder(find_entities_in_target_container)
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("item")
+                .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
         //TODO include spaces in other connecting word parts for other commands or make the parsing smarter and collapse multiple literal parts into one
         //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
         .then(one_of_literal_part(nonempty![" from ", " out of "]).always_include_in_errors())
         .then(
-            entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Container>(
-                    context,
-                    "get anything from",
-                    world,
-                )
-            })
-            .always_include_in_errors()
-            .with_if_missing("where")
-            .with_placeholder_for_format_string("container"),
+            entity_part_builder(CONTAINER_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Container>(
+                        context,
+                        "get anything from",
+                        world,
+                    )
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("where")
+                .with_placeholder_for_format_string("container"),
         )
 });
 
@@ -84,28 +97,40 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("put"))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-                //TODO ideally the error here would be "you can't put <item name> anywhere" instead of just "you can't put <item name>"
-                validate_parsed_value_has_component::<Item>(context, "put", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("item"),
+            entity_part_builder(ITEM_PART_ID.clone())
+                .with_validator(|context, world| {
+                    //TODO ideally the error here would be "you can't put <item name> anywhere" instead of just "you can't put <item name>"
+                    validate_parsed_value_has_component::<Item>(context, "put", world)
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("item"),
         )
         .then(one_of_literal_part(nonempty![" into ", " in "]).always_include_in_errors())
         .then(
-            entity_part_with_validator(CONTAINER_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Container>(
-                    context,
-                    "put anything into",
-                    world,
-                )
-            })
-            .always_include_in_errors()
-            .with_if_missing("where")
-            .with_placeholder_for_format_string("container"),
+            entity_part_builder(CONTAINER_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Container>(
+                        context,
+                        "put anything into",
+                        world,
+                    )
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("where")
+                .with_placeholder_for_format_string("container"),
         )
 });
+
+/// Finds entities matching the input in the target container, if the target container part was successfully parsed.
+fn find_entities_in_target_container(
+    context: &PartParserContext,
+    world: &World,
+) -> FoundEntities<PortionMatched> {
+    todo!() //TODO
+}
 
 pub struct GetParser;
 pub struct DropParser;

@@ -6,8 +6,10 @@ use crate::{
     command_format::{
         parsed_value::ParsedValue,
         parsed_value_validators::{CommandPartValidateResult, PartValidatorContext},
-        PartValidationFn,
+        EntityTargetFinderFn, PartValidationFn,
     },
+    component::PortionMatched,
+    found_entities::FoundEntities,
     input_parser::CommandTarget,
 };
 
@@ -15,9 +17,19 @@ use super::{
     match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, PartParserContext,
 };
 
+/// Finds entities matching the input in the entering entity's inventory and the room they're in.
+pub fn default_entity_target_finder(
+    context: &PartParserContext,
+    world: &World,
+) -> FoundEntities<PortionMatched> {
+    CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world)
+}
+
 /// Parses an entity from the provided context.
+/// Chooses the best target returned from `target_finder_fn`.
 pub fn parse_entity(
     context: PartParserContext,
+    target_finder_fn: &EntityTargetFinderFn,
     validator: Option<&PartValidationFn<Entity>>,
     world: &World,
 ) -> CommandPartParseResult {
@@ -30,8 +42,7 @@ pub fn parse_entity(
         });
     }
 
-    let potential_targets =
-        CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world);
+    let potential_targets = target_finder_fn(&context, world);
 
     let sorted_targets = potential_targets.exact_matches.iter().copied().chain(
         potential_targets
