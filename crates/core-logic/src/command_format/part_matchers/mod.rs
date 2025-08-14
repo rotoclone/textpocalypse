@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy_ecs::prelude::*;
 use voca_rs::Voca;
 
@@ -60,6 +62,7 @@ impl MatchedCommandFormatPart {
             PartParserContext {
                 input: self.matched_input.clone(),
                 entering_entity,
+                parsed_parts: HashMap::new(), //TODO
             },
             world,
         )

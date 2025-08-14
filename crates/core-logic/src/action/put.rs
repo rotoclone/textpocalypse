@@ -129,6 +129,9 @@ fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
 ) -> FoundEntities<PortionMatched> {
+    let Some(container) = context.get_parsed_value(&CONTAINER_PART_ID) else {
+        return FoundEntities::new();
+    };
     todo!() //TODO
 }
 

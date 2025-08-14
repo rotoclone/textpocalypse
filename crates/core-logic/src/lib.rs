@@ -814,6 +814,7 @@ fn handle_input_error(entity: Entity, input: String, error: InputParseError, wor
     let context = PartParserContext {
         input,
         entering_entity: entity,
+        parsed_parts: HashMap::new(), //TODO
     };
     send_message(world, entity, error.into_message(context, world));
 

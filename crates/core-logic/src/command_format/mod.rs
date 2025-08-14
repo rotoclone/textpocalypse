@@ -883,7 +883,7 @@ impl CommandFormatParseError {
 }
 
 /// A part that has been parsed into some concrete value
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedCommandFormatPart {
     pub matched_part: MatchedCommandFormatPart,
     pub parsed_value: ParsedValue,
@@ -988,20 +988,30 @@ impl ParsedCommand {
     where
         ParsedValue: TryInto<T>,
     {
-        let parsed_value = self
-            .parsed_parts
-            .get(&UntypedCommandPartId(id.0.clone()))
-            .map(|matched_part| &matched_part.parsed_value)
-            .unwrap_or_else(|| panic!("No part found for ID {}", id.0));
-
-        parsed_value.clone().try_into().unwrap_or_else(|_| {
-            panic!(
-                "Unable to convert {:?} to {}",
-                parsed_value,
-                type_name::<T>()
-            )
-        })
+        get_parsed_value(id, &self.parsed_parts)
+            .unwrap_or_else(|| panic!("No part found for ID {}", id.0))
     }
+}
+
+//TODO doc
+fn get_parsed_value<T: 'static>(
+    id: &CommandPartId<T>,
+    parsed_parts: &HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+) -> Option<T>
+where
+    ParsedValue: TryInto<T>,
+{
+    let parsed_value = parsed_parts
+        .get(&UntypedCommandPartId(id.0.clone()))
+        .map(|matched_part| &matched_part.parsed_value)?;
+
+    Some(parsed_value.clone().try_into().unwrap_or_else(|_| {
+        panic!(
+            "Unable to convert {:?} to {}",
+            parsed_value,
+            type_name::<T>()
+        )
+    }))
 }
 
 impl CommandFormat {
