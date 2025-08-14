@@ -4,7 +4,8 @@ use bevy_ecs::prelude::*;
 use voca_rs::Voca;
 
 use crate::command_format::{
-    part_parsers::CommandPartParseResult, CommandFormat, CommandFormatPart, PartParserContext,
+    part_parsers::CommandPartParseResult, CommandFormat, CommandFormatPart,
+    ParsedCommandFormatPart, PartParserContext, UntypedCommandPartId,
 };
 
 mod match_literal;
@@ -57,12 +58,17 @@ pub struct MatchedCommandFormatPart {
 
 impl MatchedCommandFormatPart {
     /// Parses this matched part into an actual parsed value.
-    pub fn parse(&self, entering_entity: Entity, world: &World) -> CommandPartParseResult {
+    pub fn parse(
+        &self,
+        entering_entity: Entity,
+        parsed_parts: HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+        world: &World,
+    ) -> CommandPartParseResult {
         self.part.parse(
             PartParserContext {
                 input: self.matched_input.clone(),
                 entering_entity,
-                parsed_parts: HashMap::new(), //TODO
+                parsed_parts,
             },
             world,
         )

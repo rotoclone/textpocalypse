@@ -916,17 +916,22 @@ impl ParsedCommand {
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
         let mut parsed_parts = Vec::new();
+        let mut parsed_parts_with_ids = HashMap::new();
 
         //TODO handle part dependencies
         for part in &matched_command.matched_parts {
-            match part.parse(entering_entity, world) {
+            match part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
                 CommandPartParseResult::Success(parsed_value) => {
                     dbg!(&part, &parsed_value); //TODO
 
-                    parsed_parts.push(ParsedCommandFormatPart {
+                    let parsed_part = ParsedCommandFormatPart {
                         matched_part: part.clone(),
                         parsed_value,
-                    });
+                    };
+                    if let Some(id) = part.part.id() {
+                        parsed_parts_with_ids.insert(id, parsed_part.clone());
+                    }
+                    parsed_parts.push(parsed_part);
                 }
                 CommandPartParseResult::Failure(error) => {
                     let mut unparsed_parts = NonEmpty::new(part.clone());
