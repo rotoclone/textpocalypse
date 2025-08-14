@@ -6,12 +6,14 @@ use itertools::Itertools;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
 
-use crate::command_format::{one_of_literal_part, CommandFormatParseError, CommandFormatPart};
+use crate::command_format::{
+    entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
+};
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
-        entity_part_with_validator, literal_part, CommandFormat, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        literal_part, CommandFormat, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext,
     },
     find_owning_entity, in_same_room, is_living_entity,
     resource::WeaponTypeStatCatalog,
@@ -125,16 +127,18 @@ impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
     pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
-        let target_part =
-            entity_part_with_validator(target_part_id.clone(), validate_attack_target)
-                .with_if_missing("who")
-                .with_placeholder_for_format_string("target");
+        let target_part = entity_part_builder(target_part_id.clone())
+            .with_validator(validate_attack_target)
+            .build()
+            .with_if_missing("who")
+            .with_placeholder_for_format_string("target");
 
         let weapon_part_id = CommandPartId::new("weapon");
-        let weapon_part =
-            entity_part_with_validator(weapon_part_id.clone(), validate_attack_weapon::<A>)
-                .with_if_missing("what")
-                .with_placeholder_for_format_string("weapon");
+        let weapon_part = entity_part_builder(weapon_part_id.clone())
+            .with_validator(validate_attack_weapon::<A>)
+            .build()
+            .with_if_missing("what")
+            .with_placeholder_for_format_string("weapon");
 
         let format_no_target_no_weapon = CommandFormat::new(first_part.clone());
 

@@ -8,9 +8,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
     command_format::{
-        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
-        PartValidatorContext,
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
@@ -63,15 +62,19 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("throw"))
         .then(literal_part(" "))
         .then(
-            entity_part_with_validator(ITEM_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Item>(context, "throw", world)
-            })
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing"),
+            entity_part_builder(ITEM_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Item>(context, "throw", world)
+                })
+                .build()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("thing"),
         )
         .then(literal_part(" at "))
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(validate_target)
+                .build()
                 .with_if_missing("what")
                 .with_placeholder_for_format_string("target"),
         )

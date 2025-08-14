@@ -4,8 +4,8 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId,
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
     },
     component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
@@ -23,24 +23,28 @@ static OPEN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("open"))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<OpenState>(context, "open", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<OpenState>(context, "open", world)
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("thing"),
         )
 });
 static CLOSE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("close"))
         .then(literal_part(" ").always_include_in_errors())
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<OpenState>(context, "close", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<OpenState>(context, "close", world)
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("thing"),
         )
 });
 

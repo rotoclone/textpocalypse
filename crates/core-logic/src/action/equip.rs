@@ -5,7 +5,7 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_literal_part,
+        entity_part_builder, literal_part, one_of_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
@@ -34,12 +34,14 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
-        entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Item>(context, "equip", world)
-        })
-        .always_include_in_errors()
-        .with_if_missing("what")
-        .with_literal_for_format_string("thing"),
+        entity_part_builder(TARGET_PART_ID.clone())
+            .with_validator(|context, world| {
+                validate_parsed_value_has_component::<Item>(context, "equip", world)
+            })
+            .build()
+            .always_include_in_errors()
+            .with_if_missing("what")
+            .with_literal_for_format_string("thing"),
     )
 });
 static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -48,12 +50,14 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
-        entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-            validate_parsed_value_has_component::<Item>(context, "unequip", world)
-        })
-        .always_include_in_errors()
-        .with_if_missing("what")
-        .with_literal_for_format_string("thing"),
+        entity_part_builder(TARGET_PART_ID.clone())
+            .with_validator(|context, world| {
+                validate_parsed_value_has_component::<Item>(context, "unequip", world)
+            })
+            .build()
+            .always_include_in_errors()
+            .with_if_missing("what")
+            .with_literal_for_format_string("thing"),
     )
 });
 

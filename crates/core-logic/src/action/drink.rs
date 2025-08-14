@@ -7,7 +7,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, optional_literal_part,
+        entity_part_builder, literal_part, optional_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
@@ -32,12 +32,18 @@ static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(literal_part(" ").always_include_in_errors())
         .then(optional_literal_part("from "))
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<FluidContainer>(context, "drink from", world)
-            })
-            .always_include_in_errors()
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("container"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<FluidContainer>(
+                        context,
+                        "drink from",
+                        world,
+                    )
+                })
+                .build()
+                .always_include_in_errors()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("container"),
         )
 });
 

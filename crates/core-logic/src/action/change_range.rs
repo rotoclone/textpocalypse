@@ -7,7 +7,7 @@ use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
-        entity_part_with_validator, literal_part, one_of_literal_part, CommandFormat,
+        entity_part_builder, literal_part, one_of_literal_part, CommandFormat,
         CommandFormatParseError, CommandPartId, CommandPartValidateError,
         CommandPartValidateResult, PartValidatorContext,
     },
@@ -53,7 +53,9 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
-        entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+        entity_part_builder(TARGET_PART_ID.clone())
+            .with_validator(validate_target)
+            .build()
             .always_include_in_errors()
             .with_if_missing("who")
             .with_placeholder_for_format_string("target"),
@@ -69,7 +71,9 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
     ]))
     .then(literal_part(" ").always_include_in_errors())
     .then(
-        entity_part_with_validator(TARGET_PART_ID.clone(), validate_target)
+        entity_part_builder(TARGET_PART_ID.clone())
+            .with_validator(validate_target)
+            .build()
             .always_include_in_errors()
             .with_if_missing("who")
             .with_placeholder_for_format_string("target"),

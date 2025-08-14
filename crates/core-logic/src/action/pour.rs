@@ -10,9 +10,9 @@ use regex::Regex;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, entity_part_with_validator, literal_part,
-        one_of_literal_part, validate_parsed_value_has_component, CommandFormat, CommandFormatPart,
-        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandFormatPart, CommandPartId,
+        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
@@ -42,18 +42,30 @@ static AMOUNT_PART_ID: LazyLock<CommandPartId<String>> =
     LazyLock::new(|| CommandPartId::new("amount"));
 
 static SOURCE_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
-    entity_part_with_validator(SOURCE_PART_ID.clone(), |context, world| {
-        validate_parsed_value_has_component::<FluidContainer>(context, "pour anything from", world)
-    })
-    .with_if_missing("what")
-    .with_placeholder_for_format_string("container")
+    entity_part_builder(SOURCE_PART_ID.clone())
+        .with_validator(|context, world| {
+            validate_parsed_value_has_component::<FluidContainer>(
+                context,
+                "pour anything from",
+                world,
+            )
+        })
+        .build()
+        .with_if_missing("what")
+        .with_placeholder_for_format_string("container")
 });
 static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
-    entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-        validate_parsed_value_has_component::<FluidContainer>(context, "pour anything into", world)
-    })
-    .with_if_missing("what")
-    .with_placeholder_for_format_string("container")
+    entity_part_builder(TARGET_PART_ID.clone())
+        .with_validator(|context, world| {
+            validate_parsed_value_has_component::<FluidContainer>(
+                context,
+                "pour anything into",
+                world,
+            )
+        })
+        .build()
+        .with_if_missing("what")
+        .with_placeholder_for_format_string("container")
 });
 static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
     any_text_part_with_validator(AMOUNT_PART_ID.clone(), validate_amount)

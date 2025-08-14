@@ -616,7 +616,7 @@ fn build_optional_entity_part(
             options: CommandFormatPartOptions::default(),
             validator,
         },
-        target_finder_fn.unwrap_or(default_entity_target_finder_fn),
+        target_finder_fn.unwrap_or(default_entity_target_finder),
     )
 }
 
@@ -1190,7 +1190,7 @@ mod tests {
                     },
                     validator: None,
                 },
-                default_entity_target_finder_fn
+                default_entity_target_finder
             ),
             CommandFormatPart::Literal(
                 "third part".to_string(),

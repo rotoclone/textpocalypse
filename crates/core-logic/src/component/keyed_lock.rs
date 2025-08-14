@@ -5,8 +5,8 @@ use bevy_ecs::prelude::*;
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, OpenAction},
     command_format::{
-        entity_part_with_validator, literal_part, validate_parsed_value_has_component,
-        CommandFormat, CommandPartId,
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
     },
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
@@ -27,22 +27,26 @@ static UNLOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("unlock"))
         .then(literal_part(" "))
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
-            })
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
+                })
+                .build()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("thing"),
         )
 });
 static LOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("lock"))
         .then(literal_part(" "))
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
-            })
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("thing"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
+                })
+                .build()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("thing"),
         )
 });
 

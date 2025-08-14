@@ -5,7 +5,7 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_with_validator, literal_part, one_of_literal_part,
+        entity_part_builder, literal_part, one_of_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
@@ -27,11 +27,13 @@ static REMOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["take off", "remove"]))
         .then(literal_part(" "))
         .then(
-            entity_part_with_validator(TARGET_PART_ID.clone(), |context, world| {
-                validate_parsed_value_has_component::<Wearable>(context, "take off", world)
-            })
-            .with_if_missing("what")
-            .with_placeholder_for_format_string("worn item"),
+            entity_part_builder(TARGET_PART_ID.clone())
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Wearable>(context, "take off", world)
+                })
+                .build()
+                .with_if_missing("what")
+                .with_placeholder_for_format_string("worn item"),
         )
 });
 
