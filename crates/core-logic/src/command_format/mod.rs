@@ -31,7 +31,7 @@ pub use parsed_value_validators::PartValidatorContext;
 
 /// The format of a command a player can enter.
 /// TODO change to a regular Vec instead of NonEmpty?
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CommandFormat(NonEmpty<CommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
@@ -46,7 +46,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 
 //TODO add a part that must be provided if another part is provided, so for example if there's an optional part that's provided it has to be preceded with a space, but if the optional part isn't provided then there can't be a space
 //TODO add a part that parses into a custom type, so for example the open command doesn't need 2 separate formats (one that starts with "open" and one that starts with "close"), instead the first part could be parsed into an enum
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
     OptionalLiteral(String, CommandFormatPartParams<Option<String>, String>),
@@ -341,7 +341,7 @@ fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
 }
 
 //TODO doc
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CommandFormatPartParams<P, V> {
     id: Option<CommandPartId<P>>,
     options: CommandFormatPartOptions,
@@ -883,10 +883,23 @@ impl CommandFormatParseError {
 }
 
 /// A part that has been parsed into some concrete value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedCommandFormatPart {
+    pub order: usize,
     pub matched_part: MatchedCommandFormatPart,
     pub parsed_value: ParsedValue,
+}
+
+impl PartialOrd for ParsedCommandFormatPart {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ParsedCommandFormatPart {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.order.cmp(&other.order)
+    }
 }
 
 impl ParsedCommandFormatPart {
@@ -915,16 +928,17 @@ impl ParsedCommand {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
-        let mut parsed_parts = Vec::new();
+        let mut parsed_parts = Vec::with_capacity(matched_command.matched_parts.len());
         let mut parsed_parts_with_ids = HashMap::new();
 
         //TODO handle part dependencies
-        for part in &matched_command.matched_parts {
+        for (i, part) in matched_command.matched_parts.iter().enumerate() {
             match part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
                 CommandPartParseResult::Success(parsed_value) => {
                     dbg!(&part, &parsed_value); //TODO
 
                     let parsed_part = ParsedCommandFormatPart {
+                        order: i,
                         matched_part: part.clone(),
                         parsed_value,
                     };
@@ -972,7 +986,9 @@ impl ParsedCommand {
             });
         }
 
-        Ok(ParsedCommand::new(parsed_parts))
+        Ok(ParsedCommand {
+            parsed_parts: parsed_parts_with_ids,
+        })
     }
 
     /// Creates a `ParsedCommand` from a list of matched parts.
@@ -1102,6 +1118,7 @@ mod tests {
     use super::*;
     use nonempty::nonempty;
 
+    /* TODO
     impl PartialEq for CommandFormat {
         fn eq(&self, other: &Self) -> bool {
             self.0 == other.0
@@ -1137,6 +1154,7 @@ mod tests {
             self.id == other.id && self.options == other.options
         }
     }
+    */
 
     /* TODO remove
     #[derive(Clone, PartialEq, Eq, Debug)]
