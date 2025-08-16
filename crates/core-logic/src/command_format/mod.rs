@@ -928,43 +928,36 @@ impl ParsedCommand {
         entering_entity: Entity,
         world: &World,
     ) -> Result<ParsedCommand, CommandFormatParseError> {
-        let mut parsed_parts = Vec::with_capacity(matched_command.matched_parts.len());
+        let mut parsed_parts_by_index = HashMap::new();
         let mut parsed_parts_with_ids = HashMap::new();
+        let matched_parts_by_id = matched_command
+            .matched_parts
+            .iter()
+            .flat_map(|p| {
+                if let Some(id) = p.part.id() {
+                    Some((id, p))
+                } else {
+                    None
+                }
+            })
+            .collect::<HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>>();
 
         //TODO handle part dependencies
         for (i, part) in matched_command.matched_parts.iter().enumerate() {
-            match part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
-                CommandPartParseResult::Success(parsed_value) => {
-                    dbg!(&part, &parsed_value); //TODO
+            if parsed_parts_by_index.contains_key(&i) {
+                // already parsed this part due to a dependency on a previous part
+                continue;
+            }
 
-                    let parsed_part = ParsedCommandFormatPart {
-                        order: i,
-                        matched_part: part.clone(),
-                        parsed_value,
-                    };
-                    if let Some(id) = part.part.id() {
-                        parsed_parts_with_ids.insert(id, parsed_part.clone());
-                    }
-                    parsed_parts.push(parsed_part);
-                }
-                CommandPartParseResult::Failure(error) => {
-                    let mut unparsed_parts = NonEmpty::new(part.clone());
-                    // +1 to account for the failed part already added above
-                    unparsed_parts.extend(
-                        matched_command
-                            .matched_parts
-                            .iter()
-                            .skip(parsed_parts.len() + 1)
-                            .cloned(),
-                    );
-
-                    return Err(CommandFormatParseError::Parsing {
-                        parsed_parts,
-                        unparsed_parts: Box::new(unparsed_parts),
-                        error,
-                        unmatched_parts: matched_command.unmatched_parts,
-                    });
-                }
+            let parsed_parts = parse_part(
+                part,
+                entering_entity,
+                &matched_parts_by_id,
+                &mut parsed_parts_with_ids,
+                world,
+            )?;
+            for parsed_part in parsed_parts {
+                parsed_parts_by_index.insert(i, parsed_part);
             }
         }
 
@@ -1011,6 +1004,69 @@ impl ParsedCommand {
     {
         get_parsed_value(id, &self.parsed_parts)
             .unwrap_or_else(|| panic!("No part found for ID {}", id.0))
+    }
+}
+
+fn parse_part(
+    matched_part: &MatchedCommandFormatPart,
+    entering_entity: Entity,
+    matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
+    parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+    world: &World,
+) -> Result<Vec<ParsedCommandFormatPart>, CommandFormatParseError> {
+    let mut parsed_parts = Vec::new();
+    for prereq_part_id in matched_part.part.options().prerequisite_part_ids {
+        if let Some(prereq_part) = matched_parts_by_id.get(&prereq_part_id) {
+            parsed_parts.extend(parse_part(
+                prereq_part,
+                entering_entity,
+                matched_parts_by_id,
+                parsed_parts_with_ids,
+                world,
+            )?);
+        } else {
+            return Err(CommandFormatParseError::Parsing {
+                parsed_parts: (),
+                unparsed_parts: (),
+                error: CommandPartParseError::PrerequisiteUnmatched),
+                unmatched_parts: (),
+            });
+        }
+        //TODO
+    }
+
+    match part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
+        CommandPartParseResult::Success(parsed_value) => {
+            dbg!(&part, &parsed_value); //TODO
+
+            let parsed_part = ParsedCommandFormatPart {
+                order: i,
+                matched_part: part.clone(),
+                parsed_value,
+            };
+            if let Some(id) = part.part.id() {
+                parsed_parts_with_ids.insert(id, parsed_part.clone());
+            }
+            parsed_parts.push(parsed_part);
+        }
+        CommandPartParseResult::Failure(error) => {
+            let mut unparsed_parts = NonEmpty::new(part.clone());
+            // +1 to account for the failed part already added above
+            unparsed_parts.extend(
+                matched_command
+                    .matched_parts
+                    .iter()
+                    .skip(parsed_parts.len() + 1)
+                    .cloned(),
+            );
+
+            return Err(CommandFormatParseError::Parsing {
+                parsed_parts,
+                unparsed_parts: Box::new(unparsed_parts),
+                error,
+                unmatched_parts: matched_command.unmatched_parts,
+            });
+        }
     }
 }
 
