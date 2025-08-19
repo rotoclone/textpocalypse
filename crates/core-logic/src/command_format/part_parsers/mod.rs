@@ -58,6 +58,8 @@ pub enum CommandPartParseError {
     Unparseable { details: Option<String> },
     /// The parsed value failed validation
     Invalid(CommandPartValidateError),
+    /// A prerequisite part of this part was not matched
+    PrerequisiteUnmatched(UntypedCommandPartId),
 }
 
 /// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`

@@ -52,7 +52,11 @@ pub enum CommandPartMatchError {
 /// A part that has been associated with a portion of the input string
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatchedCommandFormatPart {
+    /// The index of this part in the list of parts in the format
+    pub order: usize,
+    /// The part that was matched
     pub part: CommandFormatPart,
+    /// The portion of the input that was determined to correspond with this part
     pub matched_input: String,
 }
 
@@ -98,6 +102,7 @@ impl MatchedCommand {
             }) {
                 CommandPartMatchResult::Success { matched, remaining } => {
                     matched_parts.push(MatchedCommandFormatPart {
+                        order: i,
                         part: part.clone(),
                         matched_input: matched,
                     });

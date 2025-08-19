@@ -942,23 +942,20 @@ impl ParsedCommand {
             })
             .collect::<HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>>();
 
-        //TODO handle part dependencies
         for (i, part) in matched_command.matched_parts.iter().enumerate() {
             if parsed_parts_by_index.contains_key(&i) {
                 // already parsed this part due to a dependency on a previous part
                 continue;
             }
 
-            let parsed_parts = parse_part(
+            parse_part(
                 part,
                 entering_entity,
                 &matched_parts_by_id,
                 &mut parsed_parts_with_ids,
+                &mut parsed_parts_by_index,
                 world,
             )?;
-            for parsed_part in parsed_parts {
-                parsed_parts_by_index.insert(i, parsed_part);
-            }
         }
 
         if !matched_command.remaining_input.is_empty() {
@@ -1012,45 +1009,46 @@ fn parse_part(
     entering_entity: Entity,
     matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+    parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
-) -> Result<Vec<ParsedCommandFormatPart>, CommandFormatParseError> {
-    let mut parsed_parts = Vec::new();
+) -> Result<(), CommandFormatParseError> {
     for prereq_part_id in matched_part.part.options().prerequisite_part_ids {
         if let Some(prereq_part) = matched_parts_by_id.get(&prereq_part_id) {
-            parsed_parts.extend(parse_part(
+            parse_part(
                 prereq_part,
                 entering_entity,
                 matched_parts_by_id,
                 parsed_parts_with_ids,
+                parsed_parts_by_index,
                 world,
-            )?);
+            )?;
         } else {
             return Err(CommandFormatParseError::Parsing {
-                parsed_parts: (),
-                unparsed_parts: (),
-                error: CommandPartParseError::PrerequisiteUnmatched),
-                unmatched_parts: (),
+                parsed_parts,
+                unparsed_parts: Box::new(unparsed_parts),
+                error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id),
+                unmatched_parts: matched_command.unmatched_parts,
             });
         }
-        //TODO
     }
+    //TODO
 
-    match part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
+    match matched_part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
         CommandPartParseResult::Success(parsed_value) => {
-            dbg!(&part, &parsed_value); //TODO
+            dbg!(&matched_part, &parsed_value); //TODO
 
             let parsed_part = ParsedCommandFormatPart {
-                order: i,
-                matched_part: part.clone(),
+                order: matched_part.order,
+                matched_part: matched_part.clone(),
                 parsed_value,
             };
-            if let Some(id) = part.part.id() {
+            if let Some(id) = matched_part.part.id() {
                 parsed_parts_with_ids.insert(id, parsed_part.clone());
             }
-            parsed_parts.push(parsed_part);
+            parsed_parts_by_index.insert(matched_part.order, parsed_part);
         }
         CommandPartParseResult::Failure(error) => {
-            let mut unparsed_parts = NonEmpty::new(part.clone());
+            let mut unparsed_parts = NonEmpty::new(matched_part.clone());
             // +1 to account for the failed part already added above
             unparsed_parts.extend(
                 matched_command
@@ -1068,6 +1066,8 @@ fn parse_part(
             });
         }
     }
+
+    Ok(())
 }
 
 //TODO doc
