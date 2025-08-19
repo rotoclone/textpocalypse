@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::{any::type_name, collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
@@ -950,6 +951,7 @@ impl ParsedCommand {
 
             parse_part(
                 part,
+                HashSet::new(),
                 entering_entity,
                 &matched_parts_by_id,
                 &mut parsed_parts_with_ids,
@@ -1004,18 +1006,32 @@ impl ParsedCommand {
     }
 }
 
+/// Parses a part, but not before parsing all its prerequisite parts.
 fn parse_part(
     matched_part: &MatchedCommandFormatPart,
+    part_ids_being_parsed: HashSet<UntypedCommandPartId>,
     entering_entity: Entity,
     matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
 ) -> Result<(), CommandFormatParseError> {
+    if let Some(id) = matched_part.part.id() {
+        part_ids_being_parsed.insert(id);
+    }
+
     for prereq_part_id in matched_part.part.options().prerequisite_part_ids {
+        if part_ids_being_parsed.contains(&prereq_part_id) {
+            panic!(
+                "Circular dependency found involving part with ID '{}'",
+                prereq_part_id.0
+            );
+        }
+
         if let Some(prereq_part) = matched_parts_by_id.get(&prereq_part_id) {
             parse_part(
                 prereq_part,
+                part_ids_being_parsed,
                 entering_entity,
                 matched_parts_by_id,
                 parsed_parts_with_ids,
