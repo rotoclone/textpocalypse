@@ -951,7 +951,7 @@ impl ParsedCommand {
 
             parse_part(
                 part,
-                HashSet::new(),
+                &matched_command,
                 entering_entity,
                 &matched_parts_by_id,
                 &mut parsed_parts_with_ids,
@@ -1009,7 +1009,31 @@ impl ParsedCommand {
 /// Parses a part, but not before parsing all its prerequisite parts.
 fn parse_part(
     matched_part: &MatchedCommandFormatPart,
-    part_ids_being_parsed: HashSet<UntypedCommandPartId>,
+    matched_command: &MatchedCommand,
+    entering_entity: Entity,
+    matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
+    parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+    parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
+    world: &World,
+) -> Result<(), CommandFormatParseError> {
+    let mut part_ids_being_parsed = HashSet::new();
+    parse_part_recursive(
+        matched_part,
+        matched_command,
+        &mut part_ids_being_parsed,
+        entering_entity,
+        matched_parts_by_id,
+        parsed_parts_with_ids,
+        parsed_parts_by_index,
+        world,
+    )
+}
+
+/// Parses a part, but not before parsing all its prerequisite parts.
+fn parse_part_recursive(
+    matched_part: &MatchedCommandFormatPart,
+    matched_command: &MatchedCommand,
+    part_ids_being_parsed: &mut HashSet<UntypedCommandPartId>,
     entering_entity: Entity,
     matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
@@ -1020,7 +1044,7 @@ fn parse_part(
         part_ids_being_parsed.insert(id);
     }
 
-    for prereq_part_id in matched_part.part.options().prerequisite_part_ids {
+    for prereq_part_id in &matched_part.part.options().prerequisite_part_ids {
         if part_ids_being_parsed.contains(&prereq_part_id) {
             panic!(
                 "Circular dependency found involving part with ID '{}'",
@@ -1029,8 +1053,9 @@ fn parse_part(
         }
 
         if let Some(prereq_part) = matched_parts_by_id.get(&prereq_part_id) {
-            parse_part(
+            parse_part_recursive(
                 prereq_part,
+                matched_command,
                 part_ids_being_parsed,
                 entering_entity,
                 matched_parts_by_id,
@@ -1039,10 +1064,13 @@ fn parse_part(
                 world,
             )?;
         } else {
+            let parsed_parts = parsed_parts_by_index.values().cloned().collect_vec();
+            let unparsed_parts =
+                get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
             return Err(CommandFormatParseError::Parsing {
                 parsed_parts,
                 unparsed_parts: Box::new(unparsed_parts),
-                error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id),
+                error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id.clone()),
                 unmatched_parts: matched_command.unmatched_parts,
             });
         }
@@ -1064,15 +1092,9 @@ fn parse_part(
             parsed_parts_by_index.insert(matched_part.order, parsed_part);
         }
         CommandPartParseResult::Failure(error) => {
-            let mut unparsed_parts = NonEmpty::new(matched_part.clone());
-            // +1 to account for the failed part already added above
-            unparsed_parts.extend(
-                matched_command
-                    .matched_parts
-                    .iter()
-                    .skip(parsed_parts.len() + 1)
-                    .cloned(),
-            );
+            let parsed_parts = parsed_parts_by_index.values().cloned().collect_vec();
+            let unparsed_parts =
+                get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
 
             return Err(CommandFormatParseError::Parsing {
                 parsed_parts,
@@ -1105,6 +1127,26 @@ where
             type_name::<T>()
         )
     }))
+}
+
+/// Builds a list of all the parts from `matched_command` that weren't parsed, starting with `matched_part`.
+fn get_unparsed_parts(
+    matched_command: &MatchedCommand,
+    matched_part: MatchedCommandFormatPart,
+    parsed_parts_by_index: &HashMap<usize, ParsedCommandFormatPart>,
+) -> NonEmpty<MatchedCommandFormatPart> {
+    let mut unparsed_parts = NonEmpty::new(matched_part.clone());
+    unparsed_parts.extend(
+        matched_command
+            .matched_parts
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| i != &matched_part.order && !parsed_parts_by_index.contains_key(&i))
+            .map(|(_, p)| p)
+            .cloned(),
+    );
+
+    unparsed_parts
 }
 
 impl CommandFormat {
