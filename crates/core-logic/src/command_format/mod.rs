@@ -816,6 +816,7 @@ impl CommandFormatParseError {
                 let error_detail_string = match error {
                     CommandPartParseError::Unparseable { details } => details,
                     CommandPartParseError::Invalid(error) => error.details,
+                    CommandPartParseError::PrerequisiteUnmatched(_) => None, //TODO somehow find the part that was unmatched and turn it into an error to display?
                 }
                 .map(|message| format!(" ({message})"))
                 .unwrap_or_default();
@@ -964,7 +965,7 @@ impl ParsedCommand {
             return Err(CommandFormatParseError::UnmatchedInput {
                 matched_parts: matched_command.matched_parts,
                 unmatched: matched_command.remaining_input,
-                parsed_parts,
+                parsed_parts: parsed_parts_by_index.into_values().collect(),
             });
         }
 
@@ -974,7 +975,7 @@ impl ParsedCommand {
             return Err(CommandFormatParseError::UnmatchedPart {
                 matched_parts: matched_command.matched_parts,
                 unmatched_parts: Box::new(unmatched_parts),
-                parsed_parts,
+                parsed_parts: parsed_parts_by_index.into_values().collect(),
             });
         }
 
@@ -1071,7 +1072,7 @@ fn parse_part_recursive(
                 parsed_parts,
                 unparsed_parts: Box::new(unparsed_parts),
                 error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id.clone()),
-                unmatched_parts: matched_command.unmatched_parts,
+                unmatched_parts: matched_command.unmatched_parts.clone(),
             });
         }
     }
@@ -1100,7 +1101,7 @@ fn parse_part_recursive(
                 parsed_parts,
                 unparsed_parts: Box::new(unparsed_parts),
                 error,
-                unmatched_parts: matched_command.unmatched_parts,
+                unmatched_parts: matched_command.unmatched_parts.clone(),
             });
         }
     }
