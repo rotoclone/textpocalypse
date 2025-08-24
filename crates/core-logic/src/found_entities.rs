@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 
 //TODO doc
+#[derive(Default)]
 pub struct FoundEntities<T: Ord> {
     pub exact_matches: Vec<Entity>,
     pub partial_matches: Vec<PartialMatchingEntity<T>>,
@@ -15,7 +16,7 @@ pub struct PartialMatchingEntity<T: Ord> {
 
 impl<T: Ord> PartialOrd for PartialMatchingEntity<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.match_info.partial_cmp(&other.match_info)
+        Some(self.cmp(other))
     }
 }
 

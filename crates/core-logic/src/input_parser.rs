@@ -84,14 +84,14 @@ pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum CommandTarget {
+pub enum CommandTarget<'n> {
     Myself,
     Here,
     Direction(Direction),
-    Named(CommandTargetName),
+    Named(CommandTargetName<'n>),
 }
 
-impl Display for CommandTarget {
+impl<'n> Display for CommandTarget<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommandTarget::Myself => "me".fmt(f),
@@ -102,7 +102,7 @@ impl Display for CommandTarget {
     }
 }
 
-impl CommandTarget {
+impl<'n> CommandTarget<'n> {
     /// Parses the provided string to a `CommandTarget`.
     pub fn parse(input: &str) -> CommandTarget {
         if SELF_TARGET_PATTERN.is_match(input) {
@@ -118,7 +118,7 @@ impl CommandTarget {
         }
 
         CommandTarget::Named(CommandTargetName {
-            name: input.to_lowercase(),
+            name: input,
             location_chain: Vec::new(), //TODO populate this
         })
     }
@@ -182,20 +182,21 @@ impl CommandTarget {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CommandTargetName {
-    pub name: String,
+pub struct CommandTargetName<'n> {
+    pub name: &'n str,
     //TODO actually this should be restricted probably, since multiply-nested containers is annoying to deal with
+    //TODO or just remove altogether?
     pub location_chain: Vec<String>,
 }
 
-impl Display for CommandTargetName {
+impl<'n> Display for CommandTargetName<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO include location chain
         self.name.fmt(f)
     }
 }
 
-impl CommandTargetName {
+impl<'n> CommandTargetName<'n> {
     /// Finds all the entities described by this target, if any exist from the perspective of the looking entity.
     pub fn find_target_entities(
         &self,
@@ -210,7 +211,7 @@ impl CommandTargetName {
         // TODO allow callers to define whether inventory or location should be searched first
         if let Some(container) = world.get::<Container>(looking_entity) {
             found_entities.extend(container.find_entities_by_name(
-                &self.name,
+                self.name,
                 looking_entity,
                 world,
             ));
@@ -224,7 +225,7 @@ impl CommandTargetName {
         let location = world
             .get::<Container>(location_id)
             .expect("Looking entity's location should be a container");
-        found_entities.extend(location.find_entities_by_name(&self.name, looking_entity, world));
+        found_entities.extend(location.find_entities_by_name(self.name, looking_entity, world));
 
         found_entities
     }
@@ -239,7 +240,7 @@ impl CommandTargetName {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
-            return container.find_entities_by_name(&self.name, looking_entity, world);
+            return container.find_entities_by_name(self.name, looking_entity, world);
         }
 
         FoundEntities::new()

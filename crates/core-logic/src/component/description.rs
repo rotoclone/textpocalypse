@@ -5,7 +5,7 @@ use log::debug;
 use ordered_float::OrderedFloat;
 use voca_rs::Voca;
 
-use crate::{find_owning_entity, is_living_entity, ConstrainedValue, GameMessage};
+use crate::{find_owning_entity, is_living_entity, GameMessage};
 
 use super::Location;
 

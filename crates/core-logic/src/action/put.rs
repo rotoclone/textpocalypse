@@ -14,7 +14,7 @@ use crate::{
     },
     find_owning_entity,
     found_entities::FoundEntities,
-    input_parser::{InputParseError, InputParser},
+    input_parser::{CommandTarget, CommandTargetName, InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -132,7 +132,12 @@ fn find_entities_in_target_container(
     let Some(container) = context.get_parsed_value(&CONTAINER_PART_ID) else {
         return FoundEntities::new();
     };
-    todo!() //TODO
+
+    CommandTargetName {
+        name: &context.input,
+        location_chain: Vec::new(),
+    }
+    .find_target_entities_in_container(container, context.entering_entity, world)
 }
 
 pub struct GetParser;
