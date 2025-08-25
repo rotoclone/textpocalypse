@@ -746,6 +746,9 @@ pub enum CommandFormatParseError {
     },
     /// An error occurred when attempting to parse a part
     Parsing {
+        /// The successfully-parsed parts, if any, ordered by where they appear in the format.
+        /// Note that parts may not be parsed in order, so there may be un-parsed parts between parsed parts.
+        /// TODO have one list where each item is either parsed or just matched instead of two separate lists?
         parsed_parts: Vec<ParsedCommandFormatPart>,
         // Boxed to reduce size
         unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
@@ -806,6 +809,7 @@ impl CommandFormatParseError {
                 error,
                 unmatched_parts,
             } => {
+                // TODO stop when reaching an index gap
                 let parsed_parts_string = parsed_parts
                     .into_iter()
                     .map(|parsed_part| {
@@ -1046,14 +1050,14 @@ fn parse_part_recursive(
     }
 
     for prereq_part_id in &matched_part.part.options().prerequisite_part_ids {
-        if part_ids_being_parsed.contains(&prereq_part_id) {
+        if part_ids_being_parsed.contains(prereq_part_id) {
             panic!(
                 "Circular dependency found involving part with ID '{}'",
                 prereq_part_id.0
             );
         }
 
-        if let Some(prereq_part) = matched_parts_by_id.get(&prereq_part_id) {
+        if let Some(prereq_part) = matched_parts_by_id.get(prereq_part_id) {
             parse_part_recursive(
                 prereq_part,
                 matched_command,
@@ -1065,7 +1069,11 @@ fn parse_part_recursive(
                 world,
             )?;
         } else {
-            let parsed_parts = parsed_parts_by_index.values().cloned().collect_vec();
+            let parsed_parts = parsed_parts_by_index
+                .values()
+                .sorted()
+                .cloned()
+                .collect_vec();
             let unparsed_parts =
                 get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
             return Err(CommandFormatParseError::Parsing {
@@ -1093,7 +1101,11 @@ fn parse_part_recursive(
             parsed_parts_by_index.insert(matched_part.order, parsed_part);
         }
         CommandPartParseResult::Failure(error) => {
-            let parsed_parts = parsed_parts_by_index.values().cloned().collect_vec();
+            let parsed_parts = parsed_parts_by_index
+                .values()
+                .sorted()
+                .cloned()
+                .collect_vec();
             let unparsed_parts =
                 get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
 
@@ -1142,7 +1154,7 @@ fn get_unparsed_parts(
             .matched_parts
             .iter()
             .enumerate()
-            .filter(|(i, _)| i != &matched_part.order && !parsed_parts_by_index.contains_key(&i))
+            .filter(|(i, _)| i != &matched_part.order && !parsed_parts_by_index.contains_key(i))
             .map(|(_, p)| p)
             .cloned(),
     );
