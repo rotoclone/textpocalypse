@@ -809,8 +809,7 @@ impl CommandFormatParseError {
                 error,
                 unmatched_parts,
             } => {
-                // TODO stop when reaching an index gap
-                let parsed_parts_string = parsed_parts
+                let parsed_parts_string = get_parsed_parts_before_first_gap(parsed_parts)
                     .into_iter()
                     .map(|parsed_part| {
                         parsed_part.to_string_for_parse_error(context.clone(), world)
@@ -886,6 +885,29 @@ impl CommandFormatParseError {
 
         GameMessage::Error(string)
     }
+}
+
+/// Removes all the parts from the provided list after the first gap in order.
+/// For example, given parts with orders of 0, 1, 3, and 4, only the first 2 parts will be returned.
+///
+/// It's assumed that the provided parts are sorted by order.
+fn get_parsed_parts_before_first_gap(
+    parsed_parts: Vec<ParsedCommandFormatPart>,
+) -> Vec<ParsedCommandFormatPart> {
+    let mut previous_order = None;
+    let mut parsed_parts_before_gap = Vec::new();
+    for parsed_part in parsed_parts.into_iter() {
+        if let Some(previous_order) = previous_order {
+            if previous_order + 1 != parsed_part.order {
+                break;
+            }
+        }
+
+        previous_order = Some(parsed_part.order);
+        parsed_parts_before_gap.push(parsed_part);
+    }
+
+    parsed_parts_before_gap
 }
 
 /// A part that has been parsed into some concrete value
