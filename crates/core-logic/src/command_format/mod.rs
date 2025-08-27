@@ -826,41 +826,7 @@ impl CommandFormatParseError {
 
                 // figure out which unparsed parts (if any) to include in the error message
                 //TODO this needs to change because the parts might not be parsed in order
-                let mut unparsed_parts_to_include = Vec::new();
-                let mut previous_part_was_included = false;
-                if unparsed_parts
-                    .first()
-                    .part
-                    .options()
-                    .include_in_errors_behavior
-                    != IncludeInErrorsBehavior::Never
-                {
-                    // include the first unparsed part because it caused the error
-                    previous_part_was_included = true;
-                    unparsed_parts_to_include.push(unparsed_parts.first());
-                }
-                for unparsed_part in unparsed_parts.tail() {
-                    let should_be_included =
-                        match unparsed_part.part.options().include_in_errors_behavior {
-                            IncludeInErrorsBehavior::Never => false,
-                            IncludeInErrorsBehavior::OnlyIfMatched => false,
-                            IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
-                                previous_part_was_included
-                            }
-                            IncludeInErrorsBehavior::Always => true,
-                        };
-
-                    previous_part_was_included = should_be_included;
-
-                    if should_be_included {
-                        unparsed_parts_to_include.push(unparsed_part);
-                    }
-                }
-
-                let unparsed_parts_string = unparsed_parts_to_include
-                    .iter()
-                    .map(|part| part.part.options().if_missing.as_deref().unwrap_or(""))
-                    .join("");
+                let unparsed_parts_string = build_matched_parts_string(&unparsed_parts);
 
                 format!("{parsed_parts_string}{unparsed_parts_string}?{error_detail_string}")
             }
@@ -908,6 +874,44 @@ fn get_parsed_parts_before_first_gap(
     }
 
     parsed_parts_before_gap
+}
+
+/// Builds a string representing the provided matched parts to include in an error message
+fn build_matched_parts_string(matched_parts: &NonEmpty<MatchedCommandFormatPart>) -> String {
+    let mut matched_parts_to_include = Vec::new();
+    let mut previous_part_was_included = false;
+    if matched_parts
+        .first()
+        .part
+        .options()
+        .include_in_errors_behavior
+        != IncludeInErrorsBehavior::Never
+    {
+        // include the first unparsed part because it caused the error
+        previous_part_was_included = true;
+        matched_parts_to_include.push(matched_parts.first());
+    }
+    for matched_part in matched_parts.tail() {
+        let should_be_included = match matched_part.part.options().include_in_errors_behavior {
+            IncludeInErrorsBehavior::Never => false,
+            IncludeInErrorsBehavior::OnlyIfMatched => false,
+            IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
+                previous_part_was_included
+            }
+            IncludeInErrorsBehavior::Always => true,
+        };
+
+        previous_part_was_included = should_be_included;
+
+        if should_be_included {
+            matched_parts_to_include.push(matched_part);
+        }
+    }
+
+    matched_parts_to_include
+        .iter()
+        .map(|part| part.part.options().if_missing.as_deref().unwrap_or(""))
+        .join("")
 }
 
 /// A part that has been parsed into some concrete value
