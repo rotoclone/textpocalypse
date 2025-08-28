@@ -774,6 +774,10 @@ pub enum CommandFormatParseError {
 
 impl CommandFormatParseError {
     /// Returns true if at least one part was matched, false if no parts were matched.
+    /// TODO this is intended to determine whether the error is due to "close but no" or "this obviously wasn't the intended command",
+    /// but for formats that don't start with a required literal, a part could be matched even if it's clearly not the intended command.
+    /// Maybe allow marking certain parts as "if this didn't parse correctly then it's not the intended command"?
+    /// Or just make input_parser figure out which error represents the closest match?
     pub fn any_parts_matched(&self) -> bool {
         let no_matched_parts = match self {
             CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.is_empty(),
