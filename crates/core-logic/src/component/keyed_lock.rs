@@ -68,7 +68,7 @@ impl InputParser for LockParser {
                 }));
             }
             Err(e) => {
-                if e.any_parts_matched() {
+                if e.num_parts_matched() > 0 {
                     return Err(e.into());
                 }
             }

@@ -336,23 +336,48 @@ where
         }
     }
 
-    for error in errors {
-        let should_return_error = match &error {
-            InputParseError::CommandFormatParseError(e) => e.any_parts_matched(),
+    let mut errors_with_matched_parts: Vec<InputParseError> = errors
+        .into_iter()
+        .filter(|e| match e {
+            InputParseError::CommandFormatParseError(e) => e.num_parts_matched() > 0,
             InputParseError::Other(_) => true,
-        };
+        })
+        .collect();
 
-        if should_return_error {
-            return Err(error);
+    if errors_with_matched_parts.len() == 1 {
+        // unwrap is safe because length is checked above
+        return Err(errors_with_matched_parts.pop().unwrap());
+    }
+
+    // there's more than one error with matched parts, so check parsed parts to see which one is most likely the intended command
+    let mut best_match_and_num_parsed = None;
+    for error in errors_with_matched_parts {
+        match error {
+            InputParseError::CommandFormatParseError(ref e) => {
+                let num_parsed = e.num_parts_parsed();
+                if let Some((_, best_num_parsed)) = best_match_and_num_parsed {
+                    if num_parsed > best_num_parsed {
+                        best_match_and_num_parsed = Some((error, num_parsed));
+                    }
+                } else {
+                    best_match_and_num_parsed = Some((error, num_parsed));
+                }
+            }
+            // This variant should only appear for fully parsed formats, so no need to continue checking others
+            InputParseError::Other(_) => return Err(error),
         }
     }
 
-    // the input didn't match any parts from any parsers
-    //TODO should there be another InputParseError variant for this?
-    Err(CommandFormatParseError::UnmatchedInput {
-        matched_parts: Vec::new(),
-        unmatched: input.to_string(),
-        parsed_parts: Vec::new(),
+    if let Some((error, _)) = best_match_and_num_parsed {
+        Err(error)
+    } else {
+        // the input didn't match any parts from any parsers
+        //TODO should there be another InputParseError variant for this?
+        return Err(CommandFormatParseError::UnmatchedInput {
+            matched_parts: Vec::new(),
+            unmatched: input.to_string(),
+            parsed_parts: Vec::new(),
+        }
+        .into());
     }
-    .into())
 }
