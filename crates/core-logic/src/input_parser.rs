@@ -282,6 +282,7 @@ pub enum InputParseError {
     /// An error occurred while parsing the input against the command format
     CommandFormatParseError(CommandFormatParseError),
     /// An error occurred while transforming the parsed command format into an action
+    /// TODO but this could happen before parsing, like in change_range.rs
     Other(String),
 }
 

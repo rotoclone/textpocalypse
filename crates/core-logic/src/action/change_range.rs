@@ -204,7 +204,7 @@ fn parse_with_required_target(
             return Ok((RangeChangeDirection::Decrease, parsed.get(&TARGET_PART_ID)));
         }
         Err(e) => {
-            if e.any_parts_matched() {
+            if e.num_parts_matched() > 0 {
                 return Err(e);
             }
         }

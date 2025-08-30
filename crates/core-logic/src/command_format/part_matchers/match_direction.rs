@@ -1,5 +1,8 @@
-use crate::command_format::part_matchers::{
-    take_until, CommandPartMatchError, CommandPartMatchResult, PartMatcherContext,
+use crate::{
+    command_format::part_matchers::{
+        take_until, CommandPartMatchError, CommandPartMatchResult, PartMatcherContext,
+    },
+    Direction,
 };
 
 /// Matches a direction from the provided context.
@@ -13,5 +16,13 @@ pub fn match_direction(context: PartMatcherContext) -> CommandPartMatchResult {
         };
     }
 
-    CommandPartMatchResult::Success { matched, remaining }
+    if Direction::parse(&matched).is_some() {
+        CommandPartMatchResult::Success { matched, remaining }
+    } else {
+        CommandPartMatchResult::Failure {
+            error: CommandPartMatchError::Unmatched { details: None },
+            // put parts back together
+            remaining: format!("{matched}{remaining}"),
+        }
+    }
 }
