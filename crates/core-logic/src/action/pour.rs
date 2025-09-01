@@ -205,7 +205,8 @@ impl InputParser for PourParser {
         let parsed = POUR_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(&SOURCE_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
-        let amount = parse_pour_amount(&parsed.get(&AMOUNT_PART_ID))?;
+        let amount = parse_pour_amount(&parsed.get(&AMOUNT_PART_ID))
+            .map_err(|e| InputParseError::PostFormatParse(e))?;
         build_action(source, target, amount, world)
     }
 
@@ -242,7 +243,7 @@ fn build_action(
 ) -> Result<Box<dyn Action>, InputParseError> {
     if source == target {
         let target_name = Description::get_reference_name(target, Some(target), world);
-        return Err(InputParseError::Other(format!(
+        return Err(InputParseError::PostFormatParse(format!(
             "You can't pour {target_name} into itself."
         )));
     }

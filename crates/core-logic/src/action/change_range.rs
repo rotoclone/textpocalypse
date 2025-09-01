@@ -122,7 +122,7 @@ impl InputParser for ChangeRangeParser {
         let valid_targets = CombatState::get_entities_in_combat_with(source_entity, world);
 
         if valid_targets.is_empty() {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PreFormatParse(
                 "You're not in combat with anyone.".to_string(),
             ));
         }
@@ -150,7 +150,7 @@ impl InputParser for ChangeRangeParser {
             }))
         } else {
             let target_name = Description::get_reference_name(target, Some(source_entity), world);
-            Err(InputParseError::Other(format!(
+            Err(InputParseError::PostFormatParse(format!(
                 "You're not in combat with {target_name}."
             )))
         }

@@ -69,7 +69,7 @@ impl InputParser for LookParser {
             let here = match CommandTarget::Here.find_target_entity(source_entity, world) {
                 Some(e) => e,
                 None => {
-                    return Err(InputParseError::Other(
+                    return Err(InputParseError::PostFormatParse(
                         "There's nothing to see.".to_string(),
                     ));
                 }

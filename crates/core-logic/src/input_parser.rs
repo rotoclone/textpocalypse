@@ -280,21 +280,24 @@ pub trait InputParser: Send + Sync {
 #[derive(Debug)]
 pub enum InputParseError {
     /// An error occurred while parsing the input against the command format
-    CommandFormatParseError(CommandFormatParseError),
+    DuringFormatParse(CommandFormatParseError),
+    /// An error occurred before attempting to parse the command format
+    PreFormatParse(String),
     /// An error occurred while transforming the parsed command format into an action
-    /// TODO but this could happen before parsing, like in change_range.rs
-    Other(String),
+    PostFormatParse(String),
 }
 
+/* TODO
 impl From<String> for InputParseError {
     fn from(value: String) -> Self {
         InputParseError::Other(value)
     }
 }
+    */
 
 impl From<CommandFormatParseError> for InputParseError {
     fn from(value: CommandFormatParseError) -> Self {
-        InputParseError::CommandFormatParseError(value)
+        InputParseError::DuringFormatParse(value)
     }
 }
 
@@ -302,8 +305,9 @@ impl InputParseError {
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
         match self {
-            InputParseError::CommandFormatParseError(e) => e.into_message(context, world),
-            InputParseError::Other(s) => GameMessage::Error(s),
+            InputParseError::DuringFormatParse(e) => e.into_message(context, world),
+            InputParseError::PreFormatParse(s) => GameMessage::Error(s),
+            InputParseError::PostFormatParse(s) => GameMessage::Error(s),
         }
     }
 }
@@ -340,8 +344,9 @@ where
     let mut errors_with_matched_parts: Vec<InputParseError> = errors
         .into_iter()
         .filter(|e| match e {
-            InputParseError::CommandFormatParseError(e) => e.num_parts_matched() > 0,
-            InputParseError::Other(_) => true,
+            InputParseError::DuringFormatParse(e) => e.num_parts_matched() > 0,
+            InputParseError::PreFormatParse(_) => false,
+            InputParseError::PostFormatParse(_) => true,
         })
         .collect();
 
@@ -354,7 +359,7 @@ where
     let mut best_match_and_num_parsed = None;
     for error in errors_with_matched_parts {
         match error {
-            InputParseError::CommandFormatParseError(ref e) => {
+            InputParseError::DuringFormatParse(ref e) => {
                 let num_parsed = e.num_parts_parsed();
                 if let Some((_, best_num_parsed)) = best_match_and_num_parsed {
                     if num_parsed > best_num_parsed {
@@ -364,8 +369,12 @@ where
                     best_match_and_num_parsed = Some((error, num_parsed));
                 }
             }
+            //TODO this feels gross
+            InputParseError::PreFormatParse(_) => {
+                unreachable!("pre-parse errors should be filtered out")
+            }
             // This variant should only appear for fully parsed formats, so no need to continue checking others
-            InputParseError::Other(_) => return Err(error),
+            InputParseError::PostFormatParse(_) => return Err(error),
         }
     }
 
