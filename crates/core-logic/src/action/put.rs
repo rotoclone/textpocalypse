@@ -156,13 +156,15 @@ impl InputParser for GetParser {
 
         let item = parsed.get(&ITEM_PART_ID);
         let Some(source_location) = world.get::<Location>(entity) else {
-            return Err(InputParseError::Other("You aren't anywhere.".to_string()));
+            return Err(InputParseError::PostFormatParse(
+                "You aren't anywhere.".to_string(),
+            ));
         };
         let source = source_location.id;
         let destination = entity;
 
         if item == entity {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PostFormatParse(
                 "You can't get yourself. At least not in a physical sense.".to_string(),
             ));
         }
@@ -210,12 +212,14 @@ impl InputParser for DropParser {
         let item = parsed.get(&ITEM_PART_ID);
         let source = entity;
         let Some(destination_location) = world.get::<Location>(entity) else {
-            return Err(InputParseError::Other("You aren't anywhere.".to_string()));
+            return Err(InputParseError::PostFormatParse(
+                "You aren't anywhere.".to_string(),
+            ));
         };
         let destination = destination_location.id;
 
         if item == entity {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PostFormatParse(
                 "You can't drop yourself.".to_string(),
             ));
         }
@@ -265,14 +269,14 @@ impl InputParser for GetFromParser {
         let destination = entity;
 
         if item == entity {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PostFormatParse(
                 "You can't get yourself. At least not in a physical sense.".to_string(),
             ));
         }
 
         if item == source {
             let item_name = Description::get_reference_name(item, Some(entity), world);
-            return Err(InputParseError::Other(format!(
+            return Err(InputParseError::PostFormatParse(format!(
                 "You can't take {item_name} out of itself."
             )));
         }
@@ -287,7 +291,7 @@ impl InputParser for GetFromParser {
             || (source != entity && is_living_entity(source, world))
         {
             let source_name = Description::get_reference_name(source, Some(entity), world);
-            return Err(InputParseError::Other(format!(
+            return Err(InputParseError::PostFormatParse(format!(
                 "You can't get anything from {source_name}."
             )));
         }
@@ -350,14 +354,14 @@ impl InputParser for PutParser {
         let destination = parsed.get(&CONTAINER_PART_ID);
 
         if item == entity {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PostFormatParse(
                 "You can't put yourself anywhere.".to_string(),
             ));
         }
 
         if item == destination {
             let item_name = Description::get_reference_name(item, Some(entity), world);
-            return Err(InputParseError::Other(format!(
+            return Err(InputParseError::PostFormatParse(format!(
                 "You can't put {item_name} inside itself."
             )));
         }

@@ -91,7 +91,8 @@ impl InputParser for WaitWithDurationParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WAIT_WITH_DURATION_FORMAT.parse(input, source_entity, world)?;
-        let total_ticks_to_wait = parse_time_to_ticks(parsed.get(&DURATION_PART_ID).as_str())?;
+        let total_ticks_to_wait = parse_time_to_ticks(parsed.get(&DURATION_PART_ID).as_str())
+            .map_err(|e| InputParseError::PostFormatParse(e))?;
         Ok(Box::new(WaitAction {
             total_ticks_to_wait,
             waited_ticks: 0,

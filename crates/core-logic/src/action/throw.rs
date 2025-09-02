@@ -115,14 +115,14 @@ impl InputParser for ThrowParser {
         let target = parsed.get(&TARGET_PART_ID);
 
         if target == source_entity {
-            return Err(InputParseError::Other(
+            return Err(InputParseError::PostFormatParse(
                 "You can't throw things at yourself.".to_string(),
             ));
         }
 
         if item == target {
             let item_name = Description::get_reference_name(item, Some(source_entity), world);
-            return Err(InputParseError::Other(format!(
+            return Err(InputParseError::PostFormatParse(format!(
                 "You can't throw {item_name} at itself."
             )));
         }

@@ -95,7 +95,7 @@ impl InputParser for SpendSkillPointParser {
             }))
         } else {
             // this should never happen due to the validator, but ya never know
-            Err(InputParseError::Other(format!(
+            Err(InputParseError::PostFormatParse(format!(
                 "'{skill_name}' is not a skill."
             )))
         }
@@ -128,7 +128,7 @@ impl InputParser for SpendAttributePointParser {
             }))
         } else {
             // this should never happen due to the validator, but ya never know
-            Err(InputParseError::Other(format!(
+            Err(InputParseError::PostFormatParse(format!(
                 "'{attribute_name}' is not an attribute."
             )))
         }

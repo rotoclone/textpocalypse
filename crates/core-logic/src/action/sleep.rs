@@ -47,13 +47,13 @@ impl InputParser for SleepParser {
                 }))
             } else {
                 // has vitals, but energy not under wake threshold
-                Err(InputParseError::Other(
+                Err(InputParseError::PostFormatParse(
                     "You're not tired enough to sleep.".to_string(),
                 ))
             }
         } else {
             // doesn't have vitals
-            Err(InputParseError::Other(
+            Err(InputParseError::PostFormatParse(
                 "You have no energy to regain by sleeping.".to_string(),
             ))
         }
