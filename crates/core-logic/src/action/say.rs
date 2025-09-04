@@ -22,14 +22,14 @@ static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(literal_part(" "))
         .then(
             any_text_part(TEXT_PART_ID.clone())
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("statement"),
         )
 });
 static SAY_WITHOUT_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("\"")).then(
         any_text_part(TEXT_PART_ID.clone())
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_placeholder_for_format_string("statement"),
     )
 });

@@ -40,7 +40,7 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             })
             .build()
             .always_include_in_errors()
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_literal_for_format_string("thing"),
     )
 });
@@ -56,7 +56,7 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             })
             .build()
             .always_include_in_errors()
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_literal_for_format_string("thing"),
     )
 });

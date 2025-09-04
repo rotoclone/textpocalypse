@@ -32,7 +32,7 @@ static UNLOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
                 })
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
 });
@@ -45,7 +45,7 @@ static LOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
                 })
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
 });

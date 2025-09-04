@@ -167,9 +167,9 @@ impl CommandFormatPart {
         }
     }
 
-    /// Sets the string to include in the error message if this part is missing (e.g. "what", "who", etc.).
-    pub fn with_if_missing(mut self, s: impl Into<String>) -> Self {
-        self.options_mut().if_missing = Some(s.into());
+    /// Sets the string to include in the error message if this part is not parsed successfully (e.g. "what", "who", etc.).
+    pub fn with_if_unparsed(mut self, s: impl Into<String>) -> Self {
+        self.options_mut().if_unparsed = Some(s.into());
         self
     }
 
@@ -361,8 +361,8 @@ impl<P, V> Clone for CommandFormatPartParams<P, V> {
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct CommandFormatPartOptions {
-    /// The string to include in the error message if this part is missing (e.g. "what", "who", etc.)
-    if_missing: Option<String>,
+    /// The string to include in the error message if this part isn't successfully parsed (e.g. "what", "who", etc.)
+    if_unparsed: Option<String>,
     /// The string to include in the command's format description for this part (e.g. "thing", "target", etc.).
     /// If `Nothing`, the part will not be included in the format string.
     format_description_part_type: CommandFormatDescriptionPartType,
@@ -407,7 +407,7 @@ fn build_literal_part(
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
                     literal_string.clone(),
                 ),
-                if_missing: Some(literal_string),
+                if_unparsed: Some(literal_string),
                 ..Default::default()
             },
             validator,
@@ -433,7 +433,7 @@ fn build_optional_literal_part(
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
                     literal_string.clone(),
                 ),
-                if_missing: Some(literal_string),
+                if_unparsed: Some(literal_string),
                 ..Default::default()
             },
             validator,
@@ -456,7 +456,7 @@ fn build_one_of_literal_part(
         format_description_part_type: CommandFormatDescriptionPartType::Literal(
             literal_strings.first().clone(),
         ),
-        if_missing: Some(literal_strings.first().clone()),
+        if_unparsed: Some(literal_strings.first().clone()),
         ..Default::default()
     };
     CommandFormatPart::OneOfLiteral(
@@ -484,7 +484,7 @@ fn build_optional_one_of_literal_part(
         format_description_part_type: CommandFormatDescriptionPartType::Literal(
             literal_strings.first().clone(),
         ),
-        if_missing: Some(literal_strings.first().clone()),
+        if_unparsed: Some(literal_strings.first().clone()),
         ..Default::default()
     };
     CommandFormatPart::OptionalOneOfLiteral(
@@ -805,6 +805,12 @@ impl CommandFormatParseError {
                 unmatched_parts,
                 error,
             } => {
+                let unparsed_parts_string =
+                    if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
+                        build_matched_parts_string(&non_empty_matched_parts)
+                    } else {
+                        "".to_string()
+                    };
                 todo!() //TODO
             }
             CommandFormatParseError::Parsing {
@@ -914,7 +920,7 @@ fn build_matched_parts_string(matched_parts: &NonEmpty<MatchedCommandFormatPart>
 
     matched_parts_to_include
         .iter()
-        .map(|part| part.part.options().if_missing.as_deref().unwrap_or(""))
+        .map(|part| part.part.options().if_unparsed.as_deref().unwrap_or(""))
         .join("")
 }
 
@@ -1345,7 +1351,7 @@ mod tests {
     #[test]
     fn format() {
         let format = CommandFormat::new(literal_part("first part"))
-            .then(entity_part(CommandPartId::new("entityPartId")).with_if_missing("what"))
+            .then(entity_part(CommandPartId::new("entityPartId")).with_if_unparsed("what"))
             .then(literal_part("third part"))
             .then(any_text_part(CommandPartId::new("anyTextPartId")))
             .then(optional_literal_part("optional part"))
@@ -1357,7 +1363,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_missing: None,
+                        if_unparsed: None,
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "first part".to_string()
                         ),
@@ -1372,7 +1378,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: Some(CommandPartId::new("entityPartId")),
                     options: CommandFormatPartOptions {
-                        if_missing: Some("what".to_string()),
+                        if_unparsed: Some("what".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Nothing,
                         include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                         error_string_override: None,
@@ -1387,7 +1393,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_missing: None,
+                        if_unparsed: None,
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "third part".to_string()
                         ),
@@ -1401,7 +1407,7 @@ mod tests {
             CommandFormatPart::AnyText(CommandFormatPartParams {
                 id: Some(CommandPartId::new("anyTextPartId")),
                 options: CommandFormatPartOptions {
-                    if_missing: None,
+                    if_unparsed: None,
                     format_description_part_type: CommandFormatDescriptionPartType::Nothing,
                     include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                     error_string_override: None,
@@ -1414,7 +1420,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_missing: None,
+                        if_unparsed: None,
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "optional part".to_string()
                         ),
@@ -1430,7 +1436,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_missing: None,
+                        if_unparsed: None,
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "option 1".to_string()
                         ),

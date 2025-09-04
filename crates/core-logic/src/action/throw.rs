@@ -67,7 +67,7 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     validate_parsed_value_has_component::<Item>(context, "throw", world)
                 })
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
         .then(literal_part(" at "))
@@ -75,7 +75,7 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
             entity_part_builder(TARGET_PART_ID.clone())
                 .with_validator(validate_target)
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("target"),
         )
 });

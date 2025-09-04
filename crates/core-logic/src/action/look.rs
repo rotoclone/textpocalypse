@@ -35,7 +35,7 @@ static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(
         entity_part(TARGET_PART_ID.clone())
             .always_include_in_errors()
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing/direction"),
     )
 });
@@ -47,7 +47,7 @@ static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(
         entity_part(TARGET_PART_ID.clone())
             .always_include_in_errors()
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing/direction"),
     )
 });

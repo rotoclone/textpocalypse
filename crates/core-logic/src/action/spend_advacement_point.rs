@@ -30,7 +30,7 @@ static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     .then(literal_part(" "))
     .then(
         any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_skill_name)
-            .with_if_missing("which skill")
+            .with_if_unparsed("which skill")
             .with_placeholder_for_format_string("skill"),
     )
 });
@@ -43,7 +43,7 @@ static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| 
     .then(literal_part(" "))
     .then(
         any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_attribute_name)
-            .with_if_missing("which attribute")
+            .with_if_unparsed("which attribute")
             .with_placeholder_for_format_string("attribute"),
     )
 });

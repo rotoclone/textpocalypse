@@ -38,7 +38,7 @@ static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
 });
@@ -53,7 +53,7 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
 });
@@ -70,7 +70,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_target_finder(find_entities_in_target_container)
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item")
                 .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
@@ -88,7 +88,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("where")
+                .with_if_unparsed("where")
                 .with_placeholder_for_format_string("container"),
         )
 });
@@ -104,7 +104,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
         .then(one_of_literal_part(nonempty![" into ", " in "]).always_include_in_errors())
@@ -119,7 +119,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("where")
+                .with_if_unparsed("where")
                 .with_placeholder_for_format_string("container"),
         )
 });

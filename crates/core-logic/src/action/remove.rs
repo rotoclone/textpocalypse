@@ -32,7 +32,7 @@ static REMOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     validate_parsed_value_has_component::<Wearable>(context, "take off", world)
                 })
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("worn item"),
         )
 });

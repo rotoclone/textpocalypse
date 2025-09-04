@@ -33,7 +33,7 @@ static WEAR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     validate_parsed_value_has_component::<Wearable>(context, "wear", world)
                 })
                 .build()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("wearable item"),
         )
 });

@@ -32,7 +32,7 @@ static WAIT_WITH_DURATION_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(literal_part(" "))
         .then(
             any_text_part_with_validator(DURATION_PART_ID.clone(), validate_duration)
-                .with_if_missing("how long")
+                .with_if_unparsed("how long")
                 .with_placeholder_for_format_string("duration"),
         )
 });
@@ -92,7 +92,7 @@ impl InputParser for WaitWithDurationParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WAIT_WITH_DURATION_FORMAT.parse(input, source_entity, world)?;
         let total_ticks_to_wait = parse_time_to_ticks(parsed.get(&DURATION_PART_ID).as_str())
-            .map_err(|e| InputParseError::PostFormatParse(e))?;
+            .map_err(InputParseError::PostFormatParse)?;
         Ok(Box::new(WaitAction {
             total_ticks_to_wait,
             waited_ticks: 0,

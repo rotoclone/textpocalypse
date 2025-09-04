@@ -51,7 +51,7 @@ static SOURCE_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
             )
         })
         .build()
-        .with_if_missing("what")
+        .with_if_unparsed("what")
         .with_placeholder_for_format_string("container")
 });
 static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
@@ -64,12 +64,12 @@ static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
             )
         })
         .build()
-        .with_if_missing("what")
+        .with_if_unparsed("what")
         .with_placeholder_for_format_string("container")
 });
 static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
     any_text_part_with_validator(AMOUNT_PART_ID.clone(), validate_amount)
-        .with_if_missing("how much")
+        .with_if_unparsed("how much")
         .with_placeholder_for_format_string("amount")
 });
 
@@ -206,7 +206,7 @@ impl InputParser for PourParser {
         let source = parsed.get(&SOURCE_PART_ID);
         let target = parsed.get(&TARGET_PART_ID);
         let amount = parse_pour_amount(&parsed.get(&AMOUNT_PART_ID))
-            .map_err(|e| InputParseError::PostFormatParse(e))?;
+            .map_err(InputParseError::PostFormatParse)?;
         build_action(source, target, amount, world)
     }
 

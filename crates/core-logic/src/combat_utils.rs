@@ -130,14 +130,14 @@ impl<A: AttackType> AttackCommandFormats<A> {
         let target_part = entity_part_builder(target_part_id.clone())
             .with_validator(validate_attack_target)
             .build()
-            .with_if_missing("who")
+            .with_if_unparsed("who")
             .with_placeholder_for_format_string("target");
 
         let weapon_part_id = CommandPartId::new("weapon");
         let weapon_part = entity_part_builder(weapon_part_id.clone())
             .with_validator(validate_attack_weapon::<A>)
             .build()
-            .with_if_missing("what")
+            .with_if_unparsed("what")
             .with_placeholder_for_format_string("weapon");
 
         let format_no_target_no_weapon = CommandFormat::new(first_part.clone());

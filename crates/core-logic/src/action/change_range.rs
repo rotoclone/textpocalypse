@@ -57,7 +57,7 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
             .with_validator(validate_target)
             .build()
             .always_include_in_errors()
-            .with_if_missing("who")
+            .with_if_unparsed("who")
             .with_placeholder_for_format_string("target"),
     )
 });
@@ -75,7 +75,7 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
             .with_validator(validate_target)
             .build()
             .always_include_in_errors()
-            .with_if_missing("who")
+            .with_if_unparsed("who")
             .with_placeholder_for_format_string("target"),
     )
 });

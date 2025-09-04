@@ -28,7 +28,7 @@ static DIRECTION_PART_ID: LazyLock<CommandPartId<Direction>> =
 static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         direction_part(DIRECTION_PART_ID.clone())
-            .with_if_missing("where")
+            .with_if_unparsed("where")
             .with_placeholder_for_format_string("direction"),
     )
 });
@@ -38,7 +38,7 @@ static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             direction_part(DIRECTION_PART_ID.clone())
                 .always_include_in_errors()
-                .with_if_missing("where")
+                .with_if_unparsed("where")
                 .with_placeholder_for_format_string("direction"),
         )
 });

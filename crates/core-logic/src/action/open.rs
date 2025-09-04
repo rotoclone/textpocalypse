@@ -29,7 +29,7 @@ static OPEN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
 });
@@ -43,7 +43,7 @@ static CLOSE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .build()
                 .always_include_in_errors()
-                .with_if_missing("what")
+                .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
 });
