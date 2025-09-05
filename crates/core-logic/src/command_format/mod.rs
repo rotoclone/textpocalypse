@@ -811,7 +811,7 @@ impl CommandFormatParseError {
                     } else {
                         "".to_string()
                     };
-                todo!() //TODO
+                todo!("matching error") //TODO
             }
             CommandFormatParseError::Parsing {
                 parsed_parts,
@@ -856,7 +856,22 @@ impl CommandFormatParseError {
                 matched_parts,
                 unmatched_parts,
                 parsed_parts,
-            } => todo!(),
+            } => {
+                let matched_parts_string =
+                    if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
+                        build_matched_parts_string(&non_empty_matched_parts)
+                    } else {
+                        "".to_string()
+                    };
+                let unmatched_part_string = unmatched_parts
+                    .first()
+                    .options()
+                    .if_unparsed
+                    .as_deref()
+                    .unwrap_or("");
+                //TODO include more unmatched parts and/or parsed parts?
+                format!("{matched_parts_string}{unmatched_part_string}?")
+            }
         };
 
         GameMessage::Error(string)
@@ -975,13 +990,7 @@ impl ParsedCommand {
         let matched_parts_by_id = matched_command
             .matched_parts
             .iter()
-            .flat_map(|p| {
-                if let Some(id) = p.part.id() {
-                    Some((id, p))
-                } else {
-                    None
-                }
-            })
+            .flat_map(|p| p.part.id().map(|id| (id, p)))
             .collect::<HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>>();
 
         for (i, part) in matched_command.matched_parts.iter().enumerate() {
