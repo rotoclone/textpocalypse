@@ -805,13 +805,20 @@ impl CommandFormatParseError {
                 unmatched_parts,
                 error,
             } => {
-                let unparsed_parts_string =
+                let matched_parts_string =
                     if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
                         build_matched_parts_string(&non_empty_matched_parts)
                     } else {
                         "".to_string()
                     };
-                todo!("matching error") //TODO
+                let unmatched_part_string = unmatched_parts
+                    .first()
+                    .options()
+                    .if_unparsed
+                    .as_deref()
+                    .unwrap_or("");
+                //TODO include more unmatched parts and/or take `error` into account?
+                format!("{matched_parts_string}{unmatched_part_string}?")
             }
             CommandFormatParseError::Parsing {
                 parsed_parts,

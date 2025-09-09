@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use nonempty::NonEmpty;
 use voca_rs::Voca;
 
 use crate::command_format::{
@@ -24,7 +25,7 @@ pub use match_direction::match_direction;
 #[derive(Clone)]
 pub struct PartMatcherContext<'c> {
     pub input: String,
-    pub next_part: Option<&'c CommandFormatPart>,
+    pub next_parts: Vec<&'c CommandFormatPart>,
 }
 
 //TODO doc
@@ -98,7 +99,7 @@ impl MatchedCommand {
         for (i, part) in format.0.iter().enumerate() {
             match part.match_from(PartMatcherContext {
                 input: remaining_input,
-                next_part: format.0.get(i + 1),
+                next_parts: format.0.iter().skip(i + 1).collect(),
             }) {
                 CommandPartMatchResult::Success { matched, remaining } => {
                     matched_parts.push(MatchedCommandFormatPart {
@@ -130,19 +131,47 @@ impl MatchedCommand {
     }
 }
 
+enum LiteralPart<'s> {
+    Single(&'s String),
+    Optional(&'s String),
+    OneOf(&'s NonEmpty<String>),
+}
+
 /// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
 ///
 /// If the next part is not a literal: returns `(input, "")`.
 ///
-/// TODO deal with if the next part is an optional literal or a one of part with a bunch of literals
+/// TODO deal with if the next part is an optional literal or a one of part with a bunch of literals, or if the next few parts are all literals
 pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, String) {
-    let stopping_point = if let Some(CommandFormatPart::Literal(literal, _)) = context.next_part {
-        Some(literal)
-    } else {
-        None
-    };
+    let mut next_literal_parts = Vec::new();
+    for next_part in context.next_parts {
+        match next_part {
+            CommandFormatPart::Literal(literal, _) => {
+                next_literal_parts.push(LiteralPart::Single(literal))
+            }
+            CommandFormatPart::OptionalLiteral(literal, _) => {
+                next_literal_parts.push(LiteralPart::Optional(literal))
+            }
+            CommandFormatPart::OneOfLiteral(literals, _) => {
+                next_literal_parts.push(LiteralPart::OneOf(literals))
+            }
+            _ => break,
+        };
+    }
 
-    take_until(context.input, stopping_point.map(|s| s.as_str()))
+    let permutations = generate_literal_permutations(&next_literal_parts);
+
+    // TODO use permutations to find the best match, and decide how to determine which match is "best"
+
+    //TODO take_until(context.input, stopping_point.map(|s| s.as_str()))
+
+    todo!() //TODO
+}
+
+/// Generates all the valid permutations of the provided literal parts.
+/// For example, if two `OneOf` parts are provided, one with "a" or "b" and one with "c" or "d", then ["ac", "ad", "bc", "bd"] will be returned.
+fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<String> {
+    todo!() //TODO
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
