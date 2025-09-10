@@ -137,11 +137,9 @@ enum LiteralPart<'s> {
     OneOf(&'s NonEmpty<String>),
 }
 
-/// If the next part is a literal: returns a tuple of the input up until the literal, and the input including and after the literal.
+/// If the next parts are one or more consecutive `Literal`, `OptionalLiteral`, and/or `OneOfLiteral` parts: returns a tuple of the input up until the literal(s), and the input including and after the literal(s).
 ///
-/// If the next part is not a literal: returns `(input, "")`.
-///
-/// TODO deal with if the next part is an optional literal or a one of part with a bunch of literals, or if the next few parts are all literals
+/// Otherwise: returns `(input, "")`.
 pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, String) {
     let mut next_literal_parts = Vec::new();
     for next_part in context.next_parts {
@@ -160,12 +158,25 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     }
 
     let permutations = generate_literal_permutations(&next_literal_parts);
+    let mut best_match: Option<(String, String)> = None;
 
-    // TODO use permutations to find the best match, and decide how to determine which match is "best"
+    for permutation in permutations {
+        let (taken, remaining) = take_until(&context.input, Some(&permutation));
+        if let Some((best_taken, _)) = &best_match {
+            // "best" is considered the smallest amount of characters consumed, i.e. the first instance of the literal(s)
+            if taken._count_graphemes() < best_taken._count_graphemes() {
+                best_match = Some((taken, remaining));
+            }
+        } else {
+            best_match = Some((taken, remaining));
+        }
+    }
 
-    //TODO take_until(context.input, stopping_point.map(|s| s.as_str()))
-
-    todo!() //TODO
+    if let Some((taken, remaining)) = best_match {
+        (taken, remaining)
+    } else {
+        (context.input, "".to_string())
+    }
 }
 
 /// Generates all the valid permutations of the provided literal parts.
