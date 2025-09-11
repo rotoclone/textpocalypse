@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use nonempty::nonempty;
 use nonempty::NonEmpty;
 use voca_rs::Voca;
 
@@ -144,11 +145,9 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     let mut next_literal_parts = Vec::new();
     for next_part in context.next_parts {
         match next_part {
-            CommandFormatPart::Literal(literal, _) => {
-                next_literal_parts.push(LiteralPart::Single(literal))
-            }
-            CommandFormatPart::OptionalLiteral(literal, _) => {
-                next_literal_parts.push(LiteralPart::Optional(literal))
+            CommandFormatPart::Literal(s, _) => next_literal_parts.push(LiteralPart::Single(s)),
+            CommandFormatPart::OptionalLiteral(s, _) => {
+                next_literal_parts.push(LiteralPart::Optional(s))
             }
             CommandFormatPart::OneOfLiteral(literals, _) => {
                 next_literal_parts.push(LiteralPart::OneOf(literals))
@@ -182,6 +181,27 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
 /// Generates all the valid permutations of the provided literal parts.
 /// For example, if two `OneOf` parts are provided, one with "a" or "b" and one with "c" or "d", then ["ac", "ad", "bc", "bd"] will be returned.
 fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<String> {
+    // generate permutations for all but the last part
+    let mut permutations =
+        generate_literal_permutations(&next_literal_parts[..next_literal_parts.len() - 1]);
+
+    // now add the permutation(s) for the last part
+    if let Some(last_part) = next_literal_parts.last() {
+        let to_append = match last_part {
+            LiteralPart::Single(s) => nonempty![s.as_str()],
+            LiteralPart::Optional(s) => nonempty![s.as_str(), ""],
+            LiteralPart::OneOf(literals) => literals,
+        };
+
+        if to_append.len() == 1 {
+            //TODO try to do this without a special size-1 case
+            permutations
+                .iter_mut()
+                .for_each(|mut permutation| *permutation += to_append[0]);
+        } else {
+            // TODO if to_append has multiple items, need to multiply the number of elements in `permutations` by its length
+        }
+    }
     todo!() //TODO
 }
 
