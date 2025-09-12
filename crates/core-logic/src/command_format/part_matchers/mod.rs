@@ -180,29 +180,45 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
 
 /// Generates all the valid permutations of the provided literal parts.
 /// For example, if two `OneOf` parts are provided, one with "a" or "b" and one with "c" or "d", then ["ac", "ad", "bc", "bd"] will be returned.
+/// TODO unit tests
 fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<String> {
+    // base case
+    if next_literal_parts.is_empty() {
+        return Vec::new();
+    }
+
     // generate permutations for all but the last part
     let mut permutations =
         generate_literal_permutations(&next_literal_parts[..next_literal_parts.len() - 1]);
 
     // now add the permutation(s) for the last part
     if let Some(last_part) = next_literal_parts.last() {
-        let to_append = match last_part {
-            LiteralPart::Single(s) => nonempty![s.as_str()],
+        let strs_to_append = match last_part {
+            LiteralPart::Single(s) => NonEmpty::new(s.as_str()),
             LiteralPart::Optional(s) => nonempty![s.as_str(), ""],
-            LiteralPart::OneOf(literals) => literals,
+            LiteralPart::OneOf(literals) => {
+                let mut strs = NonEmpty::new(literals.first().as_str());
+                strs.extend(literals.iter().map(String::as_str));
+                strs
+            }
         };
 
-        if to_append.len() == 1 {
-            //TODO try to do this without a special size-1 case
-            permutations
-                .iter_mut()
-                .for_each(|mut permutation| *permutation += to_append[0]);
-        } else {
-            // TODO if to_append has multiple items, need to multiply the number of elements in `permutations` by its length
+        let mut new_permutations = Vec::new();
+        for permutation in permutations.iter_mut() {
+            for (i, to_append) in strs_to_append.iter().enumerate() {
+                if i == strs_to_append.len() - 1 {
+                    // this is the last one, so the existing permutation can be modified in-place
+                    *permutation += to_append;
+                } else {
+                    // this is the not-last of more than one string to append, so a new permutation needs to be created
+                    new_permutations.push(permutation.clone() + to_append);
+                }
+            }
         }
+        permutations.extend(new_permutations);
     }
-    todo!() //TODO
+
+    permutations
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
