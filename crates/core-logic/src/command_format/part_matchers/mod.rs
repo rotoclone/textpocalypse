@@ -184,7 +184,7 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
 fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<String> {
     // base case
     if next_literal_parts.is_empty() {
-        return Vec::new();
+        return vec!["".to_string()];
     }
 
     // generate permutations for all but the last part
@@ -222,13 +222,13 @@ fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<Stri
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
-/// If `stopping_point` is `None`, or `stopping_point` isn't in `input`, returns `(input, "")`.
+/// If `stopping_point` is `None`, an empty string, or isn't in `input`, returns `(input, "")`.
 pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (String, String) {
     //TODO tests for this
     let input = input.into();
     dbg!(&input, &stopping_point); //TODO
     if let Some(stopping_point) = stopping_point {
-        if !input.contains(stopping_point) {
+        if stopping_point.is_empty() || !input.contains(stopping_point) {
             // `_before` returns an empty string if the provided substring isn't found, but for the purposes of this function we want the whole input in that case
             return (input.clone(), "".to_string());
         }
