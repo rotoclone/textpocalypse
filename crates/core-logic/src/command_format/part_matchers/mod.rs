@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
+use log::warn;
 use nonempty::nonempty;
 use nonempty::NonEmpty;
 use voca_rs::Voca;
@@ -143,7 +144,7 @@ enum LiteralPart<'s> {
 /// Otherwise: returns `(input, "")`.
 pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, String) {
     let mut next_literal_parts = Vec::new();
-    for next_part in context.next_parts {
+    for next_part in &context.next_parts {
         match next_part {
             CommandFormatPart::Literal(s, _) => next_literal_parts.push(LiteralPart::Single(s)),
             CommandFormatPart::OptionalLiteral(s, _) => {
@@ -156,7 +157,15 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
         };
     }
 
+    //TODO this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and ("thing from", "") will be returned, but in that case it should probably return ("thing", " from")
     let permutations = generate_literal_permutations(&next_literal_parts);
+    if permutations.len() > 15 {
+        warn!(
+            "Format generated a large number ({}) of literal permutations. Parts: {:?}",
+            permutations.len(),
+            &context.next_parts
+        );
+    }
     let mut best_match: Option<(String, String)> = None;
 
     for permutation in permutations {
@@ -174,6 +183,8 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     if let Some((taken, remaining)) = best_match {
         (taken, remaining)
     } else {
+        // there aren't any good matches, so parsing is going to fail anyway, but check if there are any partial matches so the error message is better
+        //TODO
         (context.input, "".to_string())
     }
 }
