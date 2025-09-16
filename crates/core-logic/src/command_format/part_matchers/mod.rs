@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use log::warn;
 use nonempty::nonempty;
 use nonempty::NonEmpty;
@@ -143,6 +145,7 @@ enum LiteralPart<'s> {
 ///
 /// Otherwise: returns `(input, "")`.
 pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, String) {
+    //TODO unit tests
     let mut next_literal_parts = Vec::new();
     for next_part in &context.next_parts {
         match next_part {
@@ -157,8 +160,9 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
         };
     }
 
-    //TODO this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and ("thing from", "") will be returned, but in that case it should probably return ("thing", " from")
-    let permutations = generate_literal_permutations(&next_literal_parts);
+    let permutations = generate_literal_permutations(&next_literal_parts)
+        .into_iter()
+        .collect::<HashSet<String>>();
     if permutations.len() > 15 {
         warn!(
             "Format generated a large number ({}) of literal permutations. Parts: {:?}",
@@ -168,8 +172,9 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     }
     let mut best_match: Option<(String, String)> = None;
 
-    for permutation in permutations {
-        let (taken, remaining) = take_until(&context.input, Some(&permutation));
+    //TODO this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and ("thing from", "") will be returned, but in that case it should probably return ("thing", " from")
+    for permutation in &permutations {
+        let (taken, remaining) = take_until(&context.input, Some(permutation));
         if let Some((best_taken, _)) = &best_match {
             // "best" is considered the smallest amount of characters consumed, i.e. the first instance of the literal(s)
             if taken._count_graphemes() < best_taken._count_graphemes() {
@@ -184,14 +189,16 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
         (taken, remaining)
     } else {
         // there aren't any good matches, so parsing is going to fail anyway, but check if there are any partial matches so the error message is better
-        //TODO
-        (context.input, "".to_string())
+        if let Some((matched, remaining)) = find_best_partial_match(&context.input, &permutations) {
+            (matched, remaining)
+        } else {
+            (context.input, "".to_string())
+        }
     }
 }
 
 /// Generates all the valid permutations of the provided literal parts.
 /// For example, if two `OneOf` parts are provided, one with "a" or "b" and one with "c" or "d", then ["ac", "ad", "bc", "bd"] will be returned.
-/// TODO unit tests
 fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<String> {
     // base case
     if next_literal_parts.is_empty() {
@@ -214,7 +221,7 @@ fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<Stri
             }
         };
 
-        let mut new_permutations = Vec::new();
+        let mut new_permutations = HashSet::new();
         for permutation in permutations.iter_mut() {
             for (i, to_append) in strs_to_append.iter().enumerate() {
                 if i == strs_to_append.len() - 1 {
@@ -222,7 +229,7 @@ fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<Stri
                     *permutation += to_append;
                 } else {
                     // this is the not-last of more than one string to append, so a new permutation needs to be created
-                    new_permutations.push(permutation.clone() + to_append);
+                    new_permutations.insert(permutation.clone() + to_append);
                 }
             }
         }
@@ -230,6 +237,52 @@ fn generate_literal_permutations(next_literal_parts: &[LiteralPart]) -> Vec<Stri
     }
 
     permutations
+}
+
+/// Finds the best match among the provided literal permutations, given that `input` doesn't actually contain any of the permutations, returning `(matched, remaining)`.
+/// Returns `None` if none of the permutations are matched at all.
+///
+/// For example, if `input` is `"the thing 1"` and `next_literal_permutations` is `[" 123", " 456"]` then this will return `Some(("the thing", " 1"))`.
+/// If `input` was `"the thing 2"` or `"the thing 13"` then `None` would be returned.
+fn find_best_partial_match(
+    input: &str,
+    next_literal_permutations: &HashSet<String>,
+) -> Option<(String, String)> {
+    let mut best_split_idx = None;
+    for permutation in next_literal_permutations {
+        let starting_indices = input._index_all(&permutation._grapheme_at(0), 0);
+        'starting_idx: for starting_index in starting_indices {
+            let mut input_index = starting_index;
+            for permutation_char in permutation._graphemes() {
+                if permutation_char != input._grapheme_at(input_index) {
+                    // this ain't it
+                    continue 'starting_idx;
+                }
+
+                if input_index == input._count_graphemes() - 1 {
+                    // made it to the end of the input without a mismatched character
+                    if let Some(best_idx) = best_split_idx {
+                        // lower index means more of the permutation matched
+                        if starting_index < best_idx {
+                            best_split_idx = Some(starting_index);
+                        }
+                    } else {
+                        best_split_idx = Some(starting_index);
+                    }
+                }
+
+                input_index += 1;
+            }
+        }
+    }
+
+    if let Some(split_idx) = best_split_idx {
+        let input_graphemes = input._graphemes();
+        let (matched, remaining) = input_graphemes.split_at(split_idx);
+        Some((matched.join(""), remaining.join("")))
+    } else {
+        None
+    }
 }
 
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
