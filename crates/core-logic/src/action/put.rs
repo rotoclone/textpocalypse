@@ -58,7 +58,6 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         )
 });
 
-//TODO this doesn't work because the target part doesn't know to look in the container for the target, since parsing happens in a single pass so that part won't have been parsed yet
 static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take"]))
         .then(literal_part(" ").always_include_in_errors())
@@ -74,9 +73,9 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_placeholder_for_format_string("item")
                 .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
-        //TODO include spaces in other connecting word parts for other commands or make the parsing smarter and collapse multiple literal parts into one
-        //TODO actually this doesn't work because the entity parser is looking for a literal part, not a oneof part, so it still just greedily tries to include the "from" or "out of" in the entity name
-        .then(one_of_literal_part(nonempty![" from ", " out of "]).always_include_in_errors())
+        .then(literal_part(" "))
+        .then(one_of_literal_part(nonempty!["from", "out of"]).always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
@@ -107,7 +106,9 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
-        .then(one_of_literal_part(nonempty![" into ", " in "]).always_include_in_errors())
+        .then(literal_part(" "))
+        .then(one_of_literal_part(nonempty!["into", "in"]).always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
