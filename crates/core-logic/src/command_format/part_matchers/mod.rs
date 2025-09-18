@@ -163,6 +163,7 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     let permutations = generate_literal_permutations(&next_literal_parts)
         .into_iter()
         .collect::<HashSet<String>>();
+    dbg!(&permutations); //TODO remove
     if permutations.len() > 15 {
         warn!(
             "Format generated a large number ({}) of literal permutations. Parts: {:?}",
@@ -175,23 +176,29 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     //TODO this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and ("thing from", "") will be returned, but in that case it should probably return ("thing", " from")
     for permutation in &permutations {
         let (taken, remaining) = take_until(&context.input, Some(permutation));
-        if let Some((best_taken, _)) = &best_match {
-            // "best" is considered the smallest amount of characters consumed, i.e. the first instance of the literal(s)
-            if taken._count_graphemes() < best_taken._count_graphemes() {
+        // if `remaining` is empty that means the permutation wasn't in the input, so without this check if the permutation is never found `best_match` will be `Some` and the partial match fallback will never be hit
+        if !remaining.is_empty() {
+            if let Some((best_taken, _)) = &best_match {
+                // "best" is considered the smallest amount of characters consumed, i.e. the first instance of the literal(s)
+                if taken._count_graphemes() < best_taken._count_graphemes() {
+                    best_match = Some((taken, remaining));
+                }
+            } else {
                 best_match = Some((taken, remaining));
             }
-        } else {
-            best_match = Some((taken, remaining));
         }
     }
 
-    if let Some((taken, remaining)) = best_match {
-        (taken, remaining)
+    if let Some((matched, remaining)) = best_match {
+        dbg!("found a match", &matched, &remaining); //TODO remove
+        (matched, remaining)
     } else {
         // there aren't any good matches, so parsing is going to fail anyway, but check if there are any partial matches so the error message is better
         if let Some((matched, remaining)) = find_best_partial_match(&context.input, &permutations) {
+            dbg!("found a partial match", &matched, &remaining); //TODO remove
             (matched, remaining)
         } else {
+            dbg!("found no match", &context.input); //TODO remove
             (context.input, "".to_string())
         }
     }
