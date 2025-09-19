@@ -73,9 +73,9 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_placeholder_for_format_string("item")
                 .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(one_of_literal_part(nonempty!["from", "out of"]).always_include_in_errors())
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
@@ -106,9 +106,9 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(one_of_literal_part(nonempty!["into", "in"]).always_include_in_errors())
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {

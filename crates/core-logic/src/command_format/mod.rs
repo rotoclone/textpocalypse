@@ -748,7 +748,7 @@ pub enum CommandFormatParseError {
     Parsing {
         /// The successfully-parsed parts, if any, ordered by where they appear in the format.
         /// Note that parts may not be parsed in order, so there may be un-parsed parts between parsed parts.
-        /// TODO have one list where each item is either parsed or just matched instead of two separate lists?
+        /// TODO use `ProcessedPart` here
         parsed_parts: Vec<ParsedCommandFormatPart>,
         // Boxed to reduce size
         unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
@@ -764,12 +764,33 @@ pub enum CommandFormatParseError {
     },
     /// At least one part remained unmatched after consuming all the input.
     /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
-    UnmatchedPart {
-        matched_parts: Vec<MatchedCommandFormatPart>,
-        // Boxed to reduce size
-        unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
-        parsed_parts: Vec<ParsedCommandFormatPart>,
-    },
+    UnmatchedPart(
+        // boxed to reduce size
+        Box<NonEmpty<ProcessedPart>>,
+    ),
+}
+
+/// A part that was processed in some way, matched/parsed or not.
+#[derive(Debug)]
+pub enum ProcessedPart {
+    /// The part was not matched (which also means it was not parsed)
+    Unmatched(CommandFormatPart),
+    /// The part was matched, but not parsed
+    Matched(MatchedCommandFormatPart),
+    /// The part was matched and parsed successfully
+    Parsed(ParsedCommandFormatPart),
+}
+
+impl ProcessedPart {
+    /// Determines if this part was successfully matched, regardless of it was parsed
+    pub fn was_matched(&self) -> bool {
+        matches!(self, ProcessedPart::Matched(_) | ProcessedPart::Parsed(_))
+    }
+
+    /// Determines if this part was successfully parsed
+    pub fn was_parsed(&self) -> bool {
+        matches!(self, ProcessedPart::Parsed(_))
+    }
 }
 
 impl CommandFormatParseError {
@@ -779,7 +800,9 @@ impl CommandFormatParseError {
             CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.len(),
             CommandFormatParseError::Parsing { unparsed_parts, .. } => unparsed_parts.len(),
             CommandFormatParseError::UnmatchedInput { matched_parts, .. } => matched_parts.len(),
-            CommandFormatParseError::UnmatchedPart { matched_parts, .. } => matched_parts.len(),
+            CommandFormatParseError::UnmatchedPart(parts) => {
+                parts.iter().filter(|part| part.was_matched()).count()
+            }
         }
     }
 
@@ -789,7 +812,9 @@ impl CommandFormatParseError {
             CommandFormatParseError::Matching { .. } => 0,
             CommandFormatParseError::Parsing { parsed_parts, .. } => parsed_parts.len(),
             CommandFormatParseError::UnmatchedInput { parsed_parts, .. } => parsed_parts.len(),
-            CommandFormatParseError::UnmatchedPart { parsed_parts, .. } => parsed_parts.len(),
+            CommandFormatParseError::UnmatchedPart(parts) => {
+                parts.iter().filter(|part| part.was_parsed()).count()
+            }
         }
     }
 
@@ -859,11 +884,8 @@ impl CommandFormatParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
-            CommandFormatParseError::UnmatchedPart {
-                matched_parts,
-                unmatched_parts,
-                parsed_parts,
-            } => {
+            CommandFormatParseError::UnmatchedPart(parts) => {
+                //TODO if a part was parsed, use its parsed value instead of its `if_unparsed` value
                 let matched_parts_string =
                     if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
                         build_matched_parts_string(&non_empty_matched_parts)
@@ -908,7 +930,13 @@ fn get_parsed_parts_before_first_gap(
     parsed_parts_before_gap
 }
 
+/// Builds an error message for the input that produced the provided parts
+fn build_error_message_for_parts(parts: &NonEmpty<ProcessedPart>) -> String {
+    todo!() //TODO
+}
+
 /// Builds a string representing the provided matched parts to include in an error message
+/// TODO remove
 fn build_matched_parts_string(matched_parts: &NonEmpty<MatchedCommandFormatPart>) -> String {
     let mut matched_parts_to_include = Vec::new();
     let mut previous_part_was_included = false;
