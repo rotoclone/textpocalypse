@@ -884,23 +884,7 @@ impl CommandFormatParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
-            CommandFormatParseError::UnmatchedPart(parts) => {
-                //TODO if a part was parsed, use its parsed value instead of its `if_unparsed` value
-                let matched_parts_string =
-                    if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
-                        build_matched_parts_string(&non_empty_matched_parts)
-                    } else {
-                        "".to_string()
-                    };
-                let unmatched_part_string = unmatched_parts
-                    .first()
-                    .options()
-                    .if_unparsed
-                    .as_deref()
-                    .unwrap_or("");
-                //TODO include more unmatched parts and/or parsed parts?
-                format!("{matched_parts_string}{unmatched_part_string}?")
-            }
+            CommandFormatParseError::UnmatchedPart(parts) => build_error_message_for_parts(&parts),
         };
 
         GameMessage::Error(string)
@@ -938,6 +922,7 @@ fn build_error_message_for_parts(parts: &NonEmpty<ProcessedPart>) -> String {
 /// Builds a string representing the provided matched parts to include in an error message
 /// TODO remove
 fn build_matched_parts_string(matched_parts: &NonEmpty<MatchedCommandFormatPart>) -> String {
+    //TODO if a part was parsed, use its parsed value instead of its `if_unparsed` value
     let mut matched_parts_to_include = Vec::new();
     let mut previous_part_was_included = false;
     if matched_parts
@@ -1054,13 +1039,22 @@ impl ParsedCommand {
         }
 
         if !matched_command.unmatched_parts.is_empty() {
-            // unwrap is safe because of the `is_empty` check immediately above
-            let unmatched_parts = NonEmpty::collect(matched_command.unmatched_parts).unwrap();
-            return Err(CommandFormatParseError::UnmatchedPart {
-                matched_parts: matched_command.matched_parts,
-                unmatched_parts: Box::new(unmatched_parts),
-                parsed_parts: parsed_parts_by_index.into_values().collect(),
-            });
+            let mut parts = Vec::new();
+            for (i, matched_part) in matched_command.matched_parts.into_iter().enumerate() {
+                if let Some(parsed_part) = parsed_parts_by_index.remove(&i) {
+                    parts.push(ProcessedPart::Parsed(parsed_part));
+                } else {
+                    parts.push(ProcessedPart::Matched(matched_part));
+                }
+            }
+            for unmatched_part in matched_command.unmatched_parts {
+                parts.push(ProcessedPart::Unmatched(unmatched_part));
+            }
+
+            // unwrap is safe because the `is_empty` check above means there's at least one unmatched part, and it will be in `parts`
+            return Err(CommandFormatParseError::UnmatchedPart(Box::new(
+                NonEmpty::from_vec(parts).unwrap(),
+            )));
         }
 
         Ok(ParsedCommand {
