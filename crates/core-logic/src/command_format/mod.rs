@@ -862,9 +862,7 @@ impl CommandFormatParseError {
             } => {
                 let parsed_parts_string = get_parsed_parts_before_first_gap(parsed_parts)
                     .into_iter()
-                    .map(|parsed_part| {
-                        parsed_part.to_string_for_parse_error(context.clone(), world)
-                    })
+                    .map(|parsed_part| parsed_part.to_string_for_parse_error(&context, world))
                     .join("");
 
                 let error_detail_string = match error {
@@ -893,7 +891,9 @@ impl CommandFormatParseError {
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
-            CommandFormatParseError::UnmatchedPart(parts) => build_error_message_for_parts(&parts),
+            CommandFormatParseError::UnmatchedPart(parts) => {
+                build_error_message_for_parts(&parts, &context, None, world)
+            }
         };
 
         GameMessage::Error(string)
@@ -924,7 +924,12 @@ fn get_parsed_parts_before_first_gap(
 }
 
 /// Builds an error message for the input that produced the provided parts
-fn build_error_message_for_parts(parts: &NonEmpty<ProcessedPart>) -> String {
+fn build_error_message_for_parts(
+    parts: &NonEmpty<ProcessedPart>,
+    context: &PartParserContext,
+    error: Option<CommandPartParseError>,
+    world: &World,
+) -> String {
     let mut message = String::new();
     let mut prev_part_included = false;
     for part in parts {
@@ -957,18 +962,22 @@ fn build_error_message_for_parts(parts: &NonEmpty<ProcessedPart>) -> String {
                 }
             }
             ProcessedPart::Parsed(parsed_part) => {
-                message += parsed_part.to_string_for_parse_error(context, world)
+                message += &parsed_part.to_string_for_parse_error(context, world)
             }
         }
     }
 
-    let error_detail_string = match error {
-        CommandPartParseError::Unparseable { details } => details,
-        CommandPartParseError::Invalid(error) => error.details,
-        CommandPartParseError::PrerequisiteUnmatched(_) => None, //TODO somehow find the part that was unmatched and turn it into an error to display?
-    }
-    .map(|message| format!(" ({message})"))
-    .unwrap_or_default();
+    let error_detail_string = error
+        .map(|e| {
+            match e {
+                CommandPartParseError::Unparseable { details } => details,
+                CommandPartParseError::Invalid(error) => error.details,
+                CommandPartParseError::PrerequisiteUnmatched(_) => None, //TODO somehow find the part that was unmatched and turn it into an error to display?
+            }
+            .map(|message| format!(" ({message})"))
+            .unwrap_or_default()
+        })
+        .unwrap_or_default();
 
     format!("{message}?{error_detail_string}")
 }
@@ -1035,7 +1044,7 @@ impl Ord for ParsedCommandFormatPart {
 
 impl ParsedCommandFormatPart {
     /// Builds a string representing this part to use in a parsing error message.
-    fn to_string_for_parse_error(&self, context: PartParserContext, world: &World) -> String {
+    fn to_string_for_parse_error(&self, context: &PartParserContext, world: &World) -> String {
         let options = self.matched_part.part.options();
         if let IncludeInErrorsBehavior::Never = options.include_in_errors_behavior {
             return "".to_string();

@@ -15,7 +15,7 @@ pub enum ParsedValue {
 
 impl ParsedValue {
     /// Builds a string representing this value to use in a parsing error message.
-    pub fn to_string_for_parse_error(&self, context: PartParserContext, world: &World) -> String {
+    pub fn to_string_for_parse_error(&self, context: &PartParserContext, world: &World) -> String {
         match self {
             ParsedValue::String(s) => s.clone(),
             ParsedValue::Entity(e) => {

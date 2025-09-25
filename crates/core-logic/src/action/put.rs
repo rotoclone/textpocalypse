@@ -1502,7 +1502,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity owned name in",
-            "put your entity owned name into where?",
+            "put your entity owned name in where?",
             &game,
         );
     }
