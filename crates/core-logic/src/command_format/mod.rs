@@ -739,6 +739,7 @@ pub enum CommandFormatParseError {
     /// An error occurred when attempting to match a part to a portion of the input string
     /// TODO remove?
     Matching {
+        //TODO use ProcessedPart
         matched_parts: Vec<MatchedCommandFormatPart>,
         // Boxed to reduce size
         unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
@@ -746,28 +747,22 @@ pub enum CommandFormatParseError {
     },
     /// An error occurred when attempting to parse a part
     Parsing {
-        /// The successfully-parsed parts, if any, ordered by where they appear in the format.
+        /// The processed parts, ordered by where they appear in the format.
         /// Note that parts may not be parsed in order, so there may be un-parsed parts between parsed parts.
-        /// TODO use `ProcessedPart` here
-        parsed_parts: Vec<ParsedCommandFormatPart>,
-        // Boxed to reduce size
-        unparsed_parts: Box<NonEmpty<MatchedCommandFormatPart>>,
+        parts: Vec<ProcessedPart>,
         error: CommandPartParseError,
-        unmatched_parts: Vec<CommandFormatPart>,
     },
     /// Some of the input remained unmatched after matching all the parts.
     /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
     UnmatchedInput {
+        //TODO use ProcessedPart
         matched_parts: Vec<MatchedCommandFormatPart>,
         unmatched: String,
         parsed_parts: Vec<ParsedCommandFormatPart>,
     },
     /// At least one part remained unmatched after consuming all the input.
     /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
-    UnmatchedPart(
-        // boxed to reduce size
-        Box<NonEmpty<ProcessedPart>>,
-    ),
+    UnmatchedPart(Vec<ProcessedPart>),
 }
 
 /// A part that was processed in some way, matched/parsed or not.
@@ -807,7 +802,9 @@ impl CommandFormatParseError {
     pub fn num_parts_matched(&self) -> usize {
         match self {
             CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.len(),
-            CommandFormatParseError::Parsing { unparsed_parts, .. } => unparsed_parts.len(),
+            CommandFormatParseError::Parsing { parts, .. } => {
+                parts.iter().filter(|part| part.was_matched()).count()
+            }
             CommandFormatParseError::UnmatchedInput { matched_parts, .. } => matched_parts.len(),
             CommandFormatParseError::UnmatchedPart(parts) => {
                 parts.iter().filter(|part| part.was_matched()).count()
@@ -819,7 +816,9 @@ impl CommandFormatParseError {
     pub fn num_parts_parsed(&self) -> usize {
         match self {
             CommandFormatParseError::Matching { .. } => 0,
-            CommandFormatParseError::Parsing { parsed_parts, .. } => parsed_parts.len(),
+            CommandFormatParseError::Parsing { parts, .. } => {
+                parts.iter().filter(|part| part.was_parsed()).count()
+            }
             CommandFormatParseError::UnmatchedInput { parsed_parts, .. } => parsed_parts.len(),
             CommandFormatParseError::UnmatchedPart(parts) => {
                 parts.iter().filter(|part| part.was_parsed()).count()
@@ -854,30 +853,8 @@ impl CommandFormatParseError {
                 //TODO include more unmatched parts and/or take `error` into account?
                 format!("{matched_parts_string}{unmatched_part_string}?")
             }
-            CommandFormatParseError::Parsing {
-                parsed_parts,
-                unparsed_parts,
-                error,
-                unmatched_parts,
-            } => {
-                let parsed_parts_string = get_parsed_parts_before_first_gap(parsed_parts)
-                    .into_iter()
-                    .map(|parsed_part| parsed_part.to_string_for_parse_error(&context, world))
-                    .join("");
-
-                let error_detail_string = match error {
-                    CommandPartParseError::Unparseable { details } => details,
-                    CommandPartParseError::Invalid(error) => error.details,
-                    CommandPartParseError::PrerequisiteUnmatched(_) => None, //TODO somehow find the part that was unmatched and turn it into an error to display?
-                }
-                .map(|message| format!(" ({message})"))
-                .unwrap_or_default();
-
-                // figure out which unparsed parts (if any) to include in the error message
-                //TODO this needs to change because the parts might not be parsed in order
-                let unparsed_parts_string = build_matched_parts_string(&unparsed_parts);
-
-                format!("{parsed_parts_string}{unparsed_parts_string}?{error_detail_string}")
+            CommandFormatParseError::Parsing { parts, error } => {
+                build_error_message_for_parts(&parts, &context, Some(error), world)
             }
             CommandFormatParseError::UnmatchedInput {
                 matched_parts,
@@ -925,7 +902,7 @@ fn get_parsed_parts_before_first_gap(
 
 /// Builds an error message for the input that produced the provided parts
 fn build_error_message_for_parts(
-    parts: &NonEmpty<ProcessedPart>,
+    parts: &[ProcessedPart],
     context: &PartParserContext,
     error: Option<CommandPartParseError>,
     world: &World,
@@ -1102,22 +1079,13 @@ impl ParsedCommand {
         }
 
         if !matched_command.unmatched_parts.is_empty() {
-            let mut parts = Vec::new();
-            for (i, matched_part) in matched_command.matched_parts.into_iter().enumerate() {
-                if let Some(parsed_part) = parsed_parts_by_index.remove(&i) {
-                    parts.push(ProcessedPart::Parsed(parsed_part));
-                } else {
-                    parts.push(ProcessedPart::Matched(matched_part));
-                }
-            }
-            for unmatched_part in matched_command.unmatched_parts {
-                parts.push(ProcessedPart::Unmatched(unmatched_part));
-            }
+            let parts = build_processed_parts(
+                matched_command.unmatched_parts,
+                matched_command.matched_parts,
+                &mut parsed_parts_by_index,
+            );
 
-            // unwrap is safe because the `is_empty` check above means there's at least one unmatched part, and it will be in `parts`
-            return Err(CommandFormatParseError::UnmatchedPart(Box::new(
-                NonEmpty::from_vec(parts).unwrap(),
-            )));
+            return Err(CommandFormatParseError::UnmatchedPart(parts));
         }
 
         Ok(ParsedCommand {
@@ -1206,18 +1174,14 @@ fn parse_part_recursive(
                 world,
             )?;
         } else {
-            let parsed_parts = parsed_parts_by_index
-                .values()
-                .sorted()
-                .cloned()
-                .collect_vec();
-            let unparsed_parts =
-                get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
+            let parts = build_processed_parts(
+                matched_command.unmatched_parts.clone(),
+                matched_command.matched_parts.clone(),
+                parsed_parts_by_index,
+            );
             return Err(CommandFormatParseError::Parsing {
-                parsed_parts,
-                unparsed_parts: Box::new(unparsed_parts),
+                parts,
                 error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id.clone()),
-                unmatched_parts: matched_command.unmatched_parts.clone(),
             });
         }
     }
@@ -1238,20 +1202,12 @@ fn parse_part_recursive(
             parsed_parts_by_index.insert(matched_part.order, parsed_part);
         }
         CommandPartParseResult::Failure(error) => {
-            let parsed_parts = parsed_parts_by_index
-                .values()
-                .sorted()
-                .cloned()
-                .collect_vec();
-            let unparsed_parts =
-                get_unparsed_parts(matched_command, matched_part.clone(), parsed_parts_by_index);
-
-            return Err(CommandFormatParseError::Parsing {
-                parsed_parts,
-                unparsed_parts: Box::new(unparsed_parts),
-                error,
-                unmatched_parts: matched_command.unmatched_parts.clone(),
-            });
+            let parts = build_processed_parts(
+                matched_command.unmatched_parts.clone(),
+                matched_command.matched_parts.clone(),
+                parsed_parts_by_index,
+            );
+            return Err(CommandFormatParseError::Parsing { parts, error });
         }
     }
 
@@ -1375,6 +1331,27 @@ impl CommandFormat {
         Ok(ParsedCommand::new(parsed_parts))
         */
     }
+}
+
+/// Combines the provided unmatched, matched, and parsed parts into a single list of `ProcessedPart`s.
+/// `parsed_parts_by_index` will be emptied once this returns.
+fn build_processed_parts(
+    unmatched_parts: Vec<CommandFormatPart>,
+    matched_parts: Vec<MatchedCommandFormatPart>,
+    parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
+) -> Vec<ProcessedPart> {
+    let mut parts = Vec::new();
+    for (i, matched_part) in matched_parts.into_iter().enumerate() {
+        if let Some(parsed_part) = parsed_parts_by_index.remove(&i) {
+            parts.push(ProcessedPart::Parsed(parsed_part));
+        } else {
+            parts.push(ProcessedPart::Matched(matched_part));
+        }
+    }
+    for unmatched_part in unmatched_parts {
+        parts.push(ProcessedPart::Unmatched(unmatched_part));
+    }
+    parts
 }
 
 #[cfg(test)]
