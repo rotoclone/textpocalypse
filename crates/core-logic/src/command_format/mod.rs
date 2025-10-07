@@ -1117,6 +1117,8 @@ impl ParsedCommand {
 }
 
 /// Parses a part, but not before parsing all its prerequisite parts.
+///
+/// If an error is encountered, continues parsing as many parts as possible and returns the first error found.
 fn parse_part(
     matched_part: &MatchedCommandFormatPart,
     matched_command: &MatchedCommand,
@@ -1127,7 +1129,7 @@ fn parse_part(
     world: &World,
 ) -> Result<(), CommandFormatParseError> {
     let mut part_ids_being_parsed = HashSet::new();
-    parse_part_recursive(
+    if let Some(error) = parse_part_recursive(
         matched_part,
         matched_command,
         &mut part_ids_being_parsed,
@@ -1136,10 +1138,16 @@ fn parse_part(
         parsed_parts_with_ids,
         parsed_parts_by_index,
         world,
-    )
+    ) {
+        Err(error)
+    } else {
+        Ok(())
+    }
 }
 
 /// Parses a part, but not before parsing all its prerequisite parts.
+///
+/// If an error is encountered, continues parsing as many parts as possible and returns the first error found.
 fn parse_part_recursive(
     matched_part: &MatchedCommandFormatPart,
     matched_command: &MatchedCommand,
@@ -1149,7 +1157,8 @@ fn parse_part_recursive(
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
-) -> Result<(), CommandFormatParseError> {
+) -> Option<CommandFormatParseError> {
+    let parse_error = None;
     if let Some(id) = matched_part.part.id() {
         part_ids_being_parsed.insert(id);
     }
@@ -1185,7 +1194,6 @@ fn parse_part_recursive(
             });
         }
     }
-    //TODO
 
     match matched_part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
         CommandPartParseResult::Success(parsed_value) => {
@@ -1211,7 +1219,7 @@ fn parse_part_recursive(
         }
     }
 
-    Ok(())
+    parse_error
 }
 
 //TODO doc
