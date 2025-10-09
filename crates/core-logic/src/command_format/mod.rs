@@ -1158,7 +1158,7 @@ fn parse_part_recursive(
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
 ) -> Option<CommandFormatParseError> {
-    let parse_error = None;
+    let mut parse_error = None;
     if let Some(id) = matched_part.part.id() {
         part_ids_being_parsed.insert(id);
     }
@@ -1172,7 +1172,7 @@ fn parse_part_recursive(
         }
 
         if let Some(prereq_part) = matched_parts_by_id.get(prereq_part_id) {
-            parse_part_recursive(
+            let error = parse_part_recursive(
                 prereq_part,
                 matched_command,
                 part_ids_being_parsed,
@@ -1181,14 +1181,17 @@ fn parse_part_recursive(
                 parsed_parts_with_ids,
                 parsed_parts_by_index,
                 world,
-            )?;
-        } else {
+            );
+            if parse_error.is_none() {
+                parse_error = error;
+            }
+        } else if parse_error.is_none() {
             let parts = build_processed_parts(
                 matched_command.unmatched_parts.clone(),
                 matched_command.matched_parts.clone(),
                 parsed_parts_by_index,
             );
-            return Err(CommandFormatParseError::Parsing {
+            parse_error = Some(CommandFormatParseError::Parsing {
                 parts,
                 error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id.clone()),
             });
@@ -1210,12 +1213,14 @@ fn parse_part_recursive(
             parsed_parts_by_index.insert(matched_part.order, parsed_part);
         }
         CommandPartParseResult::Failure(error) => {
-            let parts = build_processed_parts(
-                matched_command.unmatched_parts.clone(),
-                matched_command.matched_parts.clone(),
-                parsed_parts_by_index,
-            );
-            return Err(CommandFormatParseError::Parsing { parts, error });
+            if parse_error.is_none() {
+                let parts = build_processed_parts(
+                    matched_command.unmatched_parts.clone(),
+                    matched_command.matched_parts.clone(),
+                    parsed_parts_by_index,
+                );
+                parse_error = Some(CommandFormatParseError::Parsing { parts, error })
+            }
         }
     }
 
