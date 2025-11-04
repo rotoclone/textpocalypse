@@ -1385,7 +1385,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what in where? (There's no 'blorp' here.)",
             &game,
         );
     }
@@ -1395,7 +1395,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in ",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what in where? (There's no 'blorp' here.)",
             &game,
         );
     }
@@ -1415,7 +1415,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put blorp in florp",
-            "put what into where? (There's no 'blorp' here.)",
+            "put what in where? (There's no 'blorp' here.)",
             &game,
         );
     }
@@ -1425,7 +1425,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity non_item name into entity container name",
-            "put what into where? (You can't put the entity non_item name.)",
+            "put what into the entity container name? (You can't put the entity non_item name.)",
             &game,
         );
     }
@@ -1435,7 +1435,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put me into entity container name",
-            "put what into where? (You can't put you.)",
+            "put what into the entity container name? (You can't put you.)",
             &game,
         );
     }
@@ -1446,7 +1446,7 @@ mod tests {
         //TODO include location name in error
         test_error(
             "put here into entity container name",
-            "put what into where? (You can't put it.)",
+            "put what into the entity container name? (You can't put it.)",
             &game,
         );
     }

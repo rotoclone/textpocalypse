@@ -1053,13 +1053,14 @@ impl ParsedCommand {
             .flat_map(|p| p.part.id().map(|id| (id, p)))
             .collect::<HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>>();
 
+        let mut parse_error = None;
         for (i, part) in matched_command.matched_parts.iter().enumerate() {
             if parsed_parts_by_index.contains_key(&i) {
                 // already parsed this part due to a dependency on a previous part
                 continue;
             }
 
-            parse_part(
+            if let Err(e) = parse_part(
                 part,
                 &matched_command,
                 entering_entity,
@@ -1067,7 +1068,20 @@ impl ParsedCommand {
                 &mut parsed_parts_with_ids,
                 &mut parsed_parts_by_index,
                 world,
-            )?;
+            ) {
+                if parse_error.is_none() {
+                    parse_error = Some(e);
+                }
+            }
+        }
+
+        if let Some(error) = parse_error {
+            let parts = build_processed_parts(
+                matched_command.unmatched_parts.clone(),
+                matched_command.matched_parts.clone(),
+                &mut parsed_parts_by_index,
+            );
+            return Err(CommandFormatParseError::Parsing { parts, error });
         }
 
         if !matched_command.remaining_input.is_empty() {
@@ -1127,7 +1141,7 @@ fn parse_part(
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
-) -> Result<(), CommandFormatParseError> {
+) -> Result<(), CommandPartParseError> {
     let mut part_ids_being_parsed = HashSet::new();
     if let Some(error) = parse_part_recursive(
         matched_part,
@@ -1157,7 +1171,7 @@ fn parse_part_recursive(
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
-) -> Option<CommandFormatParseError> {
+) -> Option<CommandPartParseError> {
     let mut parse_error = None;
     if let Some(id) = matched_part.part.id() {
         part_ids_being_parsed.insert(id);
@@ -1186,15 +1200,9 @@ fn parse_part_recursive(
                 parse_error = error;
             }
         } else if parse_error.is_none() {
-            let parts = build_processed_parts(
-                matched_command.unmatched_parts.clone(),
-                matched_command.matched_parts.clone(),
-                parsed_parts_by_index,
-            );
-            parse_error = Some(CommandFormatParseError::Parsing {
-                parts,
-                error: CommandPartParseError::PrerequisiteUnmatched(prereq_part_id.clone()),
-            });
+            parse_error = Some(CommandPartParseError::PrerequisiteUnmatched(
+                prereq_part_id.clone(),
+            ));
         }
     }
 
@@ -1214,12 +1222,7 @@ fn parse_part_recursive(
         }
         CommandPartParseResult::Failure(error) => {
             if parse_error.is_none() {
-                let parts = build_processed_parts(
-                    matched_command.unmatched_parts.clone(),
-                    matched_command.matched_parts.clone(),
-                    parsed_parts_by_index,
-                );
-                parse_error = Some(CommandFormatParseError::Parsing { parts, error })
+                parse_error = Some(error);
             }
         }
     }
