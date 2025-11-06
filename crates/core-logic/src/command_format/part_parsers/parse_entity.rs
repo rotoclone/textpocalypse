@@ -9,7 +9,7 @@ use crate::{
         EntityTargetFinderFn, PartValidationFn,
     },
     component::PortionMatched,
-    found_entities::FoundEntities,
+    found_entities::{FoundEntities, FoundEntitiesInContainer},
     input_parser::CommandTarget,
 };
 
@@ -21,8 +21,13 @@ use super::{
 pub fn default_entity_target_finder(
     context: &PartParserContext,
     world: &World,
-) -> FoundEntities<PortionMatched> {
-    CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world)
+) -> FoundEntitiesInContainer<PortionMatched> {
+    FoundEntitiesInContainer {
+        found_entities: CommandTarget::parse(&context.input)
+            .find_target_entities(context.entering_entity, world),
+        //TODO does this need to be set to anything?
+        searched_container: None,
+    }
 }
 
 /// Parses an entity from the provided context.
@@ -42,7 +47,8 @@ pub fn parse_entity(
         });
     }
 
-    let potential_targets = target_finder_fn(&context, world);
+    let found_entities = target_finder_fn(&context, world);
+    let potential_targets = found_entities.found_entities;
 
     let sorted_targets = potential_targets.exact_matches.iter().copied().chain(
         potential_targets
@@ -131,6 +137,7 @@ pub fn parse_entity(
         CommandPartParseResult::Success(ParsedValue::Entity(*entity))
     } else {
         // matched no targets
+        //TODO use found_entities.searched_container here
         CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
             details: Some(format!("There's no '{}' here.", context.input)),
         })

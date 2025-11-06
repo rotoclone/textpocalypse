@@ -13,7 +13,7 @@ use crate::{
         PortionMatched,
     },
     find_owning_entity,
-    found_entities::FoundEntities,
+    found_entities::{FoundEntities, FoundEntitiesInContainer},
     input_parser::{CommandTargetName, InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
@@ -126,12 +126,16 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 
 /// Finds entities matching the input in the target container, if the target container part was successfully parsed.
+/// TODO return information about what's being searched so it can be included in the error message (so all errors don't end up saying the thing isn't "here" when maybe it's "here" but not in the container being searched)
 fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
-) -> FoundEntities<PortionMatched> {
+) -> FoundEntitiesInContainer<PortionMatched> {
     let Some(container) = context.get_parsed_value(&CONTAINER_PART_ID) else {
-        return FoundEntities::new();
+        return FoundEntitiesInContainer {
+            found_entities: FoundEntities::new(),
+            searched_container: None,
+        };
     };
 
     CommandTargetName {

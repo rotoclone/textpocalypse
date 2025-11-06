@@ -163,7 +163,7 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     let permutations = generate_literal_permutations(&next_literal_parts)
         .into_iter()
         .collect::<HashSet<String>>();
-    dbg!(&permutations); //TODO remove
+    //dbg!(&permutations); //TODO remove
     if permutations.len() > 15 {
         warn!(
             "Format generated a large number ({}) of literal permutations. Parts: {:?}",
@@ -190,15 +190,15 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     }
 
     if let Some((matched, remaining)) = best_match {
-        dbg!("found a match", &matched, &remaining); //TODO remove
+        //dbg!("found a match", &matched, &remaining); //TODO remove
         (matched, remaining)
     } else {
         // there aren't any good matches, so parsing is going to fail anyway, but check if there are any partial matches so the error message is better
         if let Some((matched, remaining)) = find_best_partial_match(&context.input, &permutations) {
-            dbg!("found a partial match", &matched, &remaining); //TODO remove
+            //dbg!("found a partial match", &matched, &remaining); //TODO remove
             (matched, remaining)
         } else {
-            dbg!("found no match", &context.input); //TODO remove
+            //dbg!("found no match", &context.input); //TODO remove
             (context.input, "".to_string())
         }
     }

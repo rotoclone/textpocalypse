@@ -49,3 +49,9 @@ impl<T: Ord> FoundEntities<T> {
         self.partial_matches.extend(other.partial_matches);
     }
 }
+
+//TODO doc
+pub struct FoundEntitiesInContainer<T: Ord> {
+    pub found_entities: FoundEntities<T>,
+    pub searched_container: Option<Entity>,
+}

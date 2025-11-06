@@ -9,7 +9,7 @@ use crate::{
     action::Action,
     command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
     component::{Container, CustomInputParser, Location, PortionMatched},
-    found_entities::FoundEntities,
+    found_entities::{FoundEntities, FoundEntitiesInContainer},
     Direction, GameMessage, StandardInputParsers,
 };
 
@@ -236,14 +236,20 @@ impl<'n> CommandTargetName<'n> {
         containing_entity: Entity,
         looking_entity: Entity,
         world: &World,
-    ) -> FoundEntities<PortionMatched> {
+    ) -> FoundEntitiesInContainer<PortionMatched> {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
-            return container.find_entities_by_name(self.name, looking_entity, world);
+            return FoundEntitiesInContainer {
+                found_entities: container.find_entities_by_name(self.name, looking_entity, world),
+                searched_container: Some(containing_entity),
+            };
         }
 
-        FoundEntities::new()
+        FoundEntitiesInContainer {
+            found_entities: FoundEntities::new(),
+            searched_container: None,
+        }
     }
 }
 
