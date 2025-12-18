@@ -810,7 +810,7 @@ fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World
 
 /// Sends a message to an entity based on the provided parsing error.
 fn handle_input_error(entity: Entity, input: String, error: InputParseError, world: &World) {
-    dbg!(&error); //TODO remove
+    //dbg!(&error); //TODO remove
     let context = PartParserContext {
         input,
         entering_entity: entity,

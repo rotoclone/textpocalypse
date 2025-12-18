@@ -973,10 +973,9 @@ mod tests {
     #[test]
     fn get_with_container_target_does_not_exist() {
         let game = set_up_game(NumPlayers::One);
-        //TODO this fails because parsing ends as soon as 'blorp' isn't found, which maybe is fine
         test_error(
             "get blorp from entity container name",
-            "get what? (There's no 'blorp' in the entity container name.)",
+            "get what from the entity container name? (There's no 'blorp' in the entity container name.)",
             &game,
         )
     }
@@ -1006,7 +1005,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from blorp",
-            "get 'entity item_in_container name' from where? (There's no 'blorp' here.)",
+            "get what from where? (There's no 'blorp' here.)",
             &game,
         )
     }
@@ -1016,7 +1015,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name from entity container name",
-            "get the entity item name from where? (The entity item name isn't in the entity container name.)",
+            "get what from the entity container name? (There's no 'entity item name' in the entity container name.)",
             &game
         )
     }
@@ -1026,7 +1025,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from entity item name",
-            "Get 'entity item_in_container name' from where? (You can't get anything from the entity item name.)",
+            "get what from where? (You can't get anything from the entity item name.)",
             &game,
         )
     }
@@ -1036,7 +1035,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity container name from entity container name",
-            "You can't get the entity container name from itself.",
+            "get what from the entity container name? (There's no 'entity container name' in the entity container name.)",
             &game,
         );
     }
@@ -1046,7 +1045,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name from entity item name",
-            "get 'entity item name' from where? (You can't get anything from the entity item name.)",
+            "get what from where? (You can't get anything from the entity item name.)",
             &game,
         );
     }
@@ -1109,6 +1108,7 @@ mod tests {
 
     #[test]
     fn get_valid_target_with_the() {
+        //TODO this fails with Error("get what? (There's no 'the entity item name' here.)")
         let game = set_up_game(NumPlayers::One);
         test_success(
             "get the entity item name",

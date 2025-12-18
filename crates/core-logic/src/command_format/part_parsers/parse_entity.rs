@@ -8,7 +8,7 @@ use crate::{
         parsed_value_validators::{CommandPartValidateResult, PartValidatorContext},
         EntityTargetFinderFn, PartValidationFn,
     },
-    component::PortionMatched,
+    component::{Description, PortionMatched},
     found_entities::{FoundEntities, FoundEntitiesInContainer},
     input_parser::CommandTarget,
 };
@@ -137,9 +137,20 @@ pub fn parse_entity(
         CommandPartParseResult::Success(ParsedValue::Entity(*entity))
     } else {
         // matched no targets
-        //TODO use found_entities.searched_container here
+        let searched_container_name_part = found_entities
+            .searched_container
+            .map(|e| {
+                format!(
+                    "in {}",
+                    Description::get_reference_name(e, Some(context.entering_entity), world)
+                )
+            })
+            .unwrap_or_else(|| "here".to_string());
         CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
-            details: Some(format!("There's no '{}' here.", context.input)),
+            details: Some(format!(
+                "There's no '{}' {}.",
+                context.input, searched_container_name_part
+            )),
         })
     }
 }

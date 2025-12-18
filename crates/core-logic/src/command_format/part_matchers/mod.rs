@@ -297,7 +297,7 @@ fn find_best_partial_match(
 pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (String, String) {
     //TODO tests for this
     let input = input.into();
-    dbg!(&input, &stopping_point); //TODO
+    //dbg!(&input, &stopping_point); //TODO
     if let Some(stopping_point) = stopping_point {
         if stopping_point.is_empty() || !input.contains(stopping_point) {
             // `_before` returns an empty string if the provided substring isn't found, but for the purposes of this function we want the whole input in that case
@@ -311,7 +311,7 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (St
         } else {
             input._before(stopping_point)
         };
-        dbg!(&parsed); //TODO
+        //dbg!(&parsed); //TODO
         let remaining = input.strip_prefix(&parsed).unwrap_or_default();
         (parsed, remaining.to_string())
     } else {
