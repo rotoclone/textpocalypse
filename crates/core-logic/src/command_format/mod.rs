@@ -66,8 +66,14 @@ pub enum CommandFormatPart {
         CommandFormatPartParams<Option<Entity>, Entity>,
         EntityTargetFinderFn,
     ),
-    Direction(CommandFormatPartParams<Direction, Direction>),
-    OptionalDirection(CommandFormatPartParams<Option<Direction>, Direction>),
+    Direction(
+        DirectionMatchMode,
+        CommandFormatPartParams<Direction, Direction>,
+    ),
+    OptionalDirection(
+        DirectionMatchMode,
+        CommandFormatPartParams<Option<Direction>, Direction>,
+    ),
 }
 
 impl CommandFormatPart {
@@ -82,8 +88,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(params) => &params.options,
             CommandFormatPart::Entity(params, _) => &params.options,
             CommandFormatPart::OptionalEntity(params, _) => &params.options,
-            CommandFormatPart::Direction(params) => &params.options,
-            CommandFormatPart::OptionalDirection(params) => &params.options,
+            CommandFormatPart::Direction(_, params) => &params.options,
+            CommandFormatPart::OptionalDirection(_, params) => &params.options,
         }
     }
 
@@ -98,8 +104,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalAnyText(params) => &mut params.options,
             CommandFormatPart::Entity(params, _) => &mut params.options,
             CommandFormatPart::OptionalEntity(params, _) => &mut params.options,
-            CommandFormatPart::Direction(params) => &mut params.options,
-            CommandFormatPart::OptionalDirection(params) => &mut params.options,
+            CommandFormatPart::Direction(_, params) => &mut params.options,
+            CommandFormatPart::OptionalDirection(_, params) => &mut params.options,
         }
     }
 
@@ -124,8 +130,10 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalEntity(params, _) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
-            CommandFormatPart::Direction(params) => params.id.as_ref().map(|id| id.clone().into()),
-            CommandFormatPart::OptionalDirection(params) => {
+            CommandFormatPart::Direction(_, params) => {
+                params.id.as_ref().map(|id| id.clone().into())
+            }
+            CommandFormatPart::OptionalDirection(_, params) => {
                 params.id.as_ref().map(|id| id.clone().into())
             }
         }
@@ -158,10 +166,10 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalEntity(params, _) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::Direction(params) => {
+            CommandFormatPart::Direction(_, params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
-            CommandFormatPart::OptionalDirection(params) => {
+            CommandFormatPart::OptionalDirection(_, params) => {
                 params.validator.as_ref().map(|v| genericize_validate(*v))
             }
         }
@@ -244,9 +252,9 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalEntity(_, _) => {
                 match_result_to_option(match_until_next_literal(context))
             }
-            CommandFormatPart::Direction(_) => match_direction(context),
-            CommandFormatPart::OptionalDirection(_) => {
-                match_result_to_option(match_direction(context))
+            CommandFormatPart::Direction(match_mode, _) => match_direction(*match_mode, context),
+            CommandFormatPart::OptionalDirection(match_mode, _) => {
+                match_result_to_option(match_direction(*match_mode, context))
             }
         }
     }
@@ -274,8 +282,8 @@ impl CommandFormatPart {
             CommandFormatPart::OptionalEntity(params, target_finder_fn) => parse_result_to_option(
                 parse_entity(context, target_finder_fn, params.validator.as_ref(), world),
             ),
-            CommandFormatPart::Direction(_) => parse_direction(context),
-            CommandFormatPart::OptionalDirection(_) => {
+            CommandFormatPart::Direction(_, _) => parse_direction(context),
+            CommandFormatPart::OptionalDirection(_, _) => {
                 parse_result_to_option(parse_direction(context))
             }
         };
@@ -308,6 +316,16 @@ impl CommandFormatPart {
             }
         }
     }
+}
+
+/// Describes different matching modes for direction parts.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum DirectionMatchMode {
+    /// Anything that's formatted like a direction should be matched (i.e. any sequence of characters followed by a space or the end of input),
+    /// so invalid directions will make it to parsing and produce an error.
+    Anything,
+    /// Only valid directions should be matched, any other input will be considered to not match the command format at all.
+    OnlyValidDirections,
 }
 
 type EntityTargetFinderFn =
@@ -623,51 +641,67 @@ fn build_optional_entity_part(
 }
 
 /// Creates a part to parse a direction.
-pub fn direction_part(id: CommandPartId<Direction>) -> CommandFormatPart {
-    build_direction_part(id, None)
+pub fn direction_part(
+    id: CommandPartId<Direction>,
+    match_mode: DirectionMatchMode,
+) -> CommandFormatPart {
+    build_direction_part(id, match_mode, None)
 }
 
 /// Creates a part to parse a direction, with a validator function.
 pub fn direction_part_with_validator(
     id: CommandPartId<Direction>,
+    match_mode: DirectionMatchMode,
     validator: PartValidationFn<Direction>,
 ) -> CommandFormatPart {
-    build_direction_part(id, Some(validator))
+    build_direction_part(id, match_mode, Some(validator))
 }
 
 fn build_direction_part(
     id: CommandPartId<Direction>,
+    match_mode: DirectionMatchMode,
     validator: Option<PartValidationFn<Direction>>,
 ) -> CommandFormatPart {
-    CommandFormatPart::Direction(CommandFormatPartParams {
-        id: Some(id),
-        options: CommandFormatPartOptions::default(),
-        validator,
-    })
+    CommandFormatPart::Direction(
+        match_mode,
+        CommandFormatPartParams {
+            id: Some(id),
+            options: CommandFormatPartOptions::default(),
+            validator,
+        },
+    )
 }
 
 /// Creates a part to parse an optional direction.
-pub fn optional_direction_part(id: CommandPartId<Option<Direction>>) -> CommandFormatPart {
-    build_optional_direction_part(id, None)
+pub fn optional_direction_part(
+    id: CommandPartId<Option<Direction>>,
+    match_mode: DirectionMatchMode,
+) -> CommandFormatPart {
+    build_optional_direction_part(id, match_mode, None)
 }
 
 /// Creates a part to parse an optional direction, with a validator function.
 pub fn optional_direction_part_with_validator(
     id: CommandPartId<Option<Direction>>,
+    match_mode: DirectionMatchMode,
     validator: PartValidationFn<Direction>,
 ) -> CommandFormatPart {
-    build_optional_direction_part(id, Some(validator))
+    build_optional_direction_part(id, match_mode, Some(validator))
 }
 
 fn build_optional_direction_part(
     id: CommandPartId<Option<Direction>>,
+    match_mode: DirectionMatchMode,
     validator: Option<PartValidationFn<Direction>>,
 ) -> CommandFormatPart {
-    CommandFormatPart::OptionalDirection(CommandFormatPartParams {
-        id: Some(id),
-        options: CommandFormatPartOptions::default(),
-        validator,
-    })
+    CommandFormatPart::OptionalDirection(
+        match_mode,
+        CommandFormatPartParams {
+            id: Some(id),
+            options: CommandFormatPartOptions::default(),
+            validator,
+        },
+    )
 }
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.

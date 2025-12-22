@@ -126,7 +126,6 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 
 /// Finds entities matching the input in the target container, if the target container part was successfully parsed.
-/// TODO return information about what's being searched so it can be included in the error message (so all errors don't end up saying the thing isn't "here" when maybe it's "here" but not in the container being searched)
 fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
@@ -662,36 +661,6 @@ impl Action for PutAction {
 
 //TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item?
 
-/// Verifies that the source and destination entities are containers.
-/// TODO remove since the validators cover this now
-pub fn verify_source_and_destination_are_containers(
-    notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
-) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let source = notification.contents.source;
-    let destination = notification.contents.destination;
-
-    if world.get::<Container>(source).is_none() {
-        let source_name = Description::get_reference_name(source, Some(performing_entity), world);
-        return VerifyResult::invalid(
-            performing_entity,
-            GameMessage::Error(format!("{source_name} is not a container.")),
-        );
-    }
-
-    if world.get::<Container>(destination).is_none() {
-        let destination_name =
-            Description::get_reference_name(destination, Some(performing_entity), world);
-        return VerifyResult::invalid(
-            performing_entity,
-            GameMessage::Error(format!("{destination_name} is not a container.")),
-        );
-    }
-
-    VerifyResult::valid()
-}
-
 /// Verifies that the item is actually in the source container.
 pub fn verify_item_in_source(
     notification: &Notification<VerifyActionNotification, PutAction>,
@@ -701,11 +670,14 @@ pub fn verify_item_in_source(
     let item = notification.contents.item;
     let source = notification.contents.source;
 
-    if let Some(container) = world.get::<Container>(source) {
-        if container
-            .get_entities(performing_entity, world)
-            .contains(&item)
-        {
+    if Container::contains(source, item, performing_entity, world) {
+        return VerifyResult::valid();
+    }
+
+    let destination = notification.contents.destination;
+    if destination == performing_entity {
+        if Container::contains(destination, item, performing_entity, world) {
+            // verify_item_not_in_destination will handle this with a better error message
             return VerifyResult::valid();
         }
     }
@@ -731,11 +703,14 @@ pub fn verify_item_not_in_destination(
     let item = notification.contents.item;
     let destination = notification.contents.destination;
 
-    if let Some(container) = world.get::<Container>(destination) {
-        if !container
-            .get_entities(performing_entity, world)
-            .contains(&item)
-        {
+    if !Container::contains(destination, item, performing_entity, world) {
+        return VerifyResult::valid();
+    }
+
+    let source = notification.contents.source;
+    if source == performing_entity {
+        if !Container::contains(source, item, performing_entity, world) {
+            // verify_item_in_source will handle this with a better error message
             return VerifyResult::valid();
         }
     }
@@ -826,36 +801,6 @@ pub fn prevent_put_item_inside_itself(
     VerifyResult::valid()
 }
 
-/// Prevents picking up or dropping entities not marked as items.
-/// TODO remove since the validators cover this now
-pub fn prevent_put_non_item(
-    notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
-) -> VerifyResult {
-    let performing_entity = notification.notification_type.performing_entity;
-    let item = notification.contents.item;
-
-    if world.get::<Item>(item).is_none() {
-        let performing_entity_location = world
-            .get::<Location>(performing_entity)
-            .expect("performing entity should have a location")
-            .id;
-        let item_name = Description::get_reference_name(item, Some(performing_entity), world);
-
-        let message = if notification.contents.source == performing_entity_location {
-            format!("You can't get {item_name}.")
-        } else if notification.contents.destination == performing_entity_location {
-            format!("You can't drop {item_name}.")
-        } else {
-            format!("You can't put {item_name} anywhere.")
-        };
-
-        return VerifyResult::invalid(performing_entity, GameMessage::Error(message));
-    }
-
-    VerifyResult::valid()
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -926,8 +871,11 @@ mod tests {
     #[test]
     fn get_target_location() {
         let game = set_up_game(NumPlayers::One);
-        //TODO make the error include the name of the room
-        test_error("get here", "get what? (You can't get it.)", &game);
+        test_error(
+            "get here",
+            "get what? (You can't get the room name.)",
+            &game,
+        );
     }
 
     #[test]
@@ -995,7 +943,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item_in_container name from",
-            "get 'entity item_in_container name' from where?",
+            "get what from where?",
             &game,
         )
     }
@@ -1069,8 +1017,6 @@ mod tests {
     #[test]
     fn get_already_have_target() {
         let game = set_up_game(NumPlayers::One);
-
-        //TODO this sometimes fails because the error is "your entity owned name is not in it."
         test_error(
             "get entity owned name",
             "You already have your entity owned name.",
@@ -1108,7 +1054,6 @@ mod tests {
 
     #[test]
     fn get_valid_target_with_the() {
-        //TODO this fails with Error("get what? (There's no 'the entity item name' here.)")
         let game = set_up_game(NumPlayers::One);
         test_success(
             "get the entity item name",
@@ -1155,6 +1100,46 @@ mod tests {
         test_success(
             "get entity item_in_container name from entity container name",
             "You get the entity item_in_container name from the entity container name.",
+            Some("Player 1 gets the entity item_in_container name from the entity container name."),
+            &game,
+        );
+
+        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+    }
+
+    #[test]
+    fn get_valid_target_from_owned_container() {
+        let mut game = set_up_game(NumPlayers::One);
+        move_entity(
+            game.container_entity,
+            game.player_1.entity,
+            &mut game.get_world_mut(),
+        );
+
+        test_success(
+            "get entity item_in_container name from entity container name",
+            "You get your entity item_in_container name from your entity container name.",
+            None,
+            &game,
+        );
+
+        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
+        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+    }
+
+    #[test]
+    fn get_valid_target_from_owned_container_multiple_players() {
+        let mut game = set_up_game(NumPlayers::Two);
+        move_entity(
+            game.container_entity,
+            game.player_1.entity,
+            &mut game.get_world_mut(),
+        );
+
+        test_success(
+            "get entity item_in_container name from entity container name",
+            "You get your entity item_in_container name from your entity container name.",
             Some("Player 1 gets their entity item_in_container name from their entity container name."),
             &game,
         );
@@ -1168,7 +1153,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "get entity item name and how",
-            "Did you mean 'get entity item name' (without ' and how')?",
+            "get what? (There's no 'entity item name and how' here.)",
             &game,
         );
     }
@@ -1200,8 +1185,11 @@ mod tests {
     #[test]
     fn drop_target_location() {
         let game = set_up_game(NumPlayers::One);
-        //TODO make the error include the name of the room
-        test_error("drop here", "drop what? (You can't drop it.)", &game);
+        test_error(
+            "drop here",
+            "drop what? (You can't drop the room name.)",
+            &game,
+        );
     }
 
     #[test]
@@ -1247,7 +1235,6 @@ mod tests {
     #[test]
     fn drop_do_not_have_target() {
         let game = set_up_game(NumPlayers::One);
-        //TODO this sometimes fails because the error is "the entity item name is already in it"
         test_error(
             "drop the entity item name",
             "You don't have the entity item name.",
@@ -1447,10 +1434,9 @@ mod tests {
     #[test]
     fn put_target_location() {
         let game = set_up_game(NumPlayers::One);
-        //TODO include location name in error
         test_error(
             "put here into entity container name",
-            "put what into the entity container name? (You can't put it.)",
+            "put what into the entity container name? (You can't put the room name.)",
             &game,
         );
     }
@@ -1758,7 +1744,7 @@ mod tests {
         };
         let room = spawn_room(
             Room {
-                name: "room".to_string(),
+                name: "room name".to_string(),
                 description: "it's a room".to_string(),
                 map_icon: MapIcon::new_uniform(Color::Black, Color::White, ['[', ']']),
             },

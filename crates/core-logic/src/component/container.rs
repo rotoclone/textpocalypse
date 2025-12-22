@@ -46,6 +46,22 @@ impl Container {
         }
     }
 
+    /// Determines if `containing_entity` contains `contained_entity` from the perspective of `pov_entity`.
+    pub fn contains(
+        containing_entity: Entity,
+        contained_entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> bool {
+        world
+            .get::<Container>(containing_entity)
+            .map(|c| {
+                c.get_entities(pov_entity, world)
+                    .contains(&contained_entity)
+            })
+            .unwrap_or(false)
+    }
+
     /// Gets all the entities in this container, from the perspective of the provided entity.
     pub fn get_entities(&self, pov_entity: Entity, world: &World) -> HashSet<Entity> {
         self.entities

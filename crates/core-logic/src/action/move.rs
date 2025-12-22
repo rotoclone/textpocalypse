@@ -5,7 +5,9 @@ use nonempty::nonempty;
 
 use crate::{
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
-    command_format::{direction_part, one_of_literal_part, CommandFormat, CommandPartId},
+    command_format::{
+        direction_part, one_of_literal_part, CommandFormat, CommandPartId, DirectionMatchMode,
+    },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
         Container, Location, Stats,
@@ -27,16 +29,20 @@ static DIRECTION_PART_ID: LazyLock<CommandPartId<Direction>> =
     LazyLock::new(|| CommandPartId::new("direction"));
 static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
-        direction_part(DIRECTION_PART_ID.clone())
-            .with_if_unparsed("where")
-            .with_placeholder_for_format_string("direction"),
+        direction_part(
+            DIRECTION_PART_ID.clone(),
+            DirectionMatchMode::OnlyValidDirections,
+        )
+        .with_if_unparsed("where")
+        .with_placeholder_for_format_string("direction"),
     )
 });
+
 static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["move", "go"]))
         .then(one_of_literal_part(nonempty![" ", " to ", " to the "]).always_include_in_errors())
         .then(
-            direction_part(DIRECTION_PART_ID.clone())
+            direction_part(DIRECTION_PART_ID.clone(), DirectionMatchMode::Anything)
                 .always_include_in_errors()
                 .with_if_unparsed("where")
                 .with_placeholder_for_format_string("direction"),

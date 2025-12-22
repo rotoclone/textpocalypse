@@ -5,7 +5,7 @@ use log::debug;
 use ordered_float::OrderedFloat;
 use voca_rs::Voca;
 
-use crate::{find_owning_entity, is_living_entity, GameMessage};
+use crate::{component::Room, find_owning_entity, is_living_entity, GameMessage};
 
 use super::Location;
 
@@ -237,12 +237,18 @@ impl Description {
     /// Determines how closely the provided input refers to the entity with this description.
     pub fn matches(&self, input: &str) -> Matchness {
         //TODO use get_all_ways_to_reference here?
-        //TODO allow optionally prefixing with "the"
         debug!("Checking if {input:?} matches {self:?}");
         let mut identifiers = Vec::new();
         identifiers.push(self.name.to_ascii_lowercase());
         identifiers.push(self.room_name.to_ascii_lowercase());
         identifiers.extend(self.aliases.iter().map(|alias| alias.to_ascii_lowercase()));
+
+        // allow optionally prefixing with "the"
+        let identifiers_with_the = identifiers
+            .iter()
+            .map(|identifier| format!("the {identifier}"))
+            .collect::<Vec<String>>();
+        identifiers.extend(identifiers_with_the);
 
         let mut best_portion_matched = None;
         for identifier in identifiers {
@@ -277,8 +283,13 @@ impl Description {
     }
 
     /// Gets the name of the provided entity, if it has one.
+    ///
+    /// If the entity has no Description, but is a Room, this will return the name of the room.
     pub fn get_name(entity: Entity, world: &World) -> Option<String> {
-        world.get::<Description>(entity).map(|d| d.name.clone())
+        world
+            .get::<Description>(entity)
+            .map(|d| d.name.clone())
+            .or_else(|| world.get::<Room>(entity).map(|r| r.name.clone()))
     }
 
     /// Builds a string to use to refer to the provided entity from the point of view of another entity.
@@ -303,7 +314,8 @@ impl Description {
     ///
     /// If some other entity owns it, this will return that entity's possessive adjective pronoun (e.g. "his", "her", "their", etc.).
     ///
-    /// Otherwise, this will return `Some("the")` if the entity has an article defined in its description, or `None` if it doesn't.
+    /// Otherwise, this will return `Some("the")` if the entity has no description or has an article defined in its description,
+    /// or `None` if the entity has a description but no article.
     pub fn get_definite_article(
         entity: Entity,
         pov_entity: Option<Entity>,
@@ -319,9 +331,12 @@ impl Description {
             ));
         }
 
-        if let Some(desc) = world.get::<Description>(entity) {
-            // return `None` if the entity has no article
-            desc.article.as_ref()?;
+        if world
+            .get::<Description>(entity)
+            .map(|d| d.article.is_none())
+            .unwrap_or(false)
+        {
+            return None;
         }
         Some("the".to_string())
     }

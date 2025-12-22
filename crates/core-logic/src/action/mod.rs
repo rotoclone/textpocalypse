@@ -132,10 +132,6 @@ pub use cheat::CheatParser;
 
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
-    VerifyNotificationHandlers::add_handler(
-        put::verify_source_and_destination_are_containers,
-        world,
-    );
     VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
     VerifyNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
     VerifyNotificationHandlers::add_handler(
@@ -147,7 +143,6 @@ pub fn register_action_handlers(world: &mut World) {
         world,
     );
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
-    VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
 
     NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
