@@ -1149,6 +1149,26 @@ mod tests {
     }
 
     #[test]
+    fn get_target_from_living_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn get_nonexistent_target_from_living_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn get_target_from_container_in_living_entity() {
+        //TODO
+    }
+
+    #[test]
+    fn get_target_from_nonexistent_container_in_living_entity() {
+        //TODO
+    }
+
+    #[test]
     fn get_valid_target_with_extra_input() {
         let game = set_up_game(NumPlayers::One);
         test_error(

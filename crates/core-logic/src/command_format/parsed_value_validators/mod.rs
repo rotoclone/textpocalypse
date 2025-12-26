@@ -72,12 +72,16 @@ pub fn validate_parsed_value_has_component<T: Component>(
     if world.get::<T>(context.parsed_value).is_some() {
         CommandPartValidateResult::Valid
     } else {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
-        // TODO target_name should be "yourself" if it's you, not "you"
+        let target_name = if context.parsed_value == context.performing_entity {
+            "yourself".to_string()
+        } else {
+            Description::get_reference_name(
+                context.parsed_value,
+                Some(context.performing_entity),
+                world,
+            )
+        };
+
         CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some(format!("You can't {verb_name} {target_name}.")),
         })

@@ -864,7 +864,9 @@ impl CommandFormatParseError {
     /// Turns the error into a message to send to the entering entity describing what went wrong.
     pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
         if self.num_parts_matched() == 0 {
-            return GameMessage::Error("I don't understand that.".to_string());
+            return GameMessage::Error(
+                "Invalid command. Use 'help' to see valid commands.".to_string(),
+            );
         }
 
         let string = match self {
