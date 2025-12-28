@@ -1150,16 +1150,44 @@ mod tests {
 
     #[test]
     fn get_target_from_living_entity() {
-        //TODO
+        let mut game = set_up_game(NumPlayers::Two);
+        move_entity(
+            game.item_entity,
+            game.player_2.as_ref().unwrap().entity,
+            &mut game.get_world_mut(),
+        );
+
+        test_error(
+            "get entity item name from player 2",
+            "You can't get anything from player 2.",
+            &game,
+        );
     }
 
     #[test]
     fn get_nonexistent_target_from_living_entity() {
-        //TODO
+        let mut game = set_up_game(NumPlayers::Two);
+        move_entity(
+            game.item_entity,
+            game.player_2.as_ref().unwrap().entity,
+            &mut game.get_world_mut(),
+        );
+
+        test_error(
+            "get blorp from player 2",
+            "You can't get anything from player 2.",
+            &game,
+        );
     }
 
     #[test]
     fn get_target_from_container_in_living_entity() {
+        let mut game = set_up_game(NumPlayers::Two);
+        move_entity(
+            game.container_entity,
+            game.player_2.as_ref().unwrap().entity,
+            &mut game.get_world_mut(),
+        );
         //TODO
     }
 
