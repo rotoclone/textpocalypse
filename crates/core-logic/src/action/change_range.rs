@@ -82,7 +82,7 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
 
 /// Determines whether an entity could be a valid target for a change range command.
 fn validate_target(
-    context: PartValidatorContext<Entity>,
+    context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
     if context.parsed_value == context.performing_entity {

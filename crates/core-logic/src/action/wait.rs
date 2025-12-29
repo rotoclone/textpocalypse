@@ -47,7 +47,7 @@ static DAYS_PATTERN: LazyLock<Regex> =
 
 /// Validates that a string represents an amount of time
 fn validate_duration(
-    context: PartValidatorContext<String>,
+    context: &PartValidatorContext<String>,
     _: &World,
 ) -> CommandPartValidateResult {
     match parse_time_to_ticks(&context.parsed_value) {

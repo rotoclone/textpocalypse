@@ -114,7 +114,7 @@ static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 });
 
 /// Validates that a string represents an amount of fluid
-fn validate_amount(context: PartValidatorContext<String>, _: &World) -> CommandPartValidateResult {
+fn validate_amount(context: &PartValidatorContext<String>, _: &World) -> CommandPartValidateResult {
     match parse_pour_amount(&context.parsed_value) {
         Ok(_) => CommandPartValidateResult::Valid,
         Err(e) => CommandPartValidateResult::Invalid(CommandPartValidateError { details: Some(e) }),

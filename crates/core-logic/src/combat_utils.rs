@@ -274,7 +274,7 @@ pub fn parse_attack_input<A: AttackType>(
 
 /// Validates the chosen target for an attack.
 pub fn validate_attack_target(
-    context: PartValidatorContext<Entity>,
+    context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
     if !is_valid_attack_target(context.parsed_value, world) {
@@ -325,7 +325,7 @@ fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<En
 
 /// Validates the chosen weapon for an attack.
 pub fn validate_attack_weapon<A: AttackType>(
-    context: PartValidatorContext<Entity>,
+    context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
     if !is_valid_attack_weapon::<A>(context.parsed_value, world) {

@@ -9,7 +9,7 @@ use crate::{
         EntityTargetFinderFn, PartValidationFn,
     },
     component::{Description, PortionMatched},
-    found_entities::{FoundEntities, FoundEntitiesInContainer},
+    found_entities::FoundEntitiesInContainer,
     input_parser::CommandTarget,
 };
 
@@ -63,7 +63,7 @@ pub fn parse_entity(
             .as_ref()
             .map(|v| {
                 v(
-                    PartValidatorContext {
+                    &PartValidatorContext {
                         parsed_value: entity,
                         performing_entity,
                     },

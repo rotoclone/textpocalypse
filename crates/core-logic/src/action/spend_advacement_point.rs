@@ -50,7 +50,7 @@ static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| 
 
 /// Validates that the parsed value is the name of a skill, ignoring case.
 fn validate_skill_name(
-    context: PartValidatorContext<String>,
+    context: &PartValidatorContext<String>,
     world: &World,
 ) -> CommandPartValidateResult {
     if SkillNameCatalog::get_skill(&context.parsed_value, world).is_some() {
@@ -64,7 +64,7 @@ fn validate_skill_name(
 
 /// Validates that the parsed value is the name of an attribute, ignoring case.
 fn validate_attribute_name(
-    context: PartValidatorContext<String>,
+    context: &PartValidatorContext<String>,
     world: &World,
 ) -> CommandPartValidateResult {
     if AttributeNameCatalog::get_attribute(&context.parsed_value, world).is_some() {

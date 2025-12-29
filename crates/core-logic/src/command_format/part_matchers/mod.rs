@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 use log::warn;
 use nonempty::nonempty;
 use nonempty::NonEmpty;

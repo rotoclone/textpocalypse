@@ -5,8 +5,9 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{
-        entity_part_builder, literal_part, one_of_literal_part,
-        validate_parsed_value_has_component, CommandFormat, CommandPartId, PartParserContext,
+        build_invalid_result, entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+        CommandPartValidateResult, PartParserContext, PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Container, Item, Location,
@@ -79,11 +80,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
-                    validate_parsed_value_has_component::<Container>(
-                        context,
-                        "get anything from",
-                        world,
-                    )
+                    validate_target_container(context, "get anything from", world)
                 })
                 .build()
                 .always_include_in_errors()
@@ -112,11 +109,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
-                    validate_parsed_value_has_component::<Container>(
-                        context,
-                        "put anything into",
-                        world,
-                    )
+                    validate_target_container(context, "put anything into", world)
                 })
                 .build()
                 .always_include_in_errors()
@@ -124,6 +117,24 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_placeholder_for_format_string("container"),
         )
 });
+
+/// Validates that the target is a container and isn't a living entity
+fn validate_target_container(
+    context: &PartValidatorContext<Entity>,
+    verb_name: &str,
+    world: &World,
+) -> CommandPartValidateResult {
+    match validate_parsed_value_has_component::<Container>(context, verb_name, world) {
+        CommandPartValidateResult::Invalid(e) => return CommandPartValidateResult::Invalid(e),
+        CommandPartValidateResult::Valid => (),
+    };
+
+    if is_living_entity(context.parsed_value, world) {
+        return build_invalid_result(context, verb_name, world);
+    }
+
+    CommandPartValidateResult::Valid
+}
 
 /// Finds entities matching the input in the target container, if the target container part was successfully parsed.
 fn find_entities_in_target_container(
@@ -675,11 +686,11 @@ pub fn verify_item_in_source(
     }
 
     let destination = notification.contents.destination;
-    if destination == performing_entity {
-        if Container::contains(destination, item, performing_entity, world) {
-            // verify_item_not_in_destination will handle this with a better error message
-            return VerifyResult::valid();
-        }
+    if destination == performing_entity
+        && Container::contains(destination, item, performing_entity, world)
+    {
+        // verify_item_not_in_destination will handle this with a better error message
+        return VerifyResult::valid();
     }
 
     let item_name = Description::get_reference_name(item, Some(performing_entity), world);
@@ -708,11 +719,9 @@ pub fn verify_item_not_in_destination(
     }
 
     let source = notification.contents.source;
-    if source == performing_entity {
-        if !Container::contains(source, item, performing_entity, world) {
-            // verify_item_in_source will handle this with a better error message
-            return VerifyResult::valid();
-        }
+    if source == performing_entity && !Container::contains(source, item, performing_entity, world) {
+        // verify_item_in_source will handle this with a better error message
+        return VerifyResult::valid();
     }
 
     let item_name = Description::get_reference_name(item, Some(performing_entity), world);
@@ -865,7 +874,7 @@ mod tests {
     #[test]
     fn get_target_self() {
         let game = set_up_game(NumPlayers::One);
-        test_error("get me", "get what? (You can't get you.)", &game);
+        test_error("get me", "get what? (You can't get yourself.)", &game);
     }
 
     #[test]
@@ -1149,6 +1158,31 @@ mod tests {
     }
 
     #[test]
+    fn get_nested_target() {
+        let mut game = set_up_game(NumPlayers::One);
+        let nested_container_entity = spawn_entity_in_location(
+            "nested_container",
+            game.container_entity,
+            &mut game.get_world_mut(),
+        );
+        game.get_world_mut()
+            .entity_mut(nested_container_entity)
+            .insert((Container::new_infinite(), Item::new_one_handed()));
+        move_entity(
+            game.item_entity,
+            nested_container_entity,
+            &mut game.get_world_mut(),
+        );
+
+        // this only fails because nested targets like this aren't supported, not because there's anything inherently invalid about the command
+        test_error(
+            "get entity item name from entity nested_container name in entity container name",
+            "get what from where? (There's no 'entity nested_container name in entity container name' here.)",
+            &game,
+        );
+    }
+
+    #[test]
     fn get_target_from_living_entity() {
         let mut game = set_up_game(NumPlayers::Two);
         move_entity(
@@ -1157,25 +1191,22 @@ mod tests {
             &mut game.get_world_mut(),
         );
 
+        // this should always produce the same error as the test below to avoid leaking contents of players' inventories
         test_error(
             "get entity item name from player 2",
-            "You can't get anything from player 2.",
+            "get what from where? (You can't get anything from player 2.)",
             &game,
         );
     }
 
     #[test]
     fn get_nonexistent_target_from_living_entity() {
-        let mut game = set_up_game(NumPlayers::Two);
-        move_entity(
-            game.item_entity,
-            game.player_2.as_ref().unwrap().entity,
-            &mut game.get_world_mut(),
-        );
+        let game = set_up_game(NumPlayers::Two);
 
+        // this should always produce the same error as the test above to avoid leaking contents of players' inventories
         test_error(
             "get blorp from player 2",
-            "You can't get anything from player 2.",
+            "get what from where? (You can't get anything from player 2.)",
             &game,
         );
     }
@@ -1188,12 +1219,12 @@ mod tests {
             game.player_2.as_ref().unwrap().entity,
             &mut game.get_world_mut(),
         );
-        //TODO
-    }
 
-    #[test]
-    fn get_target_from_nonexistent_container_in_living_entity() {
-        //TODO
+        test_error(
+            "get entity item_in_container name from entity container name in player 2",
+            "get what from where? (There's no 'entity container name in player 2' here.)",
+            &game,
+        );
     }
 
     #[test]
@@ -1227,7 +1258,7 @@ mod tests {
     #[test]
     fn drop_target_self() {
         let game = set_up_game(NumPlayers::One);
-        test_error("drop me", "drop what? (You can't drop you.)", &game);
+        test_error("drop me", "drop what? (You can't drop yourself.)", &game);
     }
 
     #[test]
@@ -1474,7 +1505,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put me into entity container name",
-            "put what into the entity container name? (You can't put you.)",
+            "put what into the entity container name? (You can't put yourself.)",
             &game,
         );
     }

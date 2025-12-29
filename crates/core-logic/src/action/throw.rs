@@ -82,7 +82,7 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 /// Checks that an entity can have things thrown at it.
 fn validate_target(
-    context: PartValidatorContext<Entity>,
+    context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
     if world.get::<Item>(context.parsed_value).is_some()

@@ -25,6 +25,7 @@ pub use part_parsers::PartParserContext;
 use part_parsers::*;
 
 mod parsed_value_validators;
+pub use parsed_value_validators::build_invalid_result;
 pub use parsed_value_validators::validate_parsed_value_has_component;
 pub use parsed_value_validators::CommandPartValidateError;
 pub use parsed_value_validators::CommandPartValidateResult;
@@ -337,7 +338,7 @@ type PartParseFn<T> = fn(PartParserContext, &World) -> Result<T, CommandPartPars
 type PartParseFnUntyped = Box<dyn Fn(PartParserContext, &World) -> CommandPartParseResult>;
 */
 
-type PartValidationFn<T> = fn(PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+type PartValidationFn<T> = fn(&PartValidatorContext<T>, &World) -> CommandPartValidateResult;
 
 type PartValidationFnUntyped =
     Box<dyn Fn(PartValidatorContext<ParsedValue>, &World) -> CommandPartValidateResult>;
@@ -351,7 +352,7 @@ fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
             .try_into()
             .unwrap_or_else(|_| panic!("parsed value should be {}", type_name::<T>()));
         f(
-            PartValidatorContext {
+            &PartValidatorContext {
                 parsed_value,
                 performing_entity: context.performing_entity,
             },
@@ -572,13 +573,13 @@ pub struct EntityPartBuilder {
 }
 
 impl EntityPartBuilder {
-    /// Adds a validation function to the part.
+    /// Sets the validation function of the part.
     pub fn with_validator(mut self, validator: PartValidationFn<Entity>) -> Self {
         self.validator = Some(validator);
         self
     }
 
-    /// Adds a target finder function to the part.
+    /// Sets the target finder function of the part.
     pub fn with_target_finder(mut self, target_finder: EntityTargetFinderFn) -> Self {
         self.target_finder = Some(target_finder);
         self
