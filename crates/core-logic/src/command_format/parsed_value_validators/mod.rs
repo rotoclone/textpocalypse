@@ -72,14 +72,31 @@ pub fn validate_parsed_value_has_component<T: Component>(
     if world.get::<T>(context.parsed_value).is_some() {
         CommandPartValidateResult::Valid
     } else {
-        build_invalid_result(context, verb_name, world)
+        build_invalid_result(context, verb_name, None, world)
     }
 }
 
-/// Builds a `CommandPartValidateResult::Invalid` with error details in the format `"You can't {verb_name} {parsed_value_reference_name}."`.
+/// Validates that an entity has the provided component, and if not returns an error in the format `"You can't {verb_name} {parsed_value_reference_name}."`,
+/// or `"You can't {verb_name} {parsed_value_reference_name} {suffix}."` if a suffix is provided.
+pub fn validate_parsed_value_has_component_with_suffix<T: Component>(
+    context: &PartValidatorContext<Entity>,
+    verb_name: &str,
+    suffix: &str,
+    world: &World,
+) -> CommandPartValidateResult {
+    if world.get::<T>(context.parsed_value).is_some() {
+        CommandPartValidateResult::Valid
+    } else {
+        build_invalid_result(context, verb_name, Some(suffix), world)
+    }
+}
+
+/// Builds a `CommandPartValidateResult::Invalid` with error details in the format `"You can't {verb_name} {parsed_value_reference_name}."`.,
+/// or `"You can't {verb_name} {parsed_value_reference_name} {suffix}."` if a suffix is provided.
 pub fn build_invalid_result(
     context: &PartValidatorContext<Entity>,
     verb_name: &str,
+    suffix: Option<&str>,
     world: &World,
 ) -> CommandPartValidateResult {
     let target_name = if context.parsed_value == context.performing_entity {
@@ -92,7 +109,9 @@ pub fn build_invalid_result(
         )
     };
 
+    let suffix = suffix.map(|s| format!(" {s}")).unwrap_or_default();
+
     CommandPartValidateResult::Invalid(CommandPartValidateError {
-        details: Some(format!("You can't {verb_name} {target_name}.")),
+        details: Some(format!("You can't {verb_name} {target_name}{suffix}.")),
     })
 }

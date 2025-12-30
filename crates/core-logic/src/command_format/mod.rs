@@ -7,7 +7,7 @@ use bevy_ecs::prelude::*;
 use nonempty::NonEmpty;
 
 use crate::component::PortionMatched;
-use crate::found_entities::{FoundEntities, FoundEntitiesInContainer};
+use crate::found_entities::FoundEntitiesInContainer;
 use crate::{Direction, GameMessage};
 
 mod command_format_string;
@@ -27,6 +27,7 @@ use part_parsers::*;
 mod parsed_value_validators;
 pub use parsed_value_validators::build_invalid_result;
 pub use parsed_value_validators::validate_parsed_value_has_component;
+pub use parsed_value_validators::validate_parsed_value_has_component_with_suffix;
 pub use parsed_value_validators::CommandPartValidateError;
 pub use parsed_value_validators::CommandPartValidateResult;
 pub use parsed_value_validators::PartValidatorContext;

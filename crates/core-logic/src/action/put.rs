@@ -6,8 +6,9 @@ use nonempty::nonempty;
 use crate::{
     command_format::{
         build_invalid_result, entity_part_builder, literal_part, one_of_literal_part,
-        validate_parsed_value_has_component, CommandFormat, CommandPartId,
-        CommandPartValidateResult, PartParserContext, PartValidatorContext,
+        validate_parsed_value_has_component, validate_parsed_value_has_component_with_suffix,
+        CommandFormat, CommandPartId, CommandPartValidateResult, PartParserContext,
+        PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Container, Item, Location,
@@ -95,8 +96,9 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
-                    //TODO ideally the error here would be "you can't put <item name> anywhere" instead of just "you can't put <item name>"
-                    validate_parsed_value_has_component::<Item>(context, "put", world)
+                    validate_parsed_value_has_component_with_suffix::<Item>(
+                        context, "put", "anywhere", world,
+                    )
                 })
                 .build()
                 .always_include_in_errors()
@@ -130,7 +132,7 @@ fn validate_target_container(
     };
 
     if is_living_entity(context.parsed_value, world) {
-        return build_invalid_result(context, verb_name, world);
+        return build_invalid_result(context, verb_name, None, world);
     }
 
     CommandPartValidateResult::Valid
@@ -1495,7 +1497,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity non_item name into entity container name",
-            "put what into the entity container name? (You can't put the entity non_item name.)",
+            "put what into the entity container name? (You can't put the entity non_item name anywhere.)",
             &game,
         );
     }
@@ -1505,7 +1507,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put me into entity container name",
-            "put what into the entity container name? (You can't put yourself.)",
+            "put what into the entity container name? (You can't put yourself anywhere.)",
             &game,
         );
     }
@@ -1515,7 +1517,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put here into entity container name",
-            "put what into the entity container name? (You can't put the room name.)",
+            "put what into the entity container name? (You can't put the room name anywhere.)",
             &game,
         );
     }
@@ -1605,7 +1607,7 @@ mod tests {
         let game = set_up_game(NumPlayers::One);
         test_error(
             "put entity non_item name into entity container name",
-            "put what into the entity container name? (You can't put the entity non_item name.)",
+            "put what into the entity container name? (You can't put the entity non_item name anywhere.)",
             &game,
         );
     }
