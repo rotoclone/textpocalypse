@@ -31,7 +31,9 @@ static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         one_of_literal_part(nonempty!["look", "l",]).with_error_string_override("look"),
     )
     .then(literal_part(" ").always_include_in_errors())
+    // TODO this part isn't included in error messages for some reason
     .then(optional_literal_part("at ").always_include_in_errors())
+    // TODO ideally you could look at things inside of containers too (currently you have to remove an item from a container in order to look at it which is annoying)
     .then(
         entity_part(TARGET_PART_ID.clone())
             .always_include_in_errors()

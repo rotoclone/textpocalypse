@@ -203,7 +203,7 @@ impl CommandFormatPart {
         self
     }
 
-    /// Sets the part to never be included in error messages, regardless of if it was included in the entered command.
+    /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
     pub fn always_include_in_errors(mut self) -> Self {
         self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Always;
         self
