@@ -82,7 +82,7 @@ impl MatchedCommandFormatPart {
     }
 }
 
-/// An intermediate state during command parsing, where some parts may have been associated with a portion of the input string, but the part(s) haven't actually been parsed yet.
+/// An intermediate state during command parsing, where some parts may have been associated with a portion of the input string, but the parts haven't actually been parsed yet.
 pub struct MatchedCommand {
     /// The parts that were successfully matched
     pub matched_parts: Vec<MatchedCommandFormatPart>,

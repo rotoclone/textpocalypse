@@ -978,7 +978,6 @@ fn build_error_message_for_parts(
                 }
             }
             ProcessedPart::Parsed(parsed_part) => {
-                dbg!(&parsed_part); //TODO
                 message += &parsed_part.to_string_for_parse_error(context, world)
             }
         }
