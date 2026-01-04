@@ -60,6 +60,7 @@ pub enum CommandPartParseError {
 }
 
 /// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
+/// TODO but optional parts don't parse to CommandPartParseResult::Failure, they parse to CommandPartParseResult::Success with an empty string, so this doesn't work as intended
 pub fn parse_result_to_option(parse_result: CommandPartParseResult) -> CommandPartParseResult {
     match parse_result {
         CommandPartParseResult::Success(parsed) => {

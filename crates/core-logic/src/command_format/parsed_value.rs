@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use crate::{component::Description, Direction};
+use crate::{command_format::CommandFormatPart, component::Description, Direction};
 
 use super::PartParserContext;
 
@@ -15,7 +15,12 @@ pub enum ParsedValue {
 
 impl ParsedValue {
     /// Builds a string representing this value to use in a parsing error message.
-    pub fn to_string_for_parse_error(&self, context: &PartParserContext, world: &World) -> String {
+    pub fn to_string_for_parse_error(
+        &self,
+        part: &CommandFormatPart,
+        context: &PartParserContext,
+        world: &World,
+    ) -> String {
         match self {
             ParsedValue::String(s) => s.clone(),
             ParsedValue::Entity(e) => {
@@ -24,7 +29,9 @@ impl ParsedValue {
             ParsedValue::Direction(d) => d.to_string(),
             ParsedValue::Option(o) => o
                 .as_ref()
-                .map(|v| v.to_string_for_parse_error(context, world))
+                .map(|v| v.to_string_for_parse_error(part, context, world))
+                // an optional part that parsed to nothing is effectively unparsed, so use the `if_unparsed` value
+                .or_else(|| part.options().if_unparsed.clone())
                 .unwrap_or_default(),
         }
     }

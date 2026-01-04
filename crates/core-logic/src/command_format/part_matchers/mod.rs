@@ -34,10 +34,9 @@ pub struct PartMatcherContext<'c> {
 //TODO doc
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartMatchResult {
-    Success {
-        matched: String,
-        remaining: String,
-    },
+    /// The part matched some input (or didn't but it's fine, in which case `matched` will be an empty string)
+    Success { matched: String, remaining: String },
+    /// The part didn't match any input
     Failure {
         error: CommandPartMatchError,
         remaining: String,
@@ -318,8 +317,9 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (St
     }
 }
 
-/// Converts `CommandPartMatchResult::Failure` to `CommandPartMatchResult::Success` with a matched value of an empty string.
+/// Converts `CommandPartMatchResult::Failure` to `CommandPartMatchResult::Success` with a matched value of `None`.
 /// Doesn't touch `CommandPartMatchResult::Success`.
+/// TODO remove
 pub fn match_result_to_option(match_result: CommandPartMatchResult) -> CommandPartMatchResult {
     match match_result {
         CommandPartMatchResult::Success { matched, remaining } => {

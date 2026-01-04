@@ -978,6 +978,7 @@ fn build_error_message_for_parts(
                 }
             }
             ProcessedPart::Parsed(parsed_part) => {
+                dbg!(&parsed_part); //TODO
                 message += &parsed_part.to_string_for_parse_error(context, world)
             }
         }
@@ -1063,13 +1064,13 @@ impl ParsedCommandFormatPart {
     fn to_string_for_parse_error(&self, context: &PartParserContext, world: &World) -> String {
         let options = self.matched_part.part.options();
         if let IncludeInErrorsBehavior::Never = options.include_in_errors_behavior {
-            return "".to_string();
+            return String::new();
         }
 
-        options
-            .error_string_override
-            .clone()
-            .unwrap_or_else(|| self.parsed_value.to_string_for_parse_error(context, world))
+        options.error_string_override.clone().unwrap_or_else(|| {
+            self.parsed_value
+                .to_string_for_parse_error(&self.matched_part.part, context, world)
+        })
     }
 }
 
