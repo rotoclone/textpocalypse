@@ -535,7 +535,9 @@ pub fn handle_weapon_unusable_error(
                 MessageDelay::Short,
                 MessageFormat::new("${entity.Name} flails about uselessly with ${weapon.name}.")
                     .expect("message format should be valid"),
-                BasicTokens::new().with_entity("entity".into(), entity),
+                BasicTokens::new()
+                    .with_entity("entity".into(), entity)
+                    .with_entity("weapon".into(), weapon_entity),
             ),
             world,
         )

@@ -13,7 +13,7 @@ use voca_rs::Voca;
 use crate::{find_owning_entity, Description, Pronouns};
 
 /// A message with places for interpolated values, such as entity names.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MessageFormat<T: MessageTokens>(Vec<MessageFormatChunk>, PhantomData<fn(T)>);
 
 /// The name of a token
@@ -46,6 +46,7 @@ pub trait MessageTokens {
 }
 
 /// A generic set of tokens, for use with one-time message formats that don't need fancy token type safety.
+#[derive(Debug)]
 pub struct BasicTokens(HashMap<TokenName, TokenValue>);
 
 impl MessageTokens for BasicTokens {
@@ -78,6 +79,7 @@ impl BasicTokens {
 }
 
 /// No tokens at all.
+#[derive(Debug)]
 pub struct NoTokens;
 
 impl MessageTokens for NoTokens {
