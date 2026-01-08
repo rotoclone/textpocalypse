@@ -31,6 +31,7 @@ impl ParsedValue {
                 .as_ref()
                 .map(|v| v.to_string_for_parse_error(part, context, world))
                 // an optional part that parsed to nothing is effectively unparsed, so use the `if_unparsed` value
+                //TODO but this needs to respect the include in errors setting
                 .or_else(|| part.options().if_unparsed.clone())
                 .unwrap_or_default(),
         }

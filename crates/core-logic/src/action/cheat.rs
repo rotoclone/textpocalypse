@@ -22,9 +22,9 @@ static ARGS_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandP
 
 static CHEAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("%"))
-        .then(any_text_part(COMMAND_PART_ID.clone()))
+        .then(any_text_part(COMMAND_PART_ID.clone()).with_placeholder_for_format_string("command"))
         .then(literal_part("% "))
-        .then(any_text_part(ARGS_PART_ID.clone()))
+        .then(any_text_part(ARGS_PART_ID.clone()).with_placeholder_for_format_string("args"))
 });
 
 pub struct CheatParser;

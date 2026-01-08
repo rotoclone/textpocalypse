@@ -95,6 +95,12 @@ static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .include_in_errors_if_previous_part_included(),
         )
 });
+/* TODO
+>pour bottle
+Pour your water bottle?
+
+(Should be something like "Pour how much? ('bottle' is an invalid amount to pour.)")
+ */
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(literal_part(" ").always_include_in_errors())
@@ -105,7 +111,7 @@ static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .clone()
                 .include_in_errors_if_previous_part_included(),
         )
-        .then(literal_part(" into "))
+        .then(literal_part(" into ").include_in_errors_if_previous_part_included())
         .then(
             TARGET_PART
                 .clone()

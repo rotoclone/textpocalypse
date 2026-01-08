@@ -951,6 +951,7 @@ fn build_error_message_for_parts(
     for part in parts {
         let should_include = match part.options().include_in_errors_behavior {
             IncludeInErrorsBehavior::Never => false,
+            //TODO this will include optional parts that weren't provided, since they successfully match an empty string...maybe there needs to be a 3rd state other than success or failure for optional parts that weren't provided
             IncludeInErrorsBehavior::OnlyIfMatched => part.was_matched(),
             IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
                 part.was_matched() || prev_part_included
