@@ -31,7 +31,7 @@ const AMOUNT_CAPTURE: &str = "amount";
 
 static ALL_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^all$").unwrap());
 static AMOUNT_WITH_LITERS_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L| liter| liters)$").unwrap());
+    LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L|l| l| liter| liters)$").unwrap());
 static AMOUNT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(?P<amount>.*)").unwrap());
 
 static SOURCE_PART_ID: LazyLock<CommandPartId<Entity>> =
@@ -73,6 +73,8 @@ static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("amount")
 });
 
+// TODO add a command to just dump out a fluid container your location
+
 static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
         .then(literal_part(" ").always_include_in_errors())
@@ -88,19 +90,13 @@ static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(one_of_literal_part(nonempty![" ", " all ", " all of "]).always_include_in_errors())
         .then(SOURCE_PART.clone().always_include_in_errors())
-        .then(literal_part(" into "))
+        .then(literal_part(" into ").always_include_in_errors())
         .then(
             TARGET_PART
                 .clone()
                 .include_in_errors_if_previous_part_included(),
         )
 });
-/* TODO
->pour bottle
-Pour your water bottle?
-
-(Should be something like "Pour how much? ('bottle' is an invalid amount to pour.)")
- */
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(literal_part(" ").always_include_in_errors())
