@@ -27,6 +27,7 @@ static WAIT_FORMAT: LazyLock<CommandFormat> =
 
 static DURATION_PART_ID: LazyLock<CommandPartId<String>> =
     LazyLock::new(|| CommandPartId::new("duration"));
+//TODO allow "wait for <duration>"
 static WAIT_WITH_DURATION_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("wait"))
         .then(literal_part(" "))

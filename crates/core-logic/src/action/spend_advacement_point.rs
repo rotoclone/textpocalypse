@@ -27,9 +27,10 @@ static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         "assign skill point to",
         "increase skill"
     ]))
-    .then(literal_part(" "))
+    .then(literal_part(" ").always_include_in_errors())
     .then(
         any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_skill_name)
+            .always_include_in_errors()
             .with_if_unparsed("which skill")
             .with_placeholder_for_format_string("skill"),
     )
@@ -40,9 +41,10 @@ static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| 
         "assign attribute point to",
         "increase attribute"
     ]))
-    .then(literal_part(" "))
+    .then(literal_part(" ").always_include_in_errors())
     .then(
         any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_attribute_name)
+            .always_include_in_errors()
             .with_if_unparsed("which attribute")
             .with_placeholder_for_format_string("attribute"),
     )

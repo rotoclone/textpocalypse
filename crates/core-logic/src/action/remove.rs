@@ -25,13 +25,14 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static REMOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["take off", "remove"]))
-        .then(literal_part(" "))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             entity_part_builder(TARGET_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Wearable>(context, "take off", world)
                 })
                 .build()
+                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("worn item"),
         )

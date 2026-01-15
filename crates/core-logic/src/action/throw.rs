@@ -55,6 +55,14 @@ const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 /// The maximum amount to multiply throw check difficulty by due to the size of the target
 const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
 
+/* TODO
+> throw thing at thing
+You take out your heavy thing.
+
+Your medium thing isn't here.
+
+(the medium thing is in my inventory)
+ */
 static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
