@@ -15,7 +15,7 @@ use crate::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
         EquippedItems, Item, Location, Skill, Stats, Weight,
     },
-    handle_enter_combat,
+    find_owning_entity, handle_enter_combat,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::{Notification, VerifyResult},
@@ -55,14 +55,6 @@ const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 /// The maximum amount to multiply throw check difficulty by due to the size of the target
 const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
 
-/* TODO
-> throw thing at thing
-You take out your heavy thing.
-
-Your medium thing isn't here.
-
-(the medium thing is in my inventory)
- */
 static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
 static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
@@ -135,6 +127,13 @@ impl InputParser for ThrowParser {
             let item_name = Description::get_reference_name(item, Some(source_entity), world);
             return Err(InputParseError::PostFormatParse(format!(
                 "You can't throw {item_name} at itself."
+            )));
+        }
+
+        if find_owning_entity(target, world) == Some(source_entity) {
+            let target_name = Description::get_reference_name(target, Some(source_entity), world);
+            return Err(InputParseError::PostFormatParse(format!(
+                "You can't throw things at {target_name} because it's in your inventory."
             )));
         }
 
