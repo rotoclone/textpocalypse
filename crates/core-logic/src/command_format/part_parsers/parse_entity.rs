@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
-use nom::{bytes::complete::tag, combinator::opt, sequence::pair, IResult};
 
 use crate::{
     command_format::{
@@ -13,9 +12,7 @@ use crate::{
     input_parser::CommandTarget,
 };
 
-use super::{
-    match_literal_ignore_case, CommandPartParseError, CommandPartParseResult, PartParserContext,
-};
+use super::{CommandPartParseError, CommandPartParseResult, PartParserContext};
 
 /// Finds entities matching the input in the entering entity's inventory and the room they're in.
 pub fn default_entity_target_finder(
@@ -153,26 +150,6 @@ pub fn parse_entity(
             )),
         })
     }
-}
-
-struct MatchedEntityName<'a> {
-    prefix: Option<&'a str>,
-    name: &'a str,
-}
-
-/// Matches the name of an entity, optionally preceded by "the".
-fn match_entity_name<'i>(name: &str, input: &'i str) -> IResult<&'i str, MatchedEntityName<'i>> {
-    //TODO allow partial matches (i.e. "trou" would match "trousers" if it's unambiguous)
-    let (remaining, (prefix, matched)) =
-        pair(opt(tag("the ")), |i| match_literal_ignore_case(name, i))(input)?;
-
-    Ok((
-        remaining,
-        MatchedEntityName {
-            prefix,
-            name: matched,
-        },
-    ))
 }
 
 /* TODO

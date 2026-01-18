@@ -492,6 +492,7 @@ fn build_one_of_literal_part(
 
 /// Creates a part to maybe consume one of a set of possible literals.
 /// Uses the first literal for the format description.
+#[expect(unused)]
 pub fn optional_one_of_literal_part(literals: NonEmpty<impl Into<String>>) -> CommandFormatPart {
     build_optional_one_of_literal_part(literals, None)
 }
@@ -543,11 +544,13 @@ fn build_any_text_part(
 }
 
 /// Creates a part to maybe comsume any text.
+#[expect(unused)]
 pub fn optional_any_text_part(id: CommandPartId<Option<String>>) -> CommandFormatPart {
     build_optional_any_text_part(id, None)
 }
 
 /// Creates a part to maybe comsume any text, with a validation function.
+#[expect(unused)]
 pub fn optional_any_text_part_with_validator(
     id: CommandPartId<Option<String>>,
     validator: PartValidationFn<String>,
@@ -614,11 +617,13 @@ pub fn entity_part(id: CommandPartId<Entity>) -> CommandFormatPart {
 }
 
 /// Creates a part to parse an optional entity name.
+#[expect(unused)]
 pub fn optional_entity_part(id: CommandPartId<Option<Entity>>) -> CommandFormatPart {
     build_optional_entity_part(id, None, None)
 }
 
-/// Creates a part to parse an optional entity name, with a validator function.
+/// Creates a part to parse an optional entity name, with a validator function and/or target finder function.
+#[expect(unused)]
 pub fn optional_entity_part_with_extras(
     id: CommandPartId<Option<Entity>>,
     validator: Option<PartValidationFn<Entity>>,
@@ -651,6 +656,7 @@ pub fn direction_part(
 }
 
 /// Creates a part to parse a direction, with a validator function.
+#[expect(unused)]
 pub fn direction_part_with_validator(
     id: CommandPartId<Direction>,
     match_mode: DirectionMatchMode,
@@ -675,6 +681,7 @@ fn build_direction_part(
 }
 
 /// Creates a part to parse an optional direction.
+#[expect(unused)]
 pub fn optional_direction_part(
     id: CommandPartId<Option<Direction>>,
     match_mode: DirectionMatchMode,
@@ -683,6 +690,7 @@ pub fn optional_direction_part(
 }
 
 /// Creates a part to parse an optional direction, with a validator function.
+#[expect(unused)]
 pub fn optional_direction_part_with_validator(
     id: CommandPartId<Option<Direction>>,
     match_mode: DirectionMatchMode,
@@ -914,29 +922,6 @@ impl CommandFormatParseError {
 
         GameMessage::Error(string)
     }
-}
-
-/// Removes all the parts from the provided list after the first gap in order.
-/// For example, given parts with orders of 0, 1, 3, and 4, only the first 2 parts will be returned.
-///
-/// It's assumed that the provided parts are sorted by order.
-fn get_parsed_parts_before_first_gap(
-    parsed_parts: Vec<ParsedCommandFormatPart>,
-) -> Vec<ParsedCommandFormatPart> {
-    let mut previous_order = None;
-    let mut parsed_parts_before_gap = Vec::new();
-    for parsed_part in parsed_parts.into_iter() {
-        if let Some(previous_order) = previous_order {
-            if previous_order + 1 != parsed_part.order {
-                break;
-            }
-        }
-
-        previous_order = Some(parsed_part.order);
-        parsed_parts_before_gap.push(parsed_part);
-    }
-
-    parsed_parts_before_gap
 }
 
 /// Builds an error message for the input that produced the provided parts
@@ -1289,26 +1274,6 @@ where
             type_name::<T>()
         )
     }))
-}
-
-/// Builds a list of all the parts from `matched_command` that weren't parsed, starting with `matched_part`.
-fn get_unparsed_parts(
-    matched_command: &MatchedCommand,
-    matched_part: MatchedCommandFormatPart,
-    parsed_parts_by_index: &HashMap<usize, ParsedCommandFormatPart>,
-) -> NonEmpty<MatchedCommandFormatPart> {
-    let mut unparsed_parts = NonEmpty::new(matched_part.clone());
-    unparsed_parts.extend(
-        matched_command
-            .matched_parts
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| i != &matched_part.order && !parsed_parts_by_index.contains_key(i))
-            .map(|(_, p)| p)
-            .cloned(),
-    );
-
-    unparsed_parts
 }
 
 impl CommandFormat {

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
-use nom::{bytes::complete::tag_no_case, IResult};
 
 mod parse_literal;
 pub use parse_literal::parse_literal;
@@ -76,10 +75,4 @@ pub fn parse_result_to_option(parse_result: CommandPartParseResult) -> CommandPa
             CommandPartParseResult::Success(ParsedValue::Option(None))
         }
     }
-}
-
-/// Attempts to match a literal from the beginning of the provided input.
-/// Returns `Ok(remaining, matched)` if `input` starts with `literal` ignoring case.
-fn match_literal_ignore_case<'i>(literal: &str, input: &'i str) -> IResult<&'i str, &'i str> {
-    tag_no_case(literal)(input)
 }
