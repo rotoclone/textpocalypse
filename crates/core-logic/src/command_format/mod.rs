@@ -781,15 +781,6 @@ impl CommandFormat {
 /// An error encountered while parsing input using a command format.
 #[derive(Debug)]
 pub enum CommandFormatParseError {
-    /// An error occurred when attempting to match a part to a portion of the input string
-    /// TODO remove?
-    Matching {
-        //TODO use ProcessedPart
-        matched_parts: Vec<MatchedCommandFormatPart>,
-        // Boxed to reduce size
-        unmatched_parts: Box<NonEmpty<CommandFormatPart>>,
-        error: CommandPartMatchError,
-    },
     /// An error occurred when attempting to parse a part
     Parsing {
         /// The processed parts, ordered by where they appear in the format.
@@ -846,7 +837,6 @@ impl CommandFormatParseError {
     /// Determines how many parts were successfully matched before this error occurred.
     pub fn num_parts_matched(&self) -> usize {
         match self {
-            CommandFormatParseError::Matching { matched_parts, .. } => matched_parts.len(),
             CommandFormatParseError::Parsing { parts, .. } => {
                 parts.iter().filter(|part| part.was_matched()).count()
             }
@@ -860,7 +850,6 @@ impl CommandFormatParseError {
     /// Determines how many parts were successfully parsed before this error occurred.
     pub fn num_parts_parsed(&self) -> usize {
         match self {
-            CommandFormatParseError::Matching { .. } => 0,
             CommandFormatParseError::Parsing { parts, .. } => {
                 parts.iter().filter(|part| part.was_parsed()).count()
             }
@@ -880,26 +869,6 @@ impl CommandFormatParseError {
         }
 
         let string = match self {
-            CommandFormatParseError::Matching {
-                matched_parts,
-                unmatched_parts,
-                error,
-            } => {
-                let matched_parts_string =
-                    if let Some(non_empty_matched_parts) = NonEmpty::from_vec(matched_parts) {
-                        build_matched_parts_string(&non_empty_matched_parts)
-                    } else {
-                        "".to_string()
-                    };
-                let unmatched_part_string = unmatched_parts
-                    .first()
-                    .options()
-                    .if_unparsed
-                    .as_deref()
-                    .unwrap_or("");
-                //TODO include more unmatched parts and/or take `error` into account?
-                format!("{matched_parts_string}{unmatched_part_string}?")
-            }
             CommandFormatParseError::Parsing { parts, error } => {
                 build_error_message_for_parts(&parts, &context, Some(error), world)
             }
@@ -984,46 +953,6 @@ fn build_error_message_for_parts(
     format!("{message}?{error_detail_string}")
 }
 
-/// Builds a string representing the provided matched parts to include in an error message
-/// TODO remove
-fn build_matched_parts_string(matched_parts: &NonEmpty<MatchedCommandFormatPart>) -> String {
-    //TODO if a part was parsed, use its parsed value instead of its `if_unparsed` value
-    let mut matched_parts_to_include = Vec::new();
-    let mut previous_part_was_included = false;
-    if matched_parts
-        .first()
-        .part
-        .options()
-        .include_in_errors_behavior
-        != IncludeInErrorsBehavior::Never
-    {
-        // include the first unparsed part because it caused the error
-        previous_part_was_included = true;
-        matched_parts_to_include.push(matched_parts.first());
-    }
-    for matched_part in matched_parts.tail() {
-        let should_be_included = match matched_part.part.options().include_in_errors_behavior {
-            IncludeInErrorsBehavior::Never => false,
-            IncludeInErrorsBehavior::OnlyIfMatched => false,
-            IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
-                previous_part_was_included
-            }
-            IncludeInErrorsBehavior::Always => true,
-        };
-
-        previous_part_was_included = should_be_included;
-
-        if should_be_included {
-            matched_parts_to_include.push(matched_part);
-        }
-    }
-
-    matched_parts_to_include
-        .iter()
-        .map(|part| part.part.options().if_unparsed.as_deref().unwrap_or(""))
-        .join("")
-}
-
 /// A part that has been parsed into some concrete value
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedCommandFormatPart {
@@ -1087,9 +1016,10 @@ impl ParsedCommand {
 
             if let Err(e) = parse_part(
                 part,
-                &matched_command,
-                entering_entity,
-                &matched_parts_by_id,
+                MatchedPartContext {
+                    entering_entity,
+                    matched_parts_by_id: &matched_parts_by_id,
+                },
                 &mut parsed_parts_with_ids,
                 &mut parsed_parts_by_index,
                 world,
@@ -1155,14 +1085,18 @@ impl ParsedCommand {
     }
 }
 
+#[derive(Clone, Copy)]
+struct MatchedPartContext<'a> {
+    entering_entity: Entity,
+    matched_parts_by_id: &'a HashMap<UntypedCommandPartId, &'a MatchedCommandFormatPart>,
+}
+
 /// Parses a part, but not before parsing all its prerequisite parts.
 ///
 /// If an error is encountered, continues parsing as many parts as possible and returns the first error found.
 fn parse_part(
     matched_part: &MatchedCommandFormatPart,
-    matched_command: &MatchedCommand,
-    entering_entity: Entity,
-    matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
+    matched_part_context: MatchedPartContext,
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
@@ -1170,10 +1104,8 @@ fn parse_part(
     let mut part_ids_being_parsed = HashSet::new();
     if let Some(error) = parse_part_recursive(
         matched_part,
-        matched_command,
+        matched_part_context,
         &mut part_ids_being_parsed,
-        entering_entity,
-        matched_parts_by_id,
         parsed_parts_with_ids,
         parsed_parts_by_index,
         world,
@@ -1189,10 +1121,8 @@ fn parse_part(
 /// If an error is encountered, continues parsing as many parts as possible and returns the first error found.
 fn parse_part_recursive(
     matched_part: &MatchedCommandFormatPart,
-    matched_command: &MatchedCommand,
+    matched_part_context: MatchedPartContext,
     part_ids_being_parsed: &mut HashSet<UntypedCommandPartId>,
-    entering_entity: Entity,
-    matched_parts_by_id: &HashMap<UntypedCommandPartId, &MatchedCommandFormatPart>,
     parsed_parts_with_ids: &mut HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
     parsed_parts_by_index: &mut HashMap<usize, ParsedCommandFormatPart>,
     world: &World,
@@ -1210,13 +1140,11 @@ fn parse_part_recursive(
             );
         }
 
-        if let Some(prereq_part) = matched_parts_by_id.get(prereq_part_id) {
+        if let Some(prereq_part) = matched_part_context.matched_parts_by_id.get(prereq_part_id) {
             let error = parse_part_recursive(
                 prereq_part,
-                matched_command,
+                matched_part_context,
                 part_ids_being_parsed,
-                entering_entity,
-                matched_parts_by_id,
                 parsed_parts_with_ids,
                 parsed_parts_by_index,
                 world,
@@ -1231,7 +1159,11 @@ fn parse_part_recursive(
         }
     }
 
-    match matched_part.parse(entering_entity, parsed_parts_with_ids.clone(), world) {
+    match matched_part.parse(
+        matched_part_context.entering_entity,
+        parsed_parts_with_ids.clone(),
+        world,
+    ) {
         CommandPartParseResult::Success(parsed_value) => {
             //dbg!(&matched_part, &parsed_value); //TODO
 
