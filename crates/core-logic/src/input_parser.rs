@@ -283,6 +283,7 @@ pub trait InputParser: Send + Sync {
 }
 
 /// An error while processing input from a player.
+#[expect(clippy::enum_variant_names)]
 #[derive(Debug)]
 pub enum InputParseError {
     /// An error occurred while parsing the input against the command format
@@ -292,14 +293,6 @@ pub enum InputParseError {
     /// An error occurred while transforming the parsed command format into an action
     PostFormatParse(String),
 }
-
-/* TODO
-impl From<String> for InputParseError {
-    fn from(value: String) -> Self {
-        InputParseError::Other(value)
-    }
-}
-    */
 
 impl From<CommandFormatParseError> for InputParseError {
     fn from(value: CommandFormatParseError) -> Self {
@@ -389,11 +382,11 @@ where
     } else {
         // the input didn't match any parts from any parsers
         //TODO should there be another InputParseError variant for this?
-        return Err(CommandFormatParseError::UnmatchedInput {
+        Err(CommandFormatParseError::UnmatchedInput {
             matched_parts: Vec::new(),
             unmatched: input.to_string(),
             parsed_parts: Vec::new(),
         }
-        .into());
+        .into())
     }
 }

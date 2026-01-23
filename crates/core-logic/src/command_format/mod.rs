@@ -1062,18 +1062,6 @@ impl ParsedCommand {
         })
     }
 
-    /// Creates a `ParsedCommand` from a list of matched parts.
-    fn new(all_parsed_parts: Vec<ParsedCommandFormatPart>) -> ParsedCommand {
-        let mut parsed_parts = HashMap::new();
-        for parsed_part in all_parsed_parts {
-            if let Some(id) = parsed_part.matched_part.part.id() {
-                parsed_parts.insert(id, parsed_part);
-            }
-        }
-
-        ParsedCommand { parsed_parts }
-    }
-
     /// Gets the parsed value associated with `id`.
     /// Panics if the ID does not correspond to a part on this command, or the parsed value for this ID isn't a `T`.
     pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> T

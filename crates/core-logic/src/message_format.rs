@@ -10,7 +10,7 @@ use nom::{
 };
 use voca_rs::Voca;
 
-use crate::{find_owning_entity, Description, Pronouns};
+use crate::{Description, Pronouns};
 
 /// A message with places for interpolated values, such as entity names.
 #[derive(Clone, Debug)]
