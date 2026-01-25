@@ -383,49 +383,12 @@ impl InputParser for PutParser {
             )));
         }
 
-        //TODO ensure the destination isn't a living entity or a container a living entity owns, similar to the check in GetFromParser
-
         Ok(Box::new(PutAction {
             item,
             source,
             destination,
             notification_sender: ActionNotificationSender::new(),
         }))
-
-        /* TODO
-        let item = match &item_target {
-            CommandTarget::Named(n) => {
-                //TODO have better error message if the item exists, but isn't in your inventory or whatever
-                match n.find_target_entity_in_container(source_container, entity, world) {
-                    Some(e) => e,
-                    None => {
-                        return Err(InputParseError::CommandParseError {
-                            verb: verb_name,
-                            error: CommandParseError::TargetNotFound(item_target),
-                        });
-                    }
-                }
-            }
-            _ => {
-                // This will be hit if the target item is not a named item, so if the input was "get me from bag" or something
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::Other("That doesn't make sense.".to_string()),
-                });
-            }
-        };
-
-        let destination_container = match destination_target.find_target_entity(entity, world) {
-            Some(c) => c,
-            None => {
-                // TODO this error may reveal inventory contents of another entity: you'll get different errors for trying to put something in a container someone else has vs a container they don't have
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::TargetNotFound(destination_target),
-                });
-            }
-        };
-        */
     }
 
     fn get_input_formats(&self) -> Vec<String> {
@@ -463,82 +426,6 @@ impl InputParser for PutParser {
         formats
     }
 }
-
-/* TODO remove
-fn parse_targets(
-    input: &str,
-) -> Result<(String, CommandTarget, CommandTarget, CommandTarget), InputParseError> {
-    // getting an item from something
-    if let Some(captures) = GET_FROM_PATTERN.captures(input) {
-        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-            if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
-                let item_target = CommandTarget::parse(item_match.as_str());
-                let source_target = CommandTarget::parse(container_match.as_str());
-                let destination_target = CommandTarget::Myself;
-
-                return Ok((
-                    GET_VERB_NAME.to_string(),
-                    item_target,
-                    source_target,
-                    destination_target,
-                ));
-            }
-        }
-    }
-
-    // getting an item from the room
-    if let Some(captures) = GET_PATTERN.captures(input) {
-        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-            let item_target = CommandTarget::parse(item_match.as_str());
-            let source_target = CommandTarget::Here;
-            let destination_target = CommandTarget::Myself;
-
-            return Ok((
-                GET_VERB_NAME.to_string(),
-                item_target,
-                source_target,
-                destination_target,
-            ));
-        }
-    }
-
-    // putting an item into something
-    if let Some(captures) = PUT_PATTERN.captures(input) {
-        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-            if let Some(container_match) = captures.name(CONTAINER_CAPTURE) {
-                let item_target = CommandTarget::parse(item_match.as_str());
-                let source_target = CommandTarget::Myself;
-                let destination_target = CommandTarget::parse(container_match.as_str());
-
-                return Ok((
-                    PUT_VERB_NAME.to_string(),
-                    item_target,
-                    source_target,
-                    destination_target,
-                ));
-            }
-        }
-    }
-
-    // dropping an item
-    if let Some(captures) = DROP_PATTERN.captures(input) {
-        if let Some(item_match) = captures.name(ITEM_CAPTURE) {
-            let item_target = CommandTarget::parse(item_match.as_str());
-            let source_target = CommandTarget::Myself;
-            let destination_target = CommandTarget::Here;
-
-            return Ok((
-                DROP_VERB_NAME.to_string(),
-                item_target,
-                source_target,
-                destination_target,
-            ));
-        }
-    }
-
-    Err(InputParseError::UnknownCommand)
-}
-    */
 
 /// Makes an entity move an item between containers.
 #[derive(Debug)]

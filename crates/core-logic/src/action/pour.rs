@@ -73,8 +73,6 @@ static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("amount")
 });
 
-// TODO add a command to just dump out a fluid container your location
-
 static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
         .then(literal_part(" ").always_include_in_errors())
@@ -256,62 +254,6 @@ fn build_action(
         notification_sender: ActionNotificationSender::new(),
     }))
 }
-
-/* TODO
-fn parse_targets(
-    input: &str,
-) -> Result<(String, CommandTarget, CommandTarget, PourAmount), CommandParseError> {
-    if let Some(captures) = FILL_PATTERN.captures(input) {
-        if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-            if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                let source = CommandTarget::parse(source_match.as_str());
-                let target = CommandTarget::parse(target_match.as_str());
-                return Ok((FILL_VERB_NAME.to_string(), source, target, PourAmount::All));
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: FILL_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
-    }
-
-    if let Some(captures) = POUR_PATTERN.captures(input) {
-        if let Some(amount) = captures.name(AMOUNT_CAPTURE) {
-            let amount = parse_pour_amount(amount.as_str())?;
-            if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-                if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                    let source = CommandTarget::parse(source_match.as_str());
-                    let target = CommandTarget::parse(target_match.as_str());
-                    return Ok((POUR_VERB_NAME.to_string(), source, target, amount));
-                }
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: POUR_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
-    }
-
-    if let Some(captures) = POUR_ALL_PATTERN.captures(input) {
-        if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-            if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                let source = CommandTarget::parse(source_match.as_str());
-                let target = CommandTarget::parse(target_match.as_str());
-                return Ok((POUR_VERB_NAME.to_string(), source, target, PourAmount::All));
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: POUR_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
-    }
-
-    Err(InputParseError::UnknownCommand)
-}
-    */
 
 fn parse_pour_amount(input: &str) -> Result<PourAmount, String> {
     if ALL_PATTERN.is_match(input) {

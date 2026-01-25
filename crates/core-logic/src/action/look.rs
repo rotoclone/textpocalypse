@@ -82,8 +82,6 @@ impl InputParser for LookParser {
             }));
         }
 
-        //TODO use `?` instead
-        //TODO can't use `?`, because if this fails to parse then `DETAILED_LOOK_COMMAND_FORMAT` could still succeed
         match LOOK_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
             Ok(p) => {
                 let target = p.get(&TARGET_PART_ID);
