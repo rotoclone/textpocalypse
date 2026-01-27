@@ -22,7 +22,6 @@ pub fn default_entity_target_finder(
     FoundEntitiesInContainer {
         found_entities: CommandTarget::parse(&context.input)
             .find_target_entities(context.entering_entity, world),
-        //TODO does this need to be set to anything?
         searched_container: None,
     }
 }
@@ -79,52 +78,6 @@ pub fn parse_entity(
         best_matches.push(entity);
     }
 
-    /* TODO remove
-    for entity in find_entities_in_presence_of(performing_entity, world) {
-        for name in Description::get_all_ways_to_reference(entity, performing_entity, world) {
-            if let Ok((extra, matched)) = match_entity_name(name, &context.input) {
-                if !extra.is_empty() {
-                    //
-                }
-                if let CommandPartValidateResult::Invalid(_) = validator
-                    .as_ref()
-                    .map(|v| {
-                        v(
-                            PartValidatorContext {
-                                parsed_value: entity,
-                                performing_entity,
-                            },
-                            world,
-                        )
-                    })
-                    .unwrap_or(CommandPartValidateResult::Valid)
-                {
-                    if first_invalid_match.is_none() {
-                        first_invalid_match = Some((entity, extra, matched));
-                    }
-                    continue;
-                }
-
-                // match based on which consumes the most of the input, since that's the most complete match
-                // TODO update tests
-                if let Some((_, best_extra, _)) = best_matches.first() {
-                    match extra.len().cmp(&best_extra.len()) {
-                        Ordering::Less => {
-                            best_matches.clear();
-                            best_matches.push((entity, extra, matched));
-                        }
-                        Ordering::Equal => best_matches.push((entity, extra, matched)),
-                        Ordering::Greater => (),
-                    }
-                } else {
-                    best_matches.push((entity, extra, matched));
-                }
-            }
-        }
-    }
-    */
-
-    //TODO provide some kind of syntax for picking something other than the first one, in case there are multiple entities in the room with identical names
     if let Some(entity) = best_matches
         .first()
         // if no valid targets were found, return the first invalid one so the user will get a nice error message about why they can't target that entity
