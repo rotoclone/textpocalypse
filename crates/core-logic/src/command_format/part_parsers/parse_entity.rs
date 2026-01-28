@@ -105,9 +105,10 @@ pub fn parse_entity(
     }
 }
 
-/* TODO
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{command_format::literal_part, test_utils::spawn_entity_in_location, Container};
 
     use super::*;
@@ -122,17 +123,22 @@ mod tests {
         let context = PartParserContext {
             input: "".to_string(),
             entering_entity: entity_1,
-            next_part: None,
+            parsed_parts: HashMap::new(),
         };
 
-        let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched { details: None },
-            remaining: "".to_string(),
-        };
+        let expected =
+            CommandPartParseResult::Failure(CommandPartParseError::Unparseable { details: None });
 
-        assert_eq!(expected, parse_entity(context, None, &world));
+        let target_finder: EntityTargetFinderFn =
+            |_, _| panic!("target finder should not be called");
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, None, &world)
+        );
     }
 
+    /* TODO
     #[test]
     fn parse_no_match() {
         let mut world = World::new();
@@ -465,5 +471,5 @@ mod tests {
     }
 
     //TODO more tests
+    */
 }
-*/
