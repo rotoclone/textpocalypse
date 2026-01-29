@@ -107,11 +107,22 @@ pub fn parse_entity(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, sync::LazyLock};
 
-    use crate::{command_format::literal_part, test_utils::spawn_entity_in_location, Container};
+    use crate::{
+        command_format::{
+            entity_part, literal_part, part_matchers::MatchedCommandFormatPart, CommandFormatPart,
+            CommandPartId, ParsedCommandFormatPart,
+        },
+        found_entities::FoundEntities,
+        test_utils::spawn_entity_in_location,
+        Container,
+    };
 
     use super::*;
+
+    static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
+        LazyLock::new(|| CommandPartId::new("container"));
 
     #[test]
     fn parse_empty_input() {
@@ -138,7 +149,6 @@ mod tests {
         );
     }
 
-    /* TODO
     #[test]
     fn parse_no_match() {
         let mut world = World::new();
@@ -149,18 +159,64 @@ mod tests {
         let context = PartParserContext {
             input: "entity 12 name".to_string(),
             entering_entity: entity_1,
-            next_part: None,
+            parsed_parts: HashMap::new(),
         };
 
-        let expected = CommandPartParseResult::Failure {
-            error: CommandPartParseError::Unmatched {
-                details: Some("There's no 'entity 12 name' here.".to_string()),
-            },
-            remaining: "entity 12 name".to_string(),
-        };
+        let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: Some("There's no 'entity 12 name' here.".to_string()),
+        });
 
-        assert_eq!(expected, parse_entity(context, None, &world));
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, None, &world)
+        );
     }
+
+    #[test]
+    fn parse_no_match_with_searched_container() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_1, &mut world);
+
+        let container_1 = spawn_entity_in_location("container", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 12 name".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: [(
+                CONTAINER_PART_ID.clone().into(),
+                ParsedCommandFormatPart {
+                    order: 0,
+                    matched_part: MatchedCommandFormatPart {
+                        order: 0,
+                        part: entity_part(CONTAINER_PART_ID.clone()),
+                        matched_input: "something".to_string(),
+                    },
+                    parsed_value: ParsedValue::Entity(container_1),
+                },
+            )]
+            .into(),
+        };
+
+        let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: Some("There's no 'entity 12 name' in the entity container name.".to_string()),
+        });
+
+        let target_finder: EntityTargetFinderFn = |context, _| FoundEntitiesInContainer {
+            found_entities: FoundEntities::new(),
+            searched_container: context.get_parsed_value(&CONTAINER_PART_ID),
+        };
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, None, &world)
+        );
+    }
+
+    /* TODO
 
     #[test]
     fn parse_no_match_input_ends_with_next_literal_part() {
