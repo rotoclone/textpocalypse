@@ -48,16 +48,20 @@ impl<T: 'static + ValidateParsedValue<P> + Clone, P> ValidateParsedValueClone<P>
 }
     */
 
+/// TODO doc
+#[derive(Debug)]
 pub struct PartValidatorContext<T> {
     pub parsed_value: T,
     pub performing_entity: Entity,
 }
 
+/// TODO doc
 pub enum CommandPartValidateResult {
     Valid,
     Invalid(CommandPartValidateError),
 }
 
+/// TODO doc
 #[derive(PartialEq, Eq, Debug)]
 pub struct CommandPartValidateError {
     pub details: Option<String>,

@@ -112,7 +112,7 @@ mod tests {
     use crate::{
         command_format::{
             entity_part, literal_part, part_matchers::MatchedCommandFormatPart, CommandFormatPart,
-            CommandPartId, ParsedCommandFormatPart,
+            CommandPartId, CommandPartValidateError, ParsedCommandFormatPart,
         },
         found_entities::FoundEntities,
         test_utils::spawn_entity_in_location,
@@ -123,6 +123,29 @@ mod tests {
 
     static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
         LazyLock::new(|| CommandPartId::new("container"));
+
+    impl PartialEq for PartValidatorContext<Entity> {
+        fn eq(&self, other: &Self) -> bool {
+            self.parsed_value == other.parsed_value
+                && self.performing_entity == other.performing_entity
+        }
+    }
+    impl Eq for PartValidatorContext<Entity> {}
+
+    /// Finds the entity with the provided name. Panics if a matching entity is not found.
+    /// Can be helpful to avoid capturing variables in closures so they can be coerced into `fn` types.
+    /// TODO move this to a common place probably
+    fn get_entity_by_name<'w>(name: &'static str, world: &'w World) -> EntityRef<'w> {
+        world
+            .iter_entities()
+            .find(|e| {
+                world
+                    .get::<Description>(e.id())
+                    .map(|d| d.name == name)
+                    .unwrap_or(false)
+            })
+            .unwrap_or_else(|| panic!("entity with name {name} should exist"))
+    }
 
     #[test]
     fn parse_empty_input() {
@@ -137,11 +160,11 @@ mod tests {
             parsed_parts: HashMap::new(),
         };
 
-        let expected =
-            CommandPartParseResult::Failure(CommandPartParseError::Unparseable { details: None });
-
         let target_finder: EntityTargetFinderFn =
             |_, _| panic!("target finder should not be called");
+
+        let expected =
+            CommandPartParseResult::Failure(CommandPartParseError::Unparseable { details: None });
 
         assert_eq!(
             expected,
@@ -162,11 +185,11 @@ mod tests {
             parsed_parts: HashMap::new(),
         };
 
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+
         let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
             details: Some("There's no 'entity 12 name' here.".to_string()),
         });
-
-        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
 
         assert_eq!(
             expected,
@@ -201,19 +224,59 @@ mod tests {
             .into(),
         };
 
-        let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
-            details: Some("There's no 'entity 12 name' in the entity container name.".to_string()),
-        });
-
         let target_finder: EntityTargetFinderFn = |context, _| FoundEntitiesInContainer {
             found_entities: FoundEntities::new(),
             searched_container: context.get_parsed_value(&CONTAINER_PART_ID),
         };
 
+        let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: Some("There's no 'entity 12 name' in the entity container name.".to_string()),
+        });
+
         assert_eq!(
             expected,
             parse_entity(context, &target_finder, None, &world)
         );
+    }
+
+    #[test]
+    fn parse_only_match_is_invalid() {
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2 name".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: HashMap::new(),
+        };
+
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+        let validation_fn: PartValidationFn<Entity> = |context, w| {
+            let expected_parsed_value = get_entity_by_name("entity 2 name", w).id();
+            let expected_performing_entity = get_entity_by_name("entity 1 name", w).id();
+            assert_eq!(
+                &PartValidatorContext {
+                    parsed_value: expected_parsed_value,
+                    performing_entity: expected_performing_entity
+                },
+                context
+            );
+            CommandPartValidateResult::Invalid(CommandPartValidateError { details: None })
+        };
+
+        let expected = CommandPartParseResult::Success(ParsedValue::Entity(entity_2));
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, Some(&validation_fn), &world)
+        );
+    }
+
+    #[test]
+    fn parse_multiple_matches_all_invalid() {
+        //TODO
     }
 
     /* TODO
