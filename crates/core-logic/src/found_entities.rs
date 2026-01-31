@@ -22,7 +22,8 @@ impl<T: Ord> PartialOrd for PartialMatchingEntity<T> {
 
 impl<T: Ord> Ord for PartialMatchingEntity<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.match_info.cmp(&other.match_info)
+        // reverse because when sorting matches, better matches should come first
+        self.match_info.cmp(&other.match_info).reverse()
     }
 }
 
