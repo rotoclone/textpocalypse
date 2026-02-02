@@ -139,6 +139,10 @@ mod tests {
     static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
         LazyLock::new(|| RwLock::new(HashSet::new()));
 
+    fn setup() {
+        VALIDATION_FN_INFO.write().unwrap().clear();
+    }
+
     /// Finds the entity with the provided name. Panics if a matching entity is not found.
     /// Can be helpful to avoid capturing variables in closures so they can be coerced into `fn` types.
     /// TODO move this to a common place probably
@@ -156,6 +160,8 @@ mod tests {
 
     #[test]
     fn parse_entity_empty_input() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -181,6 +187,8 @@ mod tests {
 
     #[test]
     fn parse_entity_no_match() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -205,7 +213,37 @@ mod tests {
     }
 
     #[test]
+    fn parse_entity_matching_entity_in_other_room() {
+        setup();
+
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let location_2 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("2", location_2, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2 name".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: HashMap::new(),
+        };
+
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+
+        let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
+            details: Some("There's no 'entity 2 name' here.".to_string()),
+        });
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, None, &world)
+        );
+    }
+
+    #[test]
     fn parse_entity_no_match_with_searched_container() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -248,6 +286,8 @@ mod tests {
 
     #[test]
     fn parse_entity_only_match_is_invalid() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -282,7 +322,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_entity_multiple_matches_all_invalid() {
+    fn parse_entity_multiple_partial_matches_all_invalid() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -301,19 +343,13 @@ mod tests {
             let e3 = get_entity_by_name("entity 200 name", w).id();
             let expected_performing_entity = get_entity_by_name("entity 1 name", w).id();
             let expected_context = if context.parsed_value == e2 {
-                VALIDATION_FN_INFO
-                    .write()
-                    .unwrap()
-                    .insert("parse_entity_multiple_matches_all_invalid_e2");
+                VALIDATION_FN_INFO.write().unwrap().insert("e2");
                 PartValidatorContext {
                     parsed_value: e2,
                     performing_entity: expected_performing_entity,
                 }
             } else {
-                VALIDATION_FN_INFO
-                    .write()
-                    .unwrap()
-                    .insert("parse_entity_multiple_matches_all_invalid_e3");
+                VALIDATION_FN_INFO.write().unwrap().insert("e3");
                 PartValidatorContext {
                     parsed_value: e3,
                     performing_entity: expected_performing_entity,
@@ -330,11 +366,169 @@ mod tests {
             parse_entity(context, &target_finder, Some(&validation_fn), &world)
         );
 
-        let expected_validation_fn_info: HashSet<&'static str> = [
-            "parse_entity_multiple_matches_all_invalid_e2",
-            "parse_entity_multiple_matches_all_invalid_e3",
-        ]
-        .into();
+        let expected_validation_fn_info: HashSet<&'static str> = ["e2", "e3"].into();
+        assert_eq!(
+            expected_validation_fn_info,
+            VALIDATION_FN_INFO.read().unwrap().clone()
+        );
+    }
+
+    #[test]
+    fn parse_entity_multiple_partial_matches() {
+        setup();
+
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("20", location_1, &mut world);
+        spawn_entity_in_location("200", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: HashMap::new(),
+        };
+
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+        let validation_fn: PartValidationFn<Entity> = |context, w| {
+            let e2 = get_entity_by_name("entity 20 name", w).id();
+            let e3 = get_entity_by_name("entity 200 name", w).id();
+            let expected_performing_entity = get_entity_by_name("entity 1 name", w).id();
+            let expected_context = if context.parsed_value == e2 {
+                VALIDATION_FN_INFO.write().unwrap().insert("e2");
+                PartValidatorContext {
+                    parsed_value: e2,
+                    performing_entity: expected_performing_entity,
+                }
+            } else {
+                VALIDATION_FN_INFO.write().unwrap().insert("e3");
+                PartValidatorContext {
+                    parsed_value: e3,
+                    performing_entity: expected_performing_entity,
+                }
+            };
+            assert_eq!(&expected_context, context);
+            CommandPartValidateResult::Valid
+        };
+
+        let expected = CommandPartParseResult::Success(ParsedValue::Entity(entity_2));
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, Some(&validation_fn), &world)
+        );
+
+        let expected_validation_fn_info: HashSet<&'static str> = ["e2", "e3"].into();
+        assert_eq!(
+            expected_validation_fn_info,
+            VALIDATION_FN_INFO.read().unwrap().clone()
+        );
+    }
+
+    #[test]
+    fn parse_entity_multiple_partial_matches_better_match_invalid() {
+        setup();
+
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        spawn_entity_in_location("20", location_1, &mut world);
+        let entity_3 = spawn_entity_in_location("200", location_1, &mut world);
+
+        let context = PartParserContext {
+            input: "entity 2".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: HashMap::new(),
+        };
+
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+        let validation_fn: PartValidationFn<Entity> = |context, w| {
+            let e2 = get_entity_by_name("entity 20 name", w).id();
+            let e3 = get_entity_by_name("entity 200 name", w).id();
+            let expected_performing_entity = get_entity_by_name("entity 1 name", w).id();
+            let expected_context = if context.parsed_value == e2 {
+                VALIDATION_FN_INFO.write().unwrap().insert("e2");
+                PartValidatorContext {
+                    parsed_value: e2,
+                    performing_entity: expected_performing_entity,
+                }
+            } else {
+                VALIDATION_FN_INFO.write().unwrap().insert("e3");
+                PartValidatorContext {
+                    parsed_value: e3,
+                    performing_entity: expected_performing_entity,
+                }
+            };
+            assert_eq!(&expected_context, context);
+            if context.parsed_value == e2 {
+                CommandPartValidateResult::Invalid(CommandPartValidateError { details: None })
+            } else {
+                CommandPartValidateResult::Valid
+            }
+        };
+
+        let expected = CommandPartParseResult::Success(ParsedValue::Entity(entity_3));
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, Some(&validation_fn), &world)
+        );
+
+        let expected_validation_fn_info: HashSet<&'static str> = ["e2", "e3"].into();
+        assert_eq!(
+            expected_validation_fn_info,
+            VALIDATION_FN_INFO.read().unwrap().clone()
+        );
+    }
+
+    #[test]
+    fn parse_entity_one_exact_match_one_partial_match() {
+        setup();
+
+        let mut world = World::new();
+        let location_1 = world.spawn(Container::new_infinite()).id();
+        let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
+        let entity_2 = spawn_entity_in_location("2", location_1, &mut world);
+        let entity_3 = spawn_entity_in_location("2", location_1, &mut world);
+        world.get_mut::<Description>(entity_3).unwrap().name =
+            "entity 2 name and stuff".to_string();
+
+        let context = PartParserContext {
+            input: "entity 2 name".to_string(),
+            entering_entity: entity_1,
+            parsed_parts: HashMap::new(),
+        };
+
+        let target_finder: EntityTargetFinderFn = default_entity_target_finder;
+        let validation_fn: PartValidationFn<Entity> = |context, w| {
+            let e2 = get_entity_by_name("entity 2 name", w).id();
+            let e3 = get_entity_by_name("entity 2 name and stuff", w).id();
+            let expected_performing_entity = get_entity_by_name("entity 1 name", w).id();
+            let expected_context = if context.parsed_value == e2 {
+                VALIDATION_FN_INFO.write().unwrap().insert("e2");
+                PartValidatorContext {
+                    parsed_value: e2,
+                    performing_entity: expected_performing_entity,
+                }
+            } else {
+                VALIDATION_FN_INFO.write().unwrap().insert("e3");
+                PartValidatorContext {
+                    parsed_value: e3,
+                    performing_entity: expected_performing_entity,
+                }
+            };
+            assert_eq!(&expected_context, context);
+            CommandPartValidateResult::Valid
+        };
+
+        let expected = CommandPartParseResult::Success(ParsedValue::Entity(entity_2));
+
+        assert_eq!(
+            expected,
+            parse_entity(context, &target_finder, Some(&validation_fn), &world)
+        );
+
+        let expected_validation_fn_info: HashSet<&'static str> = ["e2", "e3"].into();
         assert_eq!(
             expected_validation_fn_info,
             VALIDATION_FN_INFO.read().unwrap().clone()
@@ -343,6 +537,8 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match_no_validation_fn() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -366,6 +562,8 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -401,6 +599,8 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match_with_the() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -436,6 +636,8 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match_no_validation_fn() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -459,6 +661,8 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -494,6 +698,8 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match_with_the() {
+        setup();
+
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -525,16 +731,6 @@ mod tests {
             expected,
             parse_entity(context, &target_finder, Some(&validation_fn), &world)
         );
-    }
-
-    #[test]
-    fn parse_entity_one_valid_match_one_invalid_match() {
-        //TODO
-    }
-
-    #[test]
-    fn parse_entity_multiple_matches() {
-        //TODO
     }
 
     /* TODO
