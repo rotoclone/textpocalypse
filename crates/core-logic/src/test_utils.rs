@@ -27,3 +27,17 @@ pub fn build_entity_description(id: &str) -> Description {
         attribute_describers: Vec::new(),
     }
 }
+
+/// Finds the entity with the provided name. Panics if a matching entity is not found.
+/// Can be helpful to avoid capturing variables in closures so they can be coerced into `fn` types.
+pub fn get_entity_by_name<'w>(name: &'static str, world: &'w World) -> EntityRef<'w> {
+    world
+        .iter_entities()
+        .find(|e| {
+            world
+                .get::<Description>(e.id())
+                .map(|d| d.name == name)
+                .unwrap_or(false)
+        })
+        .unwrap_or_else(|| panic!("entity with name {name} should exist"))
+}
