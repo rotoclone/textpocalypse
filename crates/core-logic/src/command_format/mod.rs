@@ -448,7 +448,7 @@ fn build_optional_literal_part(
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
                     literal_string.clone(),
                 ),
-                if_unparsed: Some(literal_string),
+                if_unparsed: None,
                 ..Default::default()
             },
             validator,
@@ -1376,7 +1376,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_unparsed: None,
+                        if_unparsed: Some("first part".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "first part".to_string()
                         ),
@@ -1406,7 +1406,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_unparsed: None,
+                        if_unparsed: Some("third part".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "third part".to_string()
                         ),
@@ -1449,7 +1449,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_unparsed: None,
+                        if_unparsed: Some("option 1".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "option 1".to_string()
                         ),
