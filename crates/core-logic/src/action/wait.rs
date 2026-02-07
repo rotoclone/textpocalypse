@@ -5,8 +5,8 @@ use regex::Regex;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, literal_part, CommandFormat, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, literal_part, optional_literal_part, CommandFormat,
+        CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player},
     input_parser::{CommandTarget, InputParseError, InputParser},
@@ -27,12 +27,13 @@ static WAIT_FORMAT: LazyLock<CommandFormat> =
 
 static DURATION_PART_ID: LazyLock<CommandPartId<String>> =
     LazyLock::new(|| CommandPartId::new("duration"));
-//TODO allow "wait for <duration>"
 static WAIT_WITH_DURATION_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("wait"))
-        .then(literal_part(" "))
+        .then(optional_literal_part(" for"))
+        .then(literal_part(" ").always_include_in_errors())
         .then(
             any_text_part_with_validator(DURATION_PART_ID.clone(), validate_duration)
+                .always_include_in_errors()
                 .with_if_unparsed("how long")
                 .with_placeholder_for_format_string("duration"),
         )

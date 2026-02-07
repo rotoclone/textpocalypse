@@ -810,38 +810,12 @@ fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World
 
 /// Sends a message to an entity based on the provided parsing error.
 fn handle_input_error(entity: Entity, input: String, error: InputParseError, world: &World) {
-    //dbg!(&error); //TODO remove
     let context = PartParserContext {
         input,
         entering_entity: entity,
         parsed_parts: HashMap::new(), //TODO
     };
     send_message(world, entity, error.into_message(context, world));
-
-    /* TODO remove
-    let message = match error {
-        InputParseError::UnknownCommand => "I don't understand that.".to_string(),
-        InputParseError::CommandParseError { verb, error } => match error {
-            CommandParseError::MissingTarget => format!("'{verb}' requires more targets."),
-            CommandParseError::TargetNotFound(t) => {
-                let location_name = match &t {
-                    CommandTarget::Named(target_name) => {
-                        if target_name.location_chain.is_empty() {
-                            "here".to_string()
-                        } else {
-                            format!("in '{}'", target_name.location_chain.join(" in "))
-                        }
-                    }
-                    _ => "here".to_string(),
-                };
-                format!("There is no '{t}' {location_name}.")
-            }
-            CommandParseError::Other(e) => e,
-        },
-    };
-
-    send_message(world, entity, GameMessage::Error(message));
-    */
 }
 
 /// A notification that a tick is occurring.

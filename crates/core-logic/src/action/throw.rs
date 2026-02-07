@@ -71,7 +71,6 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
-        //TODO add include_in_errors_only_if_previous_part_parsed() or something so you say "throw blorp" you get "throw what?" instead of "throw what at what?"
         .then(literal_part(" at ").always_include_in_errors())
         .then(
             entity_part_builder(TARGET_PART_ID.clone())

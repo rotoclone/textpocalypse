@@ -401,6 +401,7 @@ enum IncludeInErrorsBehavior {
     /// The part is only included in an error message if it was in the entered command, if parsing it was the cause of the error, or if the previous part in the format was included in the error message
     OnlyIfMatchedOrPreviousPartIncluded,
     /// The part is always included in error messages, even if it was not included in the entered command.
+    // TODO probably should make this the default, except for on optional parts
     Always,
 }
 
