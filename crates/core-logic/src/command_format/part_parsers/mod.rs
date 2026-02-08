@@ -22,16 +22,20 @@ use crate::command_format::UntypedCommandPartId;
 
 use super::{parsed_value::ParsedValue, CommandPartValidateError};
 
-/// TODO doc
+/// Context provided when parsing a matched part
 #[derive(Clone)]
 pub struct PartParserContext {
+    /// The matched input
     pub input: String,
+    /// The entity that entered the command being parsed
     pub entering_entity: Entity,
+    /// Any previously parsed parts of the command
     pub parsed_parts: HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
 }
 
 impl PartParserContext {
-    //TODO doc
+    /// Gets the parsed value for part with the provided ID, if it was already parsed.
+    /// Panics if the parsed value can't be converted into the requested type.
     pub fn get_parsed_value<T: 'static>(&self, id: &CommandPartId<T>) -> Option<T>
     where
         ParsedValue: TryInto<T>,
@@ -40,10 +44,12 @@ impl PartParserContext {
     }
 }
 
-//TODO doc
+/// The result of parsing a matched part
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartParseResult {
+    /// The part was parsed successfully
     Success(ParsedValue),
+    /// Parsing failed
     Failure(CommandPartParseError),
 }
 

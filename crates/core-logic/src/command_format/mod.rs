@@ -1170,7 +1170,8 @@ fn parse_part_recursive(
     parse_error
 }
 
-//TODO doc
+/// Gets the parsed value of the part with the provided ID from the provided map of parts, if it's in there.
+/// Panics if the parsed value can't be converted into the requested type.
 fn get_parsed_value<T: 'static>(
     id: &CommandPartId<T>,
     parsed_parts: &HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,

@@ -24,14 +24,16 @@ pub use match_until_next_literal::match_until_next_literal;
 mod match_direction;
 pub use match_direction::match_direction;
 
-/// TODO doc
+/// Context included when matching input to parts
 #[derive(Clone)]
 pub struct PartMatcherContext<'c> {
+    /// The input to match
     pub input: String,
+    /// The next parts in the command format, in order
     pub next_parts: Vec<&'c CommandFormatPart>,
 }
 
-//TODO doc
+/// The result of attempting to match input to a part
 #[derive(PartialEq, Eq, Debug)]
 pub enum CommandPartMatchResult {
     /// The part matched some input (or didn't but it's fine, in which case `matched` will be an empty string)
@@ -291,7 +293,6 @@ fn find_best_partial_match(
 pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (String, String) {
     //TODO tests for this
     let input = input.into();
-    //dbg!(&input, &stopping_point); //TODO
     if let Some(stopping_point) = stopping_point {
         if stopping_point.is_empty() || !input.contains(stopping_point) {
             // `_before` returns an empty string if the provided substring isn't found, but for the purposes of this function we want the whole input in that case
@@ -301,11 +302,11 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (St
         let parsed = if input.starts_with(stopping_point) {
             // apparently `_before` doesn't properly handle if the string starts with the provided substring, so deal with that case manually
             // this check can be removed once https://github.com/a-merezhanyi/voca_rs/pull/27 is merged
+            // TODO it's been merged, so remove this
             "".to_string()
         } else {
             input._before(stopping_point)
         };
-        //dbg!(&parsed); //TODO
         let remaining = input.strip_prefix(&parsed).unwrap_or_default();
         (parsed, remaining.to_string())
     } else {
@@ -315,7 +316,6 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (St
 
 /// Converts `CommandPartMatchResult::Failure` to `CommandPartMatchResult::Success` with a matched value of `None`.
 /// Doesn't touch `CommandPartMatchResult::Success`.
-/// TODO remove
 pub fn match_result_to_option(match_result: CommandPartMatchResult) -> CommandPartMatchResult {
     match match_result {
         CommandPartMatchResult::Success { matched, remaining } => {

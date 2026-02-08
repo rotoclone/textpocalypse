@@ -1,16 +1,20 @@
 use bevy_ecs::prelude::*;
 
-//TODO doc
+/// Describes the entities found when searching for entities
 #[derive(Default)]
 pub struct FoundEntities<T: Ord> {
+    /// Any entities that exactly matched the search
     pub exact_matches: Vec<Entity>,
+    /// Any entities that partially matched the search
     pub partial_matches: Vec<PartialMatchingEntity<T>>,
 }
 
-//TODO doc
+/// An entity that partially matched a search
 #[derive(PartialEq, Eq)]
 pub struct PartialMatchingEntity<T: Ord> {
+    /// The entity
     pub entity: Entity,
+    /// Something describing how well the entity matched
     pub match_info: T,
 }
 
@@ -51,8 +55,10 @@ impl<T: Ord> FoundEntities<T> {
     }
 }
 
-//TODO doc
+/// Described the result of searching for entities in a container
 pub struct FoundEntitiesInContainer<T: Ord> {
+    /// The found entities
     pub found_entities: FoundEntities<T>,
+    /// The container that was searched
     pub searched_container: Option<Entity>,
 }

@@ -45,7 +45,6 @@ impl From<String> for ParsedValue {
 }
 
 impl TryFrom<ParsedValue> for String {
-    //TODO should this be an actual type?
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
@@ -64,7 +63,6 @@ impl From<Entity> for ParsedValue {
 }
 
 impl TryFrom<ParsedValue> for Entity {
-    //TODO should this be an actual type?
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
@@ -83,7 +81,6 @@ impl From<Direction> for ParsedValue {
 }
 
 impl TryFrom<ParsedValue> for Direction {
-    //TODO should this be an actual type?
     type Error = ();
 
     fn try_from(value: ParsedValue) -> Result<Self, Self::Error> {
@@ -104,7 +101,6 @@ where
     }
 }
 
-//TODO figure out how to avoid duplicating this for every non-option `ParsedValue` type
 impl TryFrom<ParsedValue> for Option<String> {
     type Error = ();
 

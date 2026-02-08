@@ -2,22 +2,27 @@ use bevy_ecs::prelude::*;
 
 use crate::component::Description;
 
-/// TODO doc
+/// Context included when checking whether a parsed part value is valid
 #[derive(Debug)]
 pub struct PartValidatorContext<T> {
+    /// The parsed value
     pub parsed_value: T,
+    /// The entity that entered the command being validated
     pub performing_entity: Entity,
 }
 
-/// TODO doc
+/// The result of checking whether a parsed part value is valid
 pub enum CommandPartValidateResult {
+    /// The parsed value is valid
     Valid,
+    /// The parsed value is invalid
     Invalid(CommandPartValidateError),
 }
 
-/// TODO doc
+/// An error describing why a parsed part value is invalid
 #[derive(PartialEq, Eq, Debug)]
 pub struct CommandPartValidateError {
+    /// Any details to include in the error message provided to the user
     pub details: Option<String>,
 }
 
