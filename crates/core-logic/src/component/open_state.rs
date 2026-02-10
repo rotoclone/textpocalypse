@@ -105,14 +105,49 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        //TODO add third-person message
-        ActionResult::message(
-            performing_entity,
-            format!("You SLAM {target_name} with a loud bang. You hope you didn't wake up the neighbors."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Long,
-            true,
-        )
+        let mut result_builder = ActionResult::builder()
+            .with_dynamic_message(
+                Some(performing_entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                    MessageFormat::new("You SLAM ${target.name} closed with a loud bang. You hope you didn't wake up the neighbors.").expect("message format should be valid"),
+                    BasicTokens::new().with_entity("target".into(), self.target),
+                )
+                .only_send_to(performing_entity),
+                world,
+            )
+            .with_dynamic_message(
+                Some(performing_entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new_third_person(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Long,
+                    MessageFormat::new("${slammer.Name} SLAMS ${target.name} closed with a loud bang.").expect("message format should be valid"),
+                    BasicTokens::new().with_entity("slammer".into(), performing_entity).with_entity("target".into(), self.target),
+                ),
+                world,
+            );
+
+        if let Some(other_side) = get_other_side(self.target, world) {
+            if let Some(other_side_location) = world.get::<Location>(other_side) {
+                result_builder = result_builder.with_dynamic_message(
+                    Some(performing_entity),
+                    DynamicMessageLocation::Location(other_side_location.id),
+                    DynamicMessage::new_third_person(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Long,
+                        MessageFormat::new("${target.Name} SLAMS closed with a loud bang.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("target".into(), other_side),
+                    ),
+                    world,
+                )
+            }
+        }
+
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
@@ -181,12 +216,13 @@ impl OpenState {
         }
 
         // other side
-        if let Some(other_side_id) = world.get::<Connection>(entity).and_then(|c| c.other_side) {
+        if let Some(other_side_id) = get_other_side(entity, world) {
             if let Some(mut other_side_state) = world.get_mut::<OpenState>(other_side_id) {
                 if other_side_state.is_open != should_be_open {
                     other_side_state.is_open = should_be_open;
 
                     // send messages to entities on the other side
+                    // TODO let the actions themselves deal with this? for example, the slam message should be different
                     if let Some(location) = world.get::<Location>(other_side_id) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
                         DynamicMessage::new_third_person(
@@ -314,4 +350,11 @@ pub fn prevent_moving_through_closed_connections(
     }
 
     VerifyResult::valid()
+}
+
+/// Gets the entity representing the other side of this door, if there is one
+fn get_other_side(this_side: Entity, world: &World) -> Option<Entity> {
+    world
+        .get::<Connection>(this_side)
+        .and_then(|c| c.other_side)
 }

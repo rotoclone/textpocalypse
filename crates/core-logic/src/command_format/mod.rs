@@ -33,7 +33,6 @@ pub use parsed_value_validators::CommandPartValidateResult;
 pub use parsed_value_validators::PartValidatorContext;
 
 /// The format of a command a player can enter.
-/// TODO change to a regular Vec instead of NonEmpty?
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommandFormat(NonEmpty<CommandFormatPart>);
 
@@ -231,10 +230,6 @@ impl CommandFormatPart {
 
     /// Matches some of an input with the portion corresponding to this part.
     pub fn match_from(&self, context: PartMatcherContext) -> CommandPartMatchResult {
-        //TODO instead of greedily matching each part in order, build a regex out of the parts as part of format building and match based on that here?
-        // that would fix the issue of entity parts followed by literal space parts not properly matching entity names that include spaces
-        // but it would make it harder to provide good error messages
-        // maybe instead add logic to collapse multiple literal parts into one, so if the next part is " " and the part after that is oneof("a", "b") then parse until " a" or " b" instead of just " "
         match self {
             CommandFormatPart::Literal(literal, ..) => match_literal(literal, context),
             CommandFormatPart::OptionalLiteral(literal, ..) => {
@@ -1148,8 +1143,6 @@ fn parse_part_recursive(
         world,
     ) {
         CommandPartParseResult::Success(parsed_value) => {
-            //dbg!(&matched_part, &parsed_value); //TODO
-
             let parsed_part = ParsedCommandFormatPart {
                 order: matched_part.order,
                 matched_part: matched_part.clone(),

@@ -703,11 +703,17 @@ pub fn prevent_put_item_inside_itself(
 mod tests {
     use std::time::Duration;
 
-    use flume::{Receiver, Sender};
+    use flume::Receiver;
 
     use crate::{
-        component::Room, game_map::Coordinates, test_utils::spawn_entity_in_location,
-        world_setup::spawn_room, Color, Game, GameOptions, MapIcon, SpawnRoom, Time,
+        component::Room,
+        game_map::Coordinates,
+        test_utils::{
+            assert_entity_in_container, assert_entity_not_in_container, spawn_entity_in_location,
+            TestPlayer,
+        },
+        world_setup::spawn_room,
+        Color, Game, GameOptions, MapIcon, SpawnRoom, Time,
     };
 
     use super::*;
@@ -733,13 +739,6 @@ mod tests {
         fn get_world_mut(&mut self) -> std::sync::RwLockWriteGuard<'_, World> {
             self.game.world.write().unwrap()
         }
-    }
-
-    //TODO move this to a common place probably
-    struct TestPlayer {
-        entity: Entity,
-        command_sender: Sender<String>,
-        message_receiver: Receiver<(GameMessage, Time)>,
     }
 
     #[test]
@@ -932,8 +931,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity, game.room, &game);
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game.get_world());
+        assert_entity_not_in_container(game.item_entity, game.room, &game.get_world());
     }
 
     #[test]
@@ -946,8 +945,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity, game.room, &game);
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game.get_world());
+        assert_entity_not_in_container(game.item_entity, game.room, &game.get_world());
     }
 
     #[test]
@@ -960,8 +959,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity, game.room, &game);
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game.get_world());
+        assert_entity_not_in_container(game.item_entity, game.room, &game.get_world());
     }
 
     #[test]
@@ -974,8 +973,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity, game.room, &game);
+        assert_entity_in_container(game.item_entity, game.player_1.entity, &game.get_world());
+        assert_entity_not_in_container(game.item_entity, game.room, &game.get_world());
     }
 
     #[test]
@@ -988,8 +987,16 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+        assert_entity_in_container(
+            game.item_entity_in_container,
+            game.player_1.entity,
+            &game.get_world(),
+        );
+        assert_entity_not_in_container(
+            game.item_entity_in_container,
+            game.container_entity,
+            &game.get_world(),
+        );
     }
 
     #[test]
@@ -1002,8 +1009,16 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+        assert_entity_in_container(
+            game.item_entity_in_container,
+            game.player_1.entity,
+            &game.get_world(),
+        );
+        assert_entity_not_in_container(
+            game.item_entity_in_container,
+            game.container_entity,
+            &game.get_world(),
+        );
     }
 
     #[test]
@@ -1022,8 +1037,16 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+        assert_entity_in_container(
+            game.item_entity_in_container,
+            game.player_1.entity,
+            &game.get_world(),
+        );
+        assert_entity_not_in_container(
+            game.item_entity_in_container,
+            game.container_entity,
+            &game.get_world(),
+        );
     }
 
     #[test]
@@ -1042,8 +1065,16 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.item_entity_in_container, game.player_1.entity, &game);
-        assert_entity_not_in_container(game.item_entity_in_container, game.container_entity, &game);
+        assert_entity_in_container(
+            game.item_entity_in_container,
+            game.player_1.entity,
+            &game.get_world(),
+        );
+        assert_entity_not_in_container(
+            game.item_entity_in_container,
+            game.container_entity,
+            &game.get_world(),
+        );
     }
 
     #[test]
@@ -1248,8 +1279,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.room, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.room, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1263,8 +1294,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.room, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.room, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1278,8 +1309,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.room, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.room, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1293,8 +1324,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.room, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.room, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1529,8 +1560,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1543,8 +1574,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1557,8 +1588,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1571,8 +1602,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1592,8 +1623,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     #[test]
@@ -1613,8 +1644,8 @@ mod tests {
             &game,
         );
 
-        assert_entity_in_container(game.owned_entity, game.container_entity, &game);
-        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game);
+        assert_entity_in_container(game.owned_entity, game.container_entity, &game.get_world());
+        assert_entity_not_in_container(game.owned_entity, game.player_1.entity, &game.get_world());
     }
 
     /// Asserts that the provided input results in the provided error
@@ -1776,37 +1807,5 @@ mod tests {
             player_1,
             player_2,
         }
-    }
-
-    /// Asserts that `entity` is in `containing_entity`.
-    /// TODO move to a common place
-    fn assert_entity_in_container(entity: Entity, containing_entity: Entity, game: &TestGame) {
-        let world = game.get_world();
-
-        let location = world.get::<Location>(entity).unwrap();
-        assert_eq!(containing_entity, location.id);
-
-        let container = world.get::<Container>(containing_entity).unwrap();
-        assert!(container
-            .get_entities_including_invisible()
-            .contains(&entity));
-    }
-
-    /// Asserts that `entity` is not in `not_containing_entity`.
-    /// TODO move to a common place
-    fn assert_entity_not_in_container(
-        entity: Entity,
-        not_containing_entity: Entity,
-        game: &TestGame,
-    ) {
-        let world = game.get_world();
-
-        let location = world.get::<Location>(entity).unwrap();
-        assert_ne!(not_containing_entity, location.id);
-
-        let container = world.get::<Container>(not_containing_entity).unwrap();
-        assert!(!container
-            .get_entities_including_invisible()
-            .contains(&entity));
     }
 }

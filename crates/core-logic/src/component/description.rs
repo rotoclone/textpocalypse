@@ -236,8 +236,6 @@ pub struct PortionMatched(pub OrderedFloat<f32>);
 impl Description {
     /// Determines how closely the provided input refers to the entity with this description.
     pub fn matches(&self, input: &str) -> Matchness {
-        //TODO use get_all_ways_to_reference here?
-        debug!("Checking if {input:?} matches {self:?}");
         let mut identifiers = Vec::new();
         identifiers.push(self.name.to_ascii_lowercase());
         identifiers.push(self.room_name.to_ascii_lowercase());
@@ -359,6 +357,7 @@ impl Description {
     }
 
     /// Finds all the strings representing ways to reference `entity`` from the perspective of `pov_entity`.
+    /// TODO this should probably either be removed or adapted to be able to be used in `matches` above
     pub fn get_all_ways_to_reference(
         entity: Entity,
         pov_entity: Entity,
