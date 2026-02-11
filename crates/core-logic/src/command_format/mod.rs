@@ -351,11 +351,14 @@ fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
     })
 }
 
-//TODO doc
+/// Metadata about a part.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommandFormatPartParams<P, V> {
+    /// The ID of the part, if it has one
     id: Option<CommandPartId<P>>,
+    /// The part's options
     options: CommandFormatPartOptions,
+    /// A function to perform extra validation on successfully parsed values for this part
     validator: Option<PartValidationFn<V>>,
 }
 
@@ -369,6 +372,7 @@ impl<P, V> Clone for CommandFormatPartParams<P, V> {
     }
 }
 
+/// Settings for a part.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct CommandFormatPartOptions {
     /// The string to include in the error message if this part isn't successfully parsed (e.g. "what", "who", etc.)
