@@ -291,7 +291,6 @@ fn find_best_partial_match(
 /// Splits `input` at the first instance of `stopping_point`, returning a tuple of the input before `stopping_point`, and the input including and after `stopping_point`.
 /// If `stopping_point` is `None`, an empty string, or isn't in `input`, returns `(input, "")`.
 pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (String, String) {
-    //TODO tests for this
     let input = input.into();
     if let Some(stopping_point) = stopping_point {
         if stopping_point.is_empty() || !input.contains(stopping_point) {
@@ -300,9 +299,8 @@ pub fn take_until(input: impl Into<String>, stopping_point: Option<&str>) -> (St
         }
 
         let parsed = if input.starts_with(stopping_point) {
-            // apparently `_before` doesn't properly handle if the string starts with the provided substring, so deal with that case manually
-            // this check can be removed once https://github.com/a-merezhanyi/voca_rs/pull/27 is merged
-            // TODO it's been merged, so remove this
+            // `_before` doesn't properly handle if the string starts with the provided substring, so deal with that case manually
+            // this check can be removed once a new version of voca_rs is released that includes the changes from https://github.com/a-merezhanyi/voca_rs/pull/27
             "".to_string()
         } else {
             input._before(stopping_point)
@@ -325,5 +323,63 @@ pub fn match_result_to_option(match_result: CommandPartMatchResult) -> CommandPa
             matched: String::new(),
             remaining,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn take_until_empty_input_no_stopping_point() {
+        assert_eq!(("".to_string(), "".to_string()), take_until("", None));
+    }
+
+    #[test]
+    fn take_until_no_stopping_point() {
+        assert_eq!(
+            ("some input".to_string(), "".to_string()),
+            take_until("some input", None)
+        );
+    }
+
+    #[test]
+    fn take_until_empty_stopping_point() {
+        assert_eq!(
+            ("some input".to_string(), "".to_string()),
+            take_until("some input", Some(""))
+        );
+    }
+
+    #[test]
+    fn take_until_stopping_point_not_in_input() {
+        assert_eq!(
+            ("some input".to_string(), "".to_string()),
+            take_until("some input", Some("hello"))
+        );
+    }
+
+    #[test]
+    fn take_until_stopping_point_at_beginning_of_input() {
+        assert_eq!(
+            ("".to_string(), "some input".to_string()),
+            take_until("some input", Some("so"))
+        );
+    }
+
+    #[test]
+    fn take_until_stopping_point_at_end_of_input() {
+        assert_eq!(
+            ("some in".to_string(), "put".to_string()),
+            take_until("some input", Some("put"))
+        );
+    }
+
+    #[test]
+    fn take_until_stopping_point_in_middle_of_input() {
+        assert_eq!(
+            ("som".to_string(), "e input".to_string()),
+            take_until("some input", Some("e in"))
+        );
     }
 }

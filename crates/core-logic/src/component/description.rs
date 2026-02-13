@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use log::debug;
 use ordered_float::OrderedFloat;
 use voca_rs::Voca;
 
