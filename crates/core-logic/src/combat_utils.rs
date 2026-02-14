@@ -143,18 +143,18 @@ impl<A: AttackType> AttackCommandFormats<A> {
         let format_no_target_no_weapon = CommandFormat::new(first_part.clone());
 
         let format_with_target = CommandFormat::new(first_part.clone())
-            .then(literal_part(" ").always_include_in_errors())
-            .then(target_part.clone().always_include_in_errors());
+            .then(literal_part(" "))
+            .then(target_part.clone());
 
         let format_with_weapon = CommandFormat::new(first_part.clone())
-            .then(literal_part(" ").always_include_in_errors())
-            .then(one_of_literal_part(nonempty!["with", "using"]).always_include_in_errors())
-            .then(literal_part(" ").always_include_in_errors())
-            .then(weapon_part.clone().always_include_in_errors());
+            .then(literal_part(" "))
+            .then(one_of_literal_part(nonempty!["with", "using"]))
+            .then(literal_part(" "))
+            .then(weapon_part.clone());
 
         let format_with_target_and_weapon = CommandFormat::new(first_part)
-            .then(literal_part(" ").always_include_in_errors())
-            .then(target_part.always_include_in_errors())
+            .then(literal_part(" "))
+            .then(target_part)
             .then(literal_part(" "))
             .then(
                 one_of_literal_part(nonempty!["with", "using"])

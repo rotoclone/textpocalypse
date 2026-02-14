@@ -19,10 +19,9 @@ static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandP
 
 static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("say"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             any_text_part(TEXT_PART_ID.clone())
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("statement"),
         )
@@ -30,7 +29,6 @@ static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 static SAY_WITHOUT_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("\"").with_error_string_override("say ")).then(
         any_text_part(TEXT_PART_ID.clone())
-            .always_include_in_errors()
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("statement"),
     )

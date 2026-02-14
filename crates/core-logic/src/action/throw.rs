@@ -60,23 +60,21 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("throw"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "throw", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )
-        .then(literal_part(" at ").always_include_in_errors())
+        .then(literal_part(" at "))
         .then(
             entity_part_builder(TARGET_PART_ID.clone())
                 .with_validator(validate_target)
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("target"),
         )

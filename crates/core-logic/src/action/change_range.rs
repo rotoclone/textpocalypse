@@ -51,12 +51,11 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
         "decrease range to",
         "dr",
     ]))
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(
         entity_part_builder(TARGET_PART_ID.clone())
             .with_validator(validate_target)
             .build()
-            .always_include_in_errors()
             .with_if_unparsed("who")
             .with_placeholder_for_format_string("target"),
     )
@@ -69,12 +68,11 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
         "increase range to",
         "ir",
     ]))
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(
         entity_part_builder(TARGET_PART_ID.clone())
             .with_validator(validate_target)
             .build()
-            .always_include_in_errors()
             .with_if_unparsed("who")
             .with_placeholder_for_format_string("target"),
     )

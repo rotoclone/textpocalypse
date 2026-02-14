@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::process::Command;
 use std::{any::type_name, collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
@@ -203,12 +204,21 @@ impl CommandFormatPart {
     }
 
     /// Sets the part to always be included in error messages, regardless of if it was included in the entered command.
+    /// This is the default for non-optional parts.
     pub fn always_include_in_errors(mut self) -> Self {
         self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::Always;
         self
     }
 
-    /// Sets the part to be included in error messages if the previous part was included in the error message.
+    /// Sets the part to only be included in error messages if it was included in the entered command or was the cause of the error.
+    /// This is the default for optional parts.
+    pub fn include_in_errors_only_if_matched(mut self) -> Self {
+        self.options_mut().include_in_errors_behavior = IncludeInErrorsBehavior::OnlyIfMatched;
+        self
+    }
+
+    /// Sets the part to only be included in error messages if the previous part was included in the error message.
+    /// TODO is this needed anymore?
     pub fn include_in_errors_if_previous_part_included(mut self) -> Self {
         self.options_mut().include_in_errors_behavior =
             IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded;
@@ -395,12 +405,11 @@ enum IncludeInErrorsBehavior {
     /// The part is never included in error messages, even if it was included in the entered command.
     Never,
     /// The part is only included in an error message if it was in the entered command, or if parsing it was the cause of the error.
-    #[default]
     OnlyIfMatched,
     /// The part is only included in an error message if it was in the entered command, if parsing it was the cause of the error, or if the previous part in the format was included in the error message
     OnlyIfMatchedOrPreviousPartIncluded,
     /// The part is always included in error messages, even if it was not included in the entered command.
-    // TODO probably should make this the default, except for on optional parts
+    #[default]
     Always,
 }
 
@@ -449,6 +458,7 @@ fn build_optional_literal_part(
                     literal_string.clone(),
                 ),
                 if_unparsed: None,
+                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                 ..Default::default()
             },
             validator,
@@ -501,6 +511,7 @@ fn build_optional_one_of_literal_part(
             literal_strings.first().clone(),
         ),
         if_unparsed: Some(literal_strings.first().clone()),
+        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
         ..Default::default()
     };
     CommandFormatPart::OptionalOneOfLiteral(
@@ -558,7 +569,10 @@ fn build_optional_any_text_part(
 ) -> CommandFormatPart {
     CommandFormatPart::OptionalAnyText(CommandFormatPartParams {
         id: Some(id),
-        options: CommandFormatPartOptions::default(),
+        options: CommandFormatPartOptions {
+            include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+            ..Default::default()
+        },
         validator,
     })
 }
@@ -634,7 +648,10 @@ fn build_optional_entity_part(
     CommandFormatPart::OptionalEntity(
         CommandFormatPartParams {
             id: Some(id),
-            options: CommandFormatPartOptions::default(),
+            options: CommandFormatPartOptions {
+                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                ..Default::default()
+            },
             validator,
         },
         target_finder_fn.unwrap_or(default_entity_target_finder),
@@ -702,7 +719,10 @@ fn build_optional_direction_part(
         match_mode,
         CommandFormatPartParams {
             id: Some(id),
-            options: CommandFormatPartOptions::default(),
+            options: CommandFormatPartOptions {
+                include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                ..Default::default()
+            },
             validator,
         },
     )

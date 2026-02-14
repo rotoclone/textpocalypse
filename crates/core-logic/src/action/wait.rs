@@ -30,10 +30,9 @@ static DURATION_PART_ID: LazyLock<CommandPartId<String>> =
 static WAIT_WITH_DURATION_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("wait"))
         .then(optional_literal_part(" for"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             any_text_part_with_validator(DURATION_PART_ID.clone(), validate_duration)
-                .always_include_in_errors()
                 .with_if_unparsed("how long")
                 .with_placeholder_for_format_string("duration"),
         )

@@ -32,14 +32,13 @@ static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
 
 static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take", "pick up"]))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "get", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
@@ -47,14 +46,13 @@ static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drop"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "drop", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
@@ -62,7 +60,7 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take"]))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
@@ -70,21 +68,19 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 })
                 .with_target_finder(find_entities_in_target_container)
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item")
                 .with_prerequisite_part(CONTAINER_PART_ID.clone()),
         )
-        .then(literal_part(" ").always_include_in_errors())
-        .then(one_of_literal_part(nonempty!["from", "out of"]).always_include_in_errors())
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
+        .then(one_of_literal_part(nonempty!["from", "out of"]))
+        .then(literal_part(" "))
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_target_container(context, "get anything from", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("where")
                 .with_placeholder_for_format_string("container"),
         )
@@ -92,7 +88,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("put"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(ITEM_PART_ID.clone())
                 .with_validator(|context, world| {
@@ -101,20 +97,18 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     )
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item"),
         )
-        .then(literal_part(" ").always_include_in_errors())
-        .then(one_of_literal_part(nonempty!["into", "in"]).always_include_in_errors())
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
+        .then(one_of_literal_part(nonempty!["into", "in"]))
+        .then(literal_part(" "))
         .then(
             entity_part_builder(CONTAINER_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_target_container(context, "put anything into", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("where")
                 .with_placeholder_for_format_string("container"),
         )

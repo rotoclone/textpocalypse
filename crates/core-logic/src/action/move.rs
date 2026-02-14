@@ -40,10 +40,9 @@ static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["move", "go"]))
-        .then(one_of_literal_part(nonempty![" ", " to ", " to the "]).always_include_in_errors())
+        .then(one_of_literal_part(nonempty![" ", " to ", " to the "]))
         .then(
             direction_part(DIRECTION_PART_ID.clone(), DirectionMatchMode::Anything)
-                .always_include_in_errors()
                 .with_if_unparsed("where")
                 .with_placeholder_for_format_string("direction"),
         )

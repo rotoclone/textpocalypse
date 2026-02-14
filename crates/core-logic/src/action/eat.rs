@@ -22,14 +22,13 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static EAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("eat"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(
             entity_part_builder(TARGET_PART_ID.clone())
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Edible>(context, "eat", world)
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("thing"),
         )

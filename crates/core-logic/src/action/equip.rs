@@ -32,14 +32,13 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         "unholster",
         "take out",
     ]))
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(
         entity_part_builder(TARGET_PART_ID.clone())
             .with_validator(|context, world| {
                 validate_parsed_value_has_component::<Item>(context, "equip", world)
             })
             .build()
-            .always_include_in_errors()
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing"),
     )
@@ -48,14 +47,13 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty![
         "unequip", "unhold", "unwield", "holster", "put away",
     ]))
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(
         entity_part_builder(TARGET_PART_ID.clone())
             .with_validator(|context, world| {
                 validate_parsed_value_has_component::<Item>(context, "unequip", world)
             })
             .build()
-            .always_include_in_errors()
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing"),
     )

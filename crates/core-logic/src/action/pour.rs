@@ -75,42 +75,26 @@ static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
 
 static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
-        .then(literal_part(" ").always_include_in_errors())
-        .then(TARGET_PART.clone().always_include_in_errors())
+        .then(literal_part(" "))
+        .then(TARGET_PART.clone())
         .then(literal_part(" from "))
-        .then(
-            SOURCE_PART
-                .clone()
-                .include_in_errors_if_previous_part_included(),
-        )
+        .then(SOURCE_PART.clone())
 });
 static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
-        .then(one_of_literal_part(nonempty![" ", " all ", " all of "]).always_include_in_errors())
-        .then(SOURCE_PART.clone().always_include_in_errors())
-        .then(literal_part(" into ").always_include_in_errors())
-        .then(
-            TARGET_PART
-                .clone()
-                .include_in_errors_if_previous_part_included(),
-        )
+        .then(one_of_literal_part(nonempty![" ", " all ", " all of "]))
+        .then(SOURCE_PART.clone())
+        .then(literal_part(" into "))
+        .then(TARGET_PART.clone())
 });
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
-        .then(literal_part(" ").always_include_in_errors())
-        .then(AMOUNT_PART.clone().always_include_in_errors())
+        .then(literal_part(" "))
+        .then(AMOUNT_PART.clone())
         .then(literal_part(" from "))
-        .then(
-            SOURCE_PART
-                .clone()
-                .include_in_errors_if_previous_part_included(),
-        )
-        .then(literal_part(" into ").include_in_errors_if_previous_part_included())
-        .then(
-            TARGET_PART
-                .clone()
-                .include_in_errors_if_previous_part_included(),
-        )
+        .then(SOURCE_PART.clone())
+        .then(literal_part(" into "))
+        .then(TARGET_PART.clone())
 });
 
 /// Validates that a string represents an amount of fluid

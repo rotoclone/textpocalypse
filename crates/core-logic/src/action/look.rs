@@ -30,11 +30,10 @@ static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_literal_part(nonempty!["look", "l",]).with_error_string_override("look"),
     )
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(optional_literal_part("at ").always_include_in_errors())
     .then(
         entity_part(TARGET_PART_ID.clone())
-            .always_include_in_errors()
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing/direction"),
     )
@@ -43,10 +42,9 @@ static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
         one_of_literal_part(nonempty!["examine", "ex", "x",]).with_error_string_override("examine"),
     )
-    .then(literal_part(" ").always_include_in_errors())
+    .then(literal_part(" "))
     .then(
         entity_part(TARGET_PART_ID.clone())
-            .always_include_in_errors()
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("thing/direction"),
     )

@@ -29,7 +29,7 @@ static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
     LazyLock::new(|| CommandPartId::new("target"));
 static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drink"))
-        .then(literal_part(" ").always_include_in_errors())
+        .then(literal_part(" "))
         .then(optional_literal_part("from "))
         .then(
             entity_part_builder(TARGET_PART_ID.clone())
@@ -41,7 +41,6 @@ static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                     )
                 })
                 .build()
-                .always_include_in_errors()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("container"),
         )
