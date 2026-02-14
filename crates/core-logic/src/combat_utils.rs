@@ -156,12 +156,9 @@ impl<A: AttackType> AttackCommandFormats<A> {
             .then(literal_part(" "))
             .then(target_part)
             .then(literal_part(" "))
-            .then(
-                one_of_literal_part(nonempty!["with", "using"])
-                    .include_in_errors_if_previous_part_included(),
-            )
-            .then(literal_part(" ").include_in_errors_if_previous_part_included())
-            .then(weapon_part.include_in_errors_if_previous_part_included());
+            .then(one_of_literal_part(nonempty!["with", "using"]))
+            .then(literal_part(" "))
+            .then(weapon_part);
 
         AttackCommandFormats {
             format_no_target_no_weapon,

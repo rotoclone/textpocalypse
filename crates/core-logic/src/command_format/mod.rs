@@ -218,7 +218,6 @@ impl CommandFormatPart {
     }
 
     /// Sets the part to only be included in error messages if the previous part was included in the error message.
-    /// TODO is this needed anymore?
     pub fn include_in_errors_if_previous_part_included(mut self) -> Self {
         self.options_mut().include_in_errors_behavior =
             IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded;
