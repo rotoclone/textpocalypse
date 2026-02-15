@@ -43,7 +43,6 @@ static HOURS_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(\\d+)( )?(h|hr|hrs|hour|hours)$").unwrap());
 static DAYS_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(\\d+)( )?(d|day|days)$").unwrap());
-//TODO add some way to wait until the only queued actions across all players are wait actions
 
 /// Validates that a string represents an amount of time
 fn validate_duration(
