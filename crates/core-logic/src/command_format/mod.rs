@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use std::collections::HashSet;
-use std::process::Command;
 use std::{any::type_name, collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
@@ -38,8 +37,8 @@ pub use parsed_value_validators::PartValidatorContext;
 pub struct CommandFormat(NonEmpty<CommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct UntypedCommandPartId(String);
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct UntypedCommandPartId(&'static str);
 
 impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
     fn from(val: CommandPartId<T>) -> Self {
@@ -114,30 +113,16 @@ impl CommandFormatPart {
     /// Gets the ID for this part, if it has one.
     pub fn id(&self) -> Option<UntypedCommandPartId> {
         match self {
-            CommandFormatPart::Literal(_, params) => params.id.as_ref().map(|id| id.clone().into()),
-            CommandFormatPart::OptionalLiteral(_, params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::OneOfLiteral(_, params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::OptionalOneOfLiteral(_, params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::AnyText(params) => params.id.as_ref().map(|id| id.clone().into()),
-            CommandFormatPart::OptionalAnyText(params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::Entity(params, _) => params.id.as_ref().map(|id| id.clone().into()),
-            CommandFormatPart::OptionalEntity(params, _) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::Direction(_, params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
-            CommandFormatPart::OptionalDirection(_, params) => {
-                params.id.as_ref().map(|id| id.clone().into())
-            }
+            CommandFormatPart::Literal(_, params) => params.id.map(|id| id.into()),
+            CommandFormatPart::OptionalLiteral(_, params) => params.id.map(|id| id.into()),
+            CommandFormatPart::OneOfLiteral(_, params) => params.id.map(|id| id.into()),
+            CommandFormatPart::OptionalOneOfLiteral(_, params) => params.id.map(|id| id.into()),
+            CommandFormatPart::AnyText(params) => params.id.map(|id| id.into()),
+            CommandFormatPart::OptionalAnyText(params) => params.id.map(|id| id.into()),
+            CommandFormatPart::Entity(params, _) => params.id.map(|id| id.into()),
+            CommandFormatPart::OptionalEntity(params, _) => params.id.map(|id| id.into()),
+            CommandFormatPart::Direction(_, params) => params.id.map(|id| id.into()),
+            CommandFormatPart::OptionalDirection(_, params) => params.id.map(|id| id.into()),
         }
     }
 
@@ -374,7 +359,7 @@ pub struct CommandFormatPartParams<P, V> {
 impl<P, V> Clone for CommandFormatPartParams<P, V> {
     fn clone(&self) -> Self {
         Self {
-            id: self.id.clone(),
+            id: self.id,
             options: self.options.clone(),
             validator: self.validator,
         }
@@ -729,21 +714,23 @@ fn build_optional_direction_part(
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
 /// `T` is the type that the part will be parsed into.
-/// TODO change the `String` to a `&'static str` and implement `Copy`
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct CommandPartId<T>(String, PhantomData<fn(T)>);
+pub struct CommandPartId<T>(&'static str, PhantomData<fn(T)>);
 
 // implemting clone manually so it's implemented even if `T` is not clone
 impl<T> Clone for CommandPartId<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1)
+        *self
     }
 }
 
+// implementing copy manually so it's implemented even if `T` is not copy
+impl<T> Copy for CommandPartId<T> {}
+
 impl<T> CommandPartId<T> {
     /// Creates a new part ID.
-    pub fn new(value: impl Into<String>) -> CommandPartId<T> {
-        CommandPartId(value.into(), PhantomData)
+    pub const fn new(value: &'static str) -> CommandPartId<T> {
+        CommandPartId(value, PhantomData)
     }
 }
 
@@ -783,7 +770,7 @@ impl CommandFormat {
             self.0
                 .iter()
                 .map(|part| CommandFormatDescriptionPart {
-                    id: part.id().clone(),
+                    id: part.id(),
                     part_type: part.options().format_description_part_type.clone(),
                 })
                 .collect(),
@@ -1077,7 +1064,7 @@ impl ParsedCommand {
 
     /// Gets the parsed value associated with `id`.
     /// Panics if the ID does not correspond to a part on this command, or the parsed value for this ID isn't a `T`.
-    pub fn get<T: 'static>(&self, id: &CommandPartId<T>) -> T
+    pub fn get<T: 'static>(&self, id: CommandPartId<T>) -> T
     where
         ParsedValue: TryInto<T>,
     {
@@ -1155,7 +1142,7 @@ fn parse_part_recursive(
             }
         } else if parse_error.is_none() {
             parse_error = Some(CommandPartParseError::PrerequisiteUnmatched(
-                prereq_part_id.clone(),
+                *prereq_part_id,
             ));
         }
     }
@@ -1189,14 +1176,14 @@ fn parse_part_recursive(
 /// Gets the parsed value of the part with the provided ID from the provided map of parts, if it's in there.
 /// Panics if the parsed value can't be converted into the requested type.
 fn get_parsed_value<T: 'static>(
-    id: &CommandPartId<T>,
+    id: CommandPartId<T>,
     parsed_parts: &HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
 ) -> Option<T>
 where
     ParsedValue: TryInto<T>,
 {
     let parsed_value = parsed_parts
-        .get(&UntypedCommandPartId(id.0.clone()))
+        .get(&UntypedCommandPartId(id.0))
         .map(|matched_part| &matched_part.parsed_value)?;
 
     Some(parsed_value.clone().try_into().unwrap_or_else(|_| {

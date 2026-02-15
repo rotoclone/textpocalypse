@@ -26,15 +26,14 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
-static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("container"));
+static ITEM_PART_ID: CommandPartId<Entity> = CommandPartId::new("item");
+static CONTAINER_PART_ID: CommandPartId<Entity> = CommandPartId::new("container");
 
 static GET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take", "pick up"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(ITEM_PART_ID.clone())
+            entity_part_builder(ITEM_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "get", world)
                 })
@@ -48,7 +47,7 @@ static DROP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drop"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(ITEM_PART_ID.clone())
+            entity_part_builder(ITEM_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "drop", world)
                 })
@@ -62,7 +61,7 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["get", "take"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(ITEM_PART_ID.clone())
+            entity_part_builder(ITEM_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "get", world)
                 })
@@ -70,13 +69,13 @@ static GET_FROM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
                 .build()
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("item")
-                .with_prerequisite_part(CONTAINER_PART_ID.clone()),
+                .with_prerequisite_part(CONTAINER_PART_ID),
         )
         .then(literal_part(" "))
         .then(one_of_literal_part(nonempty!["from", "out of"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(CONTAINER_PART_ID.clone())
+            entity_part_builder(CONTAINER_PART_ID)
                 .with_validator(|context, world| {
                     validate_target_container(context, "get anything from", world)
                 })
@@ -90,7 +89,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("put"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(ITEM_PART_ID.clone())
+            entity_part_builder(ITEM_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component_with_suffix::<Item>(
                         context, "put", "anywhere", world,
@@ -104,7 +103,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(one_of_literal_part(nonempty!["into", "in"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(CONTAINER_PART_ID.clone())
+            entity_part_builder(CONTAINER_PART_ID)
                 .with_validator(|context, world| {
                     validate_target_container(context, "put anything into", world)
                 })
@@ -137,7 +136,7 @@ fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
 ) -> FoundEntitiesInContainer<PortionMatched> {
-    let Some(container) = context.get_parsed_value(&CONTAINER_PART_ID) else {
+    let Some(container) = context.get_parsed_value(CONTAINER_PART_ID) else {
         return FoundEntitiesInContainer {
             found_entities: FoundEntities::new(),
             searched_container: None,
@@ -165,7 +164,7 @@ impl InputParser for GetParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = GET_FORMAT.parse(input, entity, world)?;
 
-        let item = parsed.get(&ITEM_PART_ID);
+        let item = parsed.get(ITEM_PART_ID);
         let Some(source_location) = world.get::<Location>(entity) else {
             return Err(InputParseError::PostFormatParse(
                 "You aren't anywhere.".to_string(),
@@ -203,7 +202,7 @@ impl InputParser for GetParser {
         {
             vec![GET_FORMAT
                 .get_format_description()
-                .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                .with_targeted_entity(ITEM_PART_ID, entity, world)
                 .to_string()]
         } else {
             Vec::new()
@@ -220,7 +219,7 @@ impl InputParser for DropParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = DROP_FORMAT.parse(input, entity, world)?;
 
-        let item = parsed.get(&ITEM_PART_ID);
+        let item = parsed.get(ITEM_PART_ID);
         let source = entity;
         let Some(destination_location) = world.get::<Location>(entity) else {
             return Err(InputParseError::PostFormatParse(
@@ -258,7 +257,7 @@ impl InputParser for DropParser {
         {
             vec![DROP_FORMAT
                 .get_format_description()
-                .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                .with_targeted_entity(ITEM_PART_ID, entity, world)
                 .to_string()]
         } else {
             Vec::new()
@@ -275,8 +274,8 @@ impl InputParser for GetFromParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = GET_FROM_FORMAT.parse(input, entity, world)?;
 
-        let item = parsed.get(&ITEM_PART_ID);
-        let source = parsed.get(&CONTAINER_PART_ID);
+        let item = parsed.get(ITEM_PART_ID);
+        let source = parsed.get(CONTAINER_PART_ID);
         let destination = entity;
 
         if item == entity {
@@ -333,7 +332,7 @@ impl InputParser for GetFromParser {
             formats.push(
                 GET_FROM_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(ITEM_PART_ID, entity, world)
                     .to_string(),
             )
         }
@@ -342,7 +341,7 @@ impl InputParser for GetFromParser {
             formats.push(
                 GET_FROM_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(CONTAINER_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(CONTAINER_PART_ID, entity, world)
                     .to_string(),
             );
         }
@@ -360,9 +359,9 @@ impl InputParser for PutParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = PUT_FORMAT.parse(input, entity, world)?;
 
-        let item = parsed.get(&ITEM_PART_ID);
+        let item = parsed.get(ITEM_PART_ID);
         let source = entity;
-        let destination = parsed.get(&CONTAINER_PART_ID);
+        let destination = parsed.get(CONTAINER_PART_ID);
 
         if item == entity {
             return Err(InputParseError::PostFormatParse(
@@ -403,7 +402,7 @@ impl InputParser for PutParser {
             formats.push(
                 PUT_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(ITEM_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(ITEM_PART_ID, entity, world)
                     .to_string(),
             )
         }
@@ -412,7 +411,7 @@ impl InputParser for PutParser {
             formats.push(
                 PUT_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(CONTAINER_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(CONTAINER_PART_ID, entity, world)
                     .to_string(),
             );
         }

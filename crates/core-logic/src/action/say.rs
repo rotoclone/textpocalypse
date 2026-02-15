@@ -15,20 +15,20 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TEXT_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("text"));
+static TEXT_PART_ID: CommandPartId<String> = CommandPartId::new("text");
 
 static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("say"))
         .then(literal_part(" "))
         .then(
-            any_text_part(TEXT_PART_ID.clone())
+            any_text_part(TEXT_PART_ID)
                 .with_if_unparsed("what")
                 .with_placeholder_for_format_string("statement"),
         )
 });
 static SAY_WITHOUT_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("\"").with_error_string_override("say ")).then(
-        any_text_part(TEXT_PART_ID.clone())
+        any_text_part(TEXT_PART_ID)
             .with_if_unparsed("what")
             .with_placeholder_for_format_string("statement"),
     )
@@ -47,7 +47,7 @@ impl InputParser for SayParser {
         let parsed = SAY_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(SayAction {
-            text: parsed.get(&TEXT_PART_ID).to_string(),
+            text: parsed.get(TEXT_PART_ID).to_string(),
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -71,7 +71,7 @@ impl InputParser for SayWithoutVerbParser {
         let parsed = SAY_WITHOUT_VERB_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(SayAction {
-            text: parsed.get(&TEXT_PART_ID).to_string(),
+            text: parsed.get(TEXT_PART_ID).to_string(),
             notification_sender: ActionNotificationSender::new(),
         }))
     }

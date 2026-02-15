@@ -127,14 +127,14 @@ impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
     pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
-        let target_part = entity_part_builder(target_part_id.clone())
+        let target_part = entity_part_builder(target_part_id)
             .with_validator(validate_attack_target)
             .build()
             .with_if_unparsed("who")
             .with_placeholder_for_format_string("target");
 
         let weapon_part_id = CommandPartId::new("weapon");
-        let weapon_part = entity_part_builder(weapon_part_id.clone())
+        let weapon_part = entity_part_builder(weapon_part_id)
             .with_validator(validate_attack_weapon::<A>)
             .build()
             .with_if_unparsed("what")
@@ -191,11 +191,11 @@ impl<A: AttackType> AttackCommandFormats<A> {
             return vec![
                 self.format_with_target
                     .get_format_description()
-                    .with_targeted_entity(self.target_part_id.clone(), entity, world)
+                    .with_targeted_entity(self.target_part_id, entity, world)
                     .to_string(),
                 self.format_with_target_and_weapon
                     .get_format_description()
-                    .with_targeted_entity(self.target_part_id.clone(), entity, world)
+                    .with_targeted_entity(self.target_part_id, entity, world)
                     .to_string(),
             ];
         }
@@ -204,11 +204,11 @@ impl<A: AttackType> AttackCommandFormats<A> {
             return vec![
                 self.format_with_weapon
                     .get_format_description()
-                    .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
+                    .with_targeted_entity(self.weapon_part_id, entity, world)
                     .to_string(),
                 self.format_with_target_and_weapon
                     .get_format_description()
-                    .with_targeted_entity(self.weapon_part_id.clone(), entity, world)
+                    .with_targeted_entity(self.weapon_part_id, entity, world)
                     .to_string(),
             ];
         }
@@ -233,7 +233,7 @@ pub fn parse_attack_input<A: AttackType>(
         {
             return Ok(ParsedAttack {
                 target,
-                weapon: ChosenWeapon::Entity(parsed.get(&command_formats.weapon_part_id)),
+                weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
             });
         }
 
@@ -254,7 +254,7 @@ pub fn parse_attack_input<A: AttackType>(
         .parse(input, source_entity, world)
     {
         return Ok(ParsedAttack {
-            target: parsed.get(&command_formats.target_part_id),
+            target: parsed.get(command_formats.target_part_id),
             weapon: ChosenWeapon::Unspecified,
         });
     }
@@ -264,8 +264,8 @@ pub fn parse_attack_input<A: AttackType>(
             .format_with_target_and_weapon
             .parse(input, source_entity, world)?;
     Ok(ParsedAttack {
-        target: parsed.get(&command_formats.target_part_id),
-        weapon: ChosenWeapon::Entity(parsed.get(&command_formats.weapon_part_id)),
+        target: parsed.get(command_formats.target_part_id),
+        weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
     })
 }
 

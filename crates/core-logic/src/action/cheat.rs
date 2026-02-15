@@ -16,15 +16,14 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static COMMAND_PART_ID: LazyLock<CommandPartId<String>> =
-    LazyLock::new(|| CommandPartId::new("command"));
-static ARGS_PART_ID: LazyLock<CommandPartId<String>> = LazyLock::new(|| CommandPartId::new("args"));
+static COMMAND_PART_ID: CommandPartId<String> = CommandPartId::new("command");
+static ARGS_PART_ID: CommandPartId<String> = CommandPartId::new("args");
 
 static CHEAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("%"))
-        .then(any_text_part(COMMAND_PART_ID.clone()).with_placeholder_for_format_string("command"))
+        .then(any_text_part(COMMAND_PART_ID).with_placeholder_for_format_string("command"))
         .then(literal_part("% "))
-        .then(any_text_part(ARGS_PART_ID.clone()).with_placeholder_for_format_string("args"))
+        .then(any_text_part(ARGS_PART_ID).with_placeholder_for_format_string("args"))
 });
 
 pub struct CheatParser;
@@ -38,13 +37,13 @@ impl InputParser for CheatParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = CHEAT_FORMAT.parse(input, source_entity, world)?;
         let args = parsed
-            .get(&ARGS_PART_ID)
+            .get(ARGS_PART_ID)
             .split(",")
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
         Ok(Box::new(CheatAction {
-            command: parsed.get(&COMMAND_PART_ID),
+            command: parsed.get(COMMAND_PART_ID),
             args,
             notification_sender: ActionNotificationSender::new(),
         }))

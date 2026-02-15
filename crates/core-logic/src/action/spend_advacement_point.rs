@@ -18,8 +18,7 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static ADVANCEMENT_TYPE_PART_ID: LazyLock<CommandPartId<String>> =
-    LazyLock::new(|| CommandPartId::new("advancement_type"));
+static ADVANCEMENT_TYPE_PART_ID: CommandPartId<String> = CommandPartId::new("advancement_type");
 
 static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty![
@@ -29,7 +28,7 @@ static SPEND_SKILL_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(literal_part(" "))
     .then(
-        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_skill_name)
+        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID, validate_skill_name)
             .with_if_unparsed("which skill")
             .with_placeholder_for_format_string("skill"),
     )
@@ -42,7 +41,7 @@ static SPEND_ATTRIBUTE_POINT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| 
     ]))
     .then(literal_part(" "))
     .then(
-        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID.clone(), validate_attribute_name)
+        any_text_part_with_validator(ADVANCEMENT_TYPE_PART_ID, validate_attribute_name)
             .with_if_unparsed("which attribute")
             .with_placeholder_for_format_string("attribute"),
     )
@@ -87,7 +86,7 @@ impl InputParser for SpendSkillPointParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SPEND_SKILL_POINT_FORMAT.parse(input, source_entity, world)?;
-        let skill_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
+        let skill_name = parsed.get(ADVANCEMENT_TYPE_PART_ID);
         if let Some(skill) = SkillNameCatalog::get_skill(&skill_name, world) {
             Ok(Box::new(SpendSkillPointAction {
                 skill,
@@ -120,7 +119,7 @@ impl InputParser for SpendAttributePointParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SPEND_ATTRIBUTE_POINT_FORMAT.parse(input, source_entity, world)?;
-        let attribute_name = parsed.get(&ADVANCEMENT_TYPE_PART_ID);
+        let attribute_name = parsed.get(ADVANCEMENT_TYPE_PART_ID);
         if let Some(attribute) = AttributeNameCatalog::get_attribute(&attribute_name, world) {
             Ok(Box::new(SpendAttributePointAction {
                 attribute,

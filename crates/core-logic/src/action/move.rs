@@ -25,16 +25,12 @@ use super::{
     LookAction,
 };
 
-static DIRECTION_PART_ID: LazyLock<CommandPartId<Direction>> =
-    LazyLock::new(|| CommandPartId::new("direction"));
+static DIRECTION_PART_ID: CommandPartId<Direction> = CommandPartId::new("direction");
 static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(
-        direction_part(
-            DIRECTION_PART_ID.clone(),
-            DirectionMatchMode::OnlyValidDirections,
-        )
-        .with_if_unparsed("where")
-        .with_placeholder_for_format_string("direction"),
+        direction_part(DIRECTION_PART_ID, DirectionMatchMode::OnlyValidDirections)
+            .with_if_unparsed("where")
+            .with_placeholder_for_format_string("direction"),
     )
 });
 
@@ -42,7 +38,7 @@ static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["move", "go"]))
         .then(one_of_literal_part(nonempty![" ", " to ", " to the "]))
         .then(
-            direction_part(DIRECTION_PART_ID.clone(), DirectionMatchMode::Anything)
+            direction_part(DIRECTION_PART_ID, DirectionMatchMode::Anything)
                 .with_if_unparsed("where")
                 .with_placeholder_for_format_string("direction"),
         )
@@ -60,7 +56,7 @@ impl InputParser for MoveParser {
         match MOVE_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(MoveAction {
-                    direction: parsed.get(&DIRECTION_PART_ID),
+                    direction: parsed.get(DIRECTION_PART_ID),
                     notification_sender: ActionNotificationSender::new(),
                 }));
             }
@@ -73,7 +69,7 @@ impl InputParser for MoveParser {
 
         let parsed = MOVE_WITH_VERB_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(MoveAction {
-            direction: parsed.get(&DIRECTION_PART_ID),
+            direction: parsed.get(DIRECTION_PART_ID),
             notification_sender: ActionNotificationSender::new(),
         }))
     }

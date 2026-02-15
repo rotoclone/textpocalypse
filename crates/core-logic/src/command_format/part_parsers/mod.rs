@@ -36,7 +36,7 @@ pub struct PartParserContext {
 impl PartParserContext {
     /// Gets the parsed value for part with the provided ID, if it was already parsed.
     /// Panics if the parsed value can't be converted into the requested type.
-    pub fn get_parsed_value<T: 'static>(&self, id: &CommandPartId<T>) -> Option<T>
+    pub fn get_parsed_value<T: 'static>(&self, id: CommandPartId<T>) -> Option<T>
     where
         ParsedValue: TryInto<T>,
     {

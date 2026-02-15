@@ -25,14 +25,13 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// The amount of liquid to consume in one drink.
 const LITERS_PER_DRINK: Volume = Volume(0.25);
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static DRINK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("drink"))
         .then(literal_part(" "))
         .then(optional_literal_part("from "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<FluidContainer>(
                         context,
@@ -58,7 +57,7 @@ impl InputParser for DrinkParser {
         let parsed = DRINK_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(DrinkAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             amount: LITERS_PER_DRINK,
             fluids_to_volume_drank: HashMap::new(),
             notification_sender: ActionNotificationSender::new(),
@@ -74,7 +73,7 @@ impl InputParser for DrinkParser {
             entity,
             world,
             &[DRINK_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],

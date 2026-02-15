@@ -22,8 +22,7 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty![
         "equip",
@@ -34,7 +33,7 @@ static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(literal_part(" "))
     .then(
-        entity_part_builder(TARGET_PART_ID.clone())
+        entity_part_builder(TARGET_PART_ID)
             .with_validator(|context, world| {
                 validate_parsed_value_has_component::<Item>(context, "equip", world)
             })
@@ -49,7 +48,7 @@ static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
     .then(literal_part(" "))
     .then(
-        entity_part_builder(TARGET_PART_ID.clone())
+        entity_part_builder(TARGET_PART_ID)
             .with_validator(|context, world| {
                 validate_parsed_value_has_component::<Item>(context, "unequip", world)
             })
@@ -72,7 +71,7 @@ impl InputParser for EquipParser {
         match EQUIP_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(EquipAction {
-                    target: parsed.get(&TARGET_PART_ID),
+                    target: parsed.get(TARGET_PART_ID),
                     should_be_equipped: true,
                     notification_sender: ActionNotificationSender::new(),
                 }))
@@ -86,7 +85,7 @@ impl InputParser for EquipParser {
 
         let parsed = UNEQUIP_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(EquipAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             should_be_equipped: false,
             notification_sender: ActionNotificationSender::new(),
         }))
@@ -105,13 +104,13 @@ impl InputParser for EquipParser {
             world,
             &[
                 EQUIP_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),
                 UNEQUIP_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world),
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
             ],
         )
     }

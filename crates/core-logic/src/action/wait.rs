@@ -25,14 +25,13 @@ const TICKS_PER_DAY: u64 = TICKS_PER_HOUR * HOURS_PER_DAY as u64;
 static WAIT_FORMAT: LazyLock<CommandFormat> =
     LazyLock::new(|| CommandFormat::new(literal_part("wait")));
 
-static DURATION_PART_ID: LazyLock<CommandPartId<String>> =
-    LazyLock::new(|| CommandPartId::new("duration"));
+static DURATION_PART_ID: CommandPartId<String> = CommandPartId::new("duration");
 static WAIT_WITH_DURATION_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("wait"))
         .then(optional_literal_part(" for"))
         .then(literal_part(" "))
         .then(
-            any_text_part_with_validator(DURATION_PART_ID.clone(), validate_duration)
+            any_text_part_with_validator(DURATION_PART_ID, validate_duration)
                 .with_if_unparsed("how long")
                 .with_placeholder_for_format_string("duration"),
         )
@@ -92,7 +91,7 @@ impl InputParser for WaitWithDurationParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WAIT_WITH_DURATION_FORMAT.parse(input, source_entity, world)?;
-        let total_ticks_to_wait = parse_time_to_ticks(parsed.get(&DURATION_PART_ID).as_str())
+        let total_ticks_to_wait = parse_time_to_ticks(parsed.get(DURATION_PART_ID).as_str())
             .map_err(InputParseError::PostFormatParse)?;
         Ok(Box::new(WaitAction {
             total_ticks_to_wait,

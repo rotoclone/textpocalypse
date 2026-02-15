@@ -24,13 +24,12 @@ use super::{
     Connection, Container, Description, Location, ParseCustomInput,
 };
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static SLAM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("slam"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<OpenState>(context, "slam", world)
                 })
@@ -51,7 +50,7 @@ impl InputParser for SlamParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = SLAM_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(SlamAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -65,7 +64,7 @@ impl InputParser for SlamParser {
             entity,
             world,
             &[SLAM_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],

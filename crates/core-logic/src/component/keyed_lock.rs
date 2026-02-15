@@ -21,13 +21,12 @@ use super::{
     Description, Location, ParseCustomInput, VerifyActionNotification,
 };
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static UNLOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("unlock"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<KeyedLock>(context, "unlock", world)
                 })
@@ -40,7 +39,7 @@ static LOCK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("lock"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<KeyedLock>(context, "lock", world)
                 })
@@ -62,7 +61,7 @@ impl InputParser for LockParser {
         match UNLOCK_FORMAT.parse(input, source_entity, world) {
             Ok(parsed) => {
                 return Ok(Box::new(LockAction {
-                    target: parsed.get(&TARGET_PART_ID),
+                    target: parsed.get(TARGET_PART_ID),
                     should_be_locked: false,
                     notification_sender: ActionNotificationSender::new(),
                 }));
@@ -76,7 +75,7 @@ impl InputParser for LockParser {
 
         let parsed = LOCK_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(LockAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             should_be_locked: true,
             notification_sender: ActionNotificationSender::new(),
         }))
@@ -95,12 +94,12 @@ impl InputParser for LockParser {
             world,
             &[
                 UNLOCK_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),
                 LOCK_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),

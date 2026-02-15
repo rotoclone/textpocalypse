@@ -21,13 +21,12 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static REMOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["take off", "remove"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Wearable>(context, "take off", world)
                 })
@@ -49,7 +48,7 @@ impl InputParser for RemoveParser {
         let parsed = REMOVE_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(RemoveAction {
             wearing_entity: source_entity,
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -63,7 +62,7 @@ impl InputParser for RemoveParser {
             entity,
             world,
             &[REMOVE_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],

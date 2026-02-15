@@ -55,14 +55,13 @@ const MIN_VOLUME_DIFFICULTY_MULT: f32 = 0.5;
 /// The maximum amount to multiply throw check difficulty by due to the size of the target
 const MAX_VOLUME_DIFFICULTY_MULT: f32 = 3.0;
 
-static ITEM_PART_ID: LazyLock<CommandPartId<Entity>> = LazyLock::new(|| CommandPartId::new("item"));
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static ITEM_PART_ID: CommandPartId<Entity> = CommandPartId::new("item");
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("throw"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(ITEM_PART_ID.clone())
+            entity_part_builder(ITEM_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Item>(context, "throw", world)
                 })
@@ -72,7 +71,7 @@ static THROW_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         )
         .then(literal_part(" at "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(validate_target)
                 .build()
                 .with_if_unparsed("what")
@@ -111,8 +110,8 @@ impl InputParser for ThrowParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = THROW_FORMAT.parse(input, source_entity, world)?;
-        let item = parsed.get(&ITEM_PART_ID);
-        let target = parsed.get(&TARGET_PART_ID);
+        let item = parsed.get(ITEM_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
 
         if target == source_entity {
             return Err(InputParseError::PostFormatParse(
@@ -149,7 +148,7 @@ impl InputParser for ThrowParser {
         if is_living_entity(entity, world) {
             return vec![THROW_FORMAT
                 .get_format_description()
-                .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                .with_targeted_entity(TARGET_PART_ID, entity, world)
                 .to_string()];
         }
 
@@ -158,12 +157,12 @@ impl InputParser for ThrowParser {
             world,
             &[
                 THROW_FORMAT.get_format_description().with_targeted_entity(
-                    ITEM_PART_ID.clone(),
+                    ITEM_PART_ID,
                     entity,
                     world,
                 ),
                 THROW_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),

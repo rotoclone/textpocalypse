@@ -124,8 +124,7 @@ mod tests {
 
     use super::*;
 
-    static CONTAINER_PART_ID: LazyLock<CommandPartId<Entity>> =
-        LazyLock::new(|| CommandPartId::new("container"));
+    static CONTAINER_PART_ID: CommandPartId<Entity> = CommandPartId::new("container");
 
     impl PartialEq for PartValidatorContext<Entity> {
         fn eq(&self, other: &Self) -> bool {
@@ -240,12 +239,12 @@ mod tests {
             input: "entity 12 name".to_string(),
             entering_entity: entity_1,
             parsed_parts: [(
-                CONTAINER_PART_ID.clone().into(),
+                CONTAINER_PART_ID.into(),
                 ParsedCommandFormatPart {
                     order: 0,
                     matched_part: MatchedCommandFormatPart {
                         order: 0,
-                        part: entity_part(CONTAINER_PART_ID.clone()),
+                        part: entity_part(CONTAINER_PART_ID),
                         matched_input: "something".to_string(),
                     },
                     parsed_value: ParsedValue::Entity(container_1),
@@ -256,7 +255,7 @@ mod tests {
 
         let target_finder: EntityTargetFinderFn = |context, _| FoundEntitiesInContainer {
             found_entities: FoundEntities::new(),
-            searched_container: context.get_parsed_value(&CONTAINER_PART_ID),
+            searched_container: context.get_parsed_value(CONTAINER_PART_ID),
         };
 
         let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {

@@ -18,13 +18,12 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static EAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("eat"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Edible>(context, "eat", world)
                 })
@@ -46,7 +45,7 @@ impl InputParser for EatParser {
         let parsed = EAT_FORMAT.parse(input, source_entity, world)?;
 
         Ok(Box::new(EatAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -60,7 +59,7 @@ impl InputParser for EatParser {
             entity,
             world,
             &[EAT_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],

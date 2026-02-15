@@ -34,15 +34,12 @@ static AMOUNT_WITH_LITERS_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L|l| l| liter| liters)$").unwrap());
 static AMOUNT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(?P<amount>.*)").unwrap());
 
-static SOURCE_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("source"));
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
-static AMOUNT_PART_ID: LazyLock<CommandPartId<String>> =
-    LazyLock::new(|| CommandPartId::new("amount"));
+static SOURCE_PART_ID: CommandPartId<Entity> = CommandPartId::new("source");
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static AMOUNT_PART_ID: CommandPartId<String> = CommandPartId::new("amount");
 
 static SOURCE_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
-    entity_part_builder(SOURCE_PART_ID.clone())
+    entity_part_builder(SOURCE_PART_ID)
         .with_validator(|context, world| {
             validate_parsed_value_has_component::<FluidContainer>(
                 context,
@@ -55,7 +52,7 @@ static SOURCE_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("container")
 });
 static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
-    entity_part_builder(TARGET_PART_ID.clone())
+    entity_part_builder(TARGET_PART_ID)
         .with_validator(|context, world| {
             validate_parsed_value_has_component::<FluidContainer>(
                 context,
@@ -68,7 +65,7 @@ static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("container")
 });
 static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
-    any_text_part_with_validator(AMOUNT_PART_ID.clone(), validate_amount)
+    any_text_part_with_validator(AMOUNT_PART_ID, validate_amount)
         .with_if_unparsed("how much")
         .with_placeholder_for_format_string("amount")
 });
@@ -117,8 +114,8 @@ impl InputParser for FillParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = FILL_FORMAT.parse(input, source_entity, world)?;
-        let source = parsed.get(&SOURCE_PART_ID);
-        let target = parsed.get(&TARGET_PART_ID);
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
         build_action(source, target, PourAmount::All, world)
     }
 
@@ -132,12 +129,12 @@ impl InputParser for FillParser {
             world,
             &[
                 FILL_FORMAT.get_format_description().with_targeted_entity(
-                    SOURCE_PART_ID.clone(),
+                    SOURCE_PART_ID,
                     entity,
                     world,
                 ),
                 FILL_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),
@@ -154,8 +151,8 @@ impl InputParser for PourAllParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = POUR_ALL_FORMAT.parse(input, source_entity, world)?;
-        let source = parsed.get(&SOURCE_PART_ID);
-        let target = parsed.get(&TARGET_PART_ID);
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
         build_action(source, target, PourAmount::All, world)
     }
 
@@ -170,10 +167,10 @@ impl InputParser for PourAllParser {
             &[
                 POUR_ALL_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(SOURCE_PART_ID.clone(), entity, world),
+                    .with_targeted_entity(SOURCE_PART_ID, entity, world),
                 POUR_ALL_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world),
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
             ],
         )
     }
@@ -187,9 +184,9 @@ impl InputParser for PourParser {
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = POUR_FORMAT.parse(input, source_entity, world)?;
-        let source = parsed.get(&SOURCE_PART_ID);
-        let target = parsed.get(&TARGET_PART_ID);
-        let amount = parse_pour_amount(&parsed.get(&AMOUNT_PART_ID))
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
+        let amount = parse_pour_amount(&parsed.get(AMOUNT_PART_ID))
             .map_err(InputParseError::PostFormatParse)?;
         build_action(source, target, amount, world)
     }
@@ -204,12 +201,12 @@ impl InputParser for PourParser {
             world,
             &[
                 POUR_FORMAT.get_format_description().with_targeted_entity(
-                    SOURCE_PART_ID.clone(),
+                    SOURCE_PART_ID,
                     entity,
                     world,
                 ),
                 POUR_FORMAT.get_format_description().with_targeted_entity(
-                    TARGET_PART_ID.clone(),
+                    TARGET_PART_ID,
                     entity,
                     world,
                 ),

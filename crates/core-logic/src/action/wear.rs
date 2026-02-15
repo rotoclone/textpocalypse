@@ -22,13 +22,12 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static WEAR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["wear", "put on"]))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<Wearable>(context, "wear", world)
                 })
@@ -49,7 +48,7 @@ impl InputParser for WearParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = WEAR_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(WearAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -63,7 +62,7 @@ impl InputParser for WearParser {
             entity,
             world,
             &[WEAR_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],

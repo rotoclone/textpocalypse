@@ -40,8 +40,7 @@ static INCREASE_RANGE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     ]))
 });
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 
 static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty![
@@ -53,7 +52,7 @@ static DECREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
     ]))
     .then(literal_part(" "))
     .then(
-        entity_part_builder(TARGET_PART_ID.clone())
+        entity_part_builder(TARGET_PART_ID)
             .with_validator(validate_target)
             .build()
             .with_if_unparsed("who")
@@ -70,7 +69,7 @@ static INCREASE_RANGE_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::ne
     ]))
     .then(literal_part(" "))
     .then(
-        entity_part_builder(TARGET_PART_ID.clone())
+        entity_part_builder(TARGET_PART_ID)
             .with_validator(validate_target)
             .build()
             .with_if_unparsed("who")
@@ -177,11 +176,11 @@ impl InputParser for ChangeRangeParser {
             vec![
                 DECREASE_RANGE_WITH_TARGET_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(TARGET_PART_ID, entity, world)
                     .to_string(),
                 INCREASE_RANGE_WITH_TARGET_FORMAT
                     .get_format_description()
-                    .with_targeted_entity(TARGET_PART_ID.clone(), entity, world)
+                    .with_targeted_entity(TARGET_PART_ID, entity, world)
                     .to_string(),
             ]
         } else {
@@ -199,7 +198,7 @@ fn parse_with_required_target(
 ) -> Result<(RangeChangeDirection, Entity), CommandFormatParseError> {
     match DECREASE_RANGE_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
         Ok(parsed) => {
-            return Ok((RangeChangeDirection::Decrease, parsed.get(&TARGET_PART_ID)));
+            return Ok((RangeChangeDirection::Decrease, parsed.get(TARGET_PART_ID)));
         }
         Err(e) => {
             if e.num_parts_matched() > 0 {
@@ -209,7 +208,7 @@ fn parse_with_required_target(
     };
 
     let parsed = INCREASE_RANGE_WITH_TARGET_FORMAT.parse(input, source_entity, world)?;
-    Ok((RangeChangeDirection::Increase, parsed.get(&TARGET_PART_ID)))
+    Ok((RangeChangeDirection::Increase, parsed.get(TARGET_PART_ID)))
 }
 
 /// Determines which format the command was in and what direction and target (if any) were provided.

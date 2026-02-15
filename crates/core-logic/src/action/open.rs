@@ -17,13 +17,12 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-static TARGET_PART_ID: LazyLock<CommandPartId<Entity>> =
-    LazyLock::new(|| CommandPartId::new("target"));
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 static OPEN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("open"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<OpenState>(context, "open", world)
                 })
@@ -36,7 +35,7 @@ static CLOSE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("close"))
         .then(literal_part(" "))
         .then(
-            entity_part_builder(TARGET_PART_ID.clone())
+            entity_part_builder(TARGET_PART_ID)
                 .with_validator(|context, world| {
                     validate_parsed_value_has_component::<OpenState>(context, "close", world)
                 })
@@ -59,7 +58,7 @@ impl InputParser for OpenParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = OPEN_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(OpenAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             should_be_open: true,
             notification_sender: ActionNotificationSender::new(),
         }))
@@ -74,7 +73,7 @@ impl InputParser for OpenParser {
             entity,
             world,
             &[OPEN_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],
@@ -91,7 +90,7 @@ impl InputParser for CloseParser {
     ) -> Result<Box<dyn Action>, InputParseError> {
         let parsed = CLOSE_FORMAT.parse(input, source_entity, world)?;
         Ok(Box::new(OpenAction {
-            target: parsed.get(&TARGET_PART_ID),
+            target: parsed.get(TARGET_PART_ID),
             should_be_open: false,
             notification_sender: ActionNotificationSender::new(),
         }))
@@ -106,7 +105,7 @@ impl InputParser for CloseParser {
             entity,
             world,
             &[CLOSE_FORMAT.get_format_description().with_targeted_entity(
-                TARGET_PART_ID.clone(),
+                TARGET_PART_ID,
                 entity,
                 world,
             )],
