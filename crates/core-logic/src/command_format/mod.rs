@@ -811,14 +811,38 @@ pub enum ProcessedPart {
 }
 
 impl ProcessedPart {
-    /// Determines if this part was successfully matched, regardless of it was parsed
+    /// Determines if this part was successfully matched, regardless of it was parsed.
+    ///
+    /// This will return false for parts that matched an empty string or parsed to `None` (in practice, this means optional parts that weren't included in the input).
+    /// Even though technically they are considered to have matched, conceptually that's not really a successfully matched part.
     pub fn was_matched(&self) -> bool {
-        matches!(self, ProcessedPart::Matched(_) | ProcessedPart::Parsed(_))
+        match self {
+            ProcessedPart::Unmatched(_) => false,
+            ProcessedPart::Matched(m) => !m.matched_input.is_empty(),
+            ProcessedPart::Parsed(p) => match &p.parsed_value {
+                ParsedValue::Option(o) => o.is_some(),
+                _ => true,
+            },
+        }
     }
 
-    /// Determines if this part was successfully parsed
+    /// Determines if this part was successfully parsed.
+    ///
+    /// This will return false for parts that parsed to `None` (in practice, this means optional parts that weren't included in the input).
+    /// Even though technically they are considered to have been parsed, conceptually that's not really a successfully parsed part.
     pub fn was_parsed(&self) -> bool {
-        matches!(self, ProcessedPart::Parsed(_))
+        if let ProcessedPart::Parsed(p) = self {
+            if let ParsedValue::Option(o) = &p.parsed_value {
+                // successfully parsed to an option value
+                o.is_some()
+            } else {
+                // successfully parsed to a non-option value
+                true
+            }
+        } else {
+            // didn't successfully parse
+            false
+        }
     }
 
     /// Gets the options for the original underlying part
@@ -903,7 +927,6 @@ fn build_error_message_for_parts(
     for part in parts {
         let should_include = match part.options().include_in_errors_behavior {
             IncludeInErrorsBehavior::Never => false,
-            //TODO this will include optional parts that weren't provided, since they successfully match an empty string...maybe there needs to be a 3rd state other than success or failure for optional parts that weren't provided
             IncludeInErrorsBehavior::OnlyIfMatched => part.was_matched(),
             IncludeInErrorsBehavior::OnlyIfMatchedOrPreviousPartIncluded => {
                 part.was_matched() || prev_part_included
@@ -925,7 +948,6 @@ fn build_error_message_for_parts(
                 }
             }
             ProcessedPart::Matched(matched_part) => {
-                // TODO determine when to include the literal matched string instead?
                 if let Some(s) = &matched_part.part.options().if_unparsed {
                     message += s;
                 }
