@@ -791,10 +791,8 @@ pub enum CommandFormatParseError {
     /// Some of the input remained unmatched after matching all the parts.
     /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
     UnmatchedInput {
-        //TODO use ProcessedPart
-        matched_parts: Vec<MatchedCommandFormatPart>,
+        parts: Vec<ProcessedPart>,
         unmatched: String,
-        parsed_parts: Vec<ParsedCommandFormatPart>,
     },
     /// At least one part remained unmatched after consuming all the input.
     /// This error will be reported after parsing is attempted so any successfully parsed values can be used in the error message.
@@ -836,27 +834,26 @@ impl ProcessedPart {
 impl CommandFormatParseError {
     /// Determines how many parts were successfully matched before this error occurred.
     pub fn num_parts_matched(&self) -> usize {
-        match self {
-            CommandFormatParseError::Parsing { parts, .. } => {
-                parts.iter().filter(|part| part.was_matched()).count()
-            }
-            CommandFormatParseError::UnmatchedInput { matched_parts, .. } => matched_parts.len(),
-            CommandFormatParseError::UnmatchedPart(parts) => {
-                parts.iter().filter(|part| part.was_matched()).count()
-            }
-        }
+        self.get_parts()
+            .iter()
+            .filter(|part| part.was_matched())
+            .count()
     }
 
     /// Determines how many parts were successfully parsed before this error occurred.
     pub fn num_parts_parsed(&self) -> usize {
+        self.get_parts()
+            .iter()
+            .filter(|part| part.was_parsed())
+            .count()
+    }
+
+    /// Gets the processed parts from the error, regardless of what type of error it is.
+    fn get_parts(&self) -> &Vec<ProcessedPart> {
         match self {
-            CommandFormatParseError::Parsing { parts, .. } => {
-                parts.iter().filter(|part| part.was_parsed()).count()
-            }
-            CommandFormatParseError::UnmatchedInput { parsed_parts, .. } => parsed_parts.len(),
-            CommandFormatParseError::UnmatchedPart(parts) => {
-                parts.iter().filter(|part| part.was_parsed()).count()
-            }
+            CommandFormatParseError::Parsing { parts, .. } => parts,
+            CommandFormatParseError::UnmatchedInput { parts, .. } => parts,
+            CommandFormatParseError::UnmatchedPart(parts) => parts,
         }
     }
 
@@ -873,13 +870,14 @@ impl CommandFormatParseError {
                 build_error_message_for_parts(&parts, &context, Some(error), world)
             }
             CommandFormatParseError::UnmatchedInput {
-                matched_parts,
-                unmatched,
-                ..
+                parts, unmatched, ..
             } => {
-                let matched = matched_parts
+                let matched = parts
                     .into_iter()
-                    .map(|matched_part| matched_part.matched_input)
+                    .filter_map(|part| match part {
+                        ProcessedPart::Matched(m) => Some(m.matched_input),
+                        _ => None,
+                    })
                     .join("");
 
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
@@ -1040,10 +1038,15 @@ impl ParsedCommand {
         }
 
         if !matched_command.remaining_input.is_empty() {
+            let parts = build_processed_parts(
+                matched_command.unmatched_parts,
+                matched_command.matched_parts,
+                &mut parsed_parts_by_index,
+            );
+
             return Err(CommandFormatParseError::UnmatchedInput {
-                matched_parts: matched_command.matched_parts,
+                parts,
                 unmatched: matched_command.remaining_input,
-                parsed_parts: parsed_parts_by_index.into_values().collect(),
             });
         }
 

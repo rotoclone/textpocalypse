@@ -383,9 +383,8 @@ where
         // the input didn't match any parts from any parsers
         //TODO should there be another InputParseError variant for this?
         Err(CommandFormatParseError::UnmatchedInput {
-            matched_parts: Vec::new(),
+            parts: Vec::new(),
             unmatched: input.to_string(),
-            parsed_parts: Vec::new(),
         }
         .into())
     }
