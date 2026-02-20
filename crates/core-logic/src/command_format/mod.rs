@@ -441,7 +441,7 @@ fn build_optional_literal_part(
                 format_description_part_type: CommandFormatDescriptionPartType::Literal(
                     literal_string.clone(),
                 ),
-                if_unparsed: None,
+                if_unparsed: Some(literal_string),
                 include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
                 ..Default::default()
             },
@@ -1331,7 +1331,7 @@ mod tests {
                 CommandFormatPartParams {
                     id: None,
                     options: CommandFormatPartOptions {
-                        if_unparsed: None,
+                        if_unparsed: Some("optional part".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "optional part".to_string()
                         ),
