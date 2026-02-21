@@ -70,6 +70,15 @@ static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("amount")
 });
 
+/*TODO
+> fill bottle from
+Did you mean 'fill bottle' (without ' from')?
+
+> fill bottle
+Fill your water bottle from what?
+
+(I think this might be because the part after the target part includes a trailing space; this also happens with "pour bottle into")
+*/
 static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
         .then(literal_part(" "))
@@ -77,13 +86,29 @@ static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(literal_part(" from "))
         .then(SOURCE_PART.clone())
 });
+/* TODO
+> pour bottle into bottle
+You can't pour you into itself.
+*/
 static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
+        // TODO this doesn't work properly because the space is parsed first and so "all" or "all of" is treated as part of the source part
         .then(one_of_literal_part(nonempty![" ", " all ", " all of "]))
         .then(SOURCE_PART.clone())
         .then(literal_part(" into "))
         .then(TARGET_PART.clone())
 });
+/* TODO
+> pour 0l from bottle into jug
+You can't pour anything from your water bottle into the water jug.
+
+also
+
+> pour 0.005l from bottle into jug
+You pour 0.00L of fluid from your water bottle into the water jug.
+
+(there should probably be a minimum amount you can pour at once, maybe 0.01L)
+*/
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(literal_part(" "))

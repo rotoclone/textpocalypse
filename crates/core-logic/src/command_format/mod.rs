@@ -899,11 +899,13 @@ impl CommandFormatParseError {
                 let matched = parts
                     .into_iter()
                     .filter_map(|part| match part {
+                        ProcessedPart::Unmatched(_) => None,
                         ProcessedPart::Matched(m) => Some(m.matched_input),
-                        _ => None,
+                        ProcessedPart::Parsed(p) => Some(p.matched_part.matched_input),
                     })
                     .join("");
 
+                //TODO this should only be returned if there were no unmatched non-optional parts
                 format!("Did you mean '{matched}' (without '{unmatched}')?")
             }
             CommandFormatParseError::UnmatchedPart(parts) => {

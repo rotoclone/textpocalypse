@@ -121,7 +121,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///
     /// For plain tokens, if the first character of the name of the token is capitalized (for example, `${SomeToken}`), then the first letter of the token's value will have its first character capitalized.
     ///
-    /// Token must be alphanumeric, but can contain underscores.
+    /// Token names must be alphanumeric, but can contain underscores.
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} ${target.you:move/moves} out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."

@@ -36,6 +36,7 @@ static MOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
 
 static MOVE_WITH_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(one_of_literal_part(nonempty!["move", "go"]))
+        //TODO this doesn't work properly, since the space is parsed first and any "to" or "to the" is treated as part of the direction
         .then(one_of_literal_part(nonempty![" ", " to ", " to the "]))
         .then(
             direction_part(DIRECTION_PART_ID, DirectionMatchMode::Anything)
