@@ -10,9 +10,10 @@ use regex::Regex;
 
 use crate::{
     command_format::{
-        any_text_part_with_validator, entity_part_builder, literal_part, one_of_literal_part,
-        validate_parsed_value_has_component, CommandFormat, CommandFormatPart, CommandPartId,
-        CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
+        any_text_part_with_validator, entity_part_builder, literal_part,
+        optional_one_of_literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandFormatPart, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
+        PartValidatorContext,
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
@@ -26,6 +27,9 @@ use crate::{
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
+
+/// The minimum amount of fluid that can be poured at once, in liters.
+const MIN_POUR_AMOUNT_LITERS: f32 = 0.01;
 
 const AMOUNT_CAPTURE: &str = "amount";
 
@@ -70,52 +74,32 @@ static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
         .with_placeholder_for_format_string("amount")
 });
 
-/*TODO
-> fill bottle from
-Did you mean 'fill bottle' (without ' from')?
-
-> fill bottle
-Fill your water bottle from what?
-
-(I think this might be because the part after the target part includes a trailing space; this also happens with "pour bottle into")
-*/
 static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
         .then(literal_part(" "))
         .then(TARGET_PART.clone())
-        .then(literal_part(" from "))
+        .then(literal_part(" from"))
+        .then(literal_part(" "))
         .then(SOURCE_PART.clone())
 });
-/* TODO
-> pour bottle into bottle
-You can't pour you into itself.
-*/
 static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
-        // TODO this doesn't work properly because the space is parsed first and so "all" or "all of" is treated as part of the source part
-        .then(one_of_literal_part(nonempty![" ", " all ", " all of "]))
+        .then(optional_one_of_literal_part(nonempty![" all", " all of"]))
+        .then(literal_part(" "))
         .then(SOURCE_PART.clone())
-        .then(literal_part(" into "))
+        .then(literal_part(" into"))
+        .then(literal_part(" "))
         .then(TARGET_PART.clone())
 });
-/* TODO
-> pour 0l from bottle into jug
-You can't pour anything from your water bottle into the water jug.
-
-also
-
-> pour 0.005l from bottle into jug
-You pour 0.00L of fluid from your water bottle into the water jug.
-
-(there should probably be a minimum amount you can pour at once, maybe 0.01L)
-*/
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(literal_part(" "))
         .then(AMOUNT_PART.clone())
-        .then(literal_part(" from "))
+        .then(literal_part(" from"))
+        .then(literal_part(" "))
         .then(SOURCE_PART.clone())
-        .then(literal_part(" into "))
+        .then(literal_part(" into"))
+        .then(literal_part(" "))
         .then(TARGET_PART.clone())
 });
 
@@ -141,7 +125,7 @@ impl InputParser for FillParser {
         let parsed = FILL_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(SOURCE_PART_ID);
         let target = parsed.get(TARGET_PART_ID);
-        build_action(source, target, PourAmount::All, world)
+        build_action(source_entity, source, target, PourAmount::All, world)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
@@ -178,7 +162,7 @@ impl InputParser for PourAllParser {
         let parsed = POUR_ALL_FORMAT.parse(input, source_entity, world)?;
         let source = parsed.get(SOURCE_PART_ID);
         let target = parsed.get(TARGET_PART_ID);
-        build_action(source, target, PourAmount::All, world)
+        build_action(source_entity, source, target, PourAmount::All, world)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
@@ -213,7 +197,7 @@ impl InputParser for PourParser {
         let target = parsed.get(TARGET_PART_ID);
         let amount = parse_pour_amount(&parsed.get(AMOUNT_PART_ID))
             .map_err(InputParseError::PostFormatParse)?;
-        build_action(source, target, amount, world)
+        build_action(source_entity, source, target, amount, world)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
@@ -242,13 +226,14 @@ impl InputParser for PourParser {
 
 /// Confirms the source and target aren't the same and then builds a `PourAction` from them.
 fn build_action(
+    entering_entity: Entity,
     source: Entity,
     target: Entity,
     amount: PourAmount,
     world: &World,
 ) -> Result<Box<dyn Action>, InputParseError> {
     if source == target {
-        let target_name = Description::get_reference_name(target, Some(target), world);
+        let target_name = Description::get_reference_name(target, Some(entering_entity), world);
         return Err(InputParseError::PostFormatParse(format!(
             "You can't pour {target_name} into itself."
         )));
@@ -274,7 +259,14 @@ fn parse_pour_amount(input: &str) -> Result<PourAmount, String> {
         if let Some(amount_match) = captures.name(AMOUNT_CAPTURE) {
             debug!("parsing amount '{}'", amount_match.as_str());
             match amount_match.as_str().parse::<f32>() {
-                Ok(a) => return Ok(PourAmount::Some(Volume(a))),
+                Ok(amount) => {
+                    if amount < MIN_POUR_AMOUNT_LITERS {
+                        return Err(format!(
+                            "You can't pour less than {MIN_POUR_AMOUNT_LITERS} liters."
+                        ));
+                    }
+                    return Ok(PourAmount::Some(Volume(amount)));
+                }
                 Err(_) => {
                     return Err(format!(
                         "'{}' is an invalid amount to pour.",
@@ -313,6 +305,16 @@ impl Action for PourAction {
             .map(|c| c.contents.get_total_volume())
             .unwrap_or(Volume(0.0));
 
+        let source_name =
+            Description::get_reference_name(self.source, Some(performing_entity), world);
+
+        if amount_in_source <= Volume(0.0) {
+            let message = format!("There's nothing in {source_name} to pour.");
+            return ActionResult::builder()
+                .with_error(performing_entity, message)
+                .build_complete_no_tick(false);
+        }
+
         let target_container = world.get::<FluidContainer>(self.target);
         let amount_in_target = target_container
             .map(|c| c.contents.get_total_volume())
@@ -339,19 +341,6 @@ impl Action for PourAction {
         };
 
         let removed_fluids = remove_fluid(self.source, amount_to_pour, world);
-
-        let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
-        let source_name =
-            Description::get_reference_name(self.source, Some(performing_entity), world);
-        let target_name =
-            Description::get_reference_name(self.target, Some(performing_entity), world);
-        if actual_poured_amount <= Volume(0.0) {
-            let message = format!("You can't pour anything from {source_name} into {target_name}.");
-            return ActionResult::builder()
-                .with_error(performing_entity, message)
-                .build_complete_no_tick(false);
-        }
-
         if let Some(mut target_container) = world.get_mut::<FluidContainer>(self.target) {
             target_container.contents.increase(&removed_fluids);
         }
@@ -363,6 +352,9 @@ impl Action for PourAction {
             "fluid".to_string()
         };
 
+        let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let first_person_message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
 
         ActionResult::builder()
