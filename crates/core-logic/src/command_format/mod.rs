@@ -480,7 +480,6 @@ fn build_one_of_literal_part(
 
 /// Creates a part to maybe consume one of a set of possible literals.
 /// Uses the first literal for the format description.
-#[expect(unused)]
 pub fn optional_one_of_literal_part(literals: NonEmpty<impl Into<String>>) -> CommandFormatPart {
     build_optional_one_of_literal_part(literals, None)
 }
