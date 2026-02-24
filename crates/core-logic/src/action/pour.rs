@@ -78,8 +78,7 @@ static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("fill"))
         .then(literal_part(" "))
         .then(TARGET_PART.clone())
-        .then(literal_part(" from"))
-        .then(literal_part(" "))
+        .then(literal_part(" from "))
         .then(SOURCE_PART.clone())
 });
 static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
@@ -87,19 +86,16 @@ static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(optional_one_of_literal_part(nonempty![" all", " all of"]))
         .then(literal_part(" "))
         .then(SOURCE_PART.clone())
-        .then(literal_part(" into"))
-        .then(literal_part(" "))
+        .then(literal_part(" into "))
         .then(TARGET_PART.clone())
 });
 static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
     CommandFormat::new(literal_part("pour"))
         .then(literal_part(" "))
         .then(AMOUNT_PART.clone())
-        .then(literal_part(" from"))
-        .then(literal_part(" "))
+        .then(literal_part(" from "))
         .then(SOURCE_PART.clone())
-        .then(literal_part(" into"))
-        .then(literal_part(" "))
+        .then(literal_part(" into "))
         .then(TARGET_PART.clone())
 });
 

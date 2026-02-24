@@ -845,6 +845,28 @@ impl ProcessedPart {
         }
     }
 
+    /// Determines if the underlying part is optional or not, i.e. if this returns true, then the part not being matched or parsed is fine.
+    pub fn is_optional(&self) -> bool {
+        let part = match self {
+            ProcessedPart::Unmatched(part) => part,
+            ProcessedPart::Matched(matched) => &matched.part,
+            ProcessedPart::Parsed(parsed) => &parsed.matched_part.part,
+        };
+
+        match part {
+            CommandFormatPart::Literal(_, _) => false,
+            CommandFormatPart::OptionalLiteral(_, _) => true,
+            CommandFormatPart::OneOfLiteral(_, _) => false,
+            CommandFormatPart::OptionalOneOfLiteral(_, _) => true,
+            CommandFormatPart::AnyText(_) => false,
+            CommandFormatPart::OptionalAnyText(_) => true,
+            CommandFormatPart::Entity(_, _) => false,
+            CommandFormatPart::OptionalEntity(_, _) => true,
+            CommandFormatPart::Direction(_, _) => false,
+            CommandFormatPart::OptionalDirection(_, _) => true,
+        }
+    }
+
     /// Gets the options for the original underlying part
     pub fn options(&self) -> &CommandFormatPartOptions {
         match self {
@@ -893,20 +915,26 @@ impl CommandFormatParseError {
             CommandFormatParseError::Parsing { parts, error } => {
                 build_error_message_for_parts(&parts, &context, Some(error), world)
             }
-            CommandFormatParseError::UnmatchedInput {
-                parts, unmatched, ..
-            } => {
-                let matched = parts
-                    .into_iter()
-                    .filter_map(|part| match part {
-                        ProcessedPart::Unmatched(_) => None,
-                        ProcessedPart::Matched(m) => Some(m.matched_input),
-                        ProcessedPart::Parsed(p) => Some(p.matched_part.matched_input),
-                    })
-                    .join("");
+            CommandFormatParseError::UnmatchedInput { parts, unmatched } => {
+                if parts
+                    .iter()
+                    .any(|part| !part.was_parsed() && !part.is_optional())
+                {
+                    // at least one required part wasn't parsed successfully
+                    build_error_message_for_parts(&parts, &context, None, world)
+                } else {
+                    // all required parts were parsed successfully, so there must just be some extra input at the end of the command
+                    let matched = parts
+                        .into_iter()
+                        .filter_map(|part| match part {
+                            ProcessedPart::Unmatched(_) => None,
+                            ProcessedPart::Matched(m) => Some(m.matched_input),
+                            ProcessedPart::Parsed(p) => Some(p.matched_part.matched_input),
+                        })
+                        .join("");
 
-                //TODO this should only be returned if there were no unmatched non-optional parts
-                format!("Did you mean '{matched}' (without '{unmatched}')?")
+                    format!("Did you mean '{matched}' (without '{unmatched}')?")
+                }
             }
             CommandFormatParseError::UnmatchedPart(parts) => {
                 build_error_message_for_parts(&parts, &context, None, world)
