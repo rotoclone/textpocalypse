@@ -60,7 +60,8 @@ pub enum CommandPartParseError {
     Unparseable { details: Option<String> },
     /// The parsed value failed validation
     Invalid(CommandPartValidateError),
-    /// A prerequisite part of this part was not matched
+    /// A prerequisite part of this part was not matched.
+    /// Contains the ID of the unmatched prerequisite part.
     PrerequisiteUnmatched(UntypedCommandPartId),
 }
 

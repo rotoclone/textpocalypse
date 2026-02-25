@@ -992,7 +992,7 @@ fn build_error_message_for_parts(
             match e {
                 CommandPartParseError::Unparseable { details } => details,
                 CommandPartParseError::Invalid(error) => error.details,
-                CommandPartParseError::PrerequisiteUnmatched(_) => None, //TODO somehow find the part that was unmatched and turn it into an error to display?
+                CommandPartParseError::PrerequisiteUnmatched(_) => None,
             }
             .map(|message| format!(" ({message})"))
             .unwrap_or_default()
@@ -1307,7 +1307,7 @@ mod tests {
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "first part".to_string()
                         ),
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        include_in_errors_behavior: IncludeInErrorsBehavior::Always,
                         error_string_override: None,
                         prerequisite_part_ids: Vec::new(),
                     },
@@ -1320,7 +1320,7 @@ mod tests {
                     options: CommandFormatPartOptions {
                         if_unparsed: Some("what".to_string()),
                         format_description_part_type: CommandFormatDescriptionPartType::Nothing,
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        include_in_errors_behavior: IncludeInErrorsBehavior::Always,
                         error_string_override: None,
                         prerequisite_part_ids: Vec::new(),
                     },
@@ -1337,7 +1337,7 @@ mod tests {
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "third part".to_string()
                         ),
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        include_in_errors_behavior: IncludeInErrorsBehavior::Always,
                         error_string_override: None,
                         prerequisite_part_ids: Vec::new(),
                     },
@@ -1349,7 +1349,7 @@ mod tests {
                 options: CommandFormatPartOptions {
                     if_unparsed: None,
                     format_description_part_type: CommandFormatDescriptionPartType::Nothing,
-                    include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                    include_in_errors_behavior: IncludeInErrorsBehavior::Always,
                     error_string_override: None,
                     prerequisite_part_ids: Vec::new(),
                 },
@@ -1380,7 +1380,7 @@ mod tests {
                         format_description_part_type: CommandFormatDescriptionPartType::Literal(
                             "option 1".to_string()
                         ),
-                        include_in_errors_behavior: IncludeInErrorsBehavior::OnlyIfMatched,
+                        include_in_errors_behavior: IncludeInErrorsBehavior::Always,
                         error_string_override: None,
                         prerequisite_part_ids: Vec::new(),
                     },
@@ -1400,6 +1400,4 @@ mod tests {
             .then(literal_part("third part"))
             .then(any_text_part(CommandPartId::new("somePartId")));
     }
-
-    //TODO more tests
 }

@@ -117,7 +117,6 @@ impl MatchedCommand {
                 CommandPartMatchResult::Failure { remaining, .. } => {
                     let unmatched_parts =
                         format.0.iter().skip(matched_parts.len()).cloned().collect();
-                    // TODO is is ok to throw away the matching error? will it be needed later for building an error message?
                     return MatchedCommand {
                         matched_parts,
                         unmatched_parts,
