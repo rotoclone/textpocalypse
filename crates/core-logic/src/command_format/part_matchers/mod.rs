@@ -170,7 +170,9 @@ pub fn take_until_literal_if_next(context: PartMatcherContext) -> (String, Strin
     }
     let mut best_match: Option<(String, String)> = None;
 
-    //TODO this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and ("thing from", "") will be returned, but in that case it should probably return ("thing", " from")
+    // this requires fully matching the permutations, so if it's looking for " from " then "thing from" (no trailing space) won't match anything and
+    // ("thing from", "") would be returned, except the `find_best_partial_match` call below will ensure ("thing", " from") is actually what gets
+    // returned, which is more correct
     for permutation in &permutations {
         let (taken, remaining) = take_until(&context.input, Some(permutation));
         // if `remaining` is empty that means the permutation wasn't in the input, so without this check if the permutation is never found `best_match` will be `Some` and the partial match fallback will never be hit
@@ -326,7 +328,9 @@ pub fn match_result_to_option(match_result: CommandPartMatchResult) -> CommandPa
 
 #[cfg(test)]
 mod tests {
-    use crate::command_format::{entity_part, literal_part, one_of_literal_part, CommandPartId};
+    use crate::command_format::{
+        entity_part, literal_part, one_of_literal_part, optional_literal_part, CommandPartId,
+    };
 
     use super::*;
 
@@ -741,6 +745,38 @@ mod tests {
         );
 
         assert_eq!(
+            ("why ".to_string(), "hello there hello there".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello there hello there".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello th".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello th".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello th".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello th".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why hello thar".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello thar".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
             ("why hello goodbye".to_string(), "".to_string()),
             take_until_literal_if_next(PartMatcherContext {
                 input: "why hello goodbye".to_string(),
@@ -877,11 +913,341 @@ mod tests {
 
     #[test]
     fn take_until_literal_if_next_single_optional_literal_part_next() {
-        //TODO
+        let next_part = optional_literal_part("hello");
+        let next_parts = vec![&next_part];
+
+        assert_eq!(
+            ("".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hi".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hi".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "he".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "he".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "he".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why he".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why he do dat".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why he do dat".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello there".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello there".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello hello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello hello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hellohello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hellohello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello hello there".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello hello there".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
     }
 
     #[test]
     fn take_until_literal_if_next_multiple_assorted_literal_parts_next() {
-        //TODO
+        /*
+          Matching inputs:
+          * hello stuff
+          * goodbye stuff
+          * hello and stuff
+          * goodbye and stuff
+          * hello some stuff
+          * goodbye some stuff
+          * hello and some stuff
+          * goodbye and some stuff
+        */
+        let part_1 = one_of_literal_part(nonempty!["hello", "goodbye"]);
+        let part_2 = optional_literal_part(" and");
+        let part_3 = literal_part(" ");
+        let part_4 = optional_literal_part("some ");
+        let part_5 = literal_part("stuff");
+        let next_parts = vec![&part_1, &part_2, &part_3, &part_4, &part_5];
+
+        assert_eq!(
+            ("".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hi".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hi".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "he".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "he".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "goodbye stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello and stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "goodbye and stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello some stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello some stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "goodbye some stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye some stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello and some stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and some stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "goodbye and some stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye and some stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hello and some other stuff".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and some other stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("goodbye and some other stuff".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye and some other stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hello and some ".to_string(), "hello and stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and some hello and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            (
+                "goodbye and some ".to_string(),
+                "hello and stuff".to_string()
+            ),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "goodbye and some hello and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hello ".to_string(), "hello and stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello hello and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("hello ".to_string(), "goodbye and stuff".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello goodbye and stuff".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello and some".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and some".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("".to_string(), "hello and some ".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "hello and some ".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello and some".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello and some".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("why ".to_string(), "hello and some ".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "why hello and some ".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+    }
+
+    #[test]
+    fn take_until_literal_if_next_literal_part_has_trailing_space() {
+        let next_part = literal_part(" from ");
+        let next_parts = vec![&next_part];
+
+        assert_eq!(
+            ("".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("thing".to_string(), " from".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "thing from".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("thing".to_string(), " from ".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "thing from ".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
+
+        assert_eq!(
+            ("thing fromage".to_string(), "".to_string()),
+            take_until_literal_if_next(PartMatcherContext {
+                input: "thing fromage".to_string(),
+                next_parts: next_parts.clone(),
+            })
+        );
     }
 }
