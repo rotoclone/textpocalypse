@@ -28,7 +28,7 @@ pub async fn start_server(mut game: Game) -> Result<()> {
 
         info!("Player {player_id} has connected");
 
-        let (command_sender, message_receiver) = game.add_player(format!("Player {player_id}"));
+        let (_, command_sender, message_receiver) = game.add_player(format!("Player {player_id}"));
 
         let (mut sink, mut stream) = LinesCodec::new().framed(socket).split::<String>();
 

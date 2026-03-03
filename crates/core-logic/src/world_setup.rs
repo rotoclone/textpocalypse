@@ -873,7 +873,7 @@ pub fn spawn_start_building(
 }
 
 /// Spawns the provided room at the provided coordinates.
-fn spawn_room(room: Room, coords: Coordinates, world: &mut World) -> Entity {
+pub fn spawn_room(room: Room, coords: Coordinates, world: &mut World) -> Entity {
     let room_id = world
         .spawn((room, Container::new_infinite(), coords.clone()))
         .id();

@@ -1,17 +1,18 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{
+        entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+    },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
         WornItems,
     },
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     resource::BodyPartTypeNameCatalog,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -21,12 +22,20 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const WEAR_VERB_NAME: &str = "wear";
-const WEAR_FORMAT: &str = "wear <>";
-const NAME_CAPTURE: &str = "name";
-
-static WEAR_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(wear|put on) (the )?(?P<name>.*)").unwrap());
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static WEAR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_literal_part(nonempty!["wear", "put on"]))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Wearable>(context, "wear", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("wearable item"),
+        )
+});
 
 pub struct WearParser;
 
@@ -37,54 +46,27 @@ impl InputParser for WearParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = WEAR_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if world.get::<Wearable>(target_entity).is_some() {
-                        // target exists and is wearable
-                        return Ok(Box::new(WearAction {
-                            target: target_entity,
-                            notification_sender: ActionNotificationSender::new(),
-                        }));
-                    } else {
-                        // target isn't wearable
-                        let target_name = Description::get_reference_name(
-                            target_entity,
-                            Some(source_entity),
-                            world,
-                        );
-                        return Err(InputParseError::CommandParseError {
-                            verb: WEAR_VERB_NAME.to_string(),
-                            error: CommandParseError::Other(format!(
-                                "You can't wear {target_name}."
-                            )),
-                        });
-                    }
-                } else {
-                    // target doesn't exist
-                    return Err(InputParseError::CommandParseError {
-                        verb: WEAR_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(target),
-                    });
-                }
-            }
-        }
-
-        Err(InputParseError::UnknownCommand)
+        let parsed = WEAR_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(WearAction {
+            target: parsed.get(TARGET_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![WEAR_FORMAT.to_string()]
+        vec![WEAR_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Wearable>(entity, world, &[WEAR_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<Wearable>(
+            entity,
+            world,
+            &[WEAR_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
     }
 }
 

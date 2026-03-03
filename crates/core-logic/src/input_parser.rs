@@ -1,13 +1,16 @@
 use std::{collections::HashSet, fmt::Display, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use log::debug;
 use regex::Regex;
 
 use crate::{
     action::Action,
-    component::{Container, CustomInputParser, Location},
-    Direction, StandardInputParsers,
+    command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
+    component::{Container, CustomInputParser, Location, PortionMatched},
+    found_entities::{FoundEntities, FoundEntitiesInContainer},
+    Direction, GameMessage, StandardInputParsers,
 };
 
 static SELF_TARGET_PATTERN: LazyLock<Regex> =
@@ -48,7 +51,11 @@ pub fn find_parsers_relevant_for(
 }
 
 /// Finds all the entities the provided entity can currently directly interact with.
-fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity> {
+///
+/// Entities in `entity`'s inventory will appear first, then entities in `entity`'s location, then the location itself.
+/// Within those groupings the entities will be sorted in their natural order for consistency.
+/// TODO this is used to find valid entities to target for commands, so how will it work for a command like "get thing from box"?
+pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity> {
     let location_id = world
         .get::<Location>(entity)
         .expect("Entity should have a location")
@@ -59,25 +66,32 @@ fn find_entities_in_presence_of(entity: Entity, world: &World) -> HashSet<Entity
         .get::<Container>(location_id)
         .expect("Entity's location should be a container");
 
-    let mut entities = location.get_entities(entity, world).clone();
+    let location_entities = location.get_entities(entity, world);
 
     // include entities in the provided entity's inventory
-    if let Some(inventory) = world.get::<Container>(entity) {
-        entities.extend(inventory.get_entities(entity, world).clone());
-    }
+    let inventory_entities = if let Some(inventory) = world.get::<Container>(entity) {
+        inventory.get_entities(entity, world)
+    } else {
+        HashSet::new()
+    };
+
+    let mut entities = Vec::with_capacity(inventory_entities.len() + location_entities.len() + 1);
+    entities.extend(inventory_entities.iter().sorted());
+    entities.extend(location_entities.iter().sorted());
+    entities.push(location_id);
 
     entities
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum CommandTarget {
+pub enum CommandTarget<'n> {
     Myself,
     Here,
     Direction(Direction),
-    Named(CommandTargetName),
+    Named(CommandTargetName<'n>),
 }
 
-impl Display for CommandTarget {
+impl<'n> Display for CommandTarget<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CommandTarget::Myself => "me".fmt(f),
@@ -88,7 +102,7 @@ impl Display for CommandTarget {
     }
 }
 
-impl CommandTarget {
+impl<'n> CommandTarget<'n> {
     /// Parses the provided string to a `CommandTarget`.
     pub fn parse(input: &str) -> CommandTarget {
         if SELF_TARGET_PATTERN.is_match(input) {
@@ -104,23 +118,45 @@ impl CommandTarget {
         }
 
         CommandTarget::Named(CommandTargetName {
-            name: input.to_lowercase(),
+            name: input,
             location_chain: Vec::new(), //TODO populate this
         })
     }
 
-    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
+    /// Finds the entity best described by this target, if it exists from the perspective of the looking entity.
     pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+        let potential_targets = self.find_target_entities(looking_entity, world);
+
+        potential_targets
+            .exact_matches
+            .first()
+            .copied()
+            .or_else(|| {
+                potential_targets
+                    .partial_matches
+                    .iter()
+                    .sorted()
+                    .max()
+                    .map(|best_partial_match| best_partial_match.entity)
+            })
+    }
+
+    /// Finds all the possible entities described by this target, if any exist from the perspective of the looking entity.
+    pub fn find_target_entities(
+        &self,
+        looking_entity: Entity,
+        world: &World,
+    ) -> FoundEntities<PortionMatched> {
         debug!("Finding {self:?} from the perspective of {looking_entity:?}");
 
         match self {
-            CommandTarget::Myself => Some(looking_entity),
+            CommandTarget::Myself => FoundEntities::new_single_exact(looking_entity),
             CommandTarget::Here => {
                 let location_id = world
                     .get::<Location>(looking_entity)
                     .expect("Looking entity should have a location")
                     .id;
-                Some(location_id)
+                FoundEntities::new_single_exact(location_id)
             }
             CommandTarget::Direction(dir) => {
                 let location_id = world
@@ -133,44 +169,52 @@ impl CommandTarget {
                 if let Some((connecting_entity, _)) =
                     container.get_connection_in_direction(dir, looking_entity, world)
                 {
-                    Some(connecting_entity)
+                    FoundEntities::new_single_exact(connecting_entity)
                 } else {
-                    None
+                    FoundEntities::new()
                 }
             }
             CommandTarget::Named(target_name) => {
-                target_name.find_target_entity(looking_entity, world)
+                target_name.find_target_entities(looking_entity, world)
             }
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CommandTargetName {
-    pub name: String,
+pub struct CommandTargetName<'n> {
+    pub name: &'n str,
+    //TODO actually this should be restricted probably, since multiply-nested containers is annoying to deal with
+    //TODO or just remove altogether?
     pub location_chain: Vec<String>,
 }
 
-impl Display for CommandTargetName {
+impl<'n> Display for CommandTargetName<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO include location chain
         self.name.fmt(f)
     }
 }
 
-impl CommandTargetName {
-    /// Finds the entity described by this target, if it exists from the perspective of the looking entity.
-    pub fn find_target_entity(&self, looking_entity: Entity, world: &World) -> Option<Entity> {
+impl<'n> CommandTargetName<'n> {
+    /// Finds all the entities described by this target, if any exist from the perspective of the looking entity.
+    pub fn find_target_entities(
+        &self,
+        looking_entity: Entity,
+        world: &World,
+    ) -> FoundEntities<PortionMatched> {
         //TODO take location chain into account
+
+        let mut found_entities = FoundEntities::new();
 
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first
         if let Some(container) = world.get::<Container>(looking_entity) {
-            if let Some(found_entity) =
-                container.find_entity_by_name(&self.name, looking_entity, world)
-            {
-                return Some(found_entity);
-            }
+            found_entities.extend(container.find_entities_by_name(
+                self.name,
+                looking_entity,
+                world,
+            ));
         }
 
         // search the looking entity's location
@@ -181,51 +225,32 @@ impl CommandTargetName {
         let location = world
             .get::<Container>(location_id)
             .expect("Looking entity's location should be a container");
-        location.find_entity_by_name(&self.name, looking_entity, world)
+        found_entities.extend(location.find_entities_by_name(self.name, looking_entity, world));
+
+        found_entities
     }
 
-    /// Finds the entity described by this target, if it exists in the provided container.
-    pub fn find_target_entity_in_container(
+    /// Finds all the entities described by this target, if any exist in the provided container.
+    pub fn find_target_entities_in_container(
         &self,
         containing_entity: Entity,
         looking_entity: Entity,
         world: &World,
-    ) -> Option<Entity> {
+    ) -> FoundEntitiesInContainer<PortionMatched> {
         //TODO take location chain into account
 
         if let Some(container) = world.get::<Container>(containing_entity) {
-            if let Some(found_entity) =
-                container.find_entity_by_name(&self.name, looking_entity, world)
-            {
-                return Some(found_entity);
-            }
+            return FoundEntitiesInContainer {
+                found_entities: container.find_entities_by_name(self.name, looking_entity, world),
+                searched_container: Some(containing_entity),
+            };
         }
 
-        None
+        FoundEntitiesInContainer {
+            found_entities: FoundEntities::new(),
+            searched_container: None,
+        }
     }
-}
-
-/// An error while parsing input.
-pub enum InputParseError {
-    /// The input did not correspond to any command.
-    UnknownCommand,
-    /// The input was not valid for the matched command.
-    CommandParseError {
-        /// The name of the verb corresponding to the command.
-        verb: String,
-        /// The error that occurred when parsing the input as the command.
-        error: CommandParseError,
-    },
-}
-
-/// An error while parsing input into a specific command.
-pub enum CommandParseError {
-    /// A required target was not provided.
-    MissingTarget,
-    /// A provided target is not in the presence of the entity that provided the input.
-    TargetNotFound(CommandTarget),
-    /// Something else is wrong with a custom message.
-    Other(String),
 }
 
 pub trait InputParser: Send + Sync {
@@ -240,31 +265,62 @@ pub trait InputParser: Send + Sync {
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser.
     /// Targets in the provided formats are denoted with "<>".
+    /// TODO have this return a Vec<Vec<FormatStringPart>> or Vec<InputFormatDescription> or something
     fn get_input_formats(&self) -> Vec<String>;
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser if the provided entity was included as a target by the POV entity.
     /// Targets in the provided formats are denoted with "<>".
     ///
     /// For example, if this parser returns actions that act on entities with a `Location` component, then passing in an entity with that
-    /// component might produce an output of `Some(["move <> to <>"])`, whereas passing in an entity without that component would produce `None`.
+    /// component might produce an output of `Some(["move <thing> to <place>"])`, whereas passing in an entity without that component would produce `None`.
+    //// TODO have this return a Vec<Vec<FormatStringPart>> or Vec<InputFormatDescription> or something
     fn get_input_formats_for(
         &self,
         entity: Entity,
         pov_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>>;
+    ) -> Vec<String>;
+}
+
+/// An error while processing input from a player.
+#[expect(clippy::enum_variant_names)]
+#[derive(Debug)]
+pub enum InputParseError {
+    /// An error occurred while parsing the input against the command format
+    DuringFormatParse(CommandFormatParseError),
+    /// An error occurred before attempting to parse the command format
+    PreFormatParse(String),
+    /// An error occurred while transforming the parsed command format into an action
+    PostFormatParse(String),
+}
+
+impl From<CommandFormatParseError> for InputParseError {
+    fn from(value: CommandFormatParseError) -> Self {
+        InputParseError::DuringFormatParse(value)
+    }
+}
+
+impl InputParseError {
+    /// Turns the error into a message to send to the entering entity describing what went wrong.
+    pub fn into_message(self, context: PartParserContext, world: &World) -> GameMessage {
+        match self {
+            InputParseError::DuringFormatParse(e) => e.into_message(context, world),
+            InputParseError::PreFormatParse(s) => GameMessage::Error(s),
+            InputParseError::PostFormatParse(s) => GameMessage::Error(s),
+        }
+    }
 }
 
 pub fn input_formats_if_has_component<C: Component>(
     entity: Entity,
     world: &World,
-    formats: &[&str],
-) -> Option<Vec<String>> {
+    formats: &[CommandFormatDescription],
+) -> Vec<String> {
     if world.get::<C>(entity).is_some() {
-        return Some(formats.iter().map(|s| s.to_string()).collect());
+        return formats.iter().map(|s| s.to_string()).collect();
     }
 
-    None
+    Vec::new()
 }
 
 fn parse_input_with<'a, I>(
@@ -284,12 +340,52 @@ where
         }
     }
 
-    for error in errors {
+    let mut errors_with_matched_parts: Vec<InputParseError> = errors
+        .into_iter()
+        .filter(|e| match e {
+            InputParseError::DuringFormatParse(e) => e.num_parts_matched() > 0,
+            InputParseError::PreFormatParse(_) => false,
+            InputParseError::PostFormatParse(_) => true,
+        })
+        .collect();
+
+    if errors_with_matched_parts.len() == 1 {
+        // unwrap is safe because length is checked above
+        return Err(errors_with_matched_parts.pop().unwrap());
+    }
+
+    // there's more than one error with matched parts, so check parsed parts to see which one is most likely the intended command
+    let mut best_match_and_num_parsed = None;
+    for error in errors_with_matched_parts {
         match error {
-            InputParseError::UnknownCommand => (),
-            InputParseError::CommandParseError { .. } => return Err(error),
+            InputParseError::DuringFormatParse(ref e) => {
+                let num_parsed = e.num_parts_parsed();
+                if let Some((_, best_num_parsed)) = best_match_and_num_parsed {
+                    if num_parsed > best_num_parsed {
+                        best_match_and_num_parsed = Some((error, num_parsed));
+                    }
+                } else {
+                    best_match_and_num_parsed = Some((error, num_parsed));
+                }
+            }
+            //TODO this feels gross
+            InputParseError::PreFormatParse(_) => {
+                unreachable!("pre-parse errors should be filtered out")
+            }
+            // This variant should only appear for fully parsed formats, so no need to continue checking others
+            InputParseError::PostFormatParse(_) => return Err(error),
         }
     }
 
-    Err(InputParseError::UnknownCommand)
+    if let Some((error, _)) = best_match_and_num_parsed {
+        Err(error)
+    } else {
+        // the input didn't match any parts from any parsers
+        //TODO should there be another InputParseError variant for this?
+        Err(CommandFormatParseError::UnmatchedInput {
+            parts: Vec::new(),
+            unmatched: input.to_string(),
+        }
+        .into())
+    }
 }

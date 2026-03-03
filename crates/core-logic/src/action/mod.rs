@@ -22,6 +22,7 @@ pub use r#move::MoveAction;
 pub use r#move::MoveParser;
 
 mod open;
+pub use open::CloseParser;
 pub use open::OpenAction;
 pub use open::OpenParser;
 
@@ -30,11 +31,15 @@ pub use help::HelpParser;
 
 mod wait;
 pub use wait::WaitParser;
+pub use wait::WaitWithDurationParser;
 
 mod inventory;
 pub use inventory::InventoryParser;
 
 mod put;
+pub use put::DropParser;
+pub use put::GetFromParser;
+pub use put::GetParser;
 pub use put::PutAction;
 pub use put::PutParser;
 
@@ -44,7 +49,9 @@ pub use throw::ThrowAction;
 pub use throw::ThrowParser;
 
 mod pour;
+pub use pour::FillParser;
 pub use pour::PourAction;
+pub use pour::PourAllParser;
 pub use pour::PourAmount;
 pub use pour::PourParser;
 
@@ -81,6 +88,7 @@ pub use sleep::SleepParser;
 mod say;
 pub use say::SayAction;
 pub use say::SayParser;
+pub use say::SayWithoutVerbParser;
 
 mod stop;
 #[expect(unused)]
@@ -112,21 +120,18 @@ pub use ranges::RangesAction;
 pub use ranges::RangesParser;
 
 mod spend_advacement_point;
-pub use spend_advacement_point::SpendAdvancementPointParser;
 #[expect(unused)]
 pub use spend_advacement_point::SpendAttributePointAction;
+pub use spend_advacement_point::SpendAttributePointParser;
 #[expect(unused)]
 pub use spend_advacement_point::SpendSkillPointAction;
+pub use spend_advacement_point::SpendSkillPointParser;
 
 mod cheat;
 pub use cheat::CheatParser;
 
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
-    VerifyNotificationHandlers::add_handler(
-        put::verify_source_and_destination_are_containers,
-        world,
-    );
     VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
     VerifyNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
     VerifyNotificationHandlers::add_handler(
@@ -138,11 +143,11 @@ pub fn register_action_handlers(world: &mut World) {
         world,
     );
     VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
-    VerifyNotificationHandlers::add_handler(put::prevent_put_non_item, world);
 
     NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
     VerifyNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
+    VerifyNotificationHandlers::add_handler(throw::verify_strong_enough_to_throw_item, world);
 
     NotificationHandlers::add_handler(r#move::look_after_move, world);
 

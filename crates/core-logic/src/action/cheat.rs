@@ -1,11 +1,11 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
+    command_format::{any_text_part, literal_part, CommandFormat, CommandPartId},
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{CommandParseError, InputParseError, InputParser},
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
@@ -16,51 +16,45 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const CHEAT_VERB_NAME: &str = "cheat";
-const CHEAT_FORMAT: &str = "%<>% <>";
-const COMMAND_CAPTURE: &str = "command";
-const ARGS_CAPTURE: &str = "args";
+static COMMAND_PART_ID: CommandPartId<String> = CommandPartId::new("command");
+static ARGS_PART_ID: CommandPartId<String> = CommandPartId::new("args");
 
-static CHEAT_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^%(?P<command>.*)%( (?P<args>.*))?").unwrap());
+static CHEAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("%"))
+        .then(any_text_part(COMMAND_PART_ID).with_placeholder_for_format_string("command"))
+        .then(literal_part("% "))
+        .then(any_text_part(ARGS_PART_ID).with_placeholder_for_format_string("args"))
+});
 
 pub struct CheatParser;
 
 impl InputParser for CheatParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = CHEAT_PATTERN.captures(input) {
-            if let Some(command_match) = captures.name(COMMAND_CAPTURE) {
-                return Ok(Box::new(CheatAction {
-                    command: command_match.as_str().to_string(),
-                    args: captures
-                        .name(ARGS_CAPTURE)
-                        .map(|args_match| {
-                            args_match
-                                .as_str()
-                                .split(",")
-                                .map(|s| s.to_string())
-                                .collect::<Vec<String>>()
-                        })
-                        .unwrap_or_default(),
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: CHEAT_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        }
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = CHEAT_FORMAT.parse(input, source_entity, world)?;
+        let args = parsed
+            .get(ARGS_PART_ID)
+            .split(",")
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(CheatAction {
+            command: parsed.get(COMMAND_PART_ID),
+            args,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![CHEAT_FORMAT.to_string()]
+        vec![CHEAT_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

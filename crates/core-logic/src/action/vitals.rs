@@ -1,9 +1,10 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{one_of_literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, Vitals},
     input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
@@ -13,29 +14,31 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const VITALS_FORMAT: &str = "vitals";
-
-static VITALS_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(v|vi|vitals)$").unwrap());
+static VITALS_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(one_of_literal_part(nonempty!["vitals", "vi", "v"])));
 
 pub struct VitalsParser;
 
 impl InputParser for VitalsParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if VITALS_PATTERN.is_match(input) {
-            return Ok(Box::new(VitalsAction {
-                notification_sender: ActionNotificationSender::new(),
-            }));
-        }
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        VITALS_FORMAT.parse(input, source_entity, world)?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(VitalsAction {
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![VITALS_FORMAT.to_string()]
+        vec![VITALS_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

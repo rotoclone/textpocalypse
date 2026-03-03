@@ -46,6 +46,7 @@ async fn main() -> Result<()> {
 
     let game = Game::new(GameOptions {
         afk_timeout: Some(AFK_TIMEOUT),
+        skip_worldgen: false,
     });
 
     if SERVER_MODE {
@@ -56,7 +57,7 @@ async fn main() -> Result<()> {
 }
 
 fn setup_local(mut game: Game) -> Result<()> {
-    let (commands_sender, messages_receiver) = game.add_player("Player".to_string());
+    let (_, commands_sender, messages_receiver) = game.add_player("Player".to_string());
 
     let quitting = Arc::new(AtomicBool::new(false));
     let quitting_for_thread = Arc::clone(&quitting);

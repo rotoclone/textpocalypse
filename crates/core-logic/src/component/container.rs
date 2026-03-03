@@ -4,7 +4,9 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
+    component::{description::PortionMatched, Matchness},
     find_wearing_entity,
+    found_entities::{FoundEntities, PartialMatchingEntity},
     notification::{Notification, VerifyResult},
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
@@ -42,6 +44,22 @@ impl Container {
             volume,
             max_weight,
         }
+    }
+
+    /// Determines if `containing_entity` contains `contained_entity` from the perspective of `pov_entity`.
+    pub fn contains(
+        containing_entity: Entity,
+        contained_entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> bool {
+        world
+            .get::<Container>(containing_entity)
+            .map(|c| {
+                c.get_entities(pov_entity, world)
+                    .contains(&contained_entity)
+            })
+            .unwrap_or(false)
     }
 
     /// Gets all the entities in this container, from the perspective of the provided entity.
@@ -87,22 +105,32 @@ impl Container {
             .collect()
     }
 
-    /// Finds the entity with the provided name, if it exists in this container from the perspective of the provided entity.
-    pub fn find_entity_by_name(
+    /// Finds the entities with the provided name, if any exist in this container from the perspective of the provided entity.
+    pub fn find_entities_by_name(
         &self,
         entity_name: &str,
         pov_entity: Entity,
         world: &World,
-    ) -> Option<Entity> {
-        for entity_id in &self.get_entities(pov_entity, world) {
-            if let Some(desc) = world.get::<Description>(*entity_id) {
-                if desc.matches(entity_name) {
-                    return Some(*entity_id);
+    ) -> FoundEntities<PortionMatched> {
+        let mut found_entities = FoundEntities::new();
+        for entity in self.get_entities(pov_entity, world) {
+            match world
+                .get::<Description>(entity)
+                .map(|desc| desc.matches(entity_name))
+                .unwrap_or(Matchness::None)
+            {
+                Matchness::Exact => found_entities.exact_matches.push(entity),
+                Matchness::Partial(portion_matched) => {
+                    found_entities.partial_matches.push(PartialMatchingEntity {
+                        entity,
+                        match_info: portion_matched,
+                    })
                 }
+                Matchness::None => (),
             }
         }
 
-        None
+        found_entities
     }
 
     /// Determines if the provided entity is inside this container, or inside any container in this container, etc.

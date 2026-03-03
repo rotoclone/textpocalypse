@@ -321,7 +321,7 @@ pub struct WeaponMessages {
 }
 
 /// Tokens used in weapon messages for hits.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WeaponHitMessageTokens {
     /// The attacking entity
     pub attacker: Entity,
@@ -334,7 +334,7 @@ pub struct WeaponHitMessageTokens {
 }
 
 /// Tokens used in weapon messages for misses.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WeaponMissMessageTokens {
     /// The attacking entity
     pub attacker: Entity,

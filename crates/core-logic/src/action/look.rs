@@ -1,38 +1,55 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
     can_receive_messages,
+    command_format::{entity_part, one_of_literal_part, optional_literal_part},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
         Room,
     },
     game_map::Coordinates,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, CommandTarget, InputParseError, InputParser},
+    literal_part,
     notification::VerifyResult,
-    ActionTag, BeforeActionNotification, DetailedEntityDescription, EntityDescription, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, RoomDescription,
-    VerifyActionNotification, World,
+    ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
+    EntityDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
+    RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const LOOK_VERB_NAME: &str = "look";
-const DETAILED_LOOK_VERB_NAME: &str = "examine";
-const LOOK_FORMAT: &str = "look <>";
-const DETAILED_LOOK_FORMAT: &str = "examine <>";
-const LOOK_TARGET_CAPTURE: &str = "target";
+static LOOK_NO_TARGET_FORMAT: LazyLock<CommandFormat> =
+    LazyLock::new(|| CommandFormat::new(one_of_literal_part(nonempty!["look", "l",])));
 
-static LOOK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(l|look)($|( (at )?(the )?(?P<target>.*)))").unwrap());
-static DETAILED_LOOK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(x|ex|examine)($|( (the )?(?P<target>.*)))").unwrap());
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static LOOK_WITH_TARGET_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(
+        one_of_literal_part(nonempty!["look", "l",]).with_error_string_override("look"),
+    )
+    .then(literal_part(" "))
+    .then(optional_literal_part("at ").always_include_in_errors())
+    .then(
+        entity_part(TARGET_PART_ID)
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("thing/direction"),
+    )
+});
+static DETAILED_LOOK_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(
+        one_of_literal_part(nonempty!["examine", "ex", "x",]).with_error_string_override("examine"),
+    )
+    .then(literal_part(" "))
+    .then(
+        entity_part(TARGET_PART_ID)
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("thing/direction"),
+    )
+});
 
+//TODO split into multiple parsers for different formats
 pub struct LookParser;
 
 impl InputParser for LookParser {
@@ -42,58 +59,71 @@ impl InputParser for LookParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let (captures, verb_name, detailed) = if let Some(captures) = LOOK_PATTERN.captures(input) {
-            (captures, LOOK_VERB_NAME, false)
-        } else if let Some(captures) = DETAILED_LOOK_PATTERN.captures(input) {
-            (captures, DETAILED_LOOK_VERB_NAME, true)
-        } else {
-            return Err(InputParseError::UnknownCommand);
-        };
+        if LOOK_NO_TARGET_FORMAT
+            .parse(input, source_entity, world)
+            .is_ok()
+        {
+            let here = match CommandTarget::Here.find_target_entity(source_entity, world) {
+                Some(e) => e,
+                None => {
+                    return Err(InputParseError::PostFormatParse(
+                        "There's nothing to see.".to_string(),
+                    ));
+                }
+            };
 
-        if let Some(target_match) = captures.name(LOOK_TARGET_CAPTURE) {
-            // looking at something specific
-            let target = CommandTarget::parse(target_match.as_str());
-            if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                // looking at something they can see
-                return Ok(Box::new(LookAction {
-                    target: target_entity,
-                    detailed,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(target),
-                });
-            }
-        } else {
-            // just looking in general
-            if let Some(target) = CommandTarget::Here.find_target_entity(source_entity, world) {
-                return Ok(Box::new(LookAction {
-                    target,
-                    detailed,
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            }
+            return Ok(Box::new(LookAction {
+                target: here,
+                detailed: false,
+                notification_sender: ActionNotificationSender::new(),
+            }));
         }
 
-        Err(InputParseError::UnknownCommand)
+        match LOOK_WITH_TARGET_FORMAT.parse(input, source_entity, world) {
+            Ok(p) => {
+                let target = p.get(TARGET_PART_ID);
+
+                return Ok(Box::new(LookAction {
+                    target,
+                    detailed: false,
+                    notification_sender: ActionNotificationSender::new(),
+                }));
+            }
+            Err(e) => {
+                if e.num_parts_matched() > 0 {
+                    return Err(e.into());
+                }
+            }
+        };
+
+        let parsed = DETAILED_LOOK_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(LookAction {
+            target: parsed.get(TARGET_PART_ID),
+            detailed: true,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![LOOK_FORMAT.to_string(), DETAILED_LOOK_FORMAT.to_string()]
+        vec![
+            LOOK_NO_TARGET_FORMAT.get_format_description().to_string(),
+            LOOK_WITH_TARGET_FORMAT.get_format_description().to_string(),
+            DETAILED_LOOK_FORMAT.get_format_description().to_string(),
+        ]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         input_formats_if_has_component::<Description>(
             entity,
             world,
-            &[LOOK_FORMAT, DETAILED_LOOK_FORMAT],
+            &[
+                LOOK_WITH_TARGET_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
+                DETAILED_LOOK_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
+            ],
         )
     }
 }

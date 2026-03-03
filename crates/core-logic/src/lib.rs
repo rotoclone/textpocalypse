@@ -11,6 +11,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+#[cfg(test)]
+mod test_utils;
+
 mod action;
 use action::*;
 
@@ -82,11 +85,16 @@ use combat_utils::*;
 mod message_format;
 use message_format::*;
 
+mod command_format;
+use command_format::*;
+
 mod dynamic_message;
 use dynamic_message::*;
 
 mod name_with_article;
 use name_with_article::*;
+
+mod found_entities;
 
 const CHEATS_ENABLED: bool = true;
 
@@ -131,27 +139,36 @@ impl StandardInputParsers {
             Box::new(MoveParser),
             Box::new(LookParser),
             Box::new(OpenParser),
+            Box::new(CloseParser),
             Box::new(InventoryParser),
             Box::new(WornParser),
+            Box::new(GetParser),
+            Box::new(GetFromParser),
+            Box::new(DropParser),
             Box::new(PutParser),
             Box::new(ThrowParser),
+            Box::new(PourAllParser),
+            Box::new(FillParser),
             Box::new(PourParser),
             Box::new(WearParser),
             Box::new(RemoveParser),
             Box::new(EquipParser),
             Box::new(SayParser),
+            Box::new(SayWithoutVerbParser),
             Box::new(VitalsParser),
             Box::new(StatsParser),
             Box::new(EatParser),
             Box::new(DrinkParser),
             Box::new(SleepParser),
             Box::new(WaitParser),
+            Box::new(WaitWithDurationParser),
             Box::new(AttackParser),
             Box::new(ChangeRangeParser),
             Box::new(RangesParser),
             Box::new(StopParser),
             Box::new(PlayersParser),
-            Box::new(SpendAdvancementPointParser),
+            Box::new(SpendSkillPointParser),
+            Box::new(SpendAttributePointParser),
             Box::new(HelpParser),
         ];
 
@@ -166,6 +183,8 @@ impl StandardInputParsers {
 impl Game {
     /// Creates a game with a new, empty world
     pub fn new(game_options: GameOptions) -> Game {
+        let skip_worldgen = game_options.skip_worldgen;
+
         let mut world = World::new();
         world.insert_resource(game_options);
         world.insert_resource(Time::new());
@@ -176,9 +195,10 @@ impl Game {
         world.insert_resource(PlayerIdMapping(HashMap::new()));
         insert_resources(&mut world);
 
-        let spawn_room_coords = set_up_world(&mut world);
-
-        world.insert_resource(SpawnRoom(spawn_room_coords));
+        if !skip_worldgen {
+            let spawn_room_coords = set_up_world(&mut world);
+            world.insert_resource(SpawnRoom(spawn_room_coords));
+        }
 
         register_action_handlers(&mut world);
         register_resource_handlers(&mut world);
@@ -196,7 +216,10 @@ impl Game {
     }
 
     /// Adds a player to the game in the default spawn location.
-    pub fn add_player(&mut self, name: String) -> (Sender<String>, Receiver<(GameMessage, Time)>) {
+    pub fn add_player(
+        &mut self,
+        name: String,
+    ) -> (Entity, Sender<String>, Receiver<(GameMessage, Time)>) {
         // create channels for communication between the player and the world
         let (commands_sender, commands_receiver) = flume::unbounded::<String>();
         let (messages_sender, messages_receiver) = flume::unbounded::<(GameMessage, Time)>();
@@ -294,7 +317,7 @@ impl Game {
         // send the player an initial message with their location
         send_current_location_message(player_entity, &world);
 
-        (commands_sender, messages_receiver)
+        (player_entity, commands_sender, messages_receiver)
     }
 
     /// Gets the next player ID to use.
@@ -772,7 +795,7 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
                 )
             }
         }
-        Err(e) => handle_input_error(entity, e, &read_world),
+        Err(e) => handle_input_error(entity, input, e, &read_world),
     }
 }
 
@@ -785,30 +808,14 @@ fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World
     }
 }
 
-/// Sends a message to an entity based on the provided input parsing error.
-fn handle_input_error(entity: Entity, error: InputParseError, world: &World) {
-    let message = match error {
-        InputParseError::UnknownCommand => "I don't understand that.".to_string(),
-        InputParseError::CommandParseError { verb, error } => match error {
-            CommandParseError::MissingTarget => format!("'{verb}' requires more targets."),
-            CommandParseError::TargetNotFound(t) => {
-                let location_name = match &t {
-                    CommandTarget::Named(target_name) => {
-                        if target_name.location_chain.is_empty() {
-                            "here".to_string()
-                        } else {
-                            format!("in '{}'", target_name.location_chain.join(" in "))
-                        }
-                    }
-                    _ => "here".to_string(),
-                };
-                format!("There is no '{t}' {location_name}.")
-            }
-            CommandParseError::Other(e) => e,
-        },
+/// Sends a message to an entity based on the provided parsing error.
+fn handle_input_error(entity: Entity, input: String, error: InputParseError, world: &World) {
+    let context = PartParserContext {
+        input,
+        entering_entity: entity,
+        parsed_parts: HashMap::new(), //TODO
     };
-
-    send_message(world, entity, GameMessage::Error(message));
+    send_message(world, entity, error.into_message(context, world));
 }
 
 /// A notification that a tick is occurring.
@@ -987,6 +994,14 @@ fn despawn_entity(entity: Entity, world: &mut World) {
 /// Determines if an entity is living or not.
 fn is_living_entity(entity: Entity, world: &World) -> bool {
     world.get::<Vitals>(entity).is_some()
+}
+
+/// Determines if two entities are in the same location.
+fn in_same_room(entity_1: Entity, entity_2: Entity, world: &World) -> bool {
+    let location_1 = world.get::<Location>(entity_1);
+    let location_2 = world.get::<Location>(entity_2);
+
+    location_1.is_some() && location_2.is_some() && location_1 == location_2
 }
 
 /// Finds the living entity that currently controls the provided entity (i.e. contains it or contains a container that contains it)

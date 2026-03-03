@@ -1,24 +1,31 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use nonempty::nonempty;
 use rand::seq::SliceRandom;
-use regex::{Captures, Regex};
 
+use crate::command_format::{
+    entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
+};
 use crate::{
     body_part::BodyPartDamageMultiplier,
-    is_living_entity,
+    command_format::{
+        literal_part, CommandFormat, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext,
+    },
+    find_owning_entity, in_same_room, is_living_entity,
     resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
-    CombatRange, CombatState, CommandParseError, CommandTarget, Container, Description,
-    DynamicMessage, DynamicMessageLocation, EquipAction, EquippedItems, ExitCombatNotification,
-    GameMessage, InnateWeapon, InputParseError, IntegerExtensions, InternalMessageCategory,
-    Location, MessageCategory, MessageDelay, MessageFormat, Notification, Skill, Stats,
-    SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, VitalChange, VitalType,
-    Vitals, VsCheckParams, VsParticipant, Weapon, WeaponHitMessageTokens, WeaponMissMessageTokens,
-    WeaponUnusableError, STANDARD_CHECK_XP,
+    CombatRange, CombatState, Container, Description, DynamicMessage, DynamicMessageLocation,
+    EquipAction, EquippedItems, ExitCombatNotification, GameMessage, InnateWeapon,
+    IntegerExtensions, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    Notification, Skill, Stats, SurroundingsMessageCategory, VerifyActionNotification,
+    VerifyResult, VitalChange, VitalType, Vitals, VsCheckParams, VsParticipant, Weapon,
+    WeaponHitMessageTokens, WeaponMissMessageTokens, WeaponUnusableError, STANDARD_CHECK_XP,
 };
 
 /// The fraction of a target's health that counts as a high amount of damage.
@@ -96,160 +103,257 @@ fn choose_weapon<A: AttackType>(attacking_entity: Entity, world: &World) -> Opti
     None
 }
 
-/// Information about the regular expressions used to parse an attack command.
-pub struct AttackRegexes {
-    /// The pattern for an attack with no weapon specified.
-    /// Should have a capture group with the name provided in `target_capture_name`. Any other capture groups will be ignored.
-    pub pattern: &'static Regex,
-    /// The pattern for an attack with a weapon specified.
-    /// Should have capture groups with the names provided in `target_capture_name` and `weapon_capture_name`. Any other capture groups will be ignored.
-    pub pattern_with_weapon: &'static Regex,
-    /// The name of the capture group for the target of the attack.
-    pub target_capture_name: &'static str,
-    /// The name of the capture group for the weapon to attack with.
-    pub weapon_capture_name: &'static str,
+/// Information about the command formats used to parse an attack command.
+pub struct AttackCommandFormats<A: AttackType> {
+    /// The format for an attach with no target or weapon specified.
+    format_no_target_no_weapon: CommandFormat,
+    /// The format for an attack with a target but no weapon specified.
+    /// Must have a part with the ID provided in `target_part_id`.
+    format_with_target: CommandFormat,
+    /// The format for an attach with a weapon but no target specified.
+    /// Must have a part with the ID provided in `weapon_part_id`.
+    format_with_weapon: CommandFormat,
+    /// The format for an attack with a target and weapon specified.
+    /// Must have parts with the IDs provided in `target_part_id` and `weapon_part_id`.
+    format_with_target_and_weapon: CommandFormat,
+    /// The ID of the part for the target of the attack.
+    target_part_id: CommandPartId<Entity>,
+    /// The ID of the part for the weapon to attack with.
+    weapon_part_id: CommandPartId<Entity>,
+    a: PhantomData<fn(A)>,
+}
+
+impl<A: AttackType> AttackCommandFormats<A> {
+    /// Builds command formats for the attack type `A`.
+    pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        let target_part_id = CommandPartId::new("target");
+        let target_part = entity_part_builder(target_part_id)
+            .with_validator(validate_attack_target)
+            .build()
+            .with_if_unparsed("who")
+            .with_placeholder_for_format_string("target");
+
+        let weapon_part_id = CommandPartId::new("weapon");
+        let weapon_part = entity_part_builder(weapon_part_id)
+            .with_validator(validate_attack_weapon::<A>)
+            .build()
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("weapon");
+
+        let format_no_target_no_weapon = CommandFormat::new(first_part.clone());
+
+        let format_with_target = CommandFormat::new(first_part.clone())
+            .then(literal_part(" "))
+            .then(target_part.clone());
+
+        let format_with_weapon = CommandFormat::new(first_part.clone())
+            .then(literal_part(" "))
+            .then(one_of_literal_part(nonempty!["with", "using"]))
+            .then(literal_part(" "))
+            .then(weapon_part.clone());
+
+        let format_with_target_and_weapon = CommandFormat::new(first_part)
+            .then(literal_part(" "))
+            .then(target_part)
+            .then(literal_part(" "))
+            .then(one_of_literal_part(nonempty!["with", "using"]))
+            .then(literal_part(" "))
+            .then(weapon_part);
+
+        AttackCommandFormats {
+            format_no_target_no_weapon,
+            format_with_target,
+            format_with_weapon,
+            format_with_target_and_weapon,
+            target_part_id,
+            weapon_part_id,
+            a: PhantomData,
+        }
+    }
+
+    /// Builds generic input formats for an action using these command formats.
+    pub fn get_input_formats(&self) -> Vec<String> {
+        vec![
+            self.format_no_target_no_weapon
+                .get_format_description()
+                .to_string(),
+            self.format_with_target.get_format_description().to_string(),
+            self.format_with_weapon.get_format_description().to_string(),
+            self.format_with_target_and_weapon
+                .get_format_description()
+                .to_string(),
+        ]
+    }
+
+    /// Builds input formats for an action taken with `entity` using these command formats.
+    pub fn get_input_formats_for(&self, entity: Entity, world: &World) -> Vec<String> {
+        if is_valid_attack_target(entity, world) {
+            return vec![
+                self.format_with_target
+                    .get_format_description()
+                    .with_targeted_entity(self.target_part_id, entity, world)
+                    .to_string(),
+                self.format_with_target_and_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.target_part_id, entity, world)
+                    .to_string(),
+            ];
+        }
+
+        if is_valid_attack_weapon::<A>(entity, world) {
+            return vec![
+                self.format_with_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.weapon_part_id, entity, world)
+                    .to_string(),
+                self.format_with_target_and_weapon
+                    .get_format_description()
+                    .with_targeted_entity(self.weapon_part_id, entity, world)
+                    .to_string(),
+            ];
+        }
+
+        Vec::new()
+    }
 }
 
 /// Parses input from `source_entity` as an attack command.
 ///
-/// Returns `Ok` with the target entity, or `Err` if the input is invalid.
+/// Returns `Ok` with information about the attack, or `Err` if the input is invalid.
 pub fn parse_attack_input<A: AttackType>(
     input: &str,
     source_entity: Entity,
-    regexes: AttackRegexes,
-    verb_name: &str,
+    command_formats: &AttackCommandFormats<A>,
     world: &World,
-) -> Result<ParsedAttack, InputParseError> {
-    if let Some(captures) = regexes.pattern_with_weapon.captures(input) {
-        return parse_attack_input_captures::<A>(
-            &captures,
-            source_entity,
-            regexes.target_capture_name,
-            regexes.weapon_capture_name,
-            verb_name,
-            world,
-        );
-    }
-
-    if let Some(captures) = regexes.pattern.captures(input) {
-        return parse_attack_input_captures::<A>(
-            &captures,
-            source_entity,
-            regexes.target_capture_name,
-            regexes.weapon_capture_name,
-            verb_name,
-            world,
-        );
-    }
-
-    Err(InputParseError::UnknownCommand)
-}
-
-fn parse_attack_input_captures<A: AttackType>(
-    captures: &Captures,
-    source_entity: Entity,
-    target_capture_name: &str,
-    weapon_capture_name: &str,
-    verb_name: &str,
-    world: &World,
-) -> Result<ParsedAttack, InputParseError> {
-    let target_entity = parse_attack_target(
-        captures,
-        target_capture_name,
-        source_entity,
-        verb_name,
-        world,
-    )?;
-    let chosen_weapon = parse_attack_weapon::<A>(
-        captures,
-        weapon_capture_name,
-        source_entity,
-        verb_name,
-        world,
-    )?;
-
-    Ok(ParsedAttack {
-        target: target_entity,
-        weapon: chosen_weapon,
-    })
-}
-
-/// Finds the target entity of an attack.
-fn parse_attack_target(
-    captures: &Captures,
-    target_capture_name: &str,
-    source_entity: Entity,
-    verb_name: &str,
-    world: &World,
-) -> Result<Entity, InputParseError> {
-    if let Some(target_match) = captures.name(target_capture_name) {
-        let target = CommandTarget::parse(target_match.as_str());
-        if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-            if world.get::<Vitals>(target_entity).is_some() {
-                // target exists and is attackable
-                return Ok(target_entity);
-            }
-            let target_name =
-                Description::get_reference_name(target_entity, Some(source_entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::Other(format!("You can't attack {target_name}.")),
+) -> Result<ParsedAttack, CommandFormatParseError> {
+    if let Some(target) = find_single_entity_in_combat_with(source_entity, world) {
+        if let Ok(parsed) = command_formats
+            .format_with_weapon
+            .parse(input, source_entity, world)
+        {
+            return Ok(ParsedAttack {
+                target,
+                weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
             });
         }
-        return Err(InputParseError::CommandParseError {
-            verb: verb_name.to_string(),
-            error: CommandParseError::TargetNotFound(target),
+
+        if command_formats
+            .format_no_target_no_weapon
+            .parse(input, source_entity, world)
+            .is_ok()
+        {
+            return Ok(ParsedAttack {
+                target,
+                weapon: ChosenWeapon::Unspecified,
+            });
+        }
+    }
+
+    if let Ok(parsed) = command_formats
+        .format_with_target
+        .parse(input, source_entity, world)
+    {
+        return Ok(ParsedAttack {
+            target: parsed.get(command_formats.target_part_id),
+            weapon: ChosenWeapon::Unspecified,
         });
     }
 
-    // no target provided
-    let combatants = CombatState::get_entities_in_combat_with(source_entity, world);
+    let parsed =
+        command_formats
+            .format_with_target_and_weapon
+            .parse(input, source_entity, world)?;
+    Ok(ParsedAttack {
+        target: parsed.get(command_formats.target_part_id),
+        weapon: ChosenWeapon::Entity(parsed.get(command_formats.weapon_part_id)),
+    })
+}
+
+/// Validates the chosen target for an attack.
+pub fn validate_attack_target(
+    context: &PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    if !is_valid_attack_target(context.parsed_value, world) {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You can't attack {target_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
+    }
+    if !in_same_room(context.parsed_value, context.performing_entity, world) {
+        let target_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("{target_name} isn't here.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
+    }
+
+    CommandPartValidateResult::Valid
+}
+
+/// Determines whether `target` is a valid entity to attack.
+pub fn is_valid_attack_target(target: Entity, world: &World) -> bool {
+    world.get::<Vitals>(target).is_some()
+}
+
+/// Finds the single entity in combat with the provided entity.
+/// Returns `None` if the entity isn't in combat, or is in combat with multiple entities.
+fn find_single_entity_in_combat_with(entity: Entity, world: &World) -> Option<Entity> {
+    let combatants = CombatState::get_entities_in_combat_with(entity, world);
     if combatants.len() == 1 {
         let target_entity = combatants
             .keys()
             .next()
             .expect("combatants should contain an entry");
-        return Ok(*target_entity);
+        return Some(*target_entity);
     }
 
-    Err(InputParseError::CommandParseError {
-        verb: verb_name.to_string(),
-        error: CommandParseError::MissingTarget,
-    })
+    None
 }
 
-/// Finds the weapon entity to use in an attack.
-fn parse_attack_weapon<A: AttackType>(
-    captures: &Captures,
-    weapon_capture_name: &str,
-    source_entity: Entity,
-    verb_name: &str,
+/// Validates the chosen weapon for an attack.
+pub fn validate_attack_weapon<A: AttackType>(
+    context: &PartValidatorContext<Entity>,
     world: &World,
-) -> Result<ChosenWeapon, InputParseError> {
-    if let Some(target_match) = captures.name(weapon_capture_name) {
-        let weapon = CommandTarget::parse(target_match.as_str());
-        if let Some(weapon_entity) = weapon.find_target_entity(source_entity, world) {
-            if world.get::<Weapon>(weapon_entity).is_some()
-                && A::can_perform_with(weapon_entity, world)
-            {
-                // weapon exists and is the correct type of weapon
-                return Ok(ChosenWeapon::Entity(weapon_entity));
-            }
-            let weapon_name =
-                Description::get_reference_name(weapon_entity, Some(source_entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::Other(format!("You can't attack with {weapon_name}.")),
-            });
-        }
-        return Err(InputParseError::CommandParseError {
-            verb: verb_name.to_string(),
-            error: CommandParseError::TargetNotFound(weapon),
+) -> CommandPartValidateResult {
+    if !is_valid_attack_weapon::<A>(context.parsed_value, world) {
+        let weapon_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You can't attack with {weapon_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
+        });
+    }
+    if find_owning_entity(context.parsed_value, world) != Some(context.performing_entity) {
+        let weapon_name = Description::get_reference_name(
+            context.parsed_value,
+            Some(context.performing_entity),
+            world,
+        );
+        let message = format!("You don't have {weapon_name}.");
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some(message),
         });
     }
 
-    // no weapon provided
-    Ok(ChosenWeapon::Unspecified)
+    CommandPartValidateResult::Valid
+}
+
+/// Determines whether `entity` is a valid weapon to attack with.
+pub fn is_valid_attack_weapon<A: AttackType>(entity: Entity, world: &World) -> bool {
+    world.get::<Weapon>(entity).is_some() && A::can_perform_with(entity, world)
 }
 
 /// Finds the weapon for the provided entity to use in an attack. Returns an `Err(ActionResult)` with an error message if no weapon can be found.
@@ -428,7 +532,9 @@ pub fn handle_weapon_unusable_error(
                 MessageDelay::Short,
                 MessageFormat::new("${entity.Name} flails about uselessly with ${weapon.name}.")
                     .expect("message format should be valid"),
-                BasicTokens::new().with_entity("entity".into(), entity),
+                BasicTokens::new()
+                    .with_entity("entity".into(), entity)
+                    .with_entity("weapon".into(), weapon_entity),
             ),
             world,
         )
@@ -656,18 +762,12 @@ fn verify_target_in_same_room<A: AttackType>(
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.get_target();
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
-    let attacker_location = world.get::<Location>(performing_entity);
-    let target_location = world.get::<Location>(target);
-
-    if attacker_location.is_none()
-        || target_location.is_none()
-        || attacker_location != target_location
-    {
+    if !in_same_room(performing_entity, target, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         return VerifyResult::invalid(
             performing_entity,
-            GameMessage::Error(format!("{target_name} is not here.")),
+            GameMessage::Error(format!("{target_name} isn't here.")),
         );
     }
 
@@ -689,7 +789,7 @@ fn verify_target_alive<A: AttackType>(
 
     VerifyResult::invalid(
         performing_entity,
-        GameMessage::Error(format!("{target_name} is not alive.")),
+        GameMessage::Error(format!("{target_name} isn't alive.")),
     )
 }
 

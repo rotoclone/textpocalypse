@@ -136,8 +136,11 @@ impl DescribeAttributes for FluidContainer {
     }
 }
 
-/// Prevents more fluid being poured out of a fluid container than it contains.
-pub fn verify_source_container(
+/// Prevents more fluid being poured out of a fluid container than it contains, and overfilling a fluid container.
+///
+/// This is combined into a single verifier to ensure that if both the source is empty and the target doesn't have enough room to hold the requested
+/// amount to pour, the error will always be that the source is empty.
+pub fn verify_source_and_target_container_amounts(
     notification: &Notification<VerifyActionNotification, PourAction>,
     world: &World,
 ) -> VerifyResult {
@@ -145,14 +148,15 @@ pub fn verify_source_container(
     let amount = &notification.contents.amount;
     let performing_entity = notification.notification_type.performing_entity;
 
-    let container = world
+    // first check that source container has enough to pour
+    let source_container = world
         .get::<FluidContainer>(source)
         .expect("source entity should be a fluid container");
 
-    let used_volume = container.contents.get_total_volume();
+    let source_used_volume = source_container.contents.get_total_volume();
     let source_name = Description::get_reference_name(source, Some(performing_entity), world);
 
-    if used_volume <= Volume(0.0) {
+    if source_used_volume <= Volume(0.0) {
         return VerifyResult::invalid(
             performing_entity,
             GameMessage::Error(format!("{source_name} is empty.")),
@@ -160,35 +164,26 @@ pub fn verify_source_container(
     }
 
     if let PourAmount::Some(amount) = amount {
-        if used_volume < *amount {
+        if source_used_volume < *amount {
             return VerifyResult::invalid(
                 performing_entity,
                 GameMessage::Error(format!(
-                    "{source_name} only contains {used_volume:.2}L of fluid."
+                    "{source_name} only contains {source_used_volume:.2}L of fluid."
                 )),
             );
         }
     }
 
-    VerifyResult::valid()
-}
-
-/// Prevents fluid containers from getting overfilled.
-pub fn limit_fluid_container_contents(
-    notification: &Notification<VerifyActionNotification, PourAction>,
-    world: &World,
-) -> VerifyResult {
+    // then check that target container has enough room
     let target = notification.contents.target;
-    let amount = &notification.contents.amount;
-    let performing_entity = notification.notification_type.performing_entity;
 
-    let container = world
+    let target_container = world
         .get::<FluidContainer>(target)
         .expect("destination entity should be a fluid container");
 
-    if let Some(max_volume) = &container.volume {
-        let used_volume = container.contents.get_total_volume();
-        let available_volume = *max_volume - used_volume;
+    if let Some(max_volume) = &target_container.volume {
+        let target_used_volume = target_container.contents.get_total_volume();
+        let available_volume = *max_volume - target_used_volume;
         let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         if available_volume <= Volume(0.0) {
             return VerifyResult::invalid(

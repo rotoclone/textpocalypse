@@ -48,9 +48,7 @@ impl DescribeAttributes for SleepState {
 
 /// Determines whether the provided entity is asleep.
 pub fn is_asleep(entity: Entity, world: &World) -> bool {
-    world
-        .get::<SleepState>(entity)
-        .map_or(false, |s| s.is_asleep)
+    world.get::<SleepState>(entity).is_some_and(|s| s.is_asleep)
 }
 
 /// Prevents an entity from looking at anything while it is asleep.

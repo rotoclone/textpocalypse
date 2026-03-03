@@ -1,14 +1,14 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
-    component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
+    command_format::{
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
     },
+    component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -17,18 +17,37 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const OPEN_VERB_NAME: &str = "open";
-const CLOSE_VERB_NAME: &str = "close";
-const OPEN_FORMAT: &str = "open <>";
-const CLOSE_FORMAT: &str = "close <>";
-const NAME_CAPTURE: &str = "name";
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static OPEN_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("open"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<OpenState>(context, "open", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("thing"),
+        )
+});
+static CLOSE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("close"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<OpenState>(context, "close", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("thing"),
+        )
+});
 
-static OPEN_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^open (the )?(?P<name>.*)").unwrap());
-static CLOSE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^close (the )?(?P<name>.*)").unwrap());
-
+//TODO convert other multi-format commands to use multiple parsers and encapsulate getting all the sub-parsers into a function or something so they don't have to all be manually added in `lib.rs`
 pub struct OpenParser;
+pub struct CloseParser;
 
 impl InputParser for OpenParser {
     fn parse(
@@ -37,48 +56,60 @@ impl InputParser for OpenParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let (captures, verb_name, should_be_open) =
-            if let Some(captures) = OPEN_PATTERN.captures(input) {
-                (captures, OPEN_VERB_NAME, true)
-            } else if let Some(captures) = CLOSE_PATTERN.captures(input) {
-                (captures, CLOSE_VERB_NAME, false)
-            } else {
-                return Err(InputParseError::UnknownCommand);
-            };
-
-        if let Some(target_match) = captures.name(NAME_CAPTURE) {
-            let command_target = CommandTarget::parse(target_match.as_str());
-            if let Some(target) = command_target.find_target_entity(source_entity, world) {
-                Ok(Box::new(OpenAction {
-                    target,
-                    should_be_open,
-                    notification_sender: ActionNotificationSender::new(),
-                }))
-            } else {
-                Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(command_target),
-                })
-            }
-        } else {
-            Err(InputParseError::CommandParseError {
-                verb: verb_name.to_string(),
-                error: CommandParseError::MissingTarget,
-            })
-        }
+        let parsed = OPEN_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(OpenAction {
+            target: parsed.get(TARGET_PART_ID),
+            should_be_open: true,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![OPEN_FORMAT.to_string(), CLOSE_FORMAT.to_string()]
+        vec![OPEN_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<OpenState>(
+            entity,
+            world,
+            &[OPEN_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
+    }
+}
+
+impl InputParser for CloseParser {
+    fn parse(
         &self,
-        entity: Entity,
-        _: Entity,
+        input: &str,
+        source_entity: Entity,
         world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<OpenState>(entity, world, &[OPEN_FORMAT, CLOSE_FORMAT])
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = CLOSE_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(OpenAction {
+            target: parsed.get(TARGET_PART_ID),
+            should_be_open: false,
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![CLOSE_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<OpenState>(
+            entity,
+            world,
+            &[CLOSE_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
     }
 }
 

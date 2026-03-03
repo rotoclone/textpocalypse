@@ -1,16 +1,17 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{
+        entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+    },
     component::{
         ActionEndNotification, AfterActionPerformNotification, RemoveError, Wearable, WornItems,
     },
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity,
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -20,12 +21,20 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const REMOVE_VERB_NAME: &str = "remove";
-const REMOVE_FORMAT: &str = "remove <>";
-const NAME_CAPTURE: &str = "name";
-
-static REMOVE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(remove|take off) (the )?(?P<name>.*)").unwrap());
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static REMOVE_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_literal_part(nonempty!["take off", "remove"]))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Wearable>(context, "take off", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("worn item"),
+        )
+});
 
 pub struct RemoveParser;
 
@@ -36,55 +45,28 @@ impl InputParser for RemoveParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = REMOVE_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if world.get::<Wearable>(target_entity).is_some() {
-                        // target exists and is wearable
-                        return Ok(Box::new(RemoveAction {
-                            wearing_entity: source_entity,
-                            target: target_entity,
-                            notification_sender: ActionNotificationSender::new(),
-                        }));
-                    } else {
-                        // target isn't wearable
-                        let target_name = Description::get_reference_name(
-                            target_entity,
-                            Some(source_entity),
-                            world,
-                        );
-                        return Err(InputParseError::CommandParseError {
-                            verb: REMOVE_VERB_NAME.to_string(),
-                            error: CommandParseError::Other(format!(
-                                "You're not wearing {target_name}, and you couldn't if you tried."
-                            )),
-                        });
-                    }
-                } else {
-                    // target doesn't exist
-                    return Err(InputParseError::CommandParseError {
-                        verb: REMOVE_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(target),
-                    });
-                }
-            }
-        }
-
-        Err(InputParseError::UnknownCommand)
+        let parsed = REMOVE_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(RemoveAction {
+            wearing_entity: source_entity,
+            target: parsed.get(TARGET_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![REMOVE_FORMAT.to_string()]
+        vec![REMOVE_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Wearable>(entity, world, &[REMOVE_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<Wearable>(
+            entity,
+            world,
+            &[REMOVE_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
     }
 }
 

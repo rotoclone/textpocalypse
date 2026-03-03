@@ -1,26 +1,28 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use nonempty::nonempty;
 use rand::seq::SliceRandom;
-use regex::Regex;
 
 use crate::{
     body_part::BodyPartType,
     check_for_hit,
-    component::{ActionEndNotification, AfterActionPerformNotification, Vitals, Weapon},
+    combat_utils::AttackCommandFormats,
+    command_format::one_of_literal_part,
+    component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
-    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
+    input_parser::{InputParseError, InputParser},
     notification::VerifyResult,
     parse_attack_input,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
     },
-    ActionTag, AttackRegexes, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon,
-    DynamicMessage, DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, SurroundingsMessageCategory, VerifyActionNotification,
-    WeaponHitMessageTokens, WeaponMessages,
+    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
+    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -28,15 +30,8 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 /// Multiplier applied to damage done to oneself.
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
-const ATTACK_VERB_NAME: &str = "attack";
-const ATTACK_FORMAT: &str = "attack <>";
-const NAME_CAPTURE: &str = "name";
-const WEAPON_CAPTURE: &str = "weapon";
-
-static ATTACK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(attack|kill|k)( (?P<name>.*))?").unwrap());
-static ATTACK_PATTERN_WITH_WEAPON: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(attack|kill|k)( (?P<name>.*))? (with|using) (?P<weapon>.*)").unwrap()
+static COMMAND_FORMATS: LazyLock<AttackCommandFormats<AttackAction>> = LazyLock::new(|| {
+    AttackCommandFormats::new(one_of_literal_part(nonempty!["attack", "kill", "k"]))
 });
 
 pub struct AttackParser;
@@ -48,18 +43,7 @@ impl InputParser for AttackParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let attack = parse_attack_input::<AttackAction>(
-            input,
-            source_entity,
-            AttackRegexes {
-                pattern: &ATTACK_PATTERN,
-                pattern_with_weapon: &ATTACK_PATTERN_WITH_WEAPON,
-                target_capture_name: NAME_CAPTURE,
-                weapon_capture_name: WEAPON_CAPTURE,
-            },
-            ATTACK_VERB_NAME,
-            world,
-        )?;
+        let attack = parse_attack_input(input, source_entity, &COMMAND_FORMATS, world)?;
 
         Ok(Box::new(AttackAction {
             target: attack.target,
@@ -69,16 +53,11 @@ impl InputParser for AttackParser {
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![ATTACK_FORMAT.to_string()]
+        COMMAND_FORMATS.get_input_formats()
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Vitals>(entity, world, &[ATTACK_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        COMMAND_FORMATS.get_input_formats_for(entity, world)
     }
 }
 

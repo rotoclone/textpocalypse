@@ -1,17 +1,17 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
     action::{
         Action, ActionInterruptResult, ActionNotificationSender, ActionResult, MoveAction,
         OpenAction,
     },
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
+    command_format::{
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
     },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     GameMessage, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -24,12 +24,20 @@ use super::{
     Connection, Container, Description, Location, ParseCustomInput,
 };
 
-const SLAM_VERB_NAME: &str = "slam";
-const SLAM_FORMAT: &str = "slam <>";
-const NAME_CAPTURE: &str = "name";
-
-static SLAM_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^slam (the )?(?P<name>.*)").unwrap());
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static SLAM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("slam"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<OpenState>(context, "slam", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("door"),
+        )
+});
 
 struct SlamParser;
 
@@ -40,42 +48,27 @@ impl InputParser for SlamParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = SLAM_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let command_target = CommandTarget::parse(target_match.as_str());
-                if let Some(target) = command_target.find_target_entity(source_entity, world) {
-                    return Ok(Box::new(SlamAction {
-                        target,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                } else {
-                    return Err(InputParseError::CommandParseError {
-                        verb: SLAM_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(command_target),
-                    });
-                }
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: SLAM_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        }
-
-        Err(InputParseError::UnknownCommand)
+        let parsed = SLAM_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(SlamAction {
+            target: parsed.get(TARGET_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SLAM_FORMAT.to_string()]
+        vec![SLAM_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<OpenState>(entity, world, &[SLAM_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<OpenState>(
+            entity,
+            world,
+            &[SLAM_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
     }
 }
 
@@ -87,17 +80,22 @@ struct SlamAction {
 
 impl Action for SlamAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let state = match world.get::<OpenState>(self.target) {
             Some(s) => s,
             None => {
-                return ActionResult::error(performing_entity, "You can't slam that.".to_string());
+                return ActionResult::error(
+                    performing_entity,
+                    format!("You can't slam {target_name}."),
+                );
             }
         };
 
         if !state.is_open {
             return ActionResult::message(
                 performing_entity,
-                "It's already closed.".to_string(),
+                format!("{target_name} is already closed."),
                 MessageCategory::Internal(InternalMessageCategory::Misc),
                 MessageDelay::Short,
                 false,
@@ -106,14 +104,49 @@ impl Action for SlamAction {
 
         OpenState::set_open(self.target, false, world);
 
-        let name = Description::get_reference_name(self.target, Some(performing_entity), world);
-        ActionResult::message(
-            performing_entity,
-            format!("You SLAM {name} with a loud bang. You hope you didn't wake up the neighbors."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::Long,
-            true,
-        )
+        let mut result_builder = ActionResult::builder()
+            .with_dynamic_message(
+                Some(performing_entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new(
+                    MessageCategory::Internal(InternalMessageCategory::Action),
+                    MessageDelay::Long,
+                    MessageFormat::new("You SLAM ${target.name} closed with a loud bang. You hope you didn't wake up the neighbors.").expect("message format should be valid"),
+                    BasicTokens::new().with_entity("target".into(), self.target),
+                )
+                .only_send_to(performing_entity),
+                world,
+            )
+            .with_dynamic_message(
+                Some(performing_entity),
+                DynamicMessageLocation::SourceEntity,
+                DynamicMessage::new_third_person(
+                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                    MessageDelay::Long,
+                    MessageFormat::new("${slammer.Name} SLAMS ${target.name} closed with a loud bang.").expect("message format should be valid"),
+                    BasicTokens::new().with_entity("slammer".into(), performing_entity).with_entity("target".into(), self.target),
+                ),
+                world,
+            );
+
+        if let Some(other_side) = get_other_side(self.target, world) {
+            if let Some(other_side_location) = world.get::<Location>(other_side) {
+                result_builder = result_builder.with_dynamic_message(
+                    Some(performing_entity),
+                    DynamicMessageLocation::Location(other_side_location.id),
+                    DynamicMessage::new_third_person(
+                        MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                        MessageDelay::Long,
+                        MessageFormat::new("${target.Name} SLAMS closed with a loud bang.")
+                            .expect("message format should be valid"),
+                        BasicTokens::new().with_entity("target".into(), other_side),
+                    ),
+                    world,
+                )
+            }
+        }
+
+        result_builder.build_complete_should_tick(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
@@ -182,12 +215,13 @@ impl OpenState {
         }
 
         // other side
-        if let Some(other_side_id) = world.get::<Connection>(entity).and_then(|c| c.other_side) {
+        if let Some(other_side_id) = get_other_side(entity, world) {
             if let Some(mut other_side_state) = world.get_mut::<OpenState>(other_side_id) {
                 if other_side_state.is_open != should_be_open {
                     other_side_state.is_open = should_be_open;
 
                     // send messages to entities on the other side
+                    // TODO let the actions themselves deal with this? for example, the slam message should be different
                     if let Some(location) = world.get::<Location>(other_side_id) {
                         let open_or_closed = if should_be_open { "open" } else { "closed" };
                         DynamicMessage::new_third_person(
@@ -315,4 +349,11 @@ pub fn prevent_moving_through_closed_connections(
     }
 
     VerifyResult::valid()
+}
+
+/// Gets the entity representing the other side of this door, if there is one
+fn get_other_side(this_side: Entity, world: &World) -> Option<Entity> {
+    world
+        .get::<Connection>(this_side)
+        .and_then(|c| c.other_side)
 }

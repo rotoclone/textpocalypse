@@ -1,0 +1,85 @@
+use std::collections::HashMap;
+
+use bevy_ecs::prelude::*;
+
+mod parse_literal;
+pub use parse_literal::parse_literal;
+
+mod parse_any_text;
+pub use parse_any_text::parse_any_text;
+
+mod parse_entity;
+pub use parse_entity::default_entity_target_finder;
+pub use parse_entity::parse_entity;
+
+mod parse_direction;
+pub use parse_direction::parse_direction;
+
+use crate::command_format::get_parsed_value;
+use crate::command_format::CommandPartId;
+use crate::command_format::ParsedCommandFormatPart;
+use crate::command_format::UntypedCommandPartId;
+
+use super::{parsed_value::ParsedValue, CommandPartValidateError};
+
+/// Context provided when parsing a matched part
+#[derive(Clone)]
+pub struct PartParserContext {
+    /// The matched input
+    pub input: String,
+    /// The entity that entered the command being parsed
+    pub entering_entity: Entity,
+    /// Any previously parsed parts of the command
+    pub parsed_parts: HashMap<UntypedCommandPartId, ParsedCommandFormatPart>,
+}
+
+impl PartParserContext {
+    /// Gets the parsed value for part with the provided ID, if it was already parsed.
+    /// Panics if the parsed value can't be converted into the requested type.
+    pub fn get_parsed_value<T: 'static>(&self, id: CommandPartId<T>) -> Option<T>
+    where
+        ParsedValue: TryInto<T>,
+    {
+        get_parsed_value(id, &self.parsed_parts)
+    }
+}
+
+/// The result of parsing a matched part
+#[derive(PartialEq, Eq, Debug)]
+pub enum CommandPartParseResult {
+    /// The part was parsed successfully
+    Success(ParsedValue),
+    /// Parsing failed
+    Failure(CommandPartParseError),
+}
+
+/// An error encountered while attempting to parse a command part.
+#[derive(PartialEq, Eq, Debug)]
+pub enum CommandPartParseError {
+    /// The part could not be parsed from the matched string
+    Unparseable { details: Option<String> },
+    /// The parsed value failed validation
+    Invalid(CommandPartValidateError),
+    /// A prerequisite part of this part was not matched.
+    /// Contains the ID of the unmatched prerequisite part.
+    PrerequisiteUnmatched(UntypedCommandPartId),
+}
+
+/// Converts `CommandPartParseResult::Success` to have a parsed value of `Option(...)`, and `CommandPartParseResult::Failure` to `CommandPartParseResult::Success` with a parsed value of `Option(None)`
+pub fn parse_result_to_option(parse_result: CommandPartParseResult) -> CommandPartParseResult {
+    match parse_result {
+        CommandPartParseResult::Success(parsed) => {
+            if let ParsedValue::String(p) = &parsed {
+                if p.is_empty() {
+                    // optional literal parts that weren't provided will produce a success parse result with an empty string
+                    return CommandPartParseResult::Success(ParsedValue::Option(None));
+                }
+            }
+            CommandPartParseResult::Success(ParsedValue::Option(Some(Box::new(parsed))))
+        }
+        CommandPartParseResult::Failure(_) => {
+            // optional non-literal parts that weren't provided will produce a failure parse result
+            CommandPartParseResult::Success(ParsedValue::Option(None))
+        }
+    }
+}

@@ -350,7 +350,7 @@ fn determine_action_to_perform(
         if action_queue
             .actions
             .front()
-            .map_or(true, |(action, _)| !filter_fn(action))
+            .is_none_or(|(action, _)| !filter_fn(action))
         {
             return None;
         }

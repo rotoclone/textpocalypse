@@ -1,15 +1,15 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
+    command_format::{
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
+    },
     component::{ActionEndNotification, AfterActionPerformNotification, Edible},
     despawn_entity,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -18,12 +18,20 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const EAT_VERB_NAME: &str = "eat";
-const EAT_FORMAT: &str = "eat <>";
-const NAME_CAPTURE: &str = "name";
-
-static EAT_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^eat (the )?(?P<name>.*)").unwrap());
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static EAT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("eat"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(TARGET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Edible>(context, "eat", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("thing"),
+        )
+});
 
 pub struct EatParser;
 
@@ -34,54 +42,28 @@ impl InputParser for EatParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = EAT_PATTERN.captures(input) {
-            if let Some(target_match) = captures.name(NAME_CAPTURE) {
-                let target = CommandTarget::parse(target_match.as_str());
-                if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                    if world.get::<Edible>(target_entity).is_some() {
-                        // target exists and is edible
-                        return Ok(Box::new(EatAction {
-                            target: target_entity,
-                            notification_sender: ActionNotificationSender::new(),
-                        }));
-                    } else {
-                        // target isn't edible
-                        let target_name = Description::get_reference_name(
-                            target_entity,
-                            Some(source_entity),
-                            world,
-                        );
-                        return Err(InputParseError::CommandParseError {
-                            verb: EAT_VERB_NAME.to_string(),
-                            error: CommandParseError::Other(format!(
-                                "You can't eat {target_name}."
-                            )),
-                        });
-                    }
-                } else {
-                    // target doesn't exist
-                    return Err(InputParseError::CommandParseError {
-                        verb: EAT_VERB_NAME.to_string(),
-                        error: CommandParseError::TargetNotFound(target),
-                    });
-                }
-            }
-        }
+        let parsed = EAT_FORMAT.parse(input, source_entity, world)?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(EatAction {
+            target: parsed.get(TARGET_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![EAT_FORMAT.to_string()]
+        vec![EAT_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Edible>(entity, world, &[EAT_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<Edible>(
+            entity,
+            world,
+            &[EAT_FORMAT.get_format_description().with_targeted_entity(
+                TARGET_PART_ID,
+                entity,
+                world,
+            )],
+        )
     }
 }
 

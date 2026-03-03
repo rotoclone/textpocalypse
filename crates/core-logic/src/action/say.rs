@@ -1,53 +1,87 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
 
 use crate::{
+    any_text_part,
     component::{ActionEndNotification, AfterActionPerformNotification},
-    input_parser::{CommandParseError, InputParseError, InputParser},
+    input_parser::{InputParseError, InputParser},
+    literal_part,
     notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
-    MessageCategory, MessageDelay, MessageFormat, SurroundingsMessageCategory,
-    VerifyActionNotification, World,
+    ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId, DynamicMessage,
+    DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const SAY_VERB_NAME: &str = "say";
-const SAY_FORMAT: &str = "say <>";
-const TEXT_CAPTURE: &str = "text";
+static TEXT_PART_ID: CommandPartId<String> = CommandPartId::new("text");
 
-static SAY_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(\"|say )(?P<text>.*)").unwrap());
+static SAY_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("say"))
+        .then(literal_part(" "))
+        .then(
+            any_text_part(TEXT_PART_ID)
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("statement"),
+        )
+});
+static SAY_WITHOUT_VERB_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("\"").with_error_string_override("say ")).then(
+        any_text_part(TEXT_PART_ID)
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("statement"),
+    )
+});
 
 pub struct SayParser;
+pub struct SayWithoutVerbParser;
 
 impl InputParser for SayParser {
-    fn parse(&self, input: &str, _: Entity, _: &World) -> Result<Box<dyn Action>, InputParseError> {
-        if let Some(captures) = SAY_PATTERN.captures(input) {
-            if let Some(text_match) = captures.name(TEXT_CAPTURE) {
-                return Ok(Box::new(SayAction {
-                    text: text_match.as_str().to_string(),
-                    notification_sender: ActionNotificationSender::new(),
-                }));
-            } else {
-                return Err(InputParseError::CommandParseError {
-                    verb: SAY_VERB_NAME.to_string(),
-                    error: CommandParseError::MissingTarget,
-                });
-            }
-        }
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = SAY_FORMAT.parse(input, source_entity, world)?;
 
-        Err(InputParseError::UnknownCommand)
+        Ok(Box::new(SayAction {
+            text: parsed.get(TEXT_PART_ID).to_string(),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![SAY_FORMAT.to_string()]
+        vec![SAY_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Option<Vec<String>> {
-        None
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+impl InputParser for SayWithoutVerbParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = SAY_WITHOUT_VERB_FORMAT.parse(input, source_entity, world)?;
+
+        Ok(Box::new(SayAction {
+            text: parsed.get(TEXT_PART_ID).to_string(),
+            notification_sender: ActionNotificationSender::new(),
+        }))
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![SAY_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(&self, _: Entity, _: Entity, _: &World) -> Vec<String> {
+        Vec::new()
     }
 }
 

@@ -5,16 +5,20 @@ use std::{
 
 use bevy_ecs::prelude::*;
 use log::debug;
+use nonempty::nonempty;
 use regex::Regex;
 
 use crate::{
+    command_format::{
+        any_text_part_with_validator, entity_part_builder, literal_part,
+        optional_one_of_literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandFormatPart, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
+        PartValidatorContext,
+    },
     component::{
         ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
     },
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::VerifyResult,
     resource::get_fluid_name,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
@@ -24,173 +28,221 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const FILL_VERB_NAME: &str = "fill";
-const POUR_VERB_NAME: &str = "pour";
+/// The minimum amount of fluid that can be poured at once, in liters.
+const MIN_POUR_AMOUNT_LITERS: f32 = 0.01;
 
-const FILL_FORMAT: &str = "fill <> from <>";
-const POUR_ALL_FORMAT: &str = "pour <> into <>";
-const POUR_FORMAT: &str = "pour <> from <> into <>";
-
-const SOURCE_CAPTURE: &str = "source";
-const TARGET_CAPTURE: &str = "target";
 const AMOUNT_CAPTURE: &str = "amount";
 
-static FILL_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^fill (the )?(?P<target>.*) from (the )?(?P<source>.*)").unwrap());
-static POUR_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^pour (?P<amount>.*) from (the )?(?P<source>.*) into (the )?(?P<target>.*)")
-        .unwrap()
-});
-static POUR_ALL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^pour( all( of)?)? (the )?(?P<source>.*) into (the )?(?P<target>.*)").unwrap()
-});
 static ALL_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^all$").unwrap());
 static AMOUNT_WITH_LITERS_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L| liter| liters)$").unwrap());
+    LazyLock::new(|| Regex::new("^(?P<amount>[^ ]*)(L| L|l| l| liter| liters)$").unwrap());
 static AMOUNT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(?P<amount>.*)").unwrap());
 
+static SOURCE_PART_ID: CommandPartId<Entity> = CommandPartId::new("source");
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static AMOUNT_PART_ID: CommandPartId<String> = CommandPartId::new("amount");
+
+static SOURCE_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
+    entity_part_builder(SOURCE_PART_ID)
+        .with_validator(|context, world| {
+            validate_parsed_value_has_component::<FluidContainer>(
+                context,
+                "pour anything from",
+                world,
+            )
+        })
+        .build()
+        .with_if_unparsed("what")
+        .with_placeholder_for_format_string("container")
+});
+static TARGET_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
+    entity_part_builder(TARGET_PART_ID)
+        .with_validator(|context, world| {
+            validate_parsed_value_has_component::<FluidContainer>(
+                context,
+                "pour anything into",
+                world,
+            )
+        })
+        .build()
+        .with_if_unparsed("what")
+        .with_placeholder_for_format_string("container")
+});
+static AMOUNT_PART: LazyLock<CommandFormatPart> = LazyLock::new(|| {
+    any_text_part_with_validator(AMOUNT_PART_ID, validate_amount)
+        .with_if_unparsed("how much")
+        .with_placeholder_for_format_string("amount")
+});
+
+static FILL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("fill"))
+        .then(literal_part(" "))
+        .then(TARGET_PART.clone())
+        .then(literal_part(" from "))
+        .then(SOURCE_PART.clone())
+});
+static POUR_ALL_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("pour"))
+        .then(optional_one_of_literal_part(nonempty![" all", " all of"]))
+        .then(literal_part(" "))
+        .then(SOURCE_PART.clone())
+        .then(literal_part(" into "))
+        .then(TARGET_PART.clone())
+});
+static POUR_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("pour"))
+        .then(literal_part(" "))
+        .then(AMOUNT_PART.clone())
+        .then(literal_part(" from "))
+        .then(SOURCE_PART.clone())
+        .then(literal_part(" into "))
+        .then(TARGET_PART.clone())
+});
+
+/// Validates that a string represents an amount of fluid
+fn validate_amount(context: &PartValidatorContext<String>, _: &World) -> CommandPartValidateResult {
+    match parse_pour_amount(&context.parsed_value) {
+        Ok(_) => CommandPartValidateResult::Valid,
+        Err(e) => CommandPartValidateResult::Invalid(CommandPartValidateError { details: Some(e) }),
+    }
+}
+
+pub struct FillParser;
+pub struct PourAllParser;
 pub struct PourParser;
+
+impl InputParser for FillParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = FILL_FORMAT.parse(input, source_entity, world)?;
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
+        build_action(source_entity, source, target, PourAmount::All, world)
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![FILL_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<FluidContainer>(
+            entity,
+            world,
+            &[
+                FILL_FORMAT.get_format_description().with_targeted_entity(
+                    SOURCE_PART_ID,
+                    entity,
+                    world,
+                ),
+                FILL_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID,
+                    entity,
+                    world,
+                ),
+            ],
+        )
+    }
+}
+
+impl InputParser for PourAllParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = POUR_ALL_FORMAT.parse(input, source_entity, world)?;
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
+        build_action(source_entity, source, target, PourAmount::All, world)
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![POUR_ALL_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<FluidContainer>(
+            entity,
+            world,
+            &[
+                POUR_ALL_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(SOURCE_PART_ID, entity, world),
+                POUR_ALL_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
+            ],
+        )
+    }
+}
 
 impl InputParser for PourParser {
     fn parse(
         &self,
         input: &str,
-        entity: Entity,
+        source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let (verb_name, source_target, target_target, amount) = parse_targets(input)?;
-
-        let source = match source_target.find_target_entity(entity, world) {
-            Some(e) => e,
-            None => {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::TargetNotFound(source_target),
-                })
-            }
-        };
-
-        if world.get::<FluidContainer>(source).is_none() {
-            let source_name = Description::get_reference_name(source, Some(entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(format!("{source_name} is not a fluid container.")),
-            });
-        }
-
-        let target = match target_target.find_target_entity(entity, world) {
-            Some(e) => e,
-            None => {
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name,
-                    error: CommandParseError::TargetNotFound(target_target),
-                })
-            }
-        };
-
-        if source == target {
-            let target_name = Description::get_reference_name(target, Some(entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(format!(
-                    "You can't pour {target_name} into itself."
-                )),
-            });
-        }
-
-        if world.get::<FluidContainer>(target).is_none() {
-            let target_name = Description::get_reference_name(target, Some(entity), world);
-            return Err(InputParseError::CommandParseError {
-                verb: verb_name,
-                error: CommandParseError::Other(format!("{target_name} is not a fluid container.")),
-            });
-        }
-
-        Ok(Box::new(PourAction {
-            source,
-            target,
-            amount,
-            notification_sender: ActionNotificationSender::new(),
-        }))
+        let parsed = POUR_FORMAT.parse(input, source_entity, world)?;
+        let source = parsed.get(SOURCE_PART_ID);
+        let target = parsed.get(TARGET_PART_ID);
+        let amount = parse_pour_amount(&parsed.get(AMOUNT_PART_ID))
+            .map_err(InputParseError::PostFormatParse)?;
+        build_action(source_entity, source, target, amount, world)
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![
-            FILL_FORMAT.to_string(),
-            POUR_ALL_FORMAT.to_string(),
-            POUR_FORMAT.to_string(),
-        ]
+        vec![POUR_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
         input_formats_if_has_component::<FluidContainer>(
             entity,
             world,
-            &[FILL_FORMAT, POUR_ALL_FORMAT, POUR_FORMAT],
+            &[
+                POUR_FORMAT.get_format_description().with_targeted_entity(
+                    SOURCE_PART_ID,
+                    entity,
+                    world,
+                ),
+                POUR_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID,
+                    entity,
+                    world,
+                ),
+            ],
         )
     }
 }
 
-fn parse_targets(
-    input: &str,
-) -> Result<(String, CommandTarget, CommandTarget, PourAmount), InputParseError> {
-    if let Some(captures) = FILL_PATTERN.captures(input) {
-        if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-            if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                let source = CommandTarget::parse(source_match.as_str());
-                let target = CommandTarget::parse(target_match.as_str());
-                return Ok((FILL_VERB_NAME.to_string(), source, target, PourAmount::All));
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: FILL_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
+/// Confirms the source and target aren't the same and then builds a `PourAction` from them.
+fn build_action(
+    entering_entity: Entity,
+    source: Entity,
+    target: Entity,
+    amount: PourAmount,
+    world: &World,
+) -> Result<Box<dyn Action>, InputParseError> {
+    if source == target {
+        let target_name = Description::get_reference_name(target, Some(entering_entity), world);
+        return Err(InputParseError::PostFormatParse(format!(
+            "You can't pour {target_name} into itself."
+        )));
     }
-
-    if let Some(captures) = POUR_PATTERN.captures(input) {
-        if let Some(amount) = captures.name(AMOUNT_CAPTURE) {
-            let amount = parse_pour_amount(amount.as_str())?;
-            if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-                if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                    let source = CommandTarget::parse(source_match.as_str());
-                    let target = CommandTarget::parse(target_match.as_str());
-                    return Ok((POUR_VERB_NAME.to_string(), source, target, amount));
-                }
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: POUR_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
-    }
-
-    if let Some(captures) = POUR_ALL_PATTERN.captures(input) {
-        if let Some(target_match) = captures.name(TARGET_CAPTURE) {
-            if let Some(source_match) = captures.name(SOURCE_CAPTURE) {
-                let source = CommandTarget::parse(source_match.as_str());
-                let target = CommandTarget::parse(target_match.as_str());
-                return Ok((POUR_VERB_NAME.to_string(), source, target, PourAmount::All));
-            }
-        }
-
-        return Err(InputParseError::CommandParseError {
-            verb: POUR_VERB_NAME.to_string(),
-            error: CommandParseError::MissingTarget,
-        });
-    }
-
-    Err(InputParseError::UnknownCommand)
+    Ok(Box::new(PourAction {
+        source,
+        target,
+        amount,
+        notification_sender: ActionNotificationSender::new(),
+    }))
 }
 
-fn parse_pour_amount(input: &str) -> Result<PourAmount, InputParseError> {
+fn parse_pour_amount(input: &str) -> Result<PourAmount, String> {
     if ALL_PATTERN.is_match(input) {
         return Ok(PourAmount::All);
     }
@@ -203,25 +255,25 @@ fn parse_pour_amount(input: &str) -> Result<PourAmount, InputParseError> {
         if let Some(amount_match) = captures.name(AMOUNT_CAPTURE) {
             debug!("parsing amount '{}'", amount_match.as_str());
             match amount_match.as_str().parse::<f32>() {
-                Ok(a) => return Ok(PourAmount::Some(Volume(a))),
+                Ok(amount) => {
+                    if amount < MIN_POUR_AMOUNT_LITERS {
+                        return Err(format!(
+                            "You can't pour less than {MIN_POUR_AMOUNT_LITERS} liters."
+                        ));
+                    }
+                    return Ok(PourAmount::Some(Volume(amount)));
+                }
                 Err(_) => {
-                    return Err(InputParseError::CommandParseError {
-                        verb: POUR_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(
-                            "That is an invalid amount to pour.".to_string(),
-                        ),
-                    })
+                    return Err(format!(
+                        "'{}' is an invalid amount to pour.",
+                        amount_match.as_str()
+                    ))
                 }
             }
         }
     }
 
-    Err(InputParseError::CommandParseError {
-        verb: POUR_VERB_NAME.to_string(),
-        error: CommandParseError::Other(
-            "You can only pour 'all' or some amount of liters.".to_string(),
-        ),
-    })
+    Err("You can only pour 'all' or some amount of liters.".to_string())
 }
 
 /// Makes an entity pour some liquid from one fluid container to another.
@@ -249,6 +301,16 @@ impl Action for PourAction {
             .map(|c| c.contents.get_total_volume())
             .unwrap_or(Volume(0.0));
 
+        let source_name =
+            Description::get_reference_name(self.source, Some(performing_entity), world);
+
+        if amount_in_source <= Volume(0.0) {
+            let message = format!("There's nothing in {source_name} to pour.");
+            return ActionResult::builder()
+                .with_error(performing_entity, message)
+                .build_complete_no_tick(false);
+        }
+
         let target_container = world.get::<FluidContainer>(self.target);
         let amount_in_target = target_container
             .map(|c| c.contents.get_total_volume())
@@ -275,19 +337,6 @@ impl Action for PourAction {
         };
 
         let removed_fluids = remove_fluid(self.source, amount_to_pour, world);
-
-        let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
-        let source_name =
-            Description::get_reference_name(self.source, Some(performing_entity), world);
-        let target_name =
-            Description::get_reference_name(self.target, Some(performing_entity), world);
-        if actual_poured_amount <= Volume(0.0) {
-            let message = format!("You can't pour anything from {source_name} into {target_name}.");
-            return ActionResult::builder()
-                .with_error(performing_entity, message)
-                .build_complete_no_tick(false);
-        }
-
         if let Some(mut target_container) = world.get_mut::<FluidContainer>(self.target) {
             target_container.contents.increase(&removed_fluids);
         }
@@ -299,6 +348,9 @@ impl Action for PourAction {
             "fluid".to_string()
         };
 
+        let actual_poured_amount = removed_fluids.values().copied().sum::<Volume>();
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
         let first_person_message = format!("You pour {actual_poured_amount:.2}L of {fluid_name} from {source_name} into {target_name}.");
 
         ActionResult::builder()

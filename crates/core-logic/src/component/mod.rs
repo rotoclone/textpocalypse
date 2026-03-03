@@ -8,7 +8,9 @@ pub use description::AttributeSection;
 pub use description::AttributeSectionName;
 pub use description::DescribeAttributes;
 pub use description::Description;
+pub use description::Matchness;
 pub use description::NonSectionAttributeType;
+pub use description::PortionMatched;
 pub use description::Pronouns;
 pub use description::SectionAttributeDescription;
 
@@ -189,8 +191,10 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(calories::increase_satiety_on_eat, world);
 
-    VerifyNotificationHandlers::add_handler(fluid_container::verify_source_container, world);
-    VerifyNotificationHandlers::add_handler(fluid_container::limit_fluid_container_contents, world);
+    VerifyNotificationHandlers::add_handler(
+        fluid_container::verify_source_and_target_container_amounts,
+        world,
+    );
 
     NotificationHandlers::add_handler(wander_behavior::wander_on_tick, world);
     NotificationHandlers::add_handler(remove_on_death::<WanderBehavior>, world);

@@ -1,18 +1,19 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
-use regex::Regex;
+use nonempty::nonempty;
 
 use crate::{
+    command_format::{
+        entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+    },
     component::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
         EquipError, EquippedItems, Item, Location, UnequipError,
     },
     find_wearing_entity, find_wielding_entity,
-    input_parser::{
-        input_formats_if_has_component, CommandParseError, CommandTarget, InputParseError,
-        InputParser,
-    },
+    input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::{Notification, VerifyResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -21,19 +22,43 @@ use crate::{
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
 
-const EQUIP_VERB_NAME: &str = "equip";
-const UNEQUIP_VERB_NAME: &str = "unequip";
-const EQUIP_FORMAT: &str = "equip <>";
-const UNEQUIP_FORMAT: &str = "unequip <>";
-const NAME_CAPTURE: &str = "name";
-
-static EQUIP_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(hold|equip|wield|unholster|take out) (the )?(?P<name>.*)").unwrap()
+static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+static EQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "equip",
+        "hold",
+        "wield",
+        "unholster",
+        "take out",
+    ]))
+    .then(literal_part(" "))
+    .then(
+        entity_part_builder(TARGET_PART_ID)
+            .with_validator(|context, world| {
+                validate_parsed_value_has_component::<Item>(context, "equip", world)
+            })
+            .build()
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("thing"),
+    )
 });
-static UNEQUIP_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(unhold|unequip|unwield|holster|stow|put away) (the )?(?P<name>.*)").unwrap()
+static UNEQUIP_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_literal_part(nonempty![
+        "unequip", "unhold", "unwield", "holster", "put away",
+    ]))
+    .then(literal_part(" "))
+    .then(
+        entity_part_builder(TARGET_PART_ID)
+            .with_validator(|context, world| {
+                validate_parsed_value_has_component::<Item>(context, "unequip", world)
+            })
+            .build()
+            .with_if_unparsed("what")
+            .with_placeholder_for_format_string("thing"),
+    )
 });
 
+//TODO split into 2 parsers
 pub struct EquipParser;
 
 impl InputParser for EquipParser {
@@ -43,59 +68,51 @@ impl InputParser for EquipParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn Action>, InputParseError> {
-        let (captures, verb_name, should_be_equipped) =
-            if let Some(captures) = EQUIP_PATTERN.captures(input) {
-                (captures, EQUIP_VERB_NAME, true)
-            } else if let Some(captures) = UNEQUIP_PATTERN.captures(input) {
-                (captures, UNEQUIP_VERB_NAME, false)
-            } else {
-                return Err(InputParseError::UnknownCommand);
-            };
-
-        if let Some(target_match) = captures.name(NAME_CAPTURE) {
-            let target = CommandTarget::parse(target_match.as_str());
-            if let Some(target_entity) = target.find_target_entity(source_entity, world) {
-                if world.get::<Item>(target_entity).is_some() {
-                    // target exists and is equippable
-                    return Ok(Box::new(EquipAction {
-                        target: target_entity,
-                        should_be_equipped,
-                        notification_sender: ActionNotificationSender::new(),
-                    }));
-                } else {
-                    // target isn't equippable
-                    let target_name =
-                        Description::get_reference_name(target_entity, Some(source_entity), world);
-                    return Err(InputParseError::CommandParseError {
-                        verb: EQUIP_VERB_NAME.to_string(),
-                        error: CommandParseError::Other(format!(
-                            "You can't {verb_name} {target_name}."
-                        )),
-                    });
+        match EQUIP_FORMAT.parse(input, source_entity, world) {
+            Ok(parsed) => {
+                return Ok(Box::new(EquipAction {
+                    target: parsed.get(TARGET_PART_ID),
+                    should_be_equipped: true,
+                    notification_sender: ActionNotificationSender::new(),
+                }))
+            }
+            Err(e) => {
+                if e.num_parts_matched() > 0 {
+                    return Err(e.into());
                 }
-            } else {
-                // target doesn't exist
-                return Err(InputParseError::CommandParseError {
-                    verb: verb_name.to_string(),
-                    error: CommandParseError::TargetNotFound(target),
-                });
             }
         }
 
-        Err(InputParseError::UnknownCommand)
+        let parsed = UNEQUIP_FORMAT.parse(input, source_entity, world)?;
+        Ok(Box::new(EquipAction {
+            target: parsed.get(TARGET_PART_ID),
+            should_be_equipped: false,
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        vec![EQUIP_FORMAT.to_string(), UNEQUIP_FORMAT.to_string()]
+        vec![
+            EQUIP_FORMAT.get_format_description().to_string(),
+            UNEQUIP_FORMAT.get_format_description().to_string(),
+        ]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        _: Entity,
-        world: &World,
-    ) -> Option<Vec<String>> {
-        input_formats_if_has_component::<Item>(entity, world, &[EQUIP_FORMAT, UNEQUIP_FORMAT])
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        input_formats_if_has_component::<Item>(
+            entity,
+            world,
+            &[
+                EQUIP_FORMAT.get_format_description().with_targeted_entity(
+                    TARGET_PART_ID,
+                    entity,
+                    world,
+                ),
+                UNEQUIP_FORMAT
+                    .get_format_description()
+                    .with_targeted_entity(TARGET_PART_ID, entity, world),
+            ],
+        )
     }
 }
 
