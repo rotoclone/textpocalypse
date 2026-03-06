@@ -265,7 +265,7 @@ pub trait InputParser: Send + Sync {
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser.
     /// Targets in the provided formats are denoted with "<>".
-    /// TODO have this return a Vec<Vec<FormatStringPart>> or Vec<InputFormatDescription> or something
+    /// TODO have this return a `Vec<Vec<FormatStringPart>>` or `Vec<InputFormatDescription>` or something
     fn get_input_formats(&self) -> Vec<String>;
 
     /// Returns all the input formats that would cause valid actions to be produced by this parser if the provided entity was included as a target by the POV entity.
