@@ -104,7 +104,7 @@ impl<'n> Display for CommandTarget<'n> {
 
 impl<'n> CommandTarget<'n> {
     /// Parses the provided string to a `CommandTarget`.
-    pub fn parse(input: &str) -> CommandTarget {
+    pub fn parse(input: &str) -> CommandTarget<'_> {
         if SELF_TARGET_PATTERN.is_match(input) {
             return CommandTarget::Myself;
         }

@@ -125,7 +125,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///
     /// An example format string: `${attacker.name} throws ${object.name}, but ${target.name} ${target.you:move/moves} out of the way just before ${object.they} ${object.hit/hits} ${target.them}.`
     /// This format string might produce the following result from `interpolate`: "Bob throws the rock, but Fred moves out of the way just before it hits him."
-    pub fn new(format_string: &str) -> Result<MessageFormat<T>, ParseError> {
+    pub fn new(format_string: &str) -> Result<MessageFormat<T>, ParseError<'_>> {
         Ok(MessageFormat(
             MessageFormatChunk::parse(format_string)?,
             PhantomData,
@@ -193,7 +193,7 @@ pub enum ParseError<'i> {
 
 impl MessageFormatChunk {
     /// Parses the provided format string into chunks.
-    fn parse(format_string: &str) -> Result<Vec<MessageFormatChunk>, ParseError> {
+    fn parse(format_string: &str) -> Result<Vec<MessageFormatChunk>, ParseError<'_>> {
         match many0(parse_chunk)(format_string) {
             Ok((remaining, chunks)) => {
                 if !remaining.is_empty() {

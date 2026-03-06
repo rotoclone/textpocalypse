@@ -1312,7 +1312,13 @@ mod tests {
         fn eq(&self, other: &Self) -> bool {
             self.id == other.id
                 && self.options == other.options
-                && self.validator == other.validator
+                && match self.validator {
+                    Some(self_val) => match other.validator {
+                        Some(other_val) => fn_addr_eq(self_val, other_val),
+                        None => false,
+                    },
+                    None => other.validator.is_none(),
+                }
         }
     }
 
