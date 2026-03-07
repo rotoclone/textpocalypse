@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::{any::type_name, collections::HashMap, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
@@ -33,7 +34,7 @@ pub use parsed_value_validators::CommandPartValidateResult;
 pub use parsed_value_validators::PartValidatorContext;
 
 /// The format of a command a player can enter.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct CommandFormat(NonEmpty<CommandFormatPart>);
 
 /// A `CommandPartId` with no associated type information, so different ones can be put in a collection together.
@@ -48,7 +49,7 @@ impl<T> From<CommandPartId<T>> for UntypedCommandPartId {
 
 //TODO add a part that must be provided if another part is provided, so for example if there's an optional part that's provided it has to be preceded with a space, but if the optional part isn't provided then there can't be a space
 //TODO add a part that parses into a custom type, so for example the open command doesn't need 2 separate formats (one that starts with "open" and one that starts with "close"), instead the first part could be parsed into an enum
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum CommandFormatPart {
     Literal(String, CommandFormatPartParams<String, String>),
     OptionalLiteral(String, CommandFormatPartParams<Option<String>, String>),
@@ -346,7 +347,7 @@ fn genericize_validate<T: TryFrom<ParsedValue> + 'static>(
 }
 
 /// Metadata about a part.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct CommandFormatPartParams<P, V> {
     /// The ID of the part, if it has one
     id: Option<CommandPartId<P>>,
@@ -713,10 +714,25 @@ fn build_optional_direction_part(
 
 /// An identifier for a part of a command to be used to retrieve the parsed value.
 /// `T` is the type that the part will be parsed into.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq)]
 pub struct CommandPartId<T>(&'static str, PhantomData<fn(T)>);
 
-// implemting clone manually so it's implemented even if `T` is not clone
+// implementing PartialEq manually so it's implemented even if `T` is not PartialEq
+impl<T> PartialEq for CommandPartId<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
+// implementing Hash manually since PartialEq is implemented manually and they have to agree (though technically in this case the auto-derived Hash should agree just fine)
+impl<T> Hash for CommandPartId<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+        self.1.hash(state);
+    }
+}
+
+// implemting Clone manually so it's implemented even if `T` is not Clone
 impl<T> Clone for CommandPartId<T> {
     fn clone(&self) -> Self {
         *self
@@ -1003,13 +1019,14 @@ fn build_error_message_for_parts(
 }
 
 /// A part that has been parsed into some concrete value
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ParsedCommandFormatPart {
     pub order: usize,
     pub matched_part: MatchedCommandFormatPart,
     pub parsed_value: ParsedValue,
 }
 
+/* TODO
 impl PartialOrd for ParsedCommandFormatPart {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -1021,6 +1038,7 @@ impl Ord for ParsedCommandFormatPart {
         self.order.cmp(&other.order)
     }
 }
+    */
 
 impl ParsedCommandFormatPart {
     /// Builds a string representing this part to use in a parsing error message.
@@ -1285,8 +1303,56 @@ fn build_processed_parts(
 
 #[cfg(test)]
 mod tests {
+    use std::ptr::fn_addr_eq;
+
     use super::*;
     use nonempty::nonempty;
+
+    impl<P, V> PartialEq for CommandFormatPartParams<P, V> {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+                && self.options == other.options
+                && match self.validator {
+                    Some(self_val) => match other.validator {
+                        Some(other_val) => fn_addr_eq(self_val, other_val),
+                        None => false,
+                    },
+                    None => other.validator.is_none(),
+                }
+        }
+    }
+
+    impl PartialEq for CommandFormatPart {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (Self::Literal(l0, l1), Self::Literal(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalLiteral(l0, l1), Self::OptionalLiteral(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
+                (Self::OneOfLiteral(l0, l1), Self::OneOfLiteral(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalOneOfLiteral(l0, l1), Self::OptionalOneOfLiteral(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
+                (Self::AnyText(l0), Self::AnyText(r0)) => l0 == r0,
+                (Self::OptionalAnyText(l0), Self::OptionalAnyText(r0)) => l0 == r0,
+                (Self::Entity(l0, l1), Self::Entity(r0, r1)) => l0 == r0 && fn_addr_eq(*l1, *r1),
+                (Self::OptionalEntity(l0, l1), Self::OptionalEntity(r0, r1)) => {
+                    l0 == r0 && fn_addr_eq(*l1, *r1)
+                }
+                (Self::Direction(l0, l1), Self::Direction(r0, r1)) => l0 == r0 && l1 == r1,
+                (Self::OptionalDirection(l0, l1), Self::OptionalDirection(r0, r1)) => {
+                    l0 == r0 && l1 == r1
+                }
+                _ => false,
+            }
+        }
+    }
+
+    impl PartialEq for CommandFormat {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+    }
 
     #[test]
     fn format() {

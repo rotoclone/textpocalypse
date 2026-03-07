@@ -55,7 +55,7 @@ pub enum CommandPartMatchError {
 }
 
 /// A part that has been associated with a portion of the input string
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct MatchedCommandFormatPart {
     /// The index of this part in the list of parts in the format
     pub order: usize,
