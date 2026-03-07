@@ -134,18 +134,8 @@ mod tests {
     }
     impl Eq for PartValidatorContext<Entity> {}
 
-    /// Used for ensuring the validation fn was called with the expected arguments
-    static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
-        LazyLock::new(|| RwLock::new(HashSet::new()));
-
-    fn setup() {
-        VALIDATION_FN_INFO.write().unwrap().clear();
-    }
-
     #[test]
     fn parse_entity_empty_input() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -171,8 +161,6 @@ mod tests {
 
     #[test]
     fn parse_entity_no_match() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -198,8 +186,6 @@ mod tests {
 
     #[test]
     fn parse_entity_matching_entity_in_other_room() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let location_2 = world.spawn(Container::new_infinite()).id();
@@ -226,8 +212,6 @@ mod tests {
 
     #[test]
     fn parse_entity_no_match_with_searched_container() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -270,8 +254,6 @@ mod tests {
 
     #[test]
     fn parse_entity_only_match_is_invalid() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -307,7 +289,9 @@ mod tests {
 
     #[test]
     fn parse_entity_multiple_partial_matches_all_invalid() {
-        setup();
+        /// Used for ensuring the validation fn was called with the expected arguments
+        static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
+            LazyLock::new(|| RwLock::new(HashSet::new()));
 
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -359,7 +343,9 @@ mod tests {
 
     #[test]
     fn parse_entity_multiple_partial_matches() {
-        setup();
+        /// Used for ensuring the validation fn was called with the expected arguments
+        static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
+            LazyLock::new(|| RwLock::new(HashSet::new()));
 
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -411,7 +397,9 @@ mod tests {
 
     #[test]
     fn parse_entity_multiple_partial_matches_better_match_invalid() {
-        setup();
+        /// Used for ensuring the validation fn was called with the expected arguments
+        static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
+            LazyLock::new(|| RwLock::new(HashSet::new()));
 
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -467,7 +455,9 @@ mod tests {
 
     #[test]
     fn parse_entity_one_exact_match_one_partial_match() {
-        setup();
+        /// Used for ensuring the validation fn was called with the expected arguments
+        static VALIDATION_FN_INFO: LazyLock<RwLock<HashSet<&'static str>>> =
+            LazyLock::new(|| RwLock::new(HashSet::new()));
 
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
@@ -521,8 +511,6 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match_no_validation_fn() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -546,8 +534,6 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -583,8 +569,6 @@ mod tests {
 
     #[test]
     fn parse_entity_exact_match_with_the() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -620,8 +604,6 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match_no_validation_fn() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -645,8 +627,6 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
@@ -682,8 +662,6 @@ mod tests {
 
     #[test]
     fn parse_entity_partial_match_with_the() {
-        setup();
-
         let mut world = World::new();
         let location_1 = world.spawn(Container::new_infinite()).id();
         let entity_1 = spawn_entity_in_location("1", location_1, &mut world);
