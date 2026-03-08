@@ -12,13 +12,13 @@ use crate::{
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Container, Item, Location,
-        PortionMatched,
+        PortionMatched, VerifyResult,
     },
     find_owning_entity,
     found_entities::{FoundEntities, FoundEntitiesInContainer},
     input_parser::{CommandTargetName, InputParseError, InputParser},
     is_living_entity, move_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
@@ -532,7 +532,7 @@ impl Action for PutAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -557,7 +557,7 @@ impl Action for PutAction {
 /// Verifies that the item is actually in the source container.
 pub fn verify_item_in_source(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let item = notification.contents.item;
@@ -590,7 +590,7 @@ pub fn verify_item_in_source(
 /// Verifies that the item is not already in the destination container.
 pub fn verify_item_not_in_destination(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let item = notification.contents.item;
@@ -622,7 +622,7 @@ pub fn verify_item_not_in_destination(
 /// Verifies that the source is not owned by a different living entity than the one doing the action.
 pub fn verify_source_not_owned_by_other_living_entity(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let source = notification.contents.source;
@@ -646,7 +646,7 @@ pub fn verify_source_not_owned_by_other_living_entity(
 /// Verifies that the destination is not owned by a different living entity than the one doing the action.
 pub fn verify_destination_not_owned_by_other_living_entity(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let destination = notification.contents.destination;
@@ -671,7 +671,7 @@ pub fn verify_destination_not_owned_by_other_living_entity(
 /// Prevents putting items inside themselves.
 pub fn prevent_put_item_inside_itself(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let item = notification.contents.item;

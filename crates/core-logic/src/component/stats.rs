@@ -193,7 +193,9 @@ pub struct XpAwardNotification {
     pub xp_to_add: Xp,
 }
 
-impl NotificationType for XpAwardNotification {}
+impl NotificationType for XpAwardNotification {
+    type Return = ();
+}
 
 /// Increases an entity's XP total when they are given XP, and awards any advancement points that are warranted.
 pub fn increase_xp_and_advancement_points_on_xp_awarded(

@@ -6,10 +6,11 @@ use nonempty::nonempty;
 use crate::{
     action::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult, LookAction},
     command_format::{one_of_literal_part, CommandFormat},
+    component::VerifyResult,
     find_spawn_room,
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification,
@@ -111,7 +112,7 @@ impl Action for RespawnAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

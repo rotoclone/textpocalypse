@@ -13,6 +13,7 @@ const SEVERE_HUNGER_THESHOLD: f32 = 0.25;
 #[derive(Component)]
 struct Hungry(HungerSeverity);
 
+#[derive(PartialEq, Eq)]
 enum HungerSeverity {
     /// A little hungry
     Mild,

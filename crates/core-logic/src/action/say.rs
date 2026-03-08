@@ -4,12 +4,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     any_text_part,
-    component::{ActionEndNotification, AfterActionPerformNotification},
+    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult},
     input_parser::{InputParseError, InputParser},
-    literal_part,
-    notification::VerifyResult,
-    ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId, DynamicMessage,
-    DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
+    literal_part, ActionTag, BasicTokens, BeforeActionNotification, CommandFormat, CommandPartId,
+    DynamicMessage, DynamicMessageLocation, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
@@ -141,7 +139,7 @@ impl Action for SayAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

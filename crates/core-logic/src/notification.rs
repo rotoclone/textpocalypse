@@ -2,12 +2,12 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 
-use crate::GameMessage;
-
 //TODO use bevy observers instead of all this?
 
 /// Trait for types that represent a category of notifications.
-pub trait NotificationType: Debug + Send + Sync {}
+pub trait NotificationType: Debug + Send + Sync {
+    type Return;
+}
 
 /// A notification.
 #[derive(Debug)]
@@ -18,58 +18,42 @@ pub struct Notification<'c, T: NotificationType, Contents> {
     pub contents: &'c Contents,
 }
 
-impl<T: NotificationType + 'static> Notification<'_, T, ()> {
+impl<T: NotificationType<Return = R> + 'static, R: 'static> Notification<'_, T, ()> {
     /// Sends a notification with the provided type and no contents.
-    pub fn send_no_contents(notification_type: T, world: &mut World) {
+    pub fn send_no_contents(notification_type: T, world: &mut World) -> Vec<R> {
         Notification {
             notification_type,
             contents: &(),
         }
-        .send(world);
+        .send(world)
     }
 }
 
-impl<T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'_, T, C> {
+impl<T: NotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'static>
+    Notification<'_, T, C>
+{
     /// Sends this notification to all the handlers registered for it.
-    pub fn send(&self, world: &mut World) {
-        if let Some(handlers) = world.get_resource::<NotificationHandlers<T, C>>() {
+    pub fn send(&self, world: &mut World) -> Vec<R> {
+        let mut returned = Vec::new();
+        if let Some(handlers) = world.get_resource::<NotificationHandlers<T, C, R>>() {
             let handle_fns = handlers
                 .handlers
                 .values()
                 .cloned()
-                .collect::<Vec<HandleFn<T, C>>>();
+                .collect::<Vec<HandleFn<T, C, R>>>();
 
             for handle_fn in handle_fns {
-                handle_fn(self, world);
-            }
-        }
-    }
-
-    /// Sends this notification to all the verify handlers registered for it.
-    pub fn verify(&self, world: &World) -> VerifyResult {
-        if let Some(handlers) = world.get_resource::<VerifyNotificationHandlers<T, C>>() {
-            let handle_fns = handlers
-                .handlers
-                .values()
-                .cloned()
-                .collect::<Vec<HandleVerifyFn<T, C>>>();
-
-            for handle_fn in handle_fns {
-                let response = handle_fn(self, world);
-                //TODO continue calling verification handlers and send messages for all of the failed ones?
-                if !response.is_valid {
-                    return response;
-                }
+                returned.push(handle_fn(self, world));
             }
         }
 
-        VerifyResult::valid()
+        returned
     }
 }
 
 /// An identifier for a registered notification handler.
 ///
-/// This is only unique to the notification type + contents + resource type type combo.
+/// This is only unique to the notification type + contents combo.
 /// For example, the first handler registered for `BeforeActionNotification` and `MoveAction` and the first one registered for
 /// `BeforeActionNotification` and `LookAction` will both have the same internal value, just different associated types.
 pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync, R> {
@@ -121,23 +105,26 @@ impl<T: NotificationType, C: Send + Sync, R> NotificationHandlerId<T, C, R> {
 }
 
 /// Signature of a function to handle notifications.
-type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
+/// TODO verify notification handlers ideally should take in an immutable `World`, so they can't mess with anything that would cause previously-run verify handlers to become out of date
+type HandleFn<T, Contents, Return> = fn(&Notification<T, Contents>, &mut World) -> Return;
 
 /// Type of the notification handler ID for regular notifications.
-type HandlerId<T, C> = NotificationHandlerId<T, C, NotificationHandlers<T, C>>;
+type HandlerId<T, C, R> = NotificationHandlerId<T, C, R>;
 
-/// The set of notification handlers for a single notification type and contents type combination.
+/// The set of notification handlers for a single notification type, contents type, and return type combination.
 #[derive(Resource)]
-pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
+pub struct NotificationHandlers<T: NotificationType, C: Send + Sync, R> {
     /// The ID to be assigned to the next registered handler.
-    next_id: NotificationHandlerId<T, C, NotificationHandlers<T, C>>,
+    next_id: NotificationHandlerId<T, C, R>,
     /// The handlers, keyed by their assigned IDs.
-    handlers: HashMap<HandlerId<T, C>, HandleFn<T, C>>,
+    handlers: HashMap<HandlerId<T, C, R>, HandleFn<T, C, R>>,
 }
 
-impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C> {
+impl<T: NotificationType + 'static, C: Send + Sync + 'static, R: 'static>
+    NotificationHandlers<T, C, R>
+{
     /// Creates a new, empty set of handlers.
-    fn new() -> NotificationHandlers<T, C> {
+    fn new() -> NotificationHandlers<T, C, R> {
         NotificationHandlers {
             next_id: NotificationHandlerId::new(),
             handlers: HashMap::new(),
@@ -145,7 +132,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Adds the provided handler to this set of handlers and returns its assigned ID.
-    fn add(&mut self, handle_fn: HandleFn<T, C>) -> HandlerId<T, C> {
+    fn add(&mut self, handle_fn: HandleFn<T, C, R>) -> HandlerId<T, C, R> {
         let id = self.next_id;
         self.handlers.insert(id, handle_fn);
         self.next_id = self.next_id.next();
@@ -154,8 +141,8 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
     }
 
     /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
-    pub fn add_handler(handler: HandleFn<T, C>, world: &mut World) -> HandlerId<T, C> {
-        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+    pub fn add_handler(handler: HandleFn<T, C, R>, world: &mut World) -> HandlerId<T, C, R> {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C, R>>() {
             return handlers.add(handler);
         }
 
@@ -168,9 +155,9 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
 
     /// Removes the handler with the provided ID.
     #[expect(unused)]
-    pub fn remove_handler(id: HandlerId<T, C>, world: &mut World) {
+    pub fn remove_handler(id: HandlerId<T, C, R>, world: &mut World) {
         let mut remove_resource = false;
-        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C>>() {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C, R>>() {
             handlers.handlers.remove(&id);
 
             if handlers.handlers.is_empty() {
@@ -179,105 +166,7 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandle
         }
 
         if remove_resource {
-            world.remove_resource::<NotificationHandlers<T, C>>();
-        }
-    }
-}
-
-/// Result of verifying the contents of a notification.
-pub struct VerifyResult {
-    /// Whether the notification contents are valid.
-    pub is_valid: bool,
-    /// Any messages to send to relevant entities explaining why the notification was invalid.
-    pub messages: HashMap<Entity, Vec<GameMessage>>,
-}
-
-impl VerifyResult {
-    /// Creates a result denoting that the notification contents are valid.
-    pub fn valid() -> VerifyResult {
-        VerifyResult {
-            is_valid: true,
-            messages: HashMap::new(),
-        }
-    }
-
-    /// Creates a result denoting that the notification contents are invalid with a single message for an entity.
-    pub fn invalid(entity: Entity, message: GameMessage) -> VerifyResult {
-        Self::invalid_with_messages([(entity, vec![message])].into())
-    }
-
-    /// Creates a result denoting that the notification contents are invalid.
-    pub fn invalid_with_messages(messages: HashMap<Entity, Vec<GameMessage>>) -> VerifyResult {
-        VerifyResult {
-            is_valid: false,
-            messages,
-        }
-    }
-}
-
-/// Signature of a function to handle verify notifications.
-/// TODO if verify notifications will all have their own `VerifySomething` notification type, maybe just make handlers generic over their return type instead of having a special handler type that specifically returns `VerifyResult`
-type HandleVerifyFn<T, Contents> = fn(&Notification<T, Contents>, &World) -> VerifyResult;
-
-/// Type of the notification handler ID for verify notifications.
-type VerifyHandlerId<T, C> = NotificationHandlerId<T, C, VerifyNotificationHandlers<T, C>>;
-
-// TODO consider removing this duplication
-
-/// The set of verify notification handlers for a single notification type and contents type combination.
-#[derive(Resource)]
-pub struct VerifyNotificationHandlers<T: NotificationType, C: Send + Sync> {
-    /// The ID to be assigned to the next registered handler.
-    next_id: NotificationHandlerId<T, C, VerifyNotificationHandlers<T, C>>,
-    /// The handlers, keyed by their assigned IDs.
-    handlers: HashMap<VerifyHandlerId<T, C>, HandleVerifyFn<T, C>>,
-}
-
-impl<T: NotificationType + 'static, C: Send + Sync + 'static> VerifyNotificationHandlers<T, C> {
-    /// Creates a new, empty set of handlers.
-    fn new() -> VerifyNotificationHandlers<T, C> {
-        VerifyNotificationHandlers {
-            next_id: NotificationHandlerId::new(),
-            handlers: HashMap::new(),
-        }
-    }
-
-    /// Adds the provided handler to this set of handlers and returns its assigned ID.
-    fn add(&mut self, handle_fn: HandleVerifyFn<T, C>) -> VerifyHandlerId<T, C> {
-        let id = self.next_id;
-        self.handlers.insert(id, handle_fn);
-        self.next_id = self.next_id.next();
-
-        id
-    }
-
-    /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
-    pub fn add_handler(handler: HandleVerifyFn<T, C>, world: &mut World) -> VerifyHandlerId<T, C> {
-        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<T, C>>() {
-            return handlers.add(handler);
-        }
-
-        let mut handlers = VerifyNotificationHandlers::new();
-        let id = handlers.add(handler);
-        world.insert_resource(handlers);
-
-        id
-    }
-
-    /// Removes the handler with the provided ID.
-    #[expect(unused)]
-    pub fn remove_handler(id: VerifyHandlerId<T, C>, world: &mut World) {
-        let mut remove_resource = false;
-        if let Some(mut handlers) = world.get_resource_mut::<VerifyNotificationHandlers<T, C>>() {
-            handlers.handlers.remove(&id);
-
-            if handlers.handlers.is_empty() {
-                remove_resource = true;
-            }
-        }
-
-        if remove_resource {
-            world.remove_resource::<VerifyNotificationHandlers<T, C>>();
+            world.remove_resource::<NotificationHandlers<T, C, R>>();
         }
     }
 }

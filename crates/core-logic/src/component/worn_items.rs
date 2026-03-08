@@ -6,9 +6,9 @@ use itertools::Itertools;
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
     body_part::BodyPartType,
-    component::Description,
+    component::{Description, VerifyResult},
     find_wearing_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     AttributeDescription, BodyPart, GameMessage,
 };
 
@@ -272,7 +272,7 @@ pub fn auto_remove_on_put(
 // Blocks moving items around if they're being worn
 pub fn verify_not_wearing_item_to_put(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let source = notification.contents.source;
     let destination = notification.contents.destination;

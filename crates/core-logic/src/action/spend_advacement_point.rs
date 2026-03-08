@@ -8,9 +8,8 @@ use crate::{
         any_text_part_with_validator, literal_part, one_of_literal_part, CommandFormat,
         CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
-    component::{ActionEndNotification, AfterActionPerformNotification},
+    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult},
     input_parser::{InputParseError, InputParser},
-    notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     ActionTag, Attribute, BeforeActionNotification, MessageCategory, MessageDelay, Skill, Stats,
     VerifyActionNotification, World,
@@ -207,7 +206,7 @@ impl Action for SpendSkillPointAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -290,7 +289,7 @@ impl Action for SpendAttributePointAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

@@ -36,7 +36,9 @@ pub struct EnterCombatNotification {
     pub entity_2: Entity,
 }
 
-impl NotificationType for EnterCombatNotification {}
+impl NotificationType for EnterCombatNotification {
+    type Return = ();
+}
 
 /// A notification that two entities have stopped fighting.
 #[derive(Debug)]
@@ -47,7 +49,9 @@ pub struct ExitCombatNotification {
     pub entity_2: Entity,
 }
 
-impl NotificationType for ExitCombatNotification {}
+impl NotificationType for ExitCombatNotification {
+    type Return = ();
+}
 
 impl CombatState {
     /// Finds all the entities the provided entity is currently in combat with.

@@ -8,15 +8,13 @@ use crate::{
     command_format::{entity_part, one_of_literal_part, optional_literal_part},
     component::{
         ActionEndNotification, AfterActionPerformNotification, Connection, Container, Description,
-        Room,
+        Room, VerifyResult,
     },
     game_map::Coordinates,
     input_parser::{input_formats_if_has_component, CommandTarget, InputParseError, InputParser},
-    literal_part,
-    notification::VerifyResult,
-    ActionTag, BeforeActionNotification, CommandFormat, CommandPartId, DetailedEntityDescription,
-    EntityDescription, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    RoomDescription, VerifyActionNotification, World,
+    literal_part, ActionTag, BeforeActionNotification, CommandFormat, CommandPartId,
+    DetailedEntityDescription, EntityDescription, GameMessage, InternalMessageCategory,
+    MessageCategory, MessageDelay, RoomDescription, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -240,7 +238,7 @@ impl Action for LookAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

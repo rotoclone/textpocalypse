@@ -5,7 +5,8 @@ use itertools::Itertools;
 
 use crate::{
     action::{PourAction, PourAmount},
-    notification::{Notification, VerifyResult},
+    component::VerifyResult,
+    notification::Notification,
     resource::FluidNameCatalog,
     AttributeDescription, Description, GameMessage,
 };
@@ -142,7 +143,7 @@ impl DescribeAttributes for FluidContainer {
 /// amount to pour, the error will always be that the source is empty.
 pub fn verify_source_and_target_container_amounts(
     notification: &Notification<VerifyActionNotification, PourAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let source = notification.contents.source;
     let amount = &notification.contents.amount;

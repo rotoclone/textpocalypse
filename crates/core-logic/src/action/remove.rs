@@ -9,11 +9,12 @@ use crate::{
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
-        ActionEndNotification, AfterActionPerformNotification, RemoveError, Wearable, WornItems,
+        ActionEndNotification, AfterActionPerformNotification, RemoveError, VerifyResult, Wearable,
+        WornItems,
     },
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
@@ -190,7 +191,7 @@ impl Action for RemoveAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -213,7 +214,7 @@ impl Action for RemoveAction {
 /// Prevents removing items from living entities other than the one performing the action.
 pub fn prevent_remove_from_other_living_entity(
     notification: &Notification<VerifyActionNotification, RemoveAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let wearing_entity = notification.contents.wearing_entity;

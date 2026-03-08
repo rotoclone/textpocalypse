@@ -90,7 +90,9 @@ pub struct VitalChangedNotification {
     pub new_value: ConstrainedValue<f32>,
 }
 
-impl NotificationType for VitalChangedNotification {}
+impl NotificationType for VitalChangedNotification {
+    type Return = ();
+}
 
 impl<T: MessageTokens> VitalChange<T> {
     /// Applies the value change.

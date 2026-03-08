@@ -4,10 +4,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    component::{description::PortionMatched, Matchness},
+    component::{description::PortionMatched, Matchness, VerifyResult},
     find_wearing_entity,
     found_entities::{FoundEntities, PartialMatchingEntity},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
 
@@ -269,7 +269,7 @@ impl DescribeAttributes for Container {
 /// Prevents containers from getting overfilled.
 pub fn limit_container_contents(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let destination = notification.contents.destination;

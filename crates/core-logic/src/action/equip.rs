@@ -10,11 +10,11 @@ use crate::{
     },
     component::{
         get_hands_to_equip, ActionEndNotification, ActionQueue, AfterActionPerformNotification,
-        EquipError, EquippedItems, Item, Location, UnequipError,
+        EquipError, EquippedItems, Item, Location, UnequipError, VerifyResult,
     },
     find_wearing_entity, find_wielding_entity,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
@@ -250,7 +250,7 @@ impl Action for EquipAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -273,7 +273,7 @@ impl Action for EquipAction {
 /// Verifies that the entity trying to equip an item contains it.
 pub fn verify_has_item_to_equip(
     notification: &Notification<VerifyActionNotification, EquipAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
@@ -295,7 +295,7 @@ pub fn verify_has_item_to_equip(
 /// Verifies that the entity trying to equip an item is not wearing it.
 pub fn verify_not_wearing_item_to_equip(
     notification: &Notification<VerifyActionNotification, EquipAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
@@ -330,7 +330,8 @@ pub fn auto_unequip_on_equip(
         if notification
             .contents
             .send_verify_notification(VerifyActionNotification { performing_entity }, world)
-            .is_valid
+            .iter()
+            .all(|result| result.is_valid)
         {
             if let Some(num_hands_needed) = get_hands_to_equip(item, world) {
                 let items_to_unequip = EquippedItems::get_items_to_unequip_to_free_hands(

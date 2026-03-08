@@ -16,10 +16,10 @@ use crate::{
         PartValidatorContext,
     },
     component::{
-        ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType, Volume,
+        ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType,
+        VerifyResult, Volume,
     },
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    notification::VerifyResult,
     resource::get_fluid_name,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
@@ -409,7 +409,7 @@ impl Action for PourAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

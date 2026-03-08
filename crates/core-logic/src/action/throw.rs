@@ -13,12 +13,12 @@ use crate::{
     },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
-        EquippedItems, Item, Location, Skill, Stats, Weight,
+        EquippedItems, Item, Location, Skill, Stats, VerifyResult, Weight,
     },
     find_owning_entity, handle_enter_combat,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity, move_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
@@ -370,7 +370,7 @@ impl Action for ThrowAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -562,7 +562,7 @@ pub fn auto_equip_item_to_throw(
 /// Verifies that the entity trying to throw an item has it equipped.
 pub fn verify_wielding_item_to_throw(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
@@ -582,7 +582,7 @@ pub fn verify_wielding_item_to_throw(
 /// Verifies that the target is in the same room as the thrower.
 pub fn verify_target_in_same_room(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let target = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
@@ -604,7 +604,7 @@ pub fn verify_target_in_same_room(
 /// Verifies that the thrower is strong enough to throw the thing they're trying to throw.
 pub fn verify_strong_enough_to_throw_item(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;

@@ -9,11 +9,11 @@ use crate::{
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
-        ActionEndNotification, AfterActionPerformNotification, Location, WearError, Wearable,
-        WornItems,
+        ActionEndNotification, AfterActionPerformNotification, Location, VerifyResult, WearError,
+        Wearable, WornItems,
     },
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     resource::BodyPartTypeNameCatalog,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
@@ -173,7 +173,7 @@ impl Action for WearAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -196,7 +196,7 @@ impl Action for WearAction {
 /// Verifies that the entity trying to put on an item contains it.
 pub fn verify_has_item_to_wear(
     notification: &Notification<VerifyActionNotification, WearAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;

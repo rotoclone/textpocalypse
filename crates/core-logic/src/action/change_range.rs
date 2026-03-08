@@ -13,9 +13,10 @@ use crate::{
     },
     component::{
         ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
+        VerifyResult,
     },
     input_parser::{InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
@@ -400,7 +401,7 @@ impl Action for ChangeRangeAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -423,7 +424,7 @@ impl Action for ChangeRangeAction {
 /// Verifies that the range can actually be changed in the requested direction.
 pub fn verify_range_can_be_changed(
     notification: &Notification<VerifyActionNotification, ChangeRangeAction>,
-    world: &World,
+    world: &mut World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.target;
