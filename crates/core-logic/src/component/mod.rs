@@ -168,8 +168,13 @@ pub use fist_actions::FistActions;
 mod check_history;
 pub use check_history::CheckHistory;
 
+mod status_effect;
+pub use status_effect::*;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
+    register_status_effect_handlers(world);
+
     NotificationHandlers::add_handler(open_state::auto_open_connections, world);
     VerifyNotificationHandlers::add_handler(
         open_state::prevent_moving_through_closed_connections,
