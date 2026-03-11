@@ -177,6 +177,73 @@ impl Skills {
     }
 }
 
+/// A notification used to collect active stat modifications for an entity.
+/// TODO send this when getting stat values
+#[derive(Debug)]
+pub struct GetStatModificationsNotification {
+    /// The entity to get stat modifications for
+    pub entity: Entity,
+}
+
+impl NotificationType for GetStatModificationsNotification {
+    type Return = StatModifications;
+}
+
+/// A set of modifications to various attributes and/or skills.
+pub struct StatModifications {
+    /// Modifications to attributes
+    attributes: HashMap<Attribute, Vec<StatModification>>,
+    /// Modifications to skills
+    skills: HashMap<Skill, Vec<StatModification>>,
+}
+
+/// A modification to a single stat.
+pub enum StatModification {
+    /// Increase the stat's value
+    Add(f32),
+    /// Decrease the stat's value
+    Subtract(f32),
+    /// Multiply the stat's value
+    Multiply(f32),
+}
+
+impl StatModifications {
+    /// Creates a new empty set of modifications.
+    pub fn new() -> StatModifications {
+        StatModifications {
+            attributes: HashMap::new(),
+            skills: HashMap::new(),
+        }
+    }
+
+    /// Adds a modification for an attribute.
+    /// Any previously-added modifications for the same attribute will not be replaced.
+    pub fn modify_attribute(
+        mut self,
+        attribute: Attribute,
+        modification: StatModification,
+    ) -> StatModifications {
+        self.attributes
+            .entry(attribute)
+            .or_default()
+            .push(modification);
+
+        self
+    }
+
+    /// Adds a modification for a skill.
+    /// Any previously-added modifications for the same skill will not be replaced.
+    pub fn modify_skill(
+        mut self,
+        skill: Skill,
+        modification: StatModification,
+    ) -> StatModifications {
+        self.skills.entry(skill).or_default().push(modification);
+
+        self
+    }
+}
+
 /// An amount of experience points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Xp(pub u64);
