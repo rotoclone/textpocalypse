@@ -179,6 +179,7 @@ impl Skills {
 
 /// A notification used to collect active stat modifications for an entity.
 /// TODO send this when getting stat values
+/// TODO should this be specific to a single skill or attribute instead?
 #[derive(Debug)]
 pub struct GetStatModificationsNotification {
     /// The entity to get stat modifications for
@@ -396,6 +397,7 @@ impl Display for Stat {
 
 impl Stat {
     /// Gets the value of this stat.
+    /// TODO should this instead get values in bulk, to reduce the number of notifications sent to get modifications?
     pub fn get_value(&self, stats: &Stats, world: &World) -> f32 {
         match self {
             Stat::Attribute(attribute) => f32::from(stats.attributes.get(attribute)),
