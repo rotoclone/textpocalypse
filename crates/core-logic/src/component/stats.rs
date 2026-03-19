@@ -180,6 +180,7 @@ impl Skills {
 /// A notification used to collect active stat modifications for an entity.
 /// TODO send this when getting stat values
 /// TODO should this be specific to a single skill or attribute instead?
+/// TODO is it silly to gather this information via notifications rather than just keeping track of the stat modifications on the stats component itself?
 #[derive(Debug)]
 pub struct GetStatModificationsNotification {
     /// The entity to get stat modifications for
