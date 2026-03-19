@@ -60,7 +60,7 @@ impl Stats {
         };
     }
 
-    /// Gets the total value of a skill, taking its base attribute into account.
+    /// Gets the total value of a skill, taking its base attribute and any active modifications into account.
     pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
         let base_skill_value = self.skills.get_base(skill);
         let attribute_bonus = self.get_attribute_bonus(skill, world);
@@ -68,10 +68,15 @@ impl Stats {
         f32::from(base_skill_value) + attribute_bonus
     }
 
+    /// Gets the total value of an attribute, take any active modifications into account.
+    pub fn get_attribute_total(&self, attribute: &Attribute) -> f32 {
+        todo!() //TODO
+    }
+
     /// Determines the bonus to apply to the provided skill based on the value of its base attribute.
     pub fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
         let attribute = get_base_attribute(skill, world);
-        let attribute_value = self.attributes.get(&attribute);
+        let attribute_value = self.get_attribute_total(&attribute);
 
         f32::from(attribute_value) / 2.0
     }
@@ -102,8 +107,8 @@ impl Attributes {
         }
     }
 
-    /// Gets the value of the provided attribute.
-    pub fn get(&self, attribute: &Attribute) -> u16 {
+    /// Gets the base value of the provided attribute.
+    pub fn get_base(&self, attribute: &Attribute) -> u16 {
         *match attribute {
             Attribute::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -111,8 +116,8 @@ impl Attributes {
         .unwrap_or(&0)
     }
 
-    /// Gets all the attributes and their values.
-    pub fn get_all(&self) -> Vec<(Attribute, u16)> {
+    /// Gets all the attributes and their base values.
+    pub fn get_all_base(&self) -> Vec<(Attribute, u16)> {
         let standards = self
             .standard
             .iter()
@@ -153,6 +158,7 @@ impl Skills {
     }
 
     /// Gets the base value of the provided skill.
+    /// TODO rename this and related functions to `get_raw`, since there's also the concept of a "base attribute" for a skill
     pub fn get_base(&self, skill: &Skill) -> u16 {
         *match skill {
             Skill::Custom(s) => self.custom.get(s),
@@ -179,18 +185,20 @@ impl Skills {
 
 /// A notification used to collect active stat modifications for an entity.
 /// TODO send this when getting stat values
-/// TODO should this be specific to a single skill or attribute instead?
 /// TODO is it silly to gather this information via notifications rather than just keeping track of the stat modifications on the stats component itself?
 #[derive(Debug)]
 pub struct GetStatModificationsNotification {
     /// The entity to get stat modifications for
     pub entity: Entity,
+    /// The stat to get modifications for
+    pub stat: Stat,
 }
 
 impl NotificationType for GetStatModificationsNotification {
-    type Return = StatModifications;
+    type Return = Vec<StatModification>;
 }
 
+/* TODO remove
 /// A set of modifications to various attributes and/or skills.
 pub struct StatModifications {
     /// Modifications to attributes
@@ -198,6 +206,7 @@ pub struct StatModifications {
     /// Modifications to skills
     skills: HashMap<Skill, Vec<StatModification>>,
 }
+    */
 
 /// A modification to a single stat.
 pub enum StatModification {
@@ -209,6 +218,7 @@ pub enum StatModification {
     Multiply(f32),
 }
 
+/* TODO remove
 impl StatModifications {
     /// Creates a new empty set of modifications.
     pub fn new() -> StatModifications {
@@ -245,6 +255,7 @@ impl StatModifications {
         self
     }
 }
+*/
 
 /// An amount of experience points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

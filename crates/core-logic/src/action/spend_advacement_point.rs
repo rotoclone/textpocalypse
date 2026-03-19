@@ -245,7 +245,7 @@ impl Action for SpendAttributePointAction {
                 );
             }
 
-            let new_value = stats.attributes.get(&self.attribute) + 1;
+            let new_value = stats.attributes.get_base(&self.attribute) + 1;
             stats.set_attribute(&self.attribute, new_value);
 
             let attribute_name = AttributeNameCatalog::get_name(&self.attribute, world).full;
