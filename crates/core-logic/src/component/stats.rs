@@ -4,6 +4,7 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
@@ -23,6 +24,10 @@ const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.15;
 #[derive(Component)]
 pub struct StartingStats(#[expect(unused)] pub Stats);
 
+/// A unique key used to identify a set of stat modifications
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StatModificationKey(&'static str);
+
 /// The stats of an entity.
 #[derive(Component, Clone)]
 pub struct Stats {
@@ -32,6 +37,8 @@ pub struct Stats {
     pub skills: Skills,
     /// The entity's XP and stuff.
     pub advancement: StatAdvancement,
+    /// The entity's active stat modifications
+    modifications: HashMap<StatModificationKey, StatModifications>,
 }
 
 impl Stats {
@@ -41,6 +48,7 @@ impl Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
             advancement: StatAdvancement::new(),
+            modifications: HashMap::new(),
         }
     }
 
@@ -60,12 +68,34 @@ impl Stats {
         };
     }
 
+    /// Adds or updates the modifications with the provided key.
+    pub fn set_modification(&mut self, key: StatModificationKey, modifications: StatModifications) {
+        self.modifications.insert(key, modifications);
+    }
+
+    /// Removes the modifications with the provided key.
+    pub fn remove_modification(&mut self, key: StatModificationKey) {
+        self.modifications.remove(&key);
+    }
+
+    /// Gets all the active modifications for the provided stat.
+    fn get_modifications(&self, stat: Stat) -> Vec<StatModification> {
+        self.modifications
+            .values()
+            .flat_map(|modifications| modifications.0.get(&stat))
+            .flatten()
+            .copied()
+            .collect()
+    }
+
     /// Gets the total value of a skill, taking its base attribute and any active modifications into account.
     pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
         let base_skill_value = self.skills.get_base(skill);
         let attribute_bonus = self.get_attribute_bonus(skill, world);
+        let modifications = self.get_modifications(Stat::Skill(skill.clone()));
 
-        f32::from(base_skill_value) + attribute_bonus
+        let unmodified = f32::from(base_skill_value) + attribute_bonus;
+        modifications.apply_to(unmodified)
     }
 
     /// Gets the total value of an attribute, take any active modifications into account.
@@ -183,6 +213,7 @@ impl Skills {
     }
 }
 
+/* TODO remove
 /// A notification used to collect active stat modifications for an entity.
 /// TODO send this when getting stat values
 /// TODO is it silly to gather this information via notifications rather than just keeping track of the stat modifications on the stats component itself?
@@ -197,18 +228,14 @@ pub struct GetStatModificationsNotification {
 impl NotificationType for GetStatModificationsNotification {
     type Return = Vec<StatModification>;
 }
-
-/* TODO remove
-/// A set of modifications to various attributes and/or skills.
-pub struct StatModifications {
-    /// Modifications to attributes
-    attributes: HashMap<Attribute, Vec<StatModification>>,
-    /// Modifications to skills
-    skills: HashMap<Skill, Vec<StatModification>>,
-}
     */
 
+/// A set of modifications to various attributes and/or skills.
+#[derive(Clone)]
+pub struct StatModifications(HashMap<Stat, Vec<StatModification>>);
+
 /// A modification to a single stat.
+#[derive(Clone, Copy)]
 pub enum StatModification {
     /// Increase the stat's value
     Add(f32),
@@ -218,44 +245,57 @@ pub enum StatModification {
     Multiply(f32),
 }
 
-/* TODO remove
-impl StatModifications {
-    /// Creates a new empty set of modifications.
-    pub fn new() -> StatModifications {
-        StatModifications {
-            attributes: HashMap::new(),
-            skills: HashMap::new(),
+impl StatModification {
+    /// Gets a value used to sort modifications by type.
+    fn get_compare_key(&self) -> i8 {
+        match self {
+            StatModification::Add(_) => 0,
+            StatModification::Subtract(_) => 1,
+            StatModification::Multiply(_) => 2,
         }
     }
 
-    /// Adds a modification for an attribute.
-    /// Any previously-added modifications for the same attribute will not be replaced.
-    pub fn modify_attribute(
-        mut self,
-        attribute: Attribute,
-        modification: StatModification,
-    ) -> StatModifications {
-        self.attributes
-            .entry(attribute)
-            .or_default()
-            .push(modification);
+    /// Applies the modification to the provided value.
+    fn apply(&self, value: f32) -> f32 {
+        match self {
+            StatModification::Add(x) => value + x,
+            StatModification::Subtract(x) => value - x,
+            StatModification::Multiply(x) => value * x,
+        }
+    }
+}
 
-        self
+trait ApplyStatModificationsTo {
+    /// Applies the modifications to the provided stat value.
+    /// Will return zero if the modified value would be negative.
+    fn apply_to(&self, stat_value: f32) -> f32;
+}
+
+impl ApplyStatModificationsTo for Vec<StatModification> {
+    fn apply_to(&self, stat_value: f32) -> f32 {
+        let mut modified = stat_value;
+        self.iter()
+            .sorted_by(|a, b| a.get_compare_key().cmp(&b.get_compare_key()))
+            .for_each(|modification| modified = modification.apply(modified));
+
+        modified.max(0.0)
+    }
+}
+
+impl StatModifications {
+    /// Creates a new empty set of modifications.
+    pub fn new() -> StatModifications {
+        StatModifications(HashMap::new())
     }
 
-    /// Adds a modification for a skill.
-    /// Any previously-added modifications for the same skill will not be replaced.
-    pub fn modify_skill(
-        mut self,
-        skill: Skill,
-        modification: StatModification,
-    ) -> StatModifications {
-        self.skills.entry(skill).or_default().push(modification);
+    /// Adds a modification for a stat.
+    /// Any previously-added modifications for the same attribute will not be replaced.
+    pub fn modify_stat(mut self, stat: Stat, modification: StatModification) -> StatModifications {
+        self.0.entry(stat).or_default().push(modification);
 
         self
     }
 }
-*/
 
 /// An amount of experience points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
