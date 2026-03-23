@@ -417,7 +417,7 @@ impl Weapon {
         world: &World,
     ) -> Result<i16, WeaponUnusableError> {
         let stat = WeaponTypeStatCatalog::get_stats(&self.weapon_type, world).primary;
-        let base_to_hit = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        let base_to_hit = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let stat_bonus = get_stat_to_hit_bonus(self, entity, world);
         let mut modified_to_hit = base_to_hit + stat_bonus;
         modified_to_hit = apply_stat_requirements_to_to_hit(modified_to_hit, self, entity, world)?;
@@ -546,7 +546,7 @@ impl Weapon {
 /// Gets the bonus to damage the provided entity does with the provided weapon based on their stats.
 fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
     if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).damage_bonus {
-        let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        let stat_value = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.damage_bonus_stat_range.end());
         let amount_above_bonus_start =
@@ -560,7 +560,7 @@ fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 
 /// Gets the to-hit bonus the provided entity has with the provided weapon based on their stats.
 fn get_stat_to_hit_bonus(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
     if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).to_hit_bonus {
-        let stat_value = stat.get_entity_value(entity, world).unwrap_or(0.0);
+        let stat_value = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.to_hit_bonus_stat_range.end());
         let amount_above_bonus_start =
@@ -593,7 +593,7 @@ fn apply_stat_requirements_to_damage_range(
     for requirement in &weapon.stat_requirements {
         let stat_value = requirement
             .stat
-            .get_entity_value(entity, world)
+            .get_entity_total(entity, world)
             .unwrap_or(0.0);
         if stat_value < requirement.min {
             let points_below_min = (requirement.min - stat_value).round() as u32;
@@ -659,7 +659,7 @@ fn apply_stat_requirements_to_to_hit(
     for requirement in &weapon.stat_requirements {
         let stat_value = requirement
             .stat
-            .get_entity_value(entity, world)
+            .get_entity_total(entity, world)
             .unwrap_or(0.0);
         if stat_value < requirement.min {
             let points_below_min = (requirement.min - stat_value).round() as u32;

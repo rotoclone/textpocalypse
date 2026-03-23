@@ -41,6 +41,30 @@ pub struct Stats {
     modifications: HashMap<StatModificationKey, StatModifications>,
 }
 
+/// The value of a skill
+#[derive(Clone, Copy)]
+pub struct SkillValue {
+    /// The raw value of the skill, before the attribute bonus and active modifications
+    pub raw: u16,
+    /// The bonus conferred to the skill by its base attribute
+    pub attribute_bonus: f32,
+    /// The net value of the active modifications on the skill
+    pub modifications: f32,
+    /// The total value of the skill, after the attribute bonus and active modifications are applied
+    pub total: f32,
+}
+
+/// The value of an attribute
+#[derive(Clone, Copy)]
+pub struct AttributeValue {
+    /// The raw value of the attribute, before any active modifications
+    pub raw: u16,
+    /// The net value of the active modifications on the attribute
+    pub modifications: f32,
+    /// The total value of the attribute, after the active modifications are applied
+    pub total: f32,
+}
+
 impl Stats {
     /// Creates a new set of stats with attributes and skills set to the provided default values.
     pub fn new(default_attribute_value: u16, default_skill_value: u16) -> Stats {
@@ -88,27 +112,43 @@ impl Stats {
             .collect()
     }
 
-    /// Gets the total value of a skill, taking its base attribute and any active modifications into account.
-    pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
-        let base_skill_value = self.skills.get_base(skill);
+    /// Gets the value of a skill.
+    pub fn get_skill_value(&self, skill: &Skill, world: &World) -> SkillValue {
+        let raw_skill_value = self.skills.get_raw(skill);
         let attribute_bonus = self.get_attribute_bonus(skill, world);
         let modifications = self.get_modifications(Stat::Skill(skill.clone()));
 
-        let unmodified = f32::from(base_skill_value) + attribute_bonus;
-        modifications.apply_to(unmodified)
+        let unmodified = f32::from(raw_skill_value) + attribute_bonus;
+        let total = modifications.apply_to(unmodified);
+
+        SkillValue {
+            raw: raw_skill_value,
+            attribute_bonus,
+            modifications: total - unmodified,
+            total,
+        }
     }
 
-    /// Gets the total value of an attribute, take any active modifications into account.
-    pub fn get_attribute_total(&self, attribute: &Attribute) -> f32 {
-        todo!() //TODO
+    /// Gets the value of an attribute.
+    pub fn get_attribute_value(&self, attribute: &Attribute) -> AttributeValue {
+        let raw_attribute_value = self.attributes.get_raw(attribute);
+        let modifications = self.get_modifications(Stat::Attribute(attribute.clone()));
+
+        let total = modifications.apply_to(raw_attribute_value.into());
+
+        AttributeValue {
+            raw: raw_attribute_value,
+            modifications: total - f32::from(raw_attribute_value),
+            total,
+        }
     }
 
     /// Determines the bonus to apply to the provided skill based on the value of its base attribute.
-    pub fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
+    fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
         let attribute = get_base_attribute(skill, world);
-        let attribute_value = self.get_attribute_total(&attribute);
+        let attribute_total = self.get_attribute_value(&attribute).total;
 
-        f32::from(attribute_value) / 2.0
+        attribute_total / 2.0
     }
 }
 
@@ -137,8 +177,8 @@ impl Attributes {
         }
     }
 
-    /// Gets the base value of the provided attribute.
-    pub fn get_base(&self, attribute: &Attribute) -> u16 {
+    /// Gets the raw value of the provided attribute.
+    pub fn get_raw(&self, attribute: &Attribute) -> u16 {
         *match attribute {
             Attribute::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -146,17 +186,14 @@ impl Attributes {
         .unwrap_or(&0)
     }
 
-    /// Gets all the attributes and their base values.
-    pub fn get_all_base(&self) -> Vec<(Attribute, u16)> {
-        let standards = self
-            .standard
-            .iter()
-            .map(|entry| (entry.0.clone(), *entry.1));
+    /// Gets all the attributes with values.
+    pub fn get_all(&self) -> Vec<Attribute> {
+        let standards = self.standard.iter().map(|entry| entry.0.clone());
 
         let customs = self
             .custom
             .iter()
-            .map(|entry| (Attribute::Custom(entry.0.clone()), *entry.1));
+            .map(|entry| Attribute::Custom(entry.0.clone()));
 
         standards.chain(customs).collect()
     }
@@ -187,9 +224,8 @@ impl Skills {
         }
     }
 
-    /// Gets the base value of the provided skill.
-    /// TODO rename this and related functions to `get_raw`, since there's also the concept of a "base attribute" for a skill
-    pub fn get_base(&self, skill: &Skill) -> u16 {
+    /// Gets the raw value of the provided skill.
+    pub fn get_raw(&self, skill: &Skill) -> u16 {
         *match skill {
             Skill::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -197,17 +233,14 @@ impl Skills {
         .unwrap_or(&0)
     }
 
-    /// Gets all the skills and their base values.
-    pub fn get_all_base(&self) -> Vec<(Skill, u16)> {
-        let standards = self
-            .standard
-            .iter()
-            .map(|entry| (entry.0.clone(), *entry.1));
+    /// Gets all the skills with values.
+    pub fn get_all(&self) -> Vec<Skill> {
+        let standards = self.standard.iter().map(|entry| entry.0.clone());
 
         let customs = self
             .custom
             .iter()
-            .map(|entry| (Skill::Custom(entry.0.clone()), *entry.1));
+            .map(|entry| Skill::Custom(entry.0.clone()));
 
         standards.chain(customs).collect()
     }
@@ -448,20 +481,19 @@ impl Display for Stat {
 }
 
 impl Stat {
-    /// Gets the value of this stat.
-    /// TODO should this instead get values in bulk, to reduce the number of notifications sent to get modifications?
-    pub fn get_value(&self, stats: &Stats, world: &World) -> f32 {
+    /// Gets the total value of this stat.
+    pub fn get_total(&self, stats: &Stats, world: &World) -> f32 {
         match self {
-            Stat::Attribute(attribute) => f32::from(stats.attributes.get(attribute)),
-            Stat::Skill(skill) => stats.get_skill_total(skill, world),
+            Stat::Attribute(attribute) => stats.get_attribute_value(attribute).total,
+            Stat::Skill(skill) => stats.get_skill_value(skill, world).total,
         }
     }
 
-    /// Gets the provided entity's value for this stat, if they have stats.
-    pub fn get_entity_value(&self, entity: Entity, world: &World) -> Option<f32> {
+    /// Gets the provided entity's total value for this stat, if they have stats.
+    pub fn get_entity_total(&self, entity: Entity, world: &World) -> Option<f32> {
         world
             .get::<Stats>(entity)
-            .map(|stats| self.get_value(stats, world))
+            .map(|stats| self.get_total(stats, world))
     }
 
     /// Gets the display name of this stat.

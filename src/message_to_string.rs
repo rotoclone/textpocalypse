@@ -891,24 +891,26 @@ fn stats_to_string(stats: StatsDescription) -> String {
         format!("Skill points: {styled_skill_points} ({xp_for_next_skill_point} XP for next)");
 
     let mut attributes_table = new_table();
+    //TODO include a column for modifications if there are any
     attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
 
     for attribute in stats.attributes {
-        attributes_table.add_row(vec![Cell::new(attribute.name), Cell::new(attribute.value)]);
+        attributes_table.add_row(vec![Cell::new(attribute.name), Cell::new(attribute.total)]);
     }
 
     let mut skills_table = new_table();
     skills_table.set_header(vec![
         Cell::new("Name").set_alignment(CellAlignment::Center),
-        Cell::new("Base").set_alignment(CellAlignment::Center),
+        Cell::new("Raw").set_alignment(CellAlignment::Center),
         Cell::new("Attribute").set_alignment(CellAlignment::Center),
+        //TODO include a column for modifications if there are any
         Cell::new("Total").set_alignment(CellAlignment::Center),
     ]);
 
     for skill in stats.skills {
         skills_table.add_row(vec![
             Cell::new(skill.name),
-            Cell::new(skill.base_value),
+            Cell::new(skill.raw_value),
             Cell::new(format!(
                 "{} (+{:.1})",
                 skill.base_attribute_name, skill.attribute_bonus

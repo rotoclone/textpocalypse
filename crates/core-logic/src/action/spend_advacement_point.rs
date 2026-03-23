@@ -162,7 +162,7 @@ impl Action for SpendSkillPointAction {
                 );
             }
 
-            let new_value = stats.skills.get_base(&self.skill) + 1;
+            let new_value = stats.skills.get_raw(&self.skill) + 1;
             stats.set_skill(&self.skill, new_value);
 
             let skill_name = SkillNameCatalog::get_name(&self.skill, world);
@@ -245,7 +245,7 @@ impl Action for SpendAttributePointAction {
                 );
             }
 
-            let new_value = stats.attributes.get_base(&self.attribute) + 1;
+            let new_value = stats.attributes.get_raw(&self.attribute) + 1;
             stats.set_attribute(&self.attribute, new_value);
 
             let attribute_name = AttributeNameCatalog::get_name(&self.attribute, world).full;

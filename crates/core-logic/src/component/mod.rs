@@ -101,6 +101,7 @@ mod stats;
 pub use stats::AdvancementPointType;
 pub use stats::AdvancementPoints;
 pub use stats::Attribute;
+#[expect(unused)]
 pub use stats::Attributes;
 pub use stats::Skill;
 #[expect(unused)]
