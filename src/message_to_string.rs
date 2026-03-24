@@ -922,15 +922,22 @@ fn stats_to_string(stats: StatsDescription) -> String {
         .flatten(),
     );
 
+    //TODO if adjustment is positive, color it green, else color it red, and same for skill adjustments
     for attribute in stats.attributes {
         let (raw_cell, adjustments_cell) = if any_attribute_adjustments {
             if should_display_stat_adjustment(attribute.modifications) {
                 (
-                    Some(Cell::new(attribute.raw_value)),
-                    Some(Cell::new(format!("{:+.1}", attribute.modifications))),
+                    Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
+                    Some(
+                        Cell::new(format!("{:+.1}", attribute.modifications))
+                            .set_alignment(CellAlignment::Right),
+                    ),
                 )
             } else {
-                (Some(Cell::new(attribute.raw_value)), Some(Cell::new("")))
+                (
+                    Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
+                    Some(Cell::new("")),
+                )
             }
         } else {
             (None, None)
@@ -941,7 +948,11 @@ fn stats_to_string(stats: StatsDescription) -> String {
                 Some(Cell::new(attribute.name)),
                 raw_cell,
                 adjustments_cell,
-                Some(Cell::new(attribute.total)),
+                //TODO should only be shown as a decimal if there are adjustments that make it necessary
+                Some(
+                    Cell::new(format!("{:.1}", attribute.total))
+                        .set_alignment(CellAlignment::Right),
+                ),
             ]
             .into_iter()
             .flatten(),
@@ -975,7 +986,10 @@ fn stats_to_string(stats: StatsDescription) -> String {
     for skill in stats.skills {
         let adjustments_cell = if any_skill_adjustments {
             if should_display_stat_adjustment(skill.modifications) {
-                Some(Cell::new(format!("{:+.1}", skill.modifications)))
+                Some(
+                    Cell::new(format!("{:+.1}", skill.modifications))
+                        .set_alignment(CellAlignment::Right),
+                )
             } else {
                 Some(Cell::new(""))
             }
@@ -986,7 +1000,7 @@ fn stats_to_string(stats: StatsDescription) -> String {
         skills_table.add_row(
             vec![
                 Some(Cell::new(skill.name)),
-                Some(Cell::new(skill.raw_value)),
+                Some(Cell::new(skill.raw_value).set_alignment(CellAlignment::Right)),
                 Some(Cell::new(format!(
                     "{} ({:+.1})",
                     skill.base_attribute_name, skill.attribute_bonus

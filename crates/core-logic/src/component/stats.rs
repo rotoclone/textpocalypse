@@ -26,7 +26,7 @@ pub struct StartingStats(#[expect(unused)] pub Stats);
 
 /// A unique key used to identify a set of stat modifications
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StatModificationKey(&'static str);
+pub struct StatModificationKey(pub &'static str);
 
 /// The stats of an entity.
 #[derive(Component, Clone)]
