@@ -14,6 +14,10 @@ const ATTRIBUTE_SECTION_NAME_DECORATOR: &str = "-";
 
 const MAX_WIDTH: usize = 80;
 
+/// The absolute value of the minimum adjustment to a stat that will be displayed.
+/// Since adjustments are displayed to 1 decimal point, 0.05 is the smallest adjustment that would be displayed as not 0.0.
+const MIN_DISPLAYED_STAT_ADJUSTMENT: f32 = 0.05;
+
 /// Transforms the provided message into a string for display.
 pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
@@ -853,6 +857,8 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         }
     );
 
+    //TODO include info about status effects (here or on the stats view or both)
+
     [health, satiety, hydration, energy].join("\n")
 }
 
@@ -890,36 +896,115 @@ fn stats_to_string(stats: StatsDescription) -> String {
     let skill_points_info =
         format!("Skill points: {styled_skill_points} ({xp_for_next_skill_point} XP for next)");
 
+    let any_attribute_adjustments = stats
+        .attributes
+        .iter()
+        .any(|a| should_display_stat_adjustment(a.modifications));
+
+    let (attribute_raw_header, attribute_adjustments_header) = if any_attribute_adjustments {
+        (
+            Some(Cell::new("Raw").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Adj").set_alignment(CellAlignment::Center)),
+        )
+    } else {
+        (None, None)
+    };
+
     let mut attributes_table = new_table();
-    //TODO include a column for modifications if there are any
-    attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
+    attributes_table.set_header(
+        vec![
+            Some(Cell::new("Name").set_alignment(CellAlignment::Center)),
+            attribute_raw_header,
+            attribute_adjustments_header,
+            Some(Cell::new("Total").set_alignment(CellAlignment::Center)),
+        ]
+        .into_iter()
+        .flatten(),
+    );
 
     for attribute in stats.attributes {
-        attributes_table.add_row(vec![Cell::new(attribute.name), Cell::new(attribute.total)]);
+        let (raw_cell, adjustments_cell) = if any_attribute_adjustments {
+            if should_display_stat_adjustment(attribute.modifications) {
+                (
+                    Some(Cell::new(attribute.raw_value)),
+                    Some(Cell::new(format!("{:+.1}", attribute.modifications))),
+                )
+            } else {
+                (Some(Cell::new(attribute.raw_value)), Some(Cell::new("")))
+            }
+        } else {
+            (None, None)
+        };
+
+        attributes_table.add_row(
+            vec![
+                Some(Cell::new(attribute.name)),
+                raw_cell,
+                adjustments_cell,
+                Some(Cell::new(attribute.total)),
+            ]
+            .into_iter()
+            .flatten(),
+        );
     }
 
+    let any_skill_adjustments = stats
+        .skills
+        .iter()
+        .any(|s| should_display_stat_adjustment(s.modifications));
+
+    let skill_adjustments_header = if any_skill_adjustments {
+        Some(Cell::new("Adj").set_alignment(CellAlignment::Center))
+    } else {
+        None
+    };
+
     let mut skills_table = new_table();
-    skills_table.set_header(vec![
-        Cell::new("Name").set_alignment(CellAlignment::Center),
-        Cell::new("Raw").set_alignment(CellAlignment::Center),
-        Cell::new("Attribute").set_alignment(CellAlignment::Center),
-        //TODO include a column for modifications if there are any
-        Cell::new("Total").set_alignment(CellAlignment::Center),
-    ]);
+    skills_table.set_header(
+        vec![
+            Some(Cell::new("Name").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Raw").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Attribute").set_alignment(CellAlignment::Center)),
+            skill_adjustments_header,
+            Some(Cell::new("Total").set_alignment(CellAlignment::Center)),
+        ]
+        .into_iter()
+        .flatten(),
+    );
 
     for skill in stats.skills {
-        skills_table.add_row(vec![
-            Cell::new(skill.name),
-            Cell::new(skill.raw_value),
-            Cell::new(format!(
-                "{} (+{:.1})",
-                skill.base_attribute_name, skill.attribute_bonus
-            )),
-            Cell::new(format!("{:.1}", skill.total)).set_alignment(CellAlignment::Right),
-        ]);
+        let adjustments_cell = if any_skill_adjustments {
+            if should_display_stat_adjustment(skill.modifications) {
+                Some(Cell::new(format!("{:+.1}", skill.modifications)))
+            } else {
+                Some(Cell::new(""))
+            }
+        } else {
+            None
+        };
+
+        skills_table.add_row(
+            vec![
+                Some(Cell::new(skill.name)),
+                Some(Cell::new(skill.raw_value)),
+                Some(Cell::new(format!(
+                    "{} ({:+.1})",
+                    skill.base_attribute_name, skill.attribute_bonus
+                ))),
+                adjustments_cell,
+                Some(Cell::new(format!("{:.1}", skill.total)).set_alignment(CellAlignment::Right)),
+            ]
+            .into_iter()
+            .flatten(),
+        );
     }
 
     format!("{xp_info}\n{attribute_points_info}\n{skill_points_info}\n\nAttributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
+}
+
+/// Determines whether the adjustment to a stat is big enough to display.
+fn should_display_stat_adjustment(adjustment: f32) -> bool {
+    adjustment.abs() >= MIN_DISPLAYED_STAT_ADJUSTMENT
 }
 
 /// Transforms the provided vital change description into a string for display.

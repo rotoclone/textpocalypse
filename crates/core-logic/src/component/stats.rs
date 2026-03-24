@@ -38,6 +38,7 @@ pub struct Stats {
     /// The entity's XP and stuff.
     pub advancement: StatAdvancement,
     /// The entity's active stat modifications
+    /// TODO rename this and related stuff to adjustments, since the shortened version "adj" is less likely to conflict with other terms than "mod"
     modifications: HashMap<StatModificationKey, StatModifications>,
 }
 
