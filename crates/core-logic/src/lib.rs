@@ -496,15 +496,6 @@ fn build_starting_stats() -> Stats {
     stats.set_skill(&Skill::Construction, 7);
     stats.set_skill(&Skill::Cook, 8);
 
-    //TODO remove
-    stats.set_modification(
-        StatModificationKey("test"),
-        StatModifications::new().modify_stat(
-            Stat::Attribute(Attribute::Strength),
-            StatModification::Subtract(1.0),
-        ),
-    );
-
     stats
 }
 

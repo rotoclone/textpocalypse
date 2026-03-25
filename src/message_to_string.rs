@@ -922,15 +922,20 @@ fn stats_to_string(stats: StatsDescription) -> String {
         .flatten(),
     );
 
-    //TODO if adjustment is positive, color it green, else color it red, and same for skill adjustments
     for attribute in stats.attributes {
         let (raw_cell, adjustments_cell) = if any_attribute_adjustments {
             if should_display_stat_adjustment(attribute.modifications) {
+                let adjustment_color = if attribute.modifications.is_sign_positive() {
+                    comfy_table::Color::Green
+                } else {
+                    comfy_table::Color::Red
+                };
                 (
                     Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
                     Some(
                         Cell::new(format!("{:+.1}", attribute.modifications))
-                            .set_alignment(CellAlignment::Right),
+                            .set_alignment(CellAlignment::Right)
+                            .fg(adjustment_color),
                     ),
                 )
             } else {
@@ -943,16 +948,18 @@ fn stats_to_string(stats: StatsDescription) -> String {
             (None, None)
         };
 
+        let total_cell = if any_attribute_adjustments {
+            Cell::new(format!("{:.1}", attribute.total)).set_alignment(CellAlignment::Right)
+        } else {
+            Cell::new(attribute.total).set_alignment(CellAlignment::Right)
+        };
+
         attributes_table.add_row(
             vec![
                 Some(Cell::new(attribute.name)),
                 raw_cell,
                 adjustments_cell,
-                //TODO should only be shown as a decimal if there are adjustments that make it necessary
-                Some(
-                    Cell::new(format!("{:.1}", attribute.total))
-                        .set_alignment(CellAlignment::Right),
-                ),
+                Some(total_cell),
             ]
             .into_iter()
             .flatten(),
@@ -986,9 +993,15 @@ fn stats_to_string(stats: StatsDescription) -> String {
     for skill in stats.skills {
         let adjustments_cell = if any_skill_adjustments {
             if should_display_stat_adjustment(skill.modifications) {
+                let adjustment_color = if skill.modifications.is_sign_positive() {
+                    comfy_table::Color::Green
+                } else {
+                    comfy_table::Color::Red
+                };
                 Some(
                     Cell::new(format!("{:+.1}", skill.modifications))
-                        .set_alignment(CellAlignment::Right),
+                        .set_alignment(CellAlignment::Right)
+                        .fg(adjustment_color),
                 )
             } else {
                 Some(Cell::new(""))
