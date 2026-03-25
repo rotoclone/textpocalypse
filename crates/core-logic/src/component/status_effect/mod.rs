@@ -1,11 +1,31 @@
 use bevy_ecs::prelude::*;
 
-use crate::notification::NotificationHandlers;
+use crate::component::StatAdjustments;
 
 mod hungry;
 use hungry::*;
 
 /// Registers notification handlers related to status effects.
 pub fn register_status_effect_handlers(world: &mut World) {
-    NotificationHandlers::add_handler(add_or_remove_hungry, world);
+    Hungry::register_notification_handlers(world);
+}
+
+struct StatusEffectDescription {
+    /// The name of the status effect
+    name: String,
+    /// Any stat adjustments applied by the status effect
+    stat_adjustments: StatAdjustments,
+    /// A description of any other effects the status effect has
+    other_effects: Option<String>,
+}
+
+trait StatusEffect {
+    /// Registers any notification handlers for this status effect.
+    fn register_notification_handlers(world: &mut World);
+    /// Gets the description of the status effect.
+    fn get_description(&self) -> StatusEffectDescription;
+    /// Adds this status effect to an entity.
+    fn add_to(self, entity: Entity, world: &mut World);
+    /// Removes this status effect from an entity.
+    fn remove_from(entity: Entity, world: &mut World);
 }
