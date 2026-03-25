@@ -24,9 +24,9 @@ const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.15;
 #[derive(Component)]
 pub struct StartingStats(#[expect(unused)] pub Stats);
 
-/// A unique key used to identify a set of stat modifications
+/// A unique key used to identify a set of stat adjustments
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StatModificationKey(pub &'static str);
+pub struct StatAdjustmentKey(pub &'static str);
 
 /// The stats of an entity.
 #[derive(Component, Clone)]
@@ -37,32 +37,31 @@ pub struct Stats {
     pub skills: Skills,
     /// The entity's XP and stuff.
     pub advancement: StatAdvancement,
-    /// The entity's active stat modifications
-    /// TODO rename this and related stuff to adjustments, since the shortened version "adj" is less likely to conflict with other terms than "mod"
-    modifications: HashMap<StatModificationKey, StatModifications>,
+    /// The entity's active stat adjustments
+    adjustments: HashMap<StatAdjustmentKey, StatAdjustments>,
 }
 
 /// The value of a skill
 #[derive(Clone, Copy)]
 pub struct SkillValue {
-    /// The raw value of the skill, before the attribute bonus and active modifications
+    /// The raw value of the skill, before the attribute bonus and active adjustments
     pub raw: u16,
     /// The bonus conferred to the skill by its base attribute
     pub attribute_bonus: f32,
-    /// The net value of the active modifications on the skill
-    pub modifications: f32,
-    /// The total value of the skill, after the attribute bonus and active modifications are applied
+    /// The net value of the active adjustments on the skill
+    pub adjustments: f32,
+    /// The total value of the skill, after the attribute bonus and active adjustments are applied
     pub total: f32,
 }
 
 /// The value of an attribute
 #[derive(Clone, Copy)]
 pub struct AttributeValue {
-    /// The raw value of the attribute, before any active modifications
+    /// The raw value of the attribute, before any active adjustments
     pub raw: u16,
-    /// The net value of the active modifications on the attribute
-    pub modifications: f32,
-    /// The total value of the attribute, after the active modifications are applied
+    /// The net value of the active adjustments on the attribute
+    pub adjustments: f32,
+    /// The total value of the attribute, after the active adjustments are applied
     pub total: f32,
 }
 
@@ -73,7 +72,7 @@ impl Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
             advancement: StatAdvancement::new(),
-            modifications: HashMap::new(),
+            adjustments: HashMap::new(),
         }
     }
 
@@ -93,19 +92,19 @@ impl Stats {
         };
     }
 
-    /// Adds or updates the modifications with the provided key.
-    pub fn set_modification(&mut self, key: StatModificationKey, modifications: StatModifications) {
-        self.modifications.insert(key, modifications);
+    /// Adds or updates the adjustments with the provided key.
+    pub fn set_adjustment(&mut self, key: StatAdjustmentKey, adjustments: StatAdjustments) {
+        self.adjustments.insert(key, adjustments);
     }
 
-    /// Removes the modifications with the provided key.
-    pub fn remove_modification(&mut self, key: StatModificationKey) {
-        self.modifications.remove(&key);
+    /// Removes the adjustments with the provided key.
+    pub fn remove_adjustment(&mut self, key: StatAdjustmentKey) {
+        self.adjustments.remove(&key);
     }
 
-    /// Gets all the active modifications for the provided stat.
-    fn get_modifications(&self, stat: Stat) -> Vec<StatModification> {
-        self.modifications
+    /// Gets all the active adjustments for the provided stat.
+    fn get_adjustments(&self, stat: Stat) -> Vec<StatAdjustment> {
+        self.adjustments
             .values()
             .flat_map(|modifications| modifications.0.get(&stat))
             .flatten()
@@ -117,15 +116,15 @@ impl Stats {
     pub fn get_skill_value(&self, skill: &Skill, world: &World) -> SkillValue {
         let raw_skill_value = self.skills.get_raw(skill);
         let attribute_bonus = self.get_attribute_bonus(skill, world);
-        let modifications = self.get_modifications(Stat::Skill(skill.clone()));
+        let adjustments = self.get_adjustments(Stat::Skill(skill.clone()));
 
-        let unmodified = f32::from(raw_skill_value) + attribute_bonus;
-        let total = modifications.apply_to(unmodified);
+        let unadjusted = f32::from(raw_skill_value) + attribute_bonus;
+        let total = adjustments.apply_to(unadjusted);
 
         SkillValue {
             raw: raw_skill_value,
             attribute_bonus,
-            modifications: total - unmodified,
+            adjustments: total - unadjusted,
             total,
         }
     }
@@ -133,13 +132,13 @@ impl Stats {
     /// Gets the value of an attribute.
     pub fn get_attribute_value(&self, attribute: &Attribute) -> AttributeValue {
         let raw_attribute_value = self.attributes.get_raw(attribute);
-        let modifications = self.get_modifications(Stat::Attribute(attribute.clone()));
+        let adjustments = self.get_adjustments(Stat::Attribute(attribute.clone()));
 
-        let total = modifications.apply_to(raw_attribute_value.into());
+        let total = adjustments.apply_to(raw_attribute_value.into());
 
         AttributeValue {
             raw: raw_attribute_value,
-            modifications: total - f32::from(raw_attribute_value),
+            adjustments: total - f32::from(raw_attribute_value),
             total,
         }
     }
@@ -247,30 +246,13 @@ impl Skills {
     }
 }
 
-/* TODO remove
-/// A notification used to collect active stat modifications for an entity.
-/// TODO send this when getting stat values
-/// TODO is it silly to gather this information via notifications rather than just keeping track of the stat modifications on the stats component itself?
-#[derive(Debug)]
-pub struct GetStatModificationsNotification {
-    /// The entity to get stat modifications for
-    pub entity: Entity,
-    /// The stat to get modifications for
-    pub stat: Stat,
-}
-
-impl NotificationType for GetStatModificationsNotification {
-    type Return = Vec<StatModification>;
-}
-    */
-
-/// A set of modifications to various attributes and/or skills.
+/// A set of adjustments to various attributes and/or skills.
 #[derive(Clone)]
-pub struct StatModifications(HashMap<Stat, Vec<StatModification>>);
+pub struct StatAdjustments(HashMap<Stat, Vec<StatAdjustment>>);
 
-/// A modification to a single stat.
+/// An adjustments to a single stat.
 #[derive(Clone, Copy)]
-pub enum StatModification {
+pub enum StatAdjustment {
     /// Increase the stat's value
     Add(f32),
     /// Decrease the stat's value
@@ -279,53 +261,53 @@ pub enum StatModification {
     Multiply(f32),
 }
 
-impl StatModification {
-    /// Gets a value used to sort modifications by type.
+impl StatAdjustment {
+    /// Gets a value used to sort adjustments by type.
     fn get_compare_key(&self) -> i8 {
         match self {
-            StatModification::Add(_) => 0,
-            StatModification::Subtract(_) => 1,
-            StatModification::Multiply(_) => 2,
+            StatAdjustment::Add(_) => 0,
+            StatAdjustment::Subtract(_) => 1,
+            StatAdjustment::Multiply(_) => 2,
         }
     }
 
-    /// Applies the modification to the provided value.
+    /// Applies the adjustment to the provided value.
     fn apply(&self, value: f32) -> f32 {
         match self {
-            StatModification::Add(x) => value + x,
-            StatModification::Subtract(x) => value - x,
-            StatModification::Multiply(x) => value * x,
+            StatAdjustment::Add(x) => value + x,
+            StatAdjustment::Subtract(x) => value - x,
+            StatAdjustment::Multiply(x) => value * x,
         }
     }
 }
 
-trait ApplyStatModificationsTo {
-    /// Applies the modifications to the provided stat value.
-    /// Will return zero if the modified value would be negative.
+trait ApplyStatAdjustmentsTo {
+    /// Applies the adjustments to the provided stat value.
+    /// Will return zero if the adjusted value would be negative.
     fn apply_to(&self, stat_value: f32) -> f32;
 }
 
-impl ApplyStatModificationsTo for Vec<StatModification> {
+impl ApplyStatAdjustmentsTo for Vec<StatAdjustment> {
     fn apply_to(&self, stat_value: f32) -> f32 {
-        let mut modified = stat_value;
+        let mut adjusted = stat_value;
         self.iter()
             .sorted_by(|a, b| a.get_compare_key().cmp(&b.get_compare_key()))
-            .for_each(|modification| modified = modification.apply(modified));
+            .for_each(|adjustment| adjusted = adjustment.apply(adjusted));
 
-        modified.max(0.0)
+        adjusted.max(0.0)
     }
 }
 
-impl StatModifications {
-    /// Creates a new empty set of modifications.
-    pub fn new() -> StatModifications {
-        StatModifications(HashMap::new())
+impl StatAdjustments {
+    /// Creates a new empty set of adjustments.
+    pub fn new() -> StatAdjustments {
+        StatAdjustments(HashMap::new())
     }
 
-    /// Adds a modification for a stat.
-    /// Any previously-added modifications for the same attribute will not be replaced.
-    pub fn modify_stat(mut self, stat: Stat, modification: StatModification) -> StatModifications {
-        self.0.entry(stat).or_default().push(modification);
+    /// Adds an adjustment for a stat.
+    /// Any previously-added adjustments for the same attribute will not be replaced.
+    pub fn adjust_stat(mut self, stat: Stat, adjustment: StatAdjustment) -> StatAdjustments {
+        self.0.entry(stat).or_default().push(adjustment);
 
         self
     }

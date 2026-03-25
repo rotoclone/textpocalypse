@@ -34,9 +34,9 @@ pub struct StatAttributeDescription {
     pub name: String,
     /// The raw value of the attribute
     pub raw_value: u16,
-    /// The total value of active modifications to the attribute
-    pub modifications: f32,
-    /// The total value of the attribute, after any active modifications are applied
+    /// The total value of active adjustments to the attribute
+    pub adjustments: f32,
+    /// The total value of the attribute, after any active adjustments are applied
     pub total: f32,
 }
 
@@ -51,7 +51,7 @@ impl StatAttributeDescription {
                 StatAttributeDescription {
                     name: get_attribute_name(&attribute, world).full,
                     raw_value: attribute_value.raw,
-                    modifications: attribute_value.modifications,
+                    adjustments: attribute_value.adjustments,
                     total: attribute_value.total,
                 }
             })
@@ -70,9 +70,9 @@ pub struct SkillDescription {
     pub raw_value: u16,
     /// The bonus the base attribute confers to the skill's value
     pub attribute_bonus: f32,
-    /// The total value of active modifications to the skill
-    pub modifications: f32,
-    /// The total value of the skill, after the attribute bonus and any active modifications are applied
+    /// The total value of active adjustments to the skill
+    pub adjustments: f32,
+    /// The total value of the skill, after the attribute bonus and any active adjustments are applied
     pub total: f32,
 }
 
@@ -90,7 +90,7 @@ impl SkillDescription {
                     base_attribute_name: get_attribute_name(&base_attribute, world).short,
                     raw_value: skill_value.raw,
                     attribute_bonus: skill_value.attribute_bonus,
-                    modifications: skill_value.modifications,
+                    adjustments: skill_value.adjustments,
                     total: skill_value.total,
                 }
             })

@@ -899,7 +899,7 @@ fn stats_to_string(stats: StatsDescription) -> String {
     let any_attribute_adjustments = stats
         .attributes
         .iter()
-        .any(|a| should_display_stat_adjustment(a.modifications));
+        .any(|a| should_display_stat_adjustment(a.adjustments));
 
     let (attribute_raw_header, attribute_adjustments_header) = if any_attribute_adjustments {
         (
@@ -924,8 +924,8 @@ fn stats_to_string(stats: StatsDescription) -> String {
 
     for attribute in stats.attributes {
         let (raw_cell, adjustments_cell) = if any_attribute_adjustments {
-            if should_display_stat_adjustment(attribute.modifications) {
-                let adjustment_color = if attribute.modifications.is_sign_positive() {
+            if should_display_stat_adjustment(attribute.adjustments) {
+                let adjustment_color = if attribute.adjustments.is_sign_positive() {
                     comfy_table::Color::Green
                 } else {
                     comfy_table::Color::Red
@@ -933,7 +933,7 @@ fn stats_to_string(stats: StatsDescription) -> String {
                 (
                     Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
                     Some(
-                        Cell::new(format!("{:+.1}", attribute.modifications))
+                        Cell::new(format!("{:+.1}", attribute.adjustments))
                             .set_alignment(CellAlignment::Right)
                             .fg(adjustment_color),
                     ),
@@ -969,7 +969,7 @@ fn stats_to_string(stats: StatsDescription) -> String {
     let any_skill_adjustments = stats
         .skills
         .iter()
-        .any(|s| should_display_stat_adjustment(s.modifications));
+        .any(|s| should_display_stat_adjustment(s.adjustments));
 
     let skill_adjustments_header = if any_skill_adjustments {
         Some(Cell::new("Adj").set_alignment(CellAlignment::Center))
@@ -992,14 +992,14 @@ fn stats_to_string(stats: StatsDescription) -> String {
 
     for skill in stats.skills {
         let adjustments_cell = if any_skill_adjustments {
-            if should_display_stat_adjustment(skill.modifications) {
-                let adjustment_color = if skill.modifications.is_sign_positive() {
+            if should_display_stat_adjustment(skill.adjustments) {
+                let adjustment_color = if skill.adjustments.is_sign_positive() {
                     comfy_table::Color::Green
                 } else {
                     comfy_table::Color::Red
                 };
                 Some(
-                    Cell::new(format!("{:+.1}", skill.modifications))
+                    Cell::new(format!("{:+.1}", skill.adjustments))
                         .set_alignment(CellAlignment::Right)
                         .fg(adjustment_color),
                 )
