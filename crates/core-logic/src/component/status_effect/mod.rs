@@ -10,13 +10,14 @@ pub fn register_status_effect_handlers(world: &mut World) {
     Hungry::register_notification_handlers(world);
 }
 
-struct StatusEffectDescription {
+#[derive(Debug, Clone)]
+pub struct StatusEffectDescription {
     /// The name of the status effect
-    name: String,
+    pub name: String,
     /// Any stat adjustments applied by the status effect
-    stat_adjustments: StatAdjustments,
+    pub stat_adjustments: StatAdjustments,
     /// A description of any other effects the status effect has
-    other_effects: Option<String>,
+    pub other_effects: Option<String>,
 }
 
 trait StatusEffect {

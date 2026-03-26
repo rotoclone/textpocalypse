@@ -247,11 +247,11 @@ impl Skills {
 }
 
 /// A set of adjustments to various attributes and/or skills.
-#[derive(Clone)]
-pub struct StatAdjustments(HashMap<Stat, Vec<StatAdjustment>>);
+#[derive(Debug, Clone)]
+pub struct StatAdjustments(pub HashMap<Stat, Vec<StatAdjustment>>);
 
 /// An adjustments to a single stat.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum StatAdjustment {
     /// Increase the stat's value
     Add(f32),

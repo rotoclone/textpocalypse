@@ -34,6 +34,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Container(container) => container_to_string(container),
         GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
+        GameMessage::StatusEffects(status_effects) => status_effects_to_string(status_effects),
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
@@ -857,9 +858,42 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
         }
     );
 
-    //TODO include info about status effects (here or on the stats view or both)
-
     [health, satiety, hydration, energy].join("\n")
+}
+
+/// Transforms the provided status effects description into a string for display.
+fn status_effects_to_string(status_effects: StatusEffectsDescription) -> String {
+    if status_effects.0.is_empty() {
+        return "".to_string();
+    }
+
+    let effects_string = status_effects
+        .0
+        .into_iter()
+        .map(status_effect_to_string)
+        .join("\n");
+
+    format!("Status effects:\n{effects_string}")
+}
+
+/// Transforms the provided status effect description into a string for display.
+fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
+    let effect_strings = status_effect
+        .stat_adjustments
+        .0
+        .iter()
+        .map(|(stat, adjustments)| {
+            adjustments.iter().map(|adjustment| match adjustment {
+                StatAdjustment::Add(x) => format!("+{x} {}", stat.name),
+                StatAdjustment::Subtract(x) => format!("-{x} {}", stat.name),
+                StatAdjustment::Multiply(x) => format!("x{x} {}", stat.name),
+            })
+        })
+        .flatten()
+        .chain(status_effect.other_effects.into_iter())
+        .collect::<Vec<String>>();
+
+    format!("{}: {}", status_effect.name, format_list(&effect_strings))
 }
 
 /// Transforms the provided stats description into a string for display.

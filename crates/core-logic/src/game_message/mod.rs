@@ -26,6 +26,9 @@ pub use worn_items_description::WornItemsDescription;
 mod vitals_description;
 pub use vitals_description::VitalsDescription;
 
+mod status_effects_description;
+pub use status_effects_description::StatusEffectsDescription;
+
 mod stats_description;
 pub use stats_description::SkillDescription;
 pub use stats_description::StatAttributeDescription;
@@ -68,6 +71,7 @@ pub enum GameMessage {
     Container(ContainerDescription),
     WornItems(WornItemsDescription),
     Vitals(VitalsDescription),
+    StatusEffects(StatusEffectsDescription),
     Stats(StatsDescription),
     Help(HelpDescription),
     Players(PlayersDescription),
