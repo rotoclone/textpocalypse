@@ -27,6 +27,8 @@ mod vitals_description;
 pub use vitals_description::VitalsDescription;
 
 mod status_effects_description;
+pub use status_effects_description::StatName;
+pub use status_effects_description::StatusEffectDescription;
 pub use status_effects_description::StatusEffectsDescription;
 
 mod stats_description;

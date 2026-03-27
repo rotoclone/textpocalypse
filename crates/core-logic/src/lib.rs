@@ -25,7 +25,6 @@ pub use component::AttributeSectionName;
 pub use component::NonSectionAttributeType;
 pub use component::Pronouns;
 pub use component::StatAdjustment;
-pub use component::StatusEffectDescription;
 use component::*;
 
 mod resource;

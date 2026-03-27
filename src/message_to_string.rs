@@ -880,17 +880,15 @@ fn status_effects_to_string(status_effects: StatusEffectsDescription) -> String 
 fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
     let effect_strings = status_effect
         .stat_adjustments
-        .0
         .iter()
-        .map(|(stat, adjustments)| {
-            adjustments.iter().map(|adjustment| match adjustment {
-                StatAdjustment::Add(x) => format!("+{x} {}", stat.name),
-                StatAdjustment::Subtract(x) => format!("-{x} {}", stat.name),
-                StatAdjustment::Multiply(x) => format!("x{x} {}", stat.name),
+        .flat_map(|(stat_name, adjustments)| {
+            adjustments.iter().map(move |adjustment| match adjustment {
+                StatAdjustment::Add(x) => format!("+{x} {stat_name}"),
+                StatAdjustment::Subtract(x) => format!("-{x} {stat_name}"),
+                StatAdjustment::Multiply(x) => format!("x{x} {stat_name}"),
             })
         })
-        .flatten()
-        .chain(status_effect.other_effects.into_iter())
+        .chain(status_effect.other_effects)
         .collect::<Vec<String>>();
 
     format!("{}: {}", status_effect.name, format_list(&effect_strings))

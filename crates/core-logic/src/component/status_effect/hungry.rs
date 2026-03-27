@@ -2,8 +2,8 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{
-        status_effect::{StatusEffect, StatusEffectDescription},
-        Attribute, Stat, StatAdjustment, StatAdjustmentKey, StatAdjustments, Stats,
+        status_effect::StatusEffect, Attribute, Stat, StatAdjustment, StatAdjustmentKey,
+        StatAdjustments, Stats, StatusEffectDetails,
     },
     notification::{Notification, NotificationHandlers},
     vital_change::VitalChangedNotification,
@@ -50,15 +50,15 @@ impl StatusEffect for Hungry {
         NotificationHandlers::add_handler(add_or_remove_hungry, world);
     }
 
-    fn get_description(&self) -> StatusEffectDescription {
+    fn get_details(&self) -> StatusEffectDetails {
         let name = match self.0 {
             HungerSeverity::Mild => "Hungry".to_string(),
             HungerSeverity::Severe => "Very hungry".to_string(),
         };
-        StatusEffectDescription {
+        StatusEffectDetails {
             name,
             stat_adjustments: self.get_stat_adjustments(),
-            other_effects: None,
+            other_effects: Vec::new(),
         }
     }
 
