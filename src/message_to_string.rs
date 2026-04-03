@@ -878,7 +878,7 @@ fn status_effects_to_string(status_effects: StatusEffectsDescription) -> String 
 
 /// Transforms the provided status effect description into a string for display.
 fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
-    let effect_strings = status_effect
+    let effects_string = status_effect
         .stat_adjustments
         .iter()
         .flat_map(|(stat_name, adjustments)| {
@@ -888,10 +888,11 @@ fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
                 StatAdjustment::Multiply(x) => format!("x{x} {stat_name}"),
             })
         })
-        .chain(status_effect.other_effects)
-        .collect::<Vec<String>>();
+        .sorted()
+        .chain(status_effect.other_effects.into_iter().sorted())
+        .join(", ");
 
-    format!("{}: {}", status_effect.name, format_list(&effect_strings))
+    format!("{}: {}", status_effect.name, effects_string)
 }
 
 /// Transforms the provided stats description into a string for display.

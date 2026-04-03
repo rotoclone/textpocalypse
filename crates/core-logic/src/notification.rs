@@ -104,9 +104,11 @@ impl<T: NotificationType, C: Send + Sync, R> NotificationHandlerId<T, C, R> {
     }
 }
 
-/// Signature of a function to handle notifications.
-/// TODO verify notification handlers ideally should take in an immutable `World`, so they can't mess with anything that would cause previously-run verify handlers to become out of date
-type HandleFn<T, Contents, Return> = fn(&Notification<T, Contents>, &mut World) -> Return;
+/// Signature of a function to handle notifications that can mutate the world and returns nothing.
+type HandleFn<T, Contents> = fn(&Notification<T, Contents>, &mut World);
+
+/// Signature of a function to handle notifications that can't mutate the world and returns something.
+type ReturningHandleFn<T, Contents, Return> = fn(&Notification<T, Contents>, &World) -> Return;
 
 /// Type of the notification handler ID for regular notifications.
 type HandlerId<T, C, R> = NotificationHandlerId<T, C, R>;
@@ -116,38 +118,45 @@ type HandlerId<T, C, R> = NotificationHandlerId<T, C, R>;
 pub struct NotificationHandlers<T: NotificationType, C: Send + Sync, R> {
     /// The ID to be assigned to the next registered handler.
     next_id: NotificationHandlerId<T, C, R>,
-    /// The handlers, keyed by their assigned IDs.
-    handlers: HashMap<HandlerId<T, C, R>, HandleFn<T, C, R>>,
+    /// The handlers that take a mutable world, keyed by their assigned IDs.
+    handlers: HashMap<HandlerId<T, C, R>, HandleFn<T, C>>,
+    /// The handlers that take an immutable world, keyed by their assigned IDs.
+    /// TODO split this into a separate ReturningNotificationHandlers struct instead of having only one of the maps ever get populated
+    returning_handlers: HashMap<HandlerId<T, C, R>, ReturningHandleFn<T, C, R>>,
 }
 
 impl<T: NotificationType + 'static, C: Send + Sync + 'static, R: 'static>
     NotificationHandlers<T, C, R>
 {
     /// Creates a new, empty set of handlers.
-    fn new() -> NotificationHandlers<T, C, R> {
+    fn new_returning() -> NotificationHandlers<T, C, R> {
         NotificationHandlers {
             next_id: NotificationHandlerId::new(),
             handlers: HashMap::new(),
+            returning_handlers: HashMap::new(),
         }
     }
 
-    /// Adds the provided handler to this set of handlers and returns its assigned ID.
-    fn add(&mut self, handle_fn: HandleFn<T, C, R>) -> HandlerId<T, C, R> {
+    /// Adds the provided handler that returns something to this set of handlers and returns its assigned ID.
+    fn add_returning(&mut self, handle_fn: ReturningHandleFn<T, C, R>) -> HandlerId<T, C, R> {
         let id = self.next_id;
-        self.handlers.insert(id, handle_fn);
+        self.returning_handlers.insert(id, handle_fn);
         self.next_id = self.next_id.next();
 
         id
     }
 
-    /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
-    pub fn add_handler(handler: HandleFn<T, C, R>, world: &mut World) -> HandlerId<T, C, R> {
+    /// Registers the provided handler function that returns something. Returns an ID that can be used to remove the handler later.
+    pub fn add_returning_handler(
+        handler: ReturningHandleFn<T, C, R>,
+        world: &mut World,
+    ) -> HandlerId<T, C, R> {
         if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C, R>>() {
-            return handlers.add(handler);
+            return handlers.add_returning(handler);
         }
 
-        let mut handlers = NotificationHandlers::new();
-        let id = handlers.add(handler);
+        let mut handlers = NotificationHandlers::new_returning();
+        let id = handlers.add_returning(handler);
         world.insert_resource(handlers);
 
         id
@@ -168,5 +177,38 @@ impl<T: NotificationType + 'static, C: Send + Sync + 'static, R: 'static>
         if remove_resource {
             world.remove_resource::<NotificationHandlers<T, C, R>>();
         }
+    }
+}
+
+impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C, ()> {
+    /// Creates a new, empty set of handlers.
+    fn new() -> NotificationHandlers<T, C, ()> {
+        NotificationHandlers {
+            next_id: NotificationHandlerId::new(),
+            handlers: HashMap::new(),
+            returning_handlers: HashMap::new(),
+        }
+    }
+
+    /// Adds the provided handler to this set of handlers and returns its assigned ID.
+    fn add(&mut self, handle_fn: HandleFn<T, C>) -> HandlerId<T, C, ()> {
+        let id = self.next_id;
+        self.handlers.insert(id, handle_fn);
+        self.next_id = self.next_id.next();
+
+        id
+    }
+
+    /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
+    pub fn add_handler(handler: HandleFn<T, C>, world: &mut World) -> HandlerId<T, C, ()> {
+        if let Some(mut handlers) = world.get_resource_mut::<NotificationHandlers<T, C, ()>>() {
+            return handlers.add(handler);
+        }
+
+        let mut handlers = NotificationHandlers::new();
+        let id = handlers.add(handler);
+        world.insert_resource(handlers);
+
+        id
     }
 }
