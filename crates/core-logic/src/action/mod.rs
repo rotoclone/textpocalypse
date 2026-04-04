@@ -550,7 +550,7 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
             notification_type,
             contents,
         }
-        .send(world)
+        .send_returning(world)
     }
 
     /// Sends a notification that `perform` was called on an action.
