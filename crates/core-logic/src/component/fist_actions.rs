@@ -11,6 +11,7 @@ use crate::{
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
+    notification::ReturningNotificationHandlers,
     parse_attack_input, Action, ActionEndNotification, ActionInterruptResult,
     ActionNotificationSender, ActionResult, ActionTag, AfterActionPerformNotification, AttackType,
     BasicTokens, BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
@@ -37,7 +38,7 @@ impl ParseCustomInput for FistActions {
 impl FistActions {
     /// Registers handlers for special fist attacks.
     pub fn register_handlers(world: &mut World) {
-        NotificationHandlers::add_handler(
+        ReturningNotificationHandlers::add_handler(
             combat_utils::verify_combat_action_valid::<UppercutAction>,
             world,
         );
@@ -46,7 +47,7 @@ impl FistActions {
             world,
         );
 
-        NotificationHandlers::add_handler(
+        ReturningNotificationHandlers::add_handler(
             combat_utils::verify_combat_action_valid::<HaymakerAction>,
             world,
         );

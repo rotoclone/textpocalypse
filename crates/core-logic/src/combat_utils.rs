@@ -736,7 +736,7 @@ pub fn handle_miss<A: AttackType>(
 /// Verifies that everything is in order for an attack.
 pub fn verify_combat_action_valid<A: AttackType>(
     notification: &Notification<VerifyActionNotification, A>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let verify_results = vec![
         verify_target_in_same_room(notification, world),
@@ -758,7 +758,7 @@ pub fn verify_combat_action_valid<A: AttackType>(
 /// Verifies that the target is in the same room as the attacker.
 fn verify_target_in_same_room<A: AttackType>(
     notification: &Notification<VerifyActionNotification, A>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.get_target();
@@ -777,7 +777,7 @@ fn verify_target_in_same_room<A: AttackType>(
 /// Verifies that the target is alive.
 fn verify_target_alive<A: AttackType>(
     notification: &Notification<VerifyActionNotification, A>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.get_target();
@@ -796,7 +796,7 @@ fn verify_target_alive<A: AttackType>(
 /// Verifies that the attacker has the weapon they're trying to attack with.
 fn verify_attacker_wielding_weapon<A: AttackType>(
     notification: &Notification<VerifyActionNotification, A>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(weapon_entity) = notification

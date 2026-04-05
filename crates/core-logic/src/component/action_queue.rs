@@ -4,23 +4,23 @@ use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action, component::Player, notification::NotificationType, send_messages, tick,
-    GameMessage, GameOptions, InterruptedEntities,
+    action::Action,
+    component::Player,
+    notification::{NotificationType, ReturningNotificationType},
+    send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
 const MAX_ACTION_NOTIFICATION_LOOPS: u32 = 100000;
 
 /// A notification sent to verify an action before it is performed.
-///
-/// Notification handlers for this notification type MUST NOT modify the world as that could make the results of previously-run verification handlers no longer valid.
 #[derive(Debug)]
 pub struct VerifyActionNotification {
     /// The entity that wants to perform the action.
     pub performing_entity: Entity,
 }
 
-impl NotificationType for VerifyActionNotification {
+impl ReturningNotificationType for VerifyActionNotification {
     type Return = VerifyResult;
 }
 
@@ -62,9 +62,7 @@ pub struct BeforeActionNotification {
     pub performing_entity: Entity,
 }
 
-impl NotificationType for BeforeActionNotification {
-    type Return = ();
-}
+impl NotificationType for BeforeActionNotification {}
 
 /// A notification sent after `perform` is called on an action.
 #[derive(Debug)]
@@ -77,9 +75,7 @@ pub struct AfterActionPerformNotification {
     pub action_successful: bool,
 }
 
-impl NotificationType for AfterActionPerformNotification {
-    type Return = ();
-}
+impl NotificationType for AfterActionPerformNotification {}
 
 /// A notification sent after an action is done being performed, whether it completed successfully or was interrupted.
 #[derive(Debug)]
@@ -91,9 +87,7 @@ pub struct ActionEndNotification {
     pub action_interrupted: bool,
 }
 
-impl NotificationType for ActionEndNotification {
-    type Return = ();
-}
+impl NotificationType for ActionEndNotification {}
 
 /// The state of a queued action.
 #[derive(Clone, Copy)]

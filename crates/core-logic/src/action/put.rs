@@ -557,7 +557,7 @@ impl Action for PutAction {
 /// Verifies that the item is actually in the source container.
 pub fn verify_item_in_source(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let item = notification.contents.item;

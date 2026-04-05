@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use crate::component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult};
-use crate::notification::{Notification, NotificationHandlers};
+use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
 use crate::{
     combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
@@ -130,7 +130,7 @@ pub use cheat::CheatParser;
 
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
-    NotificationHandlers::add_handler(put::verify_item_in_source, world);
+    ReturningNotificationHandlers::add_handler(put::verify_item_in_source, world);
     NotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
     NotificationHandlers::add_handler(put::verify_source_not_owned_by_other_living_entity, world);
     NotificationHandlers::add_handler(

@@ -5,20 +5,27 @@ use bevy_ecs::prelude::*;
 //TODO use bevy observers instead of all this?
 
 /// Trait for types that represent a category of notifications.
-pub trait NotificationType: Debug + Send + Sync {
+///
+/// A given type should either implement this or `ReturningNotificationType`, but not both.
+pub trait NotificationType: Debug + Send + Sync {}
+
+/// Trait for types that represent a category of notifications that return something.
+///
+/// A given type should either implement this or `NotificationType`, but not both.
+pub trait ReturningNotificationType: Debug + Send + Sync {
     type Return;
 }
 
 /// A notification.
 #[derive(Debug)]
-pub struct Notification<'c, T: NotificationType, Contents> {
+pub struct Notification<'c, T, Contents> {
     /// The type of the notification.
     pub notification_type: T,
     /// The contents of the notification.
     pub contents: &'c Contents,
 }
 
-impl<T: NotificationType<Return = ()> + 'static> Notification<'_, T, ()> {
+impl<T: NotificationType + 'static> Notification<'_, T, ()> {
     /// Sends a notification with the provided type and no contents.
     pub fn send_no_contents(notification_type: T, world: &mut World) {
         Notification {
@@ -29,7 +36,7 @@ impl<T: NotificationType<Return = ()> + 'static> Notification<'_, T, ()> {
     }
 }
 
-impl<T: NotificationType<Return = R> + 'static, R: 'static> Notification<'_, T, ()> {
+impl<T: ReturningNotificationType<Return = R> + 'static, R: 'static> Notification<'_, T, ()> {
     /// Sends a returning notification with the provided type and no contents.
     pub fn send_no_contents_returning(notification_type: T, world: &mut World) -> Vec<R> {
         Notification {
@@ -40,7 +47,7 @@ impl<T: NotificationType<Return = R> + 'static, R: 'static> Notification<'_, T, 
     }
 }
 
-impl<T: NotificationType<Return = ()> + 'static, C: Send + Sync + 'static> Notification<'_, T, C> {
+impl<T: NotificationType + 'static, C: Send + Sync + 'static> Notification<'_, T, C> {
     /// Sends this notification to all the handlers registered for it.
     pub fn send(&self, world: &mut World) {
         if let Some(handlers) = world.get_resource::<NotificationHandlers<T, C>>() {
@@ -57,11 +64,10 @@ impl<T: NotificationType<Return = ()> + 'static, C: Send + Sync + 'static> Notif
     }
 }
 
-impl<T: NotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'static>
+impl<T: ReturningNotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'static>
     Notification<'_, T, C>
 {
     /// Sends this notification to all the handlers registered for it.
-    /// TODO make sure you can't accidentally call this on a notification that doesn't return anything (since this impl still applies if R = ())
     pub fn send_returning(&self, world: &World) -> Vec<R> {
         let mut returned = Vec::new();
         if let Some(handlers) = world.get_resource::<ReturningNotificationHandlers<T, C, R>>() {
@@ -85,7 +91,7 @@ impl<T: NotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'st
 /// This is only unique to the notification type + contents + return type combo.
 /// For example, the first handler registered for `BeforeActionNotification` and `MoveAction` and the first one registered for
 /// `BeforeActionNotification` and `LookAction` will both have the same internal value, just different associated types.
-pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync, R> {
+pub struct NotificationHandlerId<T, C: Send + Sync, R> {
     value: u64,
     _t: PhantomData<fn(T)>,
     _c: PhantomData<fn(C)>,
@@ -93,29 +99,29 @@ pub struct NotificationHandlerId<T: NotificationType, C: Send + Sync, R> {
 }
 
 // need to manually implement traits due to https://github.com/rust-lang/rust/issues/26925
-impl<T: NotificationType, C: Send + Sync, R> Clone for NotificationHandlerId<T, C, R> {
+impl<T: Debug + Send + Sync, C: Send + Sync, R> Clone for NotificationHandlerId<T, C, R> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> Copy for NotificationHandlerId<T, C, R> {}
+impl<T: Debug + Send + Sync, C: Send + Sync, R> Copy for NotificationHandlerId<T, C, R> {}
 
-impl<T: NotificationType, C: Send + Sync, R> PartialEq for NotificationHandlerId<T, C, R> {
+impl<T: Debug + Send + Sync, C: Send + Sync, R> PartialEq for NotificationHandlerId<T, C, R> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> Eq for NotificationHandlerId<T, C, R> {}
+impl<T: Debug + Send + Sync, C: Send + Sync, R> Eq for NotificationHandlerId<T, C, R> {}
 
-impl<T: NotificationType, C: Send + Sync, R> Hash for NotificationHandlerId<T, C, R> {
+impl<T: Debug + Send + Sync, C: Send + Sync, R> Hash for NotificationHandlerId<T, C, R> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
     }
 }
 
-impl<T: NotificationType, C: Send + Sync, R> NotificationHandlerId<T, C, R> {
+impl<T, C: Send + Sync, R> NotificationHandlerId<T, C, R> {
     /// Creates a new notification handler ID with the minimum starting value.
     fn new() -> NotificationHandlerId<T, C, R> {
         NotificationHandlerId {
@@ -141,16 +147,14 @@ type ReturningHandleFn<T, Contents, Return> = fn(&Notification<T, Contents>, &Wo
 
 /// The set of notification handlers that take a mutable world and return nothing for a single notification type and contents type notification.
 #[derive(Resource)]
-pub struct NotificationHandlers<T: NotificationType<Return = ()>, C: Send + Sync> {
+pub struct NotificationHandlers<T: NotificationType, C: Send + Sync> {
     /// The ID to be assigned to the next registered handler.
     next_id: NotificationHandlerId<T, C, ()>,
     /// The handlers, keyed by their assigned IDs.
     handlers: HashMap<NotificationHandlerId<T, C, ()>, HandleFn<T, C>>,
 }
 
-impl<T: NotificationType<Return = ()> + 'static, C: Send + Sync + 'static>
-    NotificationHandlers<T, C>
-{
+impl<T: NotificationType + 'static, C: Send + Sync + 'static> NotificationHandlers<T, C> {
     /// Creates a new, empty set of handlers.
     fn new() -> NotificationHandlers<T, C> {
         NotificationHandlers {
@@ -204,14 +208,18 @@ impl<T: NotificationType<Return = ()> + 'static, C: Send + Sync + 'static>
 
 /// The set of notification handlers that take an immutable world and return something for a single notification type, contents type, and return type combination.
 #[derive(Resource)]
-pub struct ReturningNotificationHandlers<T: NotificationType<Return = R>, C: Send + Sync, R> {
+pub struct ReturningNotificationHandlers<
+    T: ReturningNotificationType<Return = R>,
+    C: Send + Sync,
+    R,
+> {
     /// The ID to be assigned to the next registered handler.
     next_id: NotificationHandlerId<T, C, R>,
     /// The handlers, keyed by their assigned IDs.
     handlers: HashMap<NotificationHandlerId<T, C, R>, ReturningHandleFn<T, C, R>>,
 }
 
-impl<T: NotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'static>
+impl<T: ReturningNotificationType<Return = R> + 'static, C: Send + Sync + 'static, R: 'static>
     ReturningNotificationHandlers<T, C, R>
 {
     /// Creates a new, empty set of handlers.

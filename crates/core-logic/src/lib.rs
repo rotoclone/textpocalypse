@@ -823,9 +823,7 @@ fn handle_input_error(entity: Entity, input: String, error: InputParseError, wor
 #[derive(Debug)]
 pub struct TickNotification;
 
-impl NotificationType for TickNotification {
-    type Return = ();
-}
+impl NotificationType for TickNotification {}
 
 /// Performs one game tick.
 fn tick(world: &mut World) {
@@ -871,9 +869,7 @@ pub struct DeathNotification {
     entity: Entity,
 }
 
-impl NotificationType for DeathNotification {
-    type Return = ();
-}
+impl NotificationType for DeathNotification {}
 
 /// Kills an entity.
 fn kill_entity(entity: Entity, world: &mut World) {
@@ -963,9 +959,7 @@ pub struct DespawnNotification {
     entity: Entity,
 }
 
-impl NotificationType for DespawnNotification {
-    type Return = ();
-}
+impl NotificationType for DespawnNotification {}
 
 /// Despawns an entity.
 fn despawn_entity(entity: Entity, world: &mut World) {
