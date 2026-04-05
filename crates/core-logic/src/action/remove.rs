@@ -214,7 +214,7 @@ impl Action for RemoveAction {
 /// Prevents removing items from living entities other than the one performing the action.
 pub fn prevent_remove_from_other_living_entity(
     notification: &Notification<VerifyActionNotification, RemoveAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let wearing_entity = notification.contents.wearing_entity;

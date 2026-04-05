@@ -402,7 +402,7 @@ pub fn auto_unlock_keyed_locks(
 /// Notification handler for preventing entities from opening entities locked with a keyed lock.
 pub fn prevent_opening_locked_keyed_locks(
     notification: &Notification<VerifyActionNotification, OpenAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     if notification.contents.should_be_open {
         if let Some(keyed_lock) = world.get::<KeyedLock>(notification.contents.target) {

@@ -269,7 +269,7 @@ impl DescribeAttributes for Container {
 /// Prevents containers from getting overfilled.
 pub fn limit_container_contents(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let destination = notification.contents.destination;

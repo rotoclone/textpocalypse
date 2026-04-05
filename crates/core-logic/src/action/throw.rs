@@ -562,7 +562,7 @@ pub fn auto_equip_item_to_throw(
 /// Verifies that the entity trying to throw an item has it equipped.
 pub fn verify_wielding_item_to_throw(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
@@ -582,7 +582,7 @@ pub fn verify_wielding_item_to_throw(
 /// Verifies that the target is in the same room as the thrower.
 pub fn verify_target_in_same_room(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let target = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
@@ -604,7 +604,7 @@ pub fn verify_target_in_same_room(
 /// Verifies that the thrower is strong enough to throw the thing they're trying to throw.
 pub fn verify_strong_enough_to_throw_item(
     notification: &Notification<VerifyActionNotification, ThrowAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;

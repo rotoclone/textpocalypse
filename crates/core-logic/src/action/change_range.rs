@@ -424,7 +424,7 @@ impl Action for ChangeRangeAction {
 /// Verifies that the range can actually be changed in the requested direction.
 pub fn verify_range_can_be_changed(
     notification: &Notification<VerifyActionNotification, ChangeRangeAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.target;

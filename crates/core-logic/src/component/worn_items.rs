@@ -272,7 +272,7 @@ pub fn auto_remove_on_put(
 // Blocks moving items around if they're being worn
 pub fn verify_not_wearing_item_to_put(
     notification: &Notification<VerifyActionNotification, PutAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let source = notification.contents.source;
     let destination = notification.contents.destination;

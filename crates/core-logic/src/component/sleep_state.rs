@@ -55,7 +55,7 @@ pub fn is_asleep(entity: Entity, world: &World) -> bool {
 /// Prevents an entity from looking at anything while it is asleep.
 pub fn prevent_look_while_asleep(
     notification: &Notification<VerifyActionNotification, LookAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
 
@@ -70,7 +70,7 @@ pub fn prevent_look_while_asleep(
 /// Prevents an entity from saying anything while it is asleep.
 pub fn prevent_say_while_asleep(
     notification: &Notification<VerifyActionNotification, SayAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
 

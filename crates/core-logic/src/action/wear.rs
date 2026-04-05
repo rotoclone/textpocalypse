@@ -196,7 +196,7 @@ impl Action for WearAction {
 /// Verifies that the entity trying to put on an item contains it.
 pub fn verify_has_item_to_wear(
     notification: &Notification<VerifyActionNotification, WearAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;

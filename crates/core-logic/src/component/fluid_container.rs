@@ -143,7 +143,7 @@ impl DescribeAttributes for FluidContainer {
 /// amount to pour, the error will always be that the source is empty.
 pub fn verify_source_and_target_container_amounts(
     notification: &Notification<VerifyActionNotification, PourAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let source = notification.contents.source;
     let amount = &notification.contents.amount;

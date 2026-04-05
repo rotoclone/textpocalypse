@@ -273,7 +273,7 @@ impl Action for EquipAction {
 /// Verifies that the entity trying to equip an item contains it.
 pub fn verify_has_item_to_equip(
     notification: &Notification<VerifyActionNotification, EquipAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;
@@ -295,7 +295,7 @@ pub fn verify_has_item_to_equip(
 /// Verifies that the entity trying to equip an item is not wearing it.
 pub fn verify_not_wearing_item_to_equip(
     notification: &Notification<VerifyActionNotification, EquipAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     let item = notification.contents.target;
     let performing_entity = notification.notification_type.performing_entity;

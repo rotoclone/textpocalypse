@@ -315,7 +315,7 @@ pub fn auto_open_connections(
 /// Notification handler for preventing entities from moving through closed entities.
 pub fn prevent_moving_through_closed_connections(
     notification: &Notification<VerifyActionNotification, MoveAction>,
-    world: &mut World,
+    world: &World,
 ) -> VerifyResult {
     if let Some(location_id) = world
         .get::<Location>(notification.notification_type.performing_entity)
