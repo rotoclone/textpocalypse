@@ -2,10 +2,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{
-        status_effect::StatusEffect, Attribute, Stat, StatAdjustment, StatAdjustmentKey,
-        StatAdjustments, Stats, StatusEffectDetails,
+        status_effect::StatusEffect, Attribute, GetStatusEffects, Stat, StatAdjustment,
+        StatAdjustmentKey, StatAdjustments, Stats, StatusEffectDetails,
     },
-    notification::{Notification, NotificationHandlers},
+    notification::{Notification, NotificationHandlers, ReturningNotificationHandleFn},
     vital_change::VitalChangedNotification,
     ConstrainedValue, VitalType,
 };
@@ -46,8 +46,13 @@ impl Hungry {
 }
 
 impl StatusEffect for Hungry {
-    fn register_notification_handlers(world: &mut World) {
+    fn register_add_and_remove_handlers(world: &mut World) {
         NotificationHandlers::add_handler(add_or_remove_hungry, world);
+    }
+
+    fn get_description_handler(
+    ) -> ReturningNotificationHandleFn<GetStatusEffects, (), Option<StatusEffectDetails>> {
+        get_hungry_description
     }
 
     fn get_details(&self) -> StatusEffectDetails {
@@ -80,7 +85,7 @@ impl StatusEffect for Hungry {
 }
 
 /// Adds, removes, or modifies the `Hungry` component based on how hungry an entity is.
-pub fn add_or_remove_hungry(
+fn add_or_remove_hungry(
     notification: &Notification<VitalChangedNotification, ()>,
     world: &mut World,
 ) {
@@ -105,4 +110,11 @@ fn determine_hunger_severity(satiety: ConstrainedValue<f32>) -> Option<HungerSev
         x if x <= SEVERE_HUNGER_THESHOLD => Some(HungerSeverity::Severe),
         _ => None,
     }
+}
+
+fn get_hungry_description(
+    notification: &Notification<GetStatusEffects, ()>,
+    world: &World,
+) -> Option<StatusEffectDetails> {
+    todo!() //TODO
 }
