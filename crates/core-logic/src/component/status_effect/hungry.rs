@@ -2,10 +2,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     component::{
-        status_effect::StatusEffect, Attribute, GetStatusEffects, Stat, StatAdjustment,
-        StatAdjustmentKey, StatAdjustments, Stats, StatusEffectDetails,
+        status_effect::StatusEffect, Attribute, Stat, StatAdjustment, StatAdjustmentKey,
+        StatAdjustments, Stats, StatusEffectDetails, StatusEffectId,
     },
-    notification::{Notification, NotificationHandlers, ReturningNotificationHandleFn},
+    notification::{Notification, NotificationHandlers},
     vital_change::VitalChangedNotification,
     ConstrainedValue, VitalType,
 };
@@ -16,6 +16,7 @@ const MILD_HUNGER_THRESHOLD: f32 = 0.5;
 /// The fraction of total satiety at which an entity becomes severely hungry
 const SEVERE_HUNGER_THESHOLD: f32 = 0.25;
 
+const STATUS_EFFECT_ID: StatusEffectId = StatusEffectId("hungry");
 const STAT_ADJUSTMENT_KEY: StatAdjustmentKey = StatAdjustmentKey("hungry");
 
 #[derive(Component)]
@@ -46,13 +47,12 @@ impl Hungry {
 }
 
 impl StatusEffect for Hungry {
-    fn register_add_and_remove_handlers(world: &mut World) {
+    fn register_notification_handlers(world: &mut World) {
         NotificationHandlers::add_handler(add_or_remove_hungry, world);
     }
 
-    fn get_description_handler(
-    ) -> ReturningNotificationHandleFn<GetStatusEffects, (), Option<StatusEffectDetails>> {
-        get_hungry_description
+    fn get_id() -> StatusEffectId {
+        STATUS_EFFECT_ID
     }
 
     fn get_details(&self) -> StatusEffectDetails {
@@ -67,20 +67,16 @@ impl StatusEffect for Hungry {
         }
     }
 
-    fn add_to(self, entity: Entity, world: &mut World) {
+    fn on_add(&self, entity: Entity, world: &mut World) {
         if let Some(mut stats) = world.get_mut::<Stats>(entity) {
             stats.set_adjustment(STAT_ADJUSTMENT_KEY, self.get_stat_adjustments());
         }
-
-        world.entity_mut(entity).insert(self);
     }
 
-    fn remove_from(entity: Entity, world: &mut World) {
+    fn on_remove(entity: Entity, world: &mut World) {
         if let Some(mut stats) = world.get_mut::<Stats>(entity) {
             stats.remove_adjustment(STAT_ADJUSTMENT_KEY);
         }
-
-        world.entity_mut(entity).remove::<Hungry>();
     }
 }
 
@@ -110,11 +106,4 @@ fn determine_hunger_severity(satiety: ConstrainedValue<f32>) -> Option<HungerSev
         x if x <= SEVERE_HUNGER_THESHOLD => Some(HungerSeverity::Severe),
         _ => None,
     }
-}
-
-fn get_hungry_description(
-    notification: &Notification<GetStatusEffects, ()>,
-    world: &World,
-) -> Option<StatusEffectDetails> {
-    todo!() //TODO
 }

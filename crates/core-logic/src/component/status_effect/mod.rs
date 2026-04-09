@@ -1,11 +1,8 @@
+use std::collections::HashMap;
+
 use bevy_ecs::prelude::*;
 
-use crate::{
-    component::StatAdjustments,
-    notification::{
-        ReturningNotificationHandleFn, ReturningNotificationHandlers, ReturningNotificationType,
-    },
-};
+use crate::component::StatAdjustments;
 
 mod hungry;
 use hungry::*;
@@ -14,6 +11,9 @@ use hungry::*;
 pub fn register_status_effect_handlers(world: &mut World) {
     Hungry::register_notification_handlers(world);
 }
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct StatusEffectId(pub &'static str);
 
 #[derive(Debug, Clone)]
 pub struct StatusEffectDetails {
@@ -25,34 +25,67 @@ pub struct StatusEffectDetails {
     pub other_effects: Vec<String>,
 }
 
-trait StatusEffect {
-    /// Registers any notification handlers for this status effect.
-    fn register_notification_handlers(world: &mut World) {
-        Self::register_add_and_remove_handlers(world);
-        ReturningNotificationHandlers::add_handler(Self::get_description_handler(), world);
+pub trait StatusEffect: Component + Sized {
+    /// Adds this status effect to an entity.
+    fn add_to(self, entity: Entity, world: &mut World) {
+        self.on_add(entity, world);
+        StatusEffects::register(entity, Self::get_id(), self.get_details(), world);
+
+        world.entity_mut(entity).insert(self);
     }
 
-    /// Registers notification handler(s) for adding and removing the status effect.
-    fn register_add_and_remove_handlers(world: &mut World);
-    /// Gets the notification handler function that gets this status effect's description.
-    fn get_description_handler(
-    ) -> ReturningNotificationHandleFn<GetStatusEffects, (), Option<StatusEffectDetails>>;
+    /// Removes this status effect from an entity.
+    fn remove_from(entity: Entity, world: &mut World) {
+        Self::on_remove(entity, world);
+        StatusEffects::unregister(entity, Self::get_id(), world);
+
+        world.entity_mut(entity).remove::<Self>();
+    }
+
+    /// Registers any notification handlers for this status effect.
+    fn register_notification_handlers(world: &mut World);
+
+    /// Gets the unique ID of the status effect.
+    fn get_id() -> StatusEffectId;
+
     /// Gets a description of the status effect.
     fn get_details(&self) -> StatusEffectDetails;
-    /// Adds this status effect to an entity.
-    fn add_to(self, entity: Entity, world: &mut World);
-    /// Removes this status effect from an entity.
-    fn remove_from(entity: Entity, world: &mut World);
+
+    /// Performs any additional logic needed when the status effect is added to an entity.
+    /// Will be called before the status effect is registered in `StatusEffects` and before the status effect component is actually added to the entity.
+    fn on_add(&self, entity: Entity, world: &mut World);
+
+    /// Performs any additional logic needed when the status effect is removed from an entity.
+    /// Will be called before the status effect is unregistered in `StatusEffects` and before the status effect component is actually removed from the entity.
+    fn on_remove(entity: Entity, world: &mut World);
 }
 
-/// Notification type for getting the active status effects of an entity.
-/// TODO should this just be a StatusEffects component that keeps track of all of them instead? that way getting status effect info is more efficient
-#[derive(Debug)]
-pub struct GetStatusEffects {
-    /// The entity to get status effects for.
-    pub entity: Entity,
-}
+/// Keeps track of the active status effects on an entity.
+#[derive(Component)]
+pub struct StatusEffects(HashMap<StatusEffectId, StatusEffectDetails>);
 
-impl ReturningNotificationType for GetStatusEffects {
-    type Return = Option<StatusEffectDetails>;
+impl StatusEffects {
+    /// Gets all the active status effects on an entity.
+    pub fn get_all(entity: Entity, world: &World) -> Vec<&StatusEffectDetails> {
+        if let Some(status_effects) = world.get::<StatusEffects>(entity) {
+            status_effects.0.values().collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Registers a status effect on an entity.
+    fn register(
+        entity: Entity,
+        id: StatusEffectId,
+        details: StatusEffectDetails,
+        world: &mut World,
+    ) {
+        todo!() //TODO
+    }
+
+    /// Unregisters a status effect from an entity.
+    fn unregister(entity: Entity, id: StatusEffectId, world: &mut World) {
+        todo!() //TODO
+    }
 }
