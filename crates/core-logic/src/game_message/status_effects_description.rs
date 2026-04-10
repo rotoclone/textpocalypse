@@ -2,7 +2,10 @@ use std::{collections::HashMap, fmt::Display};
 
 use bevy_ecs::prelude::*;
 
-use crate::StatAdjustment;
+use crate::{
+    component::{StatusEffectDetails, StatusEffects},
+    StatAdjustment,
+};
 
 /// The description of an entity's status effects.
 #[derive(Debug, Clone)]
@@ -19,6 +22,17 @@ pub struct StatusEffectDescription {
     pub other_effects: Vec<String>,
 }
 
+impl StatusEffectDescription {
+    /// Builds a `StatusEffectDescription` from a `StatusEffectDetails`.
+    fn from_details(details: &StatusEffectDetails) -> StatusEffectDescription {
+        StatusEffectDescription {
+            name: details.name.clone(),
+            stat_adjustments: todo!(), //TODO
+            other_effects: details.other_effects.clone(),
+        }
+    }
+}
+
 /// The name of a stat.
 #[derive(Debug, Clone)]
 pub struct StatName(pub String);
@@ -32,6 +46,11 @@ impl Display for StatName {
 impl StatusEffectsDescription {
     /// Creates a status effects description for the provided entity.
     pub fn for_entity(entity: Entity, world: &World) -> StatusEffectsDescription {
-        todo!() //TODO
+        StatusEffectsDescription(
+            StatusEffects::get_all(entity, world)
+                .iter()
+                .map(|effect| StatusEffectDescription::from_details(effect))
+                .collect(),
+        )
     }
 }

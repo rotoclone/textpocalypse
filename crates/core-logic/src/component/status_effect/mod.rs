@@ -65,7 +65,7 @@ pub trait StatusEffect: Component + Sized {
 pub struct StatusEffects(HashMap<StatusEffectId, StatusEffectDetails>);
 
 impl StatusEffects {
-    /// Gets all the active status effects on an entity.
+    /// Gets all the active status effects on an entity, in no particular order.
     pub fn get_all(entity: Entity, world: &World) -> Vec<&StatusEffectDetails> {
         if let Some(status_effects) = world.get::<StatusEffects>(entity) {
             status_effects.0.values().collect()
@@ -81,11 +81,29 @@ impl StatusEffects {
         details: StatusEffectDetails,
         world: &mut World,
     ) {
-        todo!() //TODO
+        if let Some(mut status_effects) = world.get_mut::<StatusEffects>(entity) {
+            status_effects.0.insert(id, details);
+            return;
+        }
+
+        let mut status_effects = StatusEffects(HashMap::new());
+        status_effects.0.insert(id, details);
+        world.entity_mut(entity).insert(status_effects);
     }
 
     /// Unregisters a status effect from an entity.
     fn unregister(entity: Entity, id: StatusEffectId, world: &mut World) {
-        todo!() //TODO
+        let mut remove_component = false;
+        if let Some(mut status_effects) = world.get_mut::<StatusEffects>(entity) {
+            status_effects.0.remove(&id);
+
+            if status_effects.0.is_empty() {
+                remove_component = true;
+            }
+        }
+
+        if remove_component {
+            world.entity_mut(entity).remove::<StatusEffects>();
+        }
     }
 }
