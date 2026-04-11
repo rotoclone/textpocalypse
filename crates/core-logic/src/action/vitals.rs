@@ -7,8 +7,8 @@ use crate::{
     command_format::{one_of_literal_part, CommandFormat},
     component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult, Vitals},
     input_parser::{InputParseError, InputParser},
-    ActionTag, BeforeActionNotification, GameMessage, VerifyActionNotification, VitalsDescription,
-    World,
+    ActionTag, BeforeActionNotification, GameMessage, StatusEffectsDescription,
+    VerifyActionNotification, VitalsDescription, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -49,15 +49,27 @@ struct VitalsAction {
 
 impl Action for VitalsAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let mut result_builder = ActionResult::builder();
         if let Some(vitals) = world.get::<Vitals>(performing_entity) {
-            let message = GameMessage::Vitals(VitalsDescription::from_vitals(vitals));
-
-            ActionResult::builder()
-                .with_game_message(performing_entity, message)
-                .build_complete_no_tick(true)
+            result_builder = result_builder.with_game_message(
+                performing_entity,
+                GameMessage::Vitals(VitalsDescription::from_vitals(vitals)),
+            );
         } else {
-            ActionResult::error(performing_entity, "You have no vitals.".to_string())
+            result_builder =
+                result_builder.with_error(performing_entity, "You have no vitals.".to_string());
         }
+
+        //TODO don't include this message if there are no status effects since it adds extra linebreaks
+        result_builder = result_builder.with_game_message(
+            performing_entity,
+            GameMessage::StatusEffects(StatusEffectsDescription::for_entity(
+                performing_entity,
+                world,
+            )),
+        );
+
+        result_builder.build_complete_no_tick(true)
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {

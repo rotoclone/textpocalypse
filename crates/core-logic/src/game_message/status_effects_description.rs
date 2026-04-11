@@ -24,17 +24,24 @@ pub struct StatusEffectDescription {
 
 impl StatusEffectDescription {
     /// Builds a `StatusEffectDescription` from a `StatusEffectDetails`.
-    fn from_details(details: &StatusEffectDetails) -> StatusEffectDescription {
+    fn from_details(details: &StatusEffectDetails, world: &World) -> StatusEffectDescription {
+        let stat_adjustments = details
+            .stat_adjustments
+            .0
+            .iter()
+            .map(|(stat, adjustments)| (StatName(stat.get_name(world)), adjustments.clone()))
+            .collect();
+
         StatusEffectDescription {
             name: details.name.clone(),
-            stat_adjustments: todo!(), //TODO
+            stat_adjustments,
             other_effects: details.other_effects.clone(),
         }
     }
 }
 
 /// The name of a stat.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StatName(pub String);
 
 impl Display for StatName {
@@ -49,7 +56,7 @@ impl StatusEffectsDescription {
         StatusEffectsDescription(
             StatusEffects::get_all(entity, world)
                 .iter()
-                .map(|effect| StatusEffectDescription::from_details(effect))
+                .map(|effect| StatusEffectDescription::from_details(effect, world))
                 .collect(),
         )
     }
