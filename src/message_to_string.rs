@@ -892,7 +892,7 @@ fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
         .chain(status_effect.other_effects.into_iter().sorted())
         .join(", ");
 
-    format!("{}: {}", status_effect.name, effects_string)
+    format!("{}: {}", status_effect.name.white(), effects_string)
 }
 
 /// Transforms the provided stats description into a string for display.

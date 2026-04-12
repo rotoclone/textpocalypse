@@ -60,14 +60,14 @@ impl Action for VitalsAction {
                 result_builder.with_error(performing_entity, "You have no vitals.".to_string());
         }
 
-        //TODO don't include this message if there are no status effects since it adds extra linebreaks
-        result_builder = result_builder.with_game_message(
-            performing_entity,
-            GameMessage::StatusEffects(StatusEffectsDescription::for_entity(
+        let status_effects_desc = StatusEffectsDescription::for_entity(performing_entity, world);
+        // don't include the status effects message if there are no status effects since it would add extra linebreaks
+        if !status_effects_desc.0.is_empty() {
+            result_builder = result_builder.with_game_message(
                 performing_entity,
-                world,
-            )),
-        );
+                GameMessage::StatusEffects(status_effects_desc),
+            );
+        }
 
         result_builder.build_complete_no_tick(true)
     }

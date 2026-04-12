@@ -102,8 +102,8 @@ fn add_or_remove_hungry(
 fn determine_hunger_severity(satiety: ConstrainedValue<f32>) -> Option<HungerSeverity> {
     let fraction = satiety.get() / satiety.get_max();
     match fraction {
-        x if x <= MILD_HUNGER_THRESHOLD => Some(HungerSeverity::Mild),
         x if x <= SEVERE_HUNGER_THESHOLD => Some(HungerSeverity::Severe),
+        x if x <= MILD_HUNGER_THRESHOLD => Some(HungerSeverity::Mild),
         _ => None,
     }
 }
