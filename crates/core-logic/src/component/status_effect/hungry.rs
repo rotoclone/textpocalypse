@@ -11,17 +11,19 @@ use crate::{
 };
 
 /// The fraction of total satiety at which an entity first becomes hungry
-const MILD_HUNGER_THRESHOLD: f32 = 0.5;
+pub const MILD_HUNGER_THRESHOLD: f32 = 0.5;
 
 /// The fraction of total satiety at which an entity becomes severely hungry
-const SEVERE_HUNGER_THESHOLD: f32 = 0.25;
+pub const SEVERE_HUNGER_THESHOLD: f32 = 0.25;
 
 const STATUS_EFFECT_ID: StatusEffectId = StatusEffectId("hungry");
 const STAT_ADJUSTMENT_KEY: StatAdjustmentKey = StatAdjustmentKey("hungry");
 
+/// A status effect applied when an entity's satiety is low.
 #[derive(Component)]
 pub struct Hungry(HungerSeverity);
 
+/// How severe the hungry status effect is.
 #[derive(PartialEq, Eq)]
 enum HungerSeverity {
     /// A little hungry
@@ -31,7 +33,7 @@ enum HungerSeverity {
 }
 
 impl Hungry {
-    /// Determines what stat adjustments too apply for this level of hunger.
+    /// Determines what stat adjustments to apply for this level of hunger.
     fn get_stat_adjustments(&self) -> StatAdjustments {
         match self.0 {
             HungerSeverity::Mild => StatAdjustments::new().adjust_stat(

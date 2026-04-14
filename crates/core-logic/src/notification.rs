@@ -38,6 +38,7 @@ impl<T: NotificationType + 'static> Notification<'_, T, ()> {
 
 impl<T: ReturningNotificationType<Return = R> + 'static, R: 'static> Notification<'_, T, ()> {
     /// Sends a returning notification with the provided type and no contents.
+    #[expect(unused)]
     pub fn send_no_contents_returning(notification_type: T, world: &mut World) -> Vec<R> {
         Notification {
             notification_type,

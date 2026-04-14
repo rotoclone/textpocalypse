@@ -1123,7 +1123,7 @@ fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
     match vital_type {
         VitalType::Health => crossterm::style::Color::Red,
         VitalType::Satiety => crossterm::style::Color::Yellow,
-        VitalType::Hydration => crossterm::style::Color::Blue,
+        VitalType::Hydration => crossterm::style::Color::DarkCyan,
         VitalType::Energy => crossterm::style::Color::Green,
     }
 }

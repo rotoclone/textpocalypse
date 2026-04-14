@@ -5,11 +5,19 @@ use bevy_ecs::prelude::*;
 use crate::component::StatAdjustments;
 
 mod hungry;
+pub use hungry::MILD_HUNGER_THRESHOLD;
+pub use hungry::SEVERE_HUNGER_THESHOLD;
 use hungry::*;
+
+mod thirsty;
+pub use thirsty::MILD_THIRST_THRESHOLD;
+pub use thirsty::SEVERE_THIRST_THESHOLD;
+use thirsty::*;
 
 /// Registers notification handlers related to status effects.
 pub fn register_status_effect_handlers(world: &mut World) {
     Hungry::register_notification_handlers(world);
+    Thirsty::register_notification_handlers(world);
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -27,6 +35,8 @@ pub struct StatusEffectDetails {
 
 pub trait StatusEffect: Component + Sized {
     /// Adds this status effect to an entity.
+    ///
+    /// Calling this is the only way a status effect should be added to an entity.
     fn add_to(self, entity: Entity, world: &mut World) {
         self.on_add(entity, world);
         StatusEffects::register(entity, Self::get_id(), self.get_details(), world);
@@ -35,6 +45,8 @@ pub trait StatusEffect: Component + Sized {
     }
 
     /// Removes this status effect from an entity.
+    ///
+    /// Calling this is the only way a status effect should be removed from an entity.
     fn remove_from(entity: Entity, world: &mut World) {
         Self::on_remove(entity, world);
         StatusEffects::unregister(entity, Self::get_id(), world);
