@@ -257,15 +257,18 @@ pub fn auto_remove_on_put(
     let item = notification.contents.item;
     let performing_entity = notification.notification_type.performing_entity;
     if let Some(wearing_entity) = find_wearing_entity(item, world) {
-        ActionQueue::queue_first(
-            world,
-            performing_entity,
-            Box::new(RemoveAction {
-                wearing_entity,
-                target: item,
-                notification_sender: ActionNotificationSender::new(),
-            }),
-        );
+        // no need to remove the item if it's being worn by the destination entity (the put action will fail in that case anyway)
+        if wearing_entity != notification.contents.destination {
+            ActionQueue::queue_first(
+                world,
+                performing_entity,
+                Box::new(RemoveAction {
+                    wearing_entity,
+                    target: item,
+                    notification_sender: ActionNotificationSender::new(),
+                }),
+            );
+        }
     }
 }
 
