@@ -7,9 +7,8 @@ use crate::{
         entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
         CommandPartId,
     },
-    component::{ActionEndNotification, AfterActionPerformNotification, OpenState},
+    component::{ActionEndNotification, AfterActionPerformNotification, OpenState, VerifyResult},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    notification::VerifyResult,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification,
@@ -227,7 +226,7 @@ impl Action for OpenAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

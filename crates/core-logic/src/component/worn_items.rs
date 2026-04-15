@@ -6,9 +6,9 @@ use itertools::Itertools;
 use crate::{
     action::{ActionNotificationSender, PutAction, RemoveAction},
     body_part::BodyPartType,
-    component::Description,
+    component::{Description, VerifyResult},
     find_wearing_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     AttributeDescription, BodyPart, GameMessage,
 };
 

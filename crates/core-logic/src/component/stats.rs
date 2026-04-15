@@ -4,6 +4,7 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
@@ -23,6 +24,10 @@ const ADVANCEMENT_POINT_NEXT_LEVEL_MULTIPLIER: f32 = 1.15;
 #[derive(Component)]
 pub struct StartingStats(#[expect(unused)] pub Stats);
 
+/// A unique key used to identify a set of stat adjustments
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StatAdjustmentKey(pub &'static str);
+
 /// The stats of an entity.
 #[derive(Component, Clone)]
 pub struct Stats {
@@ -32,6 +37,32 @@ pub struct Stats {
     pub skills: Skills,
     /// The entity's XP and stuff.
     pub advancement: StatAdvancement,
+    /// The entity's active stat adjustments
+    adjustments: HashMap<StatAdjustmentKey, StatAdjustments>,
+}
+
+/// The value of a skill
+#[derive(Clone, Copy)]
+pub struct SkillValue {
+    /// The raw value of the skill, before the attribute bonus and active adjustments
+    pub raw: u16,
+    /// The bonus conferred to the skill by its base attribute
+    pub attribute_bonus: f32,
+    /// The net value of the active adjustments on the skill
+    pub adjustments: f32,
+    /// The total value of the skill, after the attribute bonus and active adjustments are applied
+    pub total: f32,
+}
+
+/// The value of an attribute
+#[derive(Clone, Copy)]
+pub struct AttributeValue {
+    /// The raw value of the attribute, before any active adjustments
+    pub raw: u16,
+    /// The net value of the active adjustments on the attribute
+    pub adjustments: f32,
+    /// The total value of the attribute, after the active adjustments are applied
+    pub total: f32,
 }
 
 impl Stats {
@@ -41,6 +72,7 @@ impl Stats {
             attributes: Attributes::new(default_attribute_value),
             skills: Skills::new(default_skill_value),
             advancement: StatAdvancement::new(),
+            adjustments: HashMap::new(),
         }
     }
 
@@ -60,20 +92,63 @@ impl Stats {
         };
     }
 
-    /// Gets the total value of a skill, taking its base attribute into account.
-    pub fn get_skill_total(&self, skill: &Skill, world: &World) -> f32 {
-        let base_skill_value = self.skills.get_base(skill);
-        let attribute_bonus = self.get_attribute_bonus(skill, world);
+    /// Adds or updates the adjustments with the provided key.
+    pub fn set_adjustment(&mut self, key: StatAdjustmentKey, adjustments: StatAdjustments) {
+        self.adjustments.insert(key, adjustments);
+    }
 
-        f32::from(base_skill_value) + attribute_bonus
+    /// Removes the adjustments with the provided key.
+    pub fn remove_adjustment(&mut self, key: StatAdjustmentKey) {
+        self.adjustments.remove(&key);
+    }
+
+    /// Gets all the active adjustments for the provided stat.
+    fn get_adjustments(&self, stat: Stat) -> Vec<StatAdjustment> {
+        self.adjustments
+            .values()
+            .flat_map(|modifications| modifications.0.get(&stat))
+            .flatten()
+            .copied()
+            .collect()
+    }
+
+    /// Gets the value of a skill.
+    pub fn get_skill_value(&self, skill: &Skill, world: &World) -> SkillValue {
+        let raw_skill_value = self.skills.get_raw(skill);
+        let attribute_bonus = self.get_attribute_bonus(skill, world);
+        let adjustments = self.get_adjustments(Stat::Skill(skill.clone()));
+
+        let unadjusted = f32::from(raw_skill_value) + attribute_bonus;
+        let total = adjustments.apply_to(unadjusted);
+
+        SkillValue {
+            raw: raw_skill_value,
+            attribute_bonus,
+            adjustments: total - unadjusted,
+            total,
+        }
+    }
+
+    /// Gets the value of an attribute.
+    pub fn get_attribute_value(&self, attribute: &Attribute) -> AttributeValue {
+        let raw_attribute_value = self.attributes.get_raw(attribute);
+        let adjustments = self.get_adjustments(Stat::Attribute(attribute.clone()));
+
+        let total = adjustments.apply_to(raw_attribute_value.into());
+
+        AttributeValue {
+            raw: raw_attribute_value,
+            adjustments: total - f32::from(raw_attribute_value),
+            total,
+        }
     }
 
     /// Determines the bonus to apply to the provided skill based on the value of its base attribute.
-    pub fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
+    fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
         let attribute = get_base_attribute(skill, world);
-        let attribute_value = self.attributes.get(&attribute);
+        let attribute_total = self.get_attribute_value(&attribute).total;
 
-        f32::from(attribute_value) / 2.0
+        attribute_total / 2.0
     }
 }
 
@@ -102,8 +177,8 @@ impl Attributes {
         }
     }
 
-    /// Gets the value of the provided attribute.
-    pub fn get(&self, attribute: &Attribute) -> u16 {
+    /// Gets the raw value of the provided attribute.
+    pub fn get_raw(&self, attribute: &Attribute) -> u16 {
         *match attribute {
             Attribute::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -111,17 +186,14 @@ impl Attributes {
         .unwrap_or(&0)
     }
 
-    /// Gets all the attributes and their values.
-    pub fn get_all(&self) -> Vec<(Attribute, u16)> {
-        let standards = self
-            .standard
-            .iter()
-            .map(|entry| (entry.0.clone(), *entry.1));
+    /// Gets all the attributes with values.
+    pub fn get_all(&self) -> Vec<Attribute> {
+        let standards = self.standard.iter().map(|entry| entry.0.clone());
 
         let customs = self
             .custom
             .iter()
-            .map(|entry| (Attribute::Custom(entry.0.clone()), *entry.1));
+            .map(|entry| Attribute::Custom(entry.0.clone()));
 
         standards.chain(customs).collect()
     }
@@ -152,8 +224,8 @@ impl Skills {
         }
     }
 
-    /// Gets the base value of the provided skill.
-    pub fn get_base(&self, skill: &Skill) -> u16 {
+    /// Gets the raw value of the provided skill.
+    pub fn get_raw(&self, skill: &Skill) -> u16 {
         *match skill {
             Skill::Custom(s) => self.custom.get(s),
             a => self.standard.get(a),
@@ -161,19 +233,83 @@ impl Skills {
         .unwrap_or(&0)
     }
 
-    /// Gets all the skills and their base values.
-    pub fn get_all_base(&self) -> Vec<(Skill, u16)> {
-        let standards = self
-            .standard
-            .iter()
-            .map(|entry| (entry.0.clone(), *entry.1));
+    /// Gets all the skills with values.
+    pub fn get_all(&self) -> Vec<Skill> {
+        let standards = self.standard.iter().map(|entry| entry.0.clone());
 
         let customs = self
             .custom
             .iter()
-            .map(|entry| (Skill::Custom(entry.0.clone()), *entry.1));
+            .map(|entry| Skill::Custom(entry.0.clone()));
 
         standards.chain(customs).collect()
+    }
+}
+
+/// A set of adjustments to various attributes and/or skills.
+#[derive(Debug, Clone)]
+pub struct StatAdjustments(pub HashMap<Stat, Vec<StatAdjustment>>);
+
+/// An adjustments to a single stat.
+#[derive(Debug, Clone, Copy)]
+pub enum StatAdjustment {
+    /// Increase the stat's value
+    Add(f32),
+    /// Decrease the stat's value
+    Subtract(f32),
+    /// Multiply the stat's value
+    Multiply(f32),
+}
+
+impl StatAdjustment {
+    /// Gets a value used to sort adjustments by type.
+    fn get_compare_key(&self) -> i8 {
+        match self {
+            StatAdjustment::Add(_) => 0,
+            StatAdjustment::Subtract(_) => 1,
+            StatAdjustment::Multiply(_) => 2,
+        }
+    }
+
+    /// Applies the adjustment to the provided value.
+    fn apply(&self, value: f32) -> f32 {
+        match self {
+            StatAdjustment::Add(x) => value + x,
+            StatAdjustment::Subtract(x) => value - x,
+            StatAdjustment::Multiply(x) => value * x,
+        }
+    }
+}
+
+trait ApplyStatAdjustmentsTo {
+    /// Applies the adjustments to the provided stat value.
+    /// Will return zero if the adjusted value would be negative.
+    fn apply_to(&self, stat_value: f32) -> f32;
+}
+
+impl ApplyStatAdjustmentsTo for Vec<StatAdjustment> {
+    fn apply_to(&self, stat_value: f32) -> f32 {
+        let mut adjusted = stat_value;
+        self.iter()
+            .sorted_by(|a, b| a.get_compare_key().cmp(&b.get_compare_key()))
+            .for_each(|adjustment| adjusted = adjustment.apply(adjusted));
+
+        adjusted.max(0.0)
+    }
+}
+
+impl StatAdjustments {
+    /// Creates a new empty set of adjustments.
+    pub fn new() -> StatAdjustments {
+        StatAdjustments(HashMap::new())
+    }
+
+    /// Adds an adjustment for a stat.
+    /// Any previously-added adjustments for the same attribute will not be replaced.
+    pub fn adjust_stat(mut self, stat: Stat, adjustment: StatAdjustment) -> StatAdjustments {
+        self.0.entry(stat).or_default().push(adjustment);
+
+        self
     }
 }
 
@@ -326,19 +462,19 @@ impl Display for Stat {
 }
 
 impl Stat {
-    /// Gets the value of this stat.
-    pub fn get_value(&self, stats: &Stats, world: &World) -> f32 {
+    /// Gets the total value of this stat.
+    pub fn get_total(&self, stats: &Stats, world: &World) -> f32 {
         match self {
-            Stat::Attribute(attribute) => f32::from(stats.attributes.get(attribute)),
-            Stat::Skill(skill) => stats.get_skill_total(skill, world),
+            Stat::Attribute(attribute) => stats.get_attribute_value(attribute).total,
+            Stat::Skill(skill) => stats.get_skill_value(skill, world).total,
         }
     }
 
-    /// Gets the provided entity's value for this stat, if they have stats.
-    pub fn get_entity_value(&self, entity: Entity, world: &World) -> Option<f32> {
+    /// Gets the provided entity's total value for this stat, if they have stats.
+    pub fn get_entity_total(&self, entity: Entity, world: &World) -> Option<f32> {
         world
             .get::<Stats>(entity)
-            .map(|stats| self.get_value(stats, world))
+            .map(|stats| self.get_total(stats, world))
     }
 
     /// Gets the display name of this stat.

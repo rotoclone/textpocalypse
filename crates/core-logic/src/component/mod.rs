@@ -45,6 +45,7 @@ pub use action_queue::ActionQueue;
 pub use action_queue::AfterActionPerformNotification;
 pub use action_queue::BeforeActionNotification;
 pub use action_queue::VerifyActionNotification;
+pub use action_queue::VerifyResult;
 
 mod container;
 pub use container::Container;
@@ -100,12 +101,16 @@ mod stats;
 pub use stats::AdvancementPointType;
 pub use stats::AdvancementPoints;
 pub use stats::Attribute;
+#[expect(unused)]
 pub use stats::Attributes;
 pub use stats::Skill;
 #[expect(unused)]
 pub use stats::Skills;
 pub use stats::StartingStats;
 pub use stats::Stat;
+pub use stats::StatAdjustment;
+pub use stats::StatAdjustmentKey;
+pub use stats::StatAdjustments;
 pub use stats::StatAdvancement;
 pub use stats::Stats;
 pub use stats::Xp;
@@ -159,7 +164,8 @@ pub use invisible::Invisible;
 
 use crate::notification::Notification;
 use crate::notification::NotificationHandlers;
-use crate::notification::VerifyNotificationHandlers;
+
+use crate::notification::ReturningNotificationHandlers;
 use crate::DeathNotification;
 
 mod fist_actions;
@@ -168,18 +174,26 @@ pub use fist_actions::FistActions;
 mod check_history;
 pub use check_history::CheckHistory;
 
+mod status_effect;
+pub use status_effect::*;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
+    register_status_effect_handlers(world);
+
     NotificationHandlers::add_handler(open_state::auto_open_connections, world);
-    VerifyNotificationHandlers::add_handler(
+    ReturningNotificationHandlers::add_handler(
         open_state::prevent_moving_through_closed_connections,
         world,
     );
 
     NotificationHandlers::add_handler(keyed_lock::auto_unlock_keyed_locks, world);
-    VerifyNotificationHandlers::add_handler(keyed_lock::prevent_opening_locked_keyed_locks, world);
+    ReturningNotificationHandlers::add_handler(
+        keyed_lock::prevent_opening_locked_keyed_locks,
+        world,
+    );
 
-    VerifyNotificationHandlers::add_handler(container::limit_container_contents, world);
+    ReturningNotificationHandlers::add_handler(container::limit_container_contents, world);
 
     NotificationHandlers::add_handler(vitals::change_vitals_on_tick, world);
     NotificationHandlers::add_handler(vitals::send_vitals_update_messages, world);
@@ -191,7 +205,7 @@ pub fn register_component_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(calories::increase_satiety_on_eat, world);
 
-    VerifyNotificationHandlers::add_handler(
+    ReturningNotificationHandlers::add_handler(
         fluid_container::verify_source_and_target_container_amounts,
         world,
     );
@@ -205,11 +219,11 @@ pub fn register_component_handlers(world: &mut World) {
     NotificationHandlers::add_handler(greet_behavior::greet_new_entities, world);
     NotificationHandlers::add_handler(remove_on_death::<GreetBehavior>, world);
 
-    VerifyNotificationHandlers::add_handler(sleep_state::prevent_look_while_asleep, world);
-    VerifyNotificationHandlers::add_handler(sleep_state::prevent_say_while_asleep, world);
+    ReturningNotificationHandlers::add_handler(sleep_state::prevent_look_while_asleep, world);
+    ReturningNotificationHandlers::add_handler(sleep_state::prevent_say_while_asleep, world);
 
     NotificationHandlers::add_handler(worn_items::auto_remove_on_put, world);
-    VerifyNotificationHandlers::add_handler(worn_items::verify_not_wearing_item_to_put, world);
+    ReturningNotificationHandlers::add_handler(worn_items::verify_not_wearing_item_to_put, world);
 
     NotificationHandlers::add_handler(equipped_items::unequip_on_put, world);
     NotificationHandlers::add_handler(equipped_items::unequip_on_wear, world);

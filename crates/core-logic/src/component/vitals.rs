@@ -2,6 +2,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{ActionNotificationSender, SleepAction},
+    component::{
+        MILD_HUNGER_THRESHOLD, MILD_THIRST_THRESHOLD, SEVERE_HUNGER_THESHOLD,
+        SEVERE_THIRST_THESHOLD,
+    },
     interrupt_entity, kill_entity,
     notification::Notification,
     send_message,
@@ -23,17 +27,15 @@ const ENERGY_GAIN_PER_TICK: f32 = 0.03; // gain of 100 energy in ~12 hours
 const STARVATION_DAMAGE_PER_TICK: f32 = 5.0;
 const THIRST_DAMAGE_PER_TICK: f32 = 5.0;
 
-const HUNGER_MESSAGES: [ValueChangeMessage; 4] = [
+const HUNGER_MESSAGES: [ValueChangeMessage; 3] = [
     ValueChangeMessage::decrease(0.75, "You start feeling a little hungry."),
-    ValueChangeMessage::decrease(0.66, "You feel hungry."),
-    ValueChangeMessage::decrease(0.5, "You feel very hungry."),
-    ValueChangeMessage::decrease(0.25, "You feel extremely hungry."),
+    ValueChangeMessage::decrease(MILD_HUNGER_THRESHOLD, "You feel hungry."),
+    ValueChangeMessage::decrease(SEVERE_HUNGER_THESHOLD, "You feel extremely hungry."),
 ];
-const THIRST_MESSAGES: [ValueChangeMessage; 4] = [
+const THIRST_MESSAGES: [ValueChangeMessage; 3] = [
     ValueChangeMessage::decrease(0.75, "You start feeling a little thirsty."),
-    ValueChangeMessage::decrease(0.66, "You feel thirsty."),
-    ValueChangeMessage::decrease(0.5, "You feel very thirsty."),
-    ValueChangeMessage::decrease(0.25, "You feel extremely thirsty."),
+    ValueChangeMessage::decrease(MILD_THIRST_THRESHOLD, "You feel thirsty."),
+    ValueChangeMessage::decrease(SEVERE_THIRST_THESHOLD, "You feel extremely thirsty."),
 ];
 const TIREDNESS_MESSAGES: [ValueChangeMessage; 4] = [
     ValueChangeMessage::decrease(0.66, "You start feeling a little tired."),

@@ -4,10 +4,10 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::PutAction,
-    component::{description::PortionMatched, Matchness},
+    component::{description::PortionMatched, Matchness, VerifyResult},
     find_wearing_entity,
     found_entities::{FoundEntities, PartialMatchingEntity},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
 

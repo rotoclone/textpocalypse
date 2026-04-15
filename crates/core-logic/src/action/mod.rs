@@ -3,10 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
-use crate::component::{ActionEndNotification, AfterActionPerformNotification};
-use crate::notification::{
-    Notification, NotificationHandlers, VerifyNotificationHandlers, VerifyResult,
-};
+use crate::component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult};
+use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
 use crate::{
     combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
@@ -132,22 +130,22 @@ pub use cheat::CheatParser;
 
 /// Registers notification handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
-    VerifyNotificationHandlers::add_handler(put::verify_item_in_source, world);
-    VerifyNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
-    VerifyNotificationHandlers::add_handler(
+    ReturningNotificationHandlers::add_handler(put::verify_item_in_source, world);
+    ReturningNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
+    ReturningNotificationHandlers::add_handler(
         put::verify_source_not_owned_by_other_living_entity,
         world,
     );
-    VerifyNotificationHandlers::add_handler(
+    ReturningNotificationHandlers::add_handler(
         put::verify_destination_not_owned_by_other_living_entity,
         world,
     );
-    VerifyNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
+    ReturningNotificationHandlers::add_handler(put::prevent_put_item_inside_itself, world);
 
     NotificationHandlers::add_handler(throw::auto_equip_item_to_throw, world);
-    VerifyNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
-    VerifyNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
-    VerifyNotificationHandlers::add_handler(throw::verify_strong_enough_to_throw_item, world);
+    ReturningNotificationHandlers::add_handler(throw::verify_wielding_item_to_throw, world);
+    ReturningNotificationHandlers::add_handler(throw::verify_target_in_same_room, world);
+    ReturningNotificationHandlers::add_handler(throw::verify_strong_enough_to_throw_item, world);
 
     NotificationHandlers::add_handler(r#move::look_after_move, world);
 
@@ -155,15 +153,18 @@ pub fn register_action_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(sleep::look_on_end_sleep, world);
 
-    VerifyNotificationHandlers::add_handler(wear::verify_has_item_to_wear, world);
+    ReturningNotificationHandlers::add_handler(wear::verify_has_item_to_wear, world);
 
-    VerifyNotificationHandlers::add_handler(remove::prevent_remove_from_other_living_entity, world);
+    ReturningNotificationHandlers::add_handler(
+        remove::prevent_remove_from_other_living_entity,
+        world,
+    );
 
-    VerifyNotificationHandlers::add_handler(equip::verify_has_item_to_equip, world);
-    VerifyNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
+    ReturningNotificationHandlers::add_handler(equip::verify_has_item_to_equip, world);
+    ReturningNotificationHandlers::add_handler(equip::verify_not_wearing_item_to_equip, world);
     NotificationHandlers::add_handler(equip::auto_unequip_on_equip, world);
 
-    VerifyNotificationHandlers::add_handler(
+    ReturningNotificationHandlers::add_handler(
         combat_utils::verify_combat_action_valid::<AttackAction>,
         world,
     );
@@ -171,7 +172,7 @@ pub fn register_action_handlers(world: &mut World) {
 
     NotificationHandlers::add_handler(combat_utils::cancel_attacks_when_exit_combat, world);
 
-    VerifyNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
+    ReturningNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
 }
 
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;
@@ -498,7 +499,7 @@ pub trait Action: std::fmt::Debug + Send + Sync {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult;
+    ) -> Vec<VerifyResult>;
 
     /// Sends a notification that `perform` was just called on this action.
     fn send_after_perform_notification(
@@ -549,13 +550,13 @@ impl<C: Send + Sync + 'static> ActionNotificationSender<C> {
         &self,
         notification_type: VerifyActionNotification,
         contents: &C,
-        world: &World,
-    ) -> VerifyResult {
+        world: &mut World,
+    ) -> Vec<VerifyResult> {
         Notification {
             notification_type,
             contents,
         }
-        .verify(world)
+        .send_returning(world)
     }
 
     /// Sends a notification that `perform` was called on an action.

@@ -2,7 +2,8 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     action::{LookAction, SayAction},
-    notification::{Notification, VerifyResult},
+    component::VerifyResult,
+    notification::Notification,
     GameMessage,
 };
 

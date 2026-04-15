@@ -5,11 +5,10 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{one_of_literal_part, CommandFormat},
-    component::{ActionEndNotification, AfterActionPerformNotification, Vitals},
+    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult, Vitals},
     input_parser::{InputParseError, InputParser},
-    notification::VerifyResult,
-    ActionTag, BeforeActionNotification, GameMessage, VerifyActionNotification, VitalsDescription,
-    World,
+    ActionTag, BeforeActionNotification, GameMessage, StatusEffectsDescription,
+    VerifyActionNotification, VitalsDescription, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -50,15 +49,27 @@ struct VitalsAction {
 
 impl Action for VitalsAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let mut result_builder = ActionResult::builder();
         if let Some(vitals) = world.get::<Vitals>(performing_entity) {
-            let message = GameMessage::Vitals(VitalsDescription::from_vitals(vitals));
-
-            ActionResult::builder()
-                .with_game_message(performing_entity, message)
-                .build_complete_no_tick(true)
+            result_builder = result_builder.with_game_message(
+                performing_entity,
+                GameMessage::Vitals(VitalsDescription::from_vitals(vitals)),
+            );
         } else {
-            ActionResult::error(performing_entity, "You have no vitals.".to_string())
+            result_builder =
+                result_builder.with_error(performing_entity, "You have no vitals.".to_string());
         }
+
+        let status_effects_desc = StatusEffectsDescription::for_entity(performing_entity, world);
+        // don't include the status effects message if there are no status effects since it would add extra linebreaks
+        if !status_effects_desc.0.is_empty() {
+            result_builder = result_builder.with_game_message(
+                performing_entity,
+                GameMessage::StatusEffects(status_effects_desc),
+            );
+        }
+
+        result_builder.build_complete_no_tick(true)
     }
 
     fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
@@ -86,7 +97,7 @@ impl Action for VitalsAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

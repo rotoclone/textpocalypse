@@ -13,12 +13,12 @@ use crate::{
     },
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
-        EquippedItems, Item, Location, Skill, Stats, Weight,
+        EquippedItems, Item, Location, Skill, Stats, VerifyResult, Weight,
     },
     find_owning_entity, handle_enter_combat,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity, move_entity,
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
@@ -176,8 +176,8 @@ fn is_strong_enough_to_throw(thrower: Entity, item: Entity, world: &World) -> bo
     let item_weight = Weight::get(item, world);
 
     let max_weight_can_throw = if let Some(stats) = world.get::<Stats>(thrower) {
-        let strength = stats.attributes.get(&Attribute::Strength);
-        Weight(strength as f32 * KG_CAN_THROW_PER_STRENGTH)
+        let strength = stats.get_attribute_value(&Attribute::Strength).total;
+        Weight(strength * KG_CAN_THROW_PER_STRENGTH)
     } else {
         // the thrower has no strength, so can only throw things with no weight of course
         Weight(0.0)
@@ -370,7 +370,7 @@ impl Action for ThrowAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

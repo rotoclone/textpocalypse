@@ -86,7 +86,7 @@ pub struct VitalChangedNotification {
     pub vital_type: VitalType,
     /// The value before the change.
     pub old_value: ConstrainedValue<f32>,
-    /// The value after the change.f
+    /// The value after the change.
     pub new_value: ConstrainedValue<f32>,
 }
 

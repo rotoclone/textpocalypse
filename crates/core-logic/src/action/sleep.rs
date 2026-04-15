@@ -7,10 +7,10 @@ use crate::{
     command_format::{literal_part, CommandFormat},
     component::{
         ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, SleepState,
-        Vitals,
+        VerifyResult, Vitals,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     ActionTag, BasicTokens, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification, World,
@@ -185,7 +185,7 @@ impl Action for SleepAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

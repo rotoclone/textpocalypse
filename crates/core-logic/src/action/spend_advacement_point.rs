@@ -8,9 +8,8 @@ use crate::{
         any_text_part_with_validator, literal_part, one_of_literal_part, CommandFormat,
         CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
-    component::{ActionEndNotification, AfterActionPerformNotification},
+    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult},
     input_parser::{InputParseError, InputParser},
-    notification::VerifyResult,
     resource::{AttributeNameCatalog, SkillNameCatalog},
     ActionTag, Attribute, BeforeActionNotification, MessageCategory, MessageDelay, Skill, Stats,
     VerifyActionNotification, World,
@@ -163,7 +162,7 @@ impl Action for SpendSkillPointAction {
                 );
             }
 
-            let new_value = stats.skills.get_base(&self.skill) + 1;
+            let new_value = stats.skills.get_raw(&self.skill) + 1;
             stats.set_skill(&self.skill, new_value);
 
             let skill_name = SkillNameCatalog::get_name(&self.skill, world);
@@ -207,7 +206,7 @@ impl Action for SpendSkillPointAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
@@ -246,7 +245,7 @@ impl Action for SpendAttributePointAction {
                 );
             }
 
-            let new_value = stats.attributes.get(&self.attribute) + 1;
+            let new_value = stats.attributes.get_raw(&self.attribute) + 1;
             stats.set_attribute(&self.attribute, new_value);
 
             let attribute_name = AttributeNameCatalog::get_name(&self.attribute, world).full;
@@ -290,7 +289,7 @@ impl Action for SpendAttributePointAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

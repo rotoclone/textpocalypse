@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    component::{Attributes, Stats},
+    component::Stats,
     resource::{get_attribute_name, get_base_attribute, get_skill_name},
     AdvancementPoints, StatAdvancement, Xp,
 };
@@ -21,7 +21,7 @@ pub struct StatsDescription {
 impl StatsDescription {
     pub fn from_stats(stats: &Stats, world: &World) -> StatsDescription {
         StatsDescription {
-            attributes: StatAttributeDescription::from_attributes(&stats.attributes, world),
+            attributes: StatAttributeDescription::from_stats(stats, world),
             skills: SkillDescription::from_stats(stats, world),
             advancement: AdvancementDescription::from_advancement(&stats.advancement),
         }
@@ -30,18 +30,30 @@ impl StatsDescription {
 
 #[derive(Debug, Clone)]
 pub struct StatAttributeDescription {
+    /// The name of the attribute
     pub name: String,
-    pub value: u16,
+    /// The raw value of the attribute
+    pub raw_value: u16,
+    /// The total value of active adjustments to the attribute
+    pub adjustments: f32,
+    /// The total value of the attribute, after any active adjustments are applied
+    pub total: f32,
 }
 
 impl StatAttributeDescription {
-    fn from_attributes(attributes: &Attributes, world: &World) -> Vec<StatAttributeDescription> {
-        attributes
+    fn from_stats(stats: &Stats, world: &World) -> Vec<StatAttributeDescription> {
+        stats
+            .attributes
             .get_all()
             .into_iter()
-            .map(|(attribute, value)| StatAttributeDescription {
-                name: get_attribute_name(&attribute, world).full,
-                value,
+            .map(|attribute| {
+                let attribute_value = stats.get_attribute_value(&attribute);
+                StatAttributeDescription {
+                    name: get_attribute_name(&attribute, world).full,
+                    raw_value: attribute_value.raw,
+                    adjustments: attribute_value.adjustments,
+                    total: attribute_value.total,
+                }
             })
             .sorted_by(|a, b| a.name.cmp(&b.name))
             .collect()
@@ -54,11 +66,13 @@ pub struct SkillDescription {
     pub name: String,
     /// The name of the base attribute for the skill
     pub base_attribute_name: String,
+    /// The raw value of the skill
+    pub raw_value: u16,
     /// The bonus the base attribute confers to the skill's value
     pub attribute_bonus: f32,
-    /// The base value of the skill
-    pub base_value: u16,
-    /// The total value of the skill
+    /// The total value of active adjustments to the skill
+    pub adjustments: f32,
+    /// The total value of the skill, after the attribute bonus and any active adjustments are applied
     pub total: f32,
 }
 
@@ -66,17 +80,18 @@ impl SkillDescription {
     fn from_stats(stats: &Stats, world: &World) -> Vec<SkillDescription> {
         stats
             .skills
-            .get_all_base()
+            .get_all()
             .into_iter()
-            .map(|(skill, base_value)| {
+            .map(|skill| {
                 let base_attribute = get_base_attribute(&skill, world);
-                let attribute_bonus = stats.get_attribute_bonus(&skill, world);
+                let skill_value = stats.get_skill_value(&skill, world);
                 SkillDescription {
                     name: get_skill_name(&skill, world),
                     base_attribute_name: get_attribute_name(&base_attribute, world).short,
-                    attribute_bonus,
-                    base_value,
-                    total: stats.get_skill_total(&skill, world),
+                    raw_value: skill_value.raw,
+                    attribute_bonus: skill_value.attribute_bonus,
+                    adjustments: skill_value.adjustments,
+                    total: skill_value.total,
                 }
             })
             .sorted_by(|a, b| {

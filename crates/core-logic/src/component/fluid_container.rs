@@ -5,7 +5,8 @@ use itertools::Itertools;
 
 use crate::{
     action::{PourAction, PourAmount},
-    notification::{Notification, VerifyResult},
+    component::VerifyResult,
+    notification::Notification,
     resource::FluidNameCatalog,
     AttributeDescription, Description, GameMessage,
 };

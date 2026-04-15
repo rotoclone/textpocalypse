@@ -5,9 +5,8 @@ use nonempty::nonempty;
 
 use crate::{
     command_format::{one_of_literal_part, CommandFormat},
-    component::{ActionEndNotification, AfterActionPerformNotification, Stats},
+    component::{ActionEndNotification, AfterActionPerformNotification, Stats, VerifyResult},
     input_parser::{InputParseError, InputParser},
-    notification::VerifyResult,
     ActionTag, BeforeActionNotification, GameMessage, StatsDescription, VerifyActionNotification,
     World,
 };
@@ -85,7 +84,7 @@ impl Action for StatsAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

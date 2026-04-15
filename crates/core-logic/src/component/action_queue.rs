@@ -1,11 +1,13 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action, component::Player, notification::NotificationType, send_messages, tick,
-    GameOptions, InterruptedEntities,
+    action::Action,
+    component::Player,
+    notification::{NotificationType, ReturningNotificationType},
+    send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
 };
 
 const MAX_ACTION_QUEUE_LOOPS: u32 = 100000;
@@ -18,7 +20,40 @@ pub struct VerifyActionNotification {
     pub performing_entity: Entity,
 }
 
-impl NotificationType for VerifyActionNotification {}
+impl ReturningNotificationType for VerifyActionNotification {
+    type Return = VerifyResult;
+}
+
+/// Result of verifying the contents of a notification.
+pub struct VerifyResult {
+    /// Whether the notification contents are valid.
+    pub is_valid: bool,
+    /// Any messages to send to relevant entities explaining why the notification was invalid.
+    pub messages: HashMap<Entity, Vec<GameMessage>>,
+}
+
+impl VerifyResult {
+    /// Creates a result denoting that the notification contents are valid.
+    pub fn valid() -> VerifyResult {
+        VerifyResult {
+            is_valid: true,
+            messages: HashMap::new(),
+        }
+    }
+
+    /// Creates a result denoting that the notification contents are invalid with a single message for an entity.
+    pub fn invalid(entity: Entity, message: GameMessage) -> VerifyResult {
+        Self::invalid_with_messages([(entity, vec![message])].into())
+    }
+
+    /// Creates a result denoting that the notification contents are invalid.
+    pub fn invalid_with_messages(messages: HashMap<Entity, Vec<GameMessage>>) -> VerifyResult {
+        VerifyResult {
+            is_valid: false,
+            messages,
+        }
+    }
+}
 
 /// A notification sent before an action is performed.
 #[derive(Debug)]
@@ -376,18 +411,25 @@ fn determine_action_to_perform(
             continue;
         }
 
-        let verify_result = action.send_verify_notification(
+        let verify_results = action.send_verify_notification(
             VerifyActionNotification {
                 performing_entity: entity,
             },
             world,
         );
 
-        if verify_result.is_valid {
+        let mut is_valid = true;
+        for verify_result in verify_results {
+            if !verify_result.is_valid {
+                is_valid = false;
+                send_messages(&verify_result.messages, world);
+            }
+        }
+
+        if is_valid {
             return Some(action);
         } else {
             debug!("action {action:?} is invalid, canceling");
-            send_messages(&verify_result.messages, world);
             // don't put the action back, it's invalid so just drop it
             continue;
         }

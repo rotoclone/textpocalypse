@@ -9,11 +9,10 @@ use crate::{
     check_for_hit,
     combat_utils::AttackCommandFormats,
     command_format::one_of_literal_part,
-    component::{ActionEndNotification, AfterActionPerformNotification, Weapon},
+    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult, Weapon},
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
-    notification::VerifyResult,
     parse_attack_input,
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
@@ -242,7 +241,7 @@ impl Action for AttackAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }

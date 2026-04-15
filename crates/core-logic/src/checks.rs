@@ -292,7 +292,7 @@ impl Stats {
         if let Some(stats) = world.get::<Stats>(entity) {
             let result = check(
                 &stat.clone().into(),
-                stat.clone().into().get_value(stats, world),
+                stat.clone().into().get_total(stats, world),
                 modifiers,
                 difficulty,
             );
@@ -321,10 +321,10 @@ impl Stats {
                 let base_xp = params.base_xp;
                 let (result_1, result_2) = check_vs(
                     &participant_1.stat,
-                    participant_1.stat.get_value(stats_1, world),
+                    participant_1.stat.get_total(stats_1, world),
                     participant_1.modifiers,
                     &participant_2.stat,
-                    participant_2.stat.get_value(stats_2, world),
+                    participant_2.stat.get_total(stats_2, world),
                     participant_2.modifiers,
                     params,
                 );

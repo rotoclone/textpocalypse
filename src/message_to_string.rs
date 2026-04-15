@@ -14,6 +14,10 @@ const ATTRIBUTE_SECTION_NAME_DECORATOR: &str = "-";
 
 const MAX_WIDTH: usize = 80;
 
+/// The absolute value of the minimum adjustment to a stat that will be displayed.
+/// Since adjustments are displayed to 1 decimal point, 0.05 is the smallest adjustment that would be displayed as not 0.0.
+const MIN_DISPLAYED_STAT_ADJUSTMENT: f32 = 0.05;
+
 /// Transforms the provided message into a string for display.
 pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
     match message {
@@ -30,6 +34,7 @@ pub fn message_to_string(message: GameMessage, time: Option<Time>) -> String {
         GameMessage::Container(container) => container_to_string(container),
         GameMessage::WornItems(worn_items) => worn_items_to_string(worn_items),
         GameMessage::Vitals(vitals) => vitals_to_string(vitals),
+        GameMessage::StatusEffects(status_effects) => status_effects_to_string(status_effects),
         GameMessage::Stats(stats) => stats_to_string(stats),
         GameMessage::Players(players) => players_to_string(players),
         GameMessage::Ranges(ranges) => ranges_to_string(ranges),
@@ -856,6 +861,40 @@ fn vitals_to_string(vitals: VitalsDescription) -> String {
     [health, satiety, hydration, energy].join("\n")
 }
 
+/// Transforms the provided status effects description into a string for display.
+fn status_effects_to_string(status_effects: StatusEffectsDescription) -> String {
+    if status_effects.0.is_empty() {
+        return "".to_string();
+    }
+
+    let effects_string = status_effects
+        .0
+        .into_iter()
+        .map(status_effect_to_string)
+        .join("\n");
+
+    format!("Status effects:\n{effects_string}")
+}
+
+/// Transforms the provided status effect description into a string for display.
+fn status_effect_to_string(status_effect: StatusEffectDescription) -> String {
+    let effects_string = status_effect
+        .stat_adjustments
+        .iter()
+        .flat_map(|(stat_name, adjustments)| {
+            adjustments.iter().map(move |adjustment| match adjustment {
+                StatAdjustment::Add(x) => format!("+{x} {stat_name}"),
+                StatAdjustment::Subtract(x) => format!("-{x} {stat_name}"),
+                StatAdjustment::Multiply(x) => format!("x{x} {stat_name}"),
+            })
+        })
+        .sorted()
+        .chain(status_effect.other_effects.into_iter().sorted())
+        .join(", ");
+
+    format!("{}: {}", status_effect.name.white(), effects_string)
+}
+
 /// Transforms the provided stats description into a string for display.
 fn stats_to_string(stats: StatsDescription) -> String {
     let styled_attribute_points = if stats.advancement.attribute_points.available > 0 {
@@ -890,34 +929,142 @@ fn stats_to_string(stats: StatsDescription) -> String {
     let skill_points_info =
         format!("Skill points: {styled_skill_points} ({xp_for_next_skill_point} XP for next)");
 
+    let any_attribute_adjustments = stats
+        .attributes
+        .iter()
+        .any(|a| should_display_stat_adjustment(a.adjustments));
+
+    let (attribute_raw_header, attribute_adjustments_header) = if any_attribute_adjustments {
+        (
+            Some(Cell::new("Raw").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Adj").set_alignment(CellAlignment::Center)),
+        )
+    } else {
+        (None, None)
+    };
+
     let mut attributes_table = new_table();
-    attributes_table.set_header(vec![Cell::new("Name"), Cell::new("Value")]);
+    attributes_table.set_header(
+        vec![
+            Some(Cell::new("Name").set_alignment(CellAlignment::Center)),
+            attribute_raw_header,
+            attribute_adjustments_header,
+            Some(Cell::new("Total").set_alignment(CellAlignment::Center)),
+        ]
+        .into_iter()
+        .flatten(),
+    );
 
     for attribute in stats.attributes {
-        attributes_table.add_row(vec![Cell::new(attribute.name), Cell::new(attribute.value)]);
+        let (raw_cell, adjustments_cell) = if any_attribute_adjustments {
+            if should_display_stat_adjustment(attribute.adjustments) {
+                let adjustment_color = if attribute.adjustments.is_sign_positive() {
+                    comfy_table::Color::Green
+                } else {
+                    comfy_table::Color::Red
+                };
+                (
+                    Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
+                    Some(
+                        Cell::new(format!("{:+.1}", attribute.adjustments))
+                            .set_alignment(CellAlignment::Right)
+                            .fg(adjustment_color),
+                    ),
+                )
+            } else {
+                (
+                    Some(Cell::new(attribute.raw_value).set_alignment(CellAlignment::Right)),
+                    Some(Cell::new("")),
+                )
+            }
+        } else {
+            (None, None)
+        };
+
+        let total_cell = if any_attribute_adjustments {
+            Cell::new(format!("{:.1}", attribute.total)).set_alignment(CellAlignment::Right)
+        } else {
+            Cell::new(attribute.total).set_alignment(CellAlignment::Right)
+        };
+
+        attributes_table.add_row(
+            vec![
+                Some(Cell::new(attribute.name)),
+                raw_cell,
+                adjustments_cell,
+                Some(total_cell),
+            ]
+            .into_iter()
+            .flatten(),
+        );
     }
 
+    let any_skill_adjustments = stats
+        .skills
+        .iter()
+        .any(|s| should_display_stat_adjustment(s.adjustments));
+
+    let skill_adjustments_header = if any_skill_adjustments {
+        Some(Cell::new("Adj").set_alignment(CellAlignment::Center))
+    } else {
+        None
+    };
+
     let mut skills_table = new_table();
-    skills_table.set_header(vec![
-        Cell::new("Name").set_alignment(CellAlignment::Center),
-        Cell::new("Base").set_alignment(CellAlignment::Center),
-        Cell::new("Attribute").set_alignment(CellAlignment::Center),
-        Cell::new("Total").set_alignment(CellAlignment::Center),
-    ]);
+    skills_table.set_header(
+        vec![
+            Some(Cell::new("Name").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Raw").set_alignment(CellAlignment::Center)),
+            Some(Cell::new("Attribute").set_alignment(CellAlignment::Center)),
+            skill_adjustments_header,
+            Some(Cell::new("Total").set_alignment(CellAlignment::Center)),
+        ]
+        .into_iter()
+        .flatten(),
+    );
 
     for skill in stats.skills {
-        skills_table.add_row(vec![
-            Cell::new(skill.name),
-            Cell::new(skill.base_value),
-            Cell::new(format!(
-                "{} (+{:.1})",
-                skill.base_attribute_name, skill.attribute_bonus
-            )),
-            Cell::new(format!("{:.1}", skill.total)).set_alignment(CellAlignment::Right),
-        ]);
+        let adjustments_cell = if any_skill_adjustments {
+            if should_display_stat_adjustment(skill.adjustments) {
+                let adjustment_color = if skill.adjustments.is_sign_positive() {
+                    comfy_table::Color::Green
+                } else {
+                    comfy_table::Color::Red
+                };
+                Some(
+                    Cell::new(format!("{:+.1}", skill.adjustments))
+                        .set_alignment(CellAlignment::Right)
+                        .fg(adjustment_color),
+                )
+            } else {
+                Some(Cell::new(""))
+            }
+        } else {
+            None
+        };
+
+        skills_table.add_row(
+            vec![
+                Some(Cell::new(skill.name)),
+                Some(Cell::new(skill.raw_value).set_alignment(CellAlignment::Right)),
+                Some(Cell::new(format!(
+                    "{} ({:+.1})",
+                    skill.base_attribute_name, skill.attribute_bonus
+                ))),
+                adjustments_cell,
+                Some(Cell::new(format!("{:.1}", skill.total)).set_alignment(CellAlignment::Right)),
+            ]
+            .into_iter()
+            .flatten(),
+        );
     }
 
     format!("{xp_info}\n{attribute_points_info}\n{skill_points_info}\n\nAttributes:\n{attributes_table}\n\nSkills:\n{skills_table}")
+}
+
+/// Determines whether the adjustment to a stat is big enough to display.
+fn should_display_stat_adjustment(adjustment: f32) -> bool {
+    adjustment.abs() >= MIN_DISPLAYED_STAT_ADJUSTMENT
 }
 
 /// Transforms the provided vital change description into a string for display.
@@ -976,7 +1123,7 @@ fn vital_type_to_color(vital_type: &VitalType) -> crossterm::style::Color {
     match vital_type {
         VitalType::Health => crossterm::style::Color::Red,
         VitalType::Satiety => crossterm::style::Color::Yellow,
-        VitalType::Hydration => crossterm::style::Color::Blue,
+        VitalType::Hydration => crossterm::style::Color::DarkCyan,
         VitalType::Energy => crossterm::style::Color::Green,
     }
 }

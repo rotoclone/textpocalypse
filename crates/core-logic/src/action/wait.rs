@@ -8,9 +8,11 @@ use crate::{
         any_text_part_with_validator, literal_part, optional_literal_part, CommandFormat,
         CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
-    component::{ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player},
+    component::{
+        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Player, VerifyResult,
+    },
     input_parser::{CommandTarget, InputParseError, InputParser},
-    notification::{Notification, VerifyResult},
+    notification::Notification,
     time::{HOURS_PER_DAY, MINUTES_PER_HOUR, SECONDS_PER_MINUTE, TICK_DURATION},
     ActionTag, BeforeActionNotification, InternalMessageCategory, MessageCategory, MessageDelay,
     SurroundingsMessageCategory, VerifyActionNotification, World,
@@ -244,7 +246,7 @@ impl Action for WaitAction {
         &self,
         notification_type: VerifyActionNotification,
         world: &mut World,
-    ) -> VerifyResult {
+    ) -> Vec<VerifyResult> {
         self.notification_sender
             .send_verify_notification(notification_type, self, world)
     }
