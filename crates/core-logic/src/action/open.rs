@@ -122,18 +122,21 @@ pub struct OpenAction {
 
 impl Action for OpenAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let target_name =
+            Description::get_reference_name(self.target, Some(performing_entity), world);
+
         let state = match world.get::<OpenState>(self.target) {
             Some(s) => s,
             None => {
                 if self.should_be_open {
                     return ActionResult::error(
                         performing_entity,
-                        "You can't open that.".to_string(),
+                        format!("You can't open {target_name}."),
                     );
                 } else {
                     return ActionResult::error(
                         performing_entity,
-                        "You can't close that.".to_string(),
+                        format!("You can't close {target_name}."),
                     );
                 }
             }
@@ -143,7 +146,7 @@ impl Action for OpenAction {
             if state.is_open {
                 return ActionResult::message(
                     performing_entity,
-                    "It's already open.".to_string(),
+                    format!("{target_name} is already open."),
                     MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
@@ -151,7 +154,7 @@ impl Action for OpenAction {
             } else {
                 return ActionResult::message(
                     performing_entity,
-                    "It's already closed.".to_string(),
+                    format!("{target_name} is already closed."),
                     MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::Short,
                     false,
@@ -161,8 +164,6 @@ impl Action for OpenAction {
 
         OpenState::set_open(self.target, self.should_be_open, world);
 
-        let target_name =
-            Description::get_reference_name(self.target, Some(performing_entity), world);
         let (open_or_close, opens_or_closes) = if self.should_be_open {
             ("open", "opens")
         } else {
