@@ -14,6 +14,9 @@ pub use thirsty::MILD_THIRST_THRESHOLD;
 pub use thirsty::SEVERE_THIRST_THESHOLD;
 use thirsty::*;
 
+mod overencumbered;
+use overencumbered::*;
+
 /// Registers notification handlers related to status effects.
 pub fn register_status_effect_handlers(world: &mut World) {
     Hungry::register_notification_handlers(world);
