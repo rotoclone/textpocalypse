@@ -1,13 +1,12 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
-    action::PutAction,
     component::{
-        AfterActionPerformNotification, Container, StatAdjustments, StatusEffect,
-        StatusEffectDetails, StatusEffectId,
+        Container, Location, StatAdjustments, StatusEffect, StatusEffectDetails, StatusEffectId,
     },
     is_living_entity,
-    notification::{self, Notification, NotificationHandlers},
+    notification::{Notification, NotificationHandlers},
+    DespawnNotification, EntityMovedNotification,
 };
 
 const STATUS_EFFECT_ID: StatusEffectId = StatusEffectId("overencumbered");
@@ -18,7 +17,8 @@ pub struct Overencumbered;
 
 impl StatusEffect for Overencumbered {
     fn register_notification_handlers(world: &mut World) {
-        NotificationHandlers::add_handler(add_or_remove_overencumbered, world);
+        NotificationHandlers::add_handler(add_or_remove_overencumbered_on_move, world);
+        NotificationHandlers::add_handler(add_or_remove_overencumbered_on_despawn, world);
     }
 
     fn get_id() -> StatusEffectId {
@@ -42,13 +42,26 @@ impl StatusEffect for Overencumbered {
     }
 }
 
-//TODO there are other ways for something to leave an entity's inventory, for example if an item is thrown
-fn add_or_remove_overencumbered(
-    notification: &Notification<AfterActionPerformNotification, PutAction>,
+/// Adds or removes `Overencumbered` from entities when an entity moves.
+fn add_or_remove_overencumbered_on_move(
+    notification: &Notification<EntityMovedNotification, ()>,
     world: &mut World,
 ) {
-    add_or_remove_overencumbered_for_entity(notification.contents.source, world);
-    add_or_remove_overencumbered_for_entity(notification.contents.destination, world);
+    if let Some(source) = notification.notification_type.source {
+        add_or_remove_overencumbered_for_entity(source, world);
+    }
+
+    add_or_remove_overencumbered_for_entity(notification.notification_type.destination, world);
+}
+
+/// Adds or removes `Overencumbered` from containing entities when an entity in them despawns.
+fn add_or_remove_overencumbered_on_despawn(
+    notification: &Notification<DespawnNotification, ()>,
+    world: &mut World,
+) {
+    if let Some(location) = world.get::<Location>(notification.notification_type.entity) {
+        add_or_remove_overencumbered_for_entity(location.id, world);
+    }
 }
 
 /// Adds or removes `Overencumbered` from an entity based on whether its inventory is overfull or not.

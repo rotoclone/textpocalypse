@@ -832,16 +832,31 @@ fn tick(world: &mut World) {
     Notification::send_no_contents(TickNotification, world);
 }
 
+/// A notification that an entity was moved from one location to another (or just appeared).
+#[derive(Debug)]
+pub struct EntityMovedNotification {
+    /// The entity that moved
+    pub moving_entity: Entity,
+    /// The entity `moving_entity` moved from.
+    /// Will be `None` if the entity just appeared.
+    pub source: Option<Entity>,
+    /// The entity `moving_entity` moved to.
+    pub destination: Entity,
+}
+
+impl NotificationType for EntityMovedNotification {}
+
 /// Moves an entity to a container.
 ///
 /// This is the only way entities should be moved, to ensure the proper entity movement notifications are sent.
 fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
-    //TODO send entity movement notifications
+    let mut source_entity = None;
 
     // remove from source container, if necessary
     if let Some(location) = world.get_mut::<Location>(moving_entity) {
         let source_location_id = location.id;
         if let Some(mut source_location) = world.get_mut::<Container>(source_location_id) {
+            source_entity = Some(source_location_id);
             source_location
                 .get_entities_including_invisible_mut()
                 .remove(&moving_entity);
@@ -859,6 +874,15 @@ fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut Wo
     world.entity_mut(moving_entity).insert(Location {
         id: destination_entity,
     });
+
+    Notification::send_no_contents(
+        EntityMovedNotification {
+            moving_entity,
+            source: source_entity,
+            destination: destination_entity,
+        },
+        world,
+    );
 }
 
 /// Sets an entity's actions to be interrupted.
@@ -975,7 +999,6 @@ fn despawn_entity(entity: Entity, world: &mut World) {
             container
                 .get_entities_including_invisible_mut()
                 .remove(&entity);
-            //TODO send entity movement notification
         }
     }
 
