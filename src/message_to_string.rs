@@ -712,9 +712,34 @@ fn container_to_string(container: ContainerDescription) -> String {
         .max_weight
         .map(|x| x.to_string())
         .unwrap_or_else(|| "-".to_string());
+
+    // highlight used volume in red if container is overfull
+    let is_over_volume = if let Some(v) = container.max_volume {
+        container.used_volume > v
+    } else {
+        false
+    };
+
+    let mut used_volume = format!("{:.2}", container.used_volume);
+    if is_over_volume {
+        used_volume = style(used_volume).red().to_string();
+    }
+
+    // highlight used weight in red if container is overfull
+    let is_over_weight = if let Some(w) = container.max_weight {
+        container.used_weight > w
+    } else {
+        false
+    };
+
+    let mut used_weight = format!("{:.2}", container.used_weight);
+    if is_over_weight {
+        used_weight = style(used_weight).red().to_string();
+    };
+
     let usage = format!(
-        "{:.2}/{:.2}L  {:.2}/{:.2}kg",
-        container.used_volume, max_volume, container.used_weight, max_weight
+        "{}/{:.2}L  {}/{:.2}kg",
+        used_volume, max_volume, used_weight, max_weight
     );
 
     format!("Contents:\n{equipped_and_worn}{other_categories}\n\nTotal: {usage}")
