@@ -21,6 +21,7 @@ use overencumbered::*;
 pub fn register_status_effect_handlers(world: &mut World) {
     Hungry::register_notification_handlers(world);
     Thirsty::register_notification_handlers(world);
+    Overencumbered::register_notification_handlers(world);
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -38,6 +39,7 @@ pub struct StatusEffectDetails {
 
 pub trait StatusEffect: Component + Sized {
     /// Adds this status effect to an entity.
+    /// Is idempotent in case the entity already has this status effect.
     ///
     /// Calling this is the only way a status effect should be added to an entity.
     fn add_to(self, entity: Entity, world: &mut World) {
@@ -48,6 +50,7 @@ pub trait StatusEffect: Component + Sized {
     }
 
     /// Removes this status effect from an entity.
+    /// Is idempotent in case the entity doesn't have this status effect already.
     ///
     /// Calling this is the only way a status effect should be removed from an entity.
     fn remove_from(entity: Entity, world: &mut World) {
@@ -68,10 +71,14 @@ pub trait StatusEffect: Component + Sized {
 
     /// Performs any additional logic needed when the status effect is added to an entity.
     /// Will be called before the status effect is registered in `StatusEffects` and before the status effect component is actually added to the entity.
+    ///
+    /// This should be idempotent; i.e. if the status effect is already active on the entity, calling this shouldn't cause any problems.
     fn on_add(&self, entity: Entity, world: &mut World);
 
     /// Performs any additional logic needed when the status effect is removed from an entity.
     /// Will be called before the status effect is unregistered in `StatusEffects` and before the status effect component is actually removed from the entity.
+    ///
+    /// This should be idempotent; i.e. if the status effect isn't already active on the entity, calling this shouldn't cause any problems.
     fn on_remove(entity: Entity, world: &mut World);
 }
 

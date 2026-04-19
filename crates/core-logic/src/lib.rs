@@ -833,7 +833,11 @@ fn tick(world: &mut World) {
 }
 
 /// Moves an entity to a container.
+///
+/// This is the only way entities should be moved, to ensure the proper entity movement notifications are sent.
 fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
+    //TODO send entity movement notifications
+
     // remove from source container, if necessary
     if let Some(location) = world.get_mut::<Location>(moving_entity) {
         let source_location_id = location.id;
@@ -971,6 +975,7 @@ fn despawn_entity(entity: Entity, world: &mut World) {
             container
                 .get_entities_including_invisible_mut()
                 .remove(&entity);
+            //TODO send entity movement notification
         }
     }
 
