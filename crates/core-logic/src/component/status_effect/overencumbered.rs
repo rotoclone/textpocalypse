@@ -1,12 +1,14 @@
 use bevy_ecs::prelude::*;
 
 use crate::{
+    action::MoveAction,
     component::{
         Container, Location, StatAdjustments, StatusEffect, StatusEffectDetails, StatusEffectId,
+        VerifyActionNotification, VerifyResult,
     },
     is_living_entity,
-    notification::{Notification, NotificationHandlers},
-    DespawnNotification, EntityMovedNotification,
+    notification::{Notification, NotificationHandlers, ReturningNotificationHandlers},
+    DespawnNotification, EntityMovedNotification, GameMessage,
 };
 
 const STATUS_EFFECT_ID: StatusEffectId = StatusEffectId("overencumbered");
@@ -19,6 +21,7 @@ impl StatusEffect for Overencumbered {
     fn register_notification_handlers(world: &mut World) {
         NotificationHandlers::add_handler(add_or_remove_overencumbered_on_move, world);
         NotificationHandlers::add_handler(add_or_remove_overencumbered_on_despawn, world);
+        ReturningNotificationHandlers::add_handler(prevent_move_if_overencumbered, world);
     }
 
     fn get_id() -> StatusEffectId {
@@ -96,4 +99,21 @@ fn add_or_remove_overencumbered_for_entity(entity: Entity, world: &mut World) {
     } else {
         Overencumbered::remove_from(entity, world);
     }
+}
+
+/// Prevents an entity from moving if it's overencumbered.
+fn prevent_move_if_overencumbered(
+    notification: &Notification<VerifyActionNotification, MoveAction>,
+    world: &World,
+) -> VerifyResult {
+    let moving_entity = notification.notification_type.performing_entity;
+
+    if world.get::<Overencumbered>(moving_entity).is_some() {
+        return VerifyResult::invalid(
+            moving_entity,
+            GameMessage::Error("You're carrying too much stuff to move.".to_string()),
+        );
+    }
+
+    VerifyResult::valid()
 }
