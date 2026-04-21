@@ -7,6 +7,7 @@ use crate::{
     component::{description::PortionMatched, Matchness, VerifyResult},
     find_wearing_entity,
     found_entities::{FoundEntities, PartialMatchingEntity},
+    is_living_entity,
     notification::Notification,
     AttributeDescription, ContainerDescription, Direction, GameMessage, Invisible,
 };
@@ -266,14 +267,19 @@ impl DescribeAttributes for Container {
     }
 }
 
-/// Prevents containers from getting overfilled.
-pub fn limit_container_contents(
+/// Prevents containers from getting overfilled. Ignores entity inventories.
+pub fn limit_non_living_container_contents(
     notification: &Notification<VerifyActionNotification, PutAction>,
     world: &World,
 ) -> VerifyResult {
     let item = notification.contents.item;
     let destination = notification.contents.destination;
     let performing_entity = notification.notification_type.performing_entity;
+
+    if is_living_entity(destination, world) {
+        // Allow overfilling your inventory, to make inventory management easier. Being overencumbered is handled elsewhere.
+        return VerifyResult::valid();
+    }
 
     let container = world
         .get::<Container>(destination)

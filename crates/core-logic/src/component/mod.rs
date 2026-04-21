@@ -193,7 +193,10 @@ pub fn register_component_handlers(world: &mut World) {
         world,
     );
 
-    ReturningNotificationHandlers::add_handler(container::limit_container_contents, world);
+    ReturningNotificationHandlers::add_handler(
+        container::limit_non_living_container_contents,
+        world,
+    );
 
     NotificationHandlers::add_handler(vitals::change_vitals_on_tick, world);
     NotificationHandlers::add_handler(vitals::send_vitals_update_messages, world);
