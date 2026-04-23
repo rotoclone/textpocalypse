@@ -30,7 +30,7 @@ use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResul
 const SELF_DAMAGE_MULT: f32 = 3.0;
 
 static COMMAND_FORMATS: LazyLock<AttackCommandFormats<AttackAction>> = LazyLock::new(|| {
-    AttackCommandFormats::new(one_of_literal_part(nonempty!["attack", "kill", "k"]))
+    AttackCommandFormats::new_can_attack_self(one_of_literal_part(nonempty!["attack", "kill", "k"]))
 });
 
 pub struct AttackParser;
@@ -76,7 +76,6 @@ impl Action for AttackAction {
             Ok(e) => e,
             Err(r) => return r,
         };
-        let result_builder = ActionResult::builder();
 
         if target == performing_entity {
             if let Some(body_part_entity) =
@@ -94,6 +93,8 @@ impl Action for AttackAction {
                     weapon: weapon_entity,
                     body_part: *body_part_entity,
                 };
+
+                let result_builder = ActionResult::builder();
 
                 match weapon.calculate_damage(
                     performing_entity,
@@ -153,8 +154,7 @@ impl Action for AttackAction {
             }
         }
 
-        let (mut result_builder, range) =
-            handle_begin_attack(performing_entity, target, result_builder, world);
+        let (mut result_builder, range) = handle_begin_attack(performing_entity, target, world);
 
         let weapon = world
             .get::<Weapon>(weapon_entity)

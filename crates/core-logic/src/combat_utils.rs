@@ -125,6 +125,7 @@ pub struct AttackCommandFormats<A: AttackType> {
 
 impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
+    /// Includes validators that prevent an entity from performing the attack on itself. If this is not desired, use `new_can_attack_self`.
     pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
         let target_part = entity_part_builder(target_part_id)
@@ -169,6 +170,11 @@ impl<A: AttackType> AttackCommandFormats<A> {
             weapon_part_id,
             a: PhantomData,
         }
+    }
+
+    /// Builds command formats for the attack type `A`, allowing entities to perform the attack on themselves.
+    pub fn new_can_attack_self(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        todo!() //TODO
     }
 
     /// Builds generic input formats for an action using these command formats.
@@ -274,23 +280,24 @@ pub fn validate_attack_target(
     context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
-    if !is_valid_attack_target(context.parsed_value, world) {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
+    let performing_entity = context.performing_entity;
+    let target = context.parsed_value;
+
+    if target == performing_entity {
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some("You can't perform that attack on yourself.".to_string()),
+        });
+    }
+
+    if !is_valid_attack_target(target, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         let message = format!("You can't attack {target_name}.");
         return CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some(message),
         });
     }
-    if !in_same_room(context.parsed_value, context.performing_entity, world) {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
+    if !in_same_room(target, performing_entity, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         let message = format!("{target_name} isn't here.");
         return CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some(message),
@@ -376,12 +383,14 @@ pub fn find_weapon<A: AttackType>(
 }
 
 /// Makes the provided entities enter combat with each other, if they're not already in combat.
+///
+/// Does nothing if `attacker` and `target` are the same, or are already in combat with each other.
 pub fn handle_begin_attack(
     attacker: Entity,
     target: Entity,
-    result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> (ActionResultBuilder, CombatRange) {
+    let result_builder = ActionResult::builder();
     let range = CombatState::get_entities_in_combat_with(attacker, world)
         .get(&target)
         .copied()
@@ -407,6 +416,8 @@ fn determine_starting_range(entity_1: Entity, entity_2: Entity, world: &World) -
 }
 
 /// Makes the provided entities enter combat with each other at the provided range, if they're not already in combat.
+///
+/// Does nothing if `attacker` and `target` are the same, or are already in combat with each other.
 pub fn handle_enter_combat(
     attacker: Entity,
     target: Entity,
@@ -414,6 +425,10 @@ pub fn handle_enter_combat(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
+    if attacker == target {
+        return result_builder;
+    }
+
     if !CombatState::get_entities_in_combat_with(attacker, world)
         .keys()
         .contains(&target)

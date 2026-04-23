@@ -208,7 +208,7 @@ impl Action for ThrowAction {
 
         let mut result_builder = ActionResult::builder();
 
-        if target_is_living {
+        if target_is_living && target != performing_entity {
             result_builder = handle_enter_combat(
                 performing_entity,
                 target,
