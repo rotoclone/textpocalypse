@@ -318,6 +318,7 @@ pub struct WeaponMessages {
     pub regular_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
     /// Messages for hits that do a lot of damage
     pub major_hit: Vec<MessageFormat<WeaponHitMessageTokens>>,
+    // TODO add Messages for when entities hit themselves
 }
 
 /// Tokens used in weapon messages for hits.

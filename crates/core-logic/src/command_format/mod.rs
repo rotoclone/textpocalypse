@@ -323,7 +323,7 @@ pub enum DirectionMatchMode {
 type EntityTargetFinderFn =
     fn(&PartParserContext, &World) -> FoundEntitiesInContainer<PortionMatched>;
 
-type PartValidationFn<T> = fn(&PartValidatorContext<T>, &World) -> CommandPartValidateResult;
+pub type PartValidationFn<T> = fn(&PartValidatorContext<T>, &World) -> CommandPartValidateResult;
 
 type PartValidationFnUntyped =
     Box<dyn Fn(PartValidatorContext<ParsedValue>, &World) -> CommandPartValidateResult>;

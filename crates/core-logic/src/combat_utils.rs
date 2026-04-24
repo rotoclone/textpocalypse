@@ -8,6 +8,7 @@ use rand::seq::SliceRandom;
 
 use crate::command_format::{
     entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
+    PartValidationFn,
 };
 use crate::{
     body_part::BodyPartDamageMultiplier,
@@ -127,9 +128,22 @@ impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
     /// Includes validators that prevent an entity from performing the attack on itself. If this is not desired, use `new_can_attack_self`.
     pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        Self::new_with_target_validation_fn(first_part, validate_attack_target)
+    }
+
+    /// Builds command formats for the attack type `A`, allowing entities to perform the attack on themselves.
+    pub fn new_can_attack_self(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        Self::new_with_target_validation_fn(first_part, validate_attack_target_allowing_self)
+    }
+
+    /// Builds command formats for the attack type `A`, using the provided validation function for the target part.
+    fn new_with_target_validation_fn(
+        first_part: CommandFormatPart,
+        target_validation_fn: PartValidationFn<Entity>,
+    ) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
         let target_part = entity_part_builder(target_part_id)
-            .with_validator(validate_attack_target)
+            .with_validator(target_validation_fn)
             .build()
             .with_if_unparsed("who")
             .with_placeholder_for_format_string("target");
@@ -170,11 +184,6 @@ impl<A: AttackType> AttackCommandFormats<A> {
             weapon_part_id,
             a: PhantomData,
         }
-    }
-
-    /// Builds command formats for the attack type `A`, allowing entities to perform the attack on themselves.
-    pub fn new_can_attack_self(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
-        todo!() //TODO
     }
 
     /// Builds generic input formats for an action using these command formats.
@@ -280,14 +289,22 @@ pub fn validate_attack_target(
     context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
-    let performing_entity = context.performing_entity;
-    let target = context.parsed_value;
-
-    if target == performing_entity {
+    if context.parsed_value == context.performing_entity {
         return CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some("You can't perform that attack on yourself.".to_string()),
         });
     }
+
+    validate_attack_target_allowing_self(context, world)
+}
+
+/// Validates the chosen target for an attack, allowing the target to attack itself.
+pub fn validate_attack_target_allowing_self(
+    context: &PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    let performing_entity = context.performing_entity;
+    let target = context.parsed_value;
 
     if !is_valid_attack_target(target, world) {
         let target_name = Description::get_reference_name(target, Some(performing_entity), world);
