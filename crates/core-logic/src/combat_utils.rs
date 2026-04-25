@@ -677,7 +677,9 @@ pub fn handle_damage<A: AttackType>(
         .expect("target should have vitals");
     let damage_fraction = hit_params.damage as f32 / target_health.get_max();
 
-    let hit_messages_to_choose_from = if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
+    let hit_messages_to_choose_from = if hit_params.target == hit_params.performing_entity {
+        weapon_messages.map(|m| &m.self_hit)
+    } else if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
         weapon_messages.map(|m| &m.major_hit)
     } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
         weapon_messages.map(|m: &crate::WeaponMessages| &m.regular_hit)

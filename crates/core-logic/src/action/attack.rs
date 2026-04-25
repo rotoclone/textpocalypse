@@ -84,7 +84,17 @@ impl Action for AttackAction {
                 let weapon = world
                     .get::<Weapon>(weapon_entity)
                     .expect("weapon should be a weapon");
-                let hit_message_format = weapon.default_attack_messages.regular_hit.choose(&mut rand::thread_rng())
+                /* TODO
+                > wait
+                Player 0 falls to the ground, dead.
+
+                The dead body of Player 0 bashes itself in the head with the baseball bat.
+
+                You wait for a few seconds.
+
+                (the message should use the name of the entity before it died; can probably fix this by just using `handle_damage` instead of all this)
+                 */
+                let hit_message_format = weapon.default_attack_messages.self_hit.choose(&mut rand::thread_rng())
                     .cloned()
                     .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid"));
                 let hit_message_tokens = WeaponHitMessageTokens {
