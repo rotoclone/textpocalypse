@@ -6,8 +6,10 @@ use itertools::Itertools;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
 
+use crate::body_part::BodyPartType;
 use crate::command_format::{
     entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
+    PartValidationFn,
 };
 use crate::{
     body_part::BodyPartDamageMultiplier,
@@ -125,10 +127,24 @@ pub struct AttackCommandFormats<A: AttackType> {
 
 impl<A: AttackType> AttackCommandFormats<A> {
     /// Builds command formats for the attack type `A`.
+    /// Includes validators that prevent an entity from performing the attack on itself. If this is not desired, use `new_can_attack_self`.
     pub fn new(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        Self::new_with_target_validation_fn(first_part, validate_attack_target)
+    }
+
+    /// Builds command formats for the attack type `A`, allowing entities to perform the attack on themselves.
+    pub fn new_can_attack_self(first_part: CommandFormatPart) -> AttackCommandFormats<A> {
+        Self::new_with_target_validation_fn(first_part, validate_attack_target_allowing_self)
+    }
+
+    /// Builds command formats for the attack type `A`, using the provided validation function for the target part.
+    fn new_with_target_validation_fn(
+        first_part: CommandFormatPart,
+        target_validation_fn: PartValidationFn<Entity>,
+    ) -> AttackCommandFormats<A> {
         let target_part_id = CommandPartId::new("target");
         let target_part = entity_part_builder(target_part_id)
-            .with_validator(validate_attack_target)
+            .with_validator(target_validation_fn)
             .build()
             .with_if_unparsed("who")
             .with_placeholder_for_format_string("target");
@@ -274,23 +290,32 @@ pub fn validate_attack_target(
     context: &PartValidatorContext<Entity>,
     world: &World,
 ) -> CommandPartValidateResult {
-    if !is_valid_attack_target(context.parsed_value, world) {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
+    if context.parsed_value == context.performing_entity {
+        return CommandPartValidateResult::Invalid(CommandPartValidateError {
+            details: Some("You can't perform that attack on yourself.".to_string()),
+        });
+    }
+
+    validate_attack_target_allowing_self(context, world)
+}
+
+/// Validates the chosen target for an attack, allowing the target to attack itself.
+pub fn validate_attack_target_allowing_self(
+    context: &PartValidatorContext<Entity>,
+    world: &World,
+) -> CommandPartValidateResult {
+    let performing_entity = context.performing_entity;
+    let target = context.parsed_value;
+
+    if !is_valid_attack_target(target, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         let message = format!("You can't attack {target_name}.");
         return CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some(message),
         });
     }
-    if !in_same_room(context.parsed_value, context.performing_entity, world) {
-        let target_name = Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        );
+    if !in_same_room(target, performing_entity, world) {
+        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
         let message = format!("{target_name} isn't here.");
         return CommandPartValidateResult::Invalid(CommandPartValidateError {
             details: Some(message),
@@ -376,12 +401,14 @@ pub fn find_weapon<A: AttackType>(
 }
 
 /// Makes the provided entities enter combat with each other, if they're not already in combat.
+///
+/// Does nothing if `attacker` and `target` are the same, or are already in combat with each other.
 pub fn handle_begin_attack(
     attacker: Entity,
     target: Entity,
-    result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> (ActionResultBuilder, CombatRange) {
+    let result_builder = ActionResult::builder();
     let range = CombatState::get_entities_in_combat_with(attacker, world)
         .get(&target)
         .copied()
@@ -407,6 +434,8 @@ fn determine_starting_range(entity_1: Entity, entity_2: Entity, world: &World) -
 }
 
 /// Makes the provided entities enter combat with each other at the provided range, if they're not already in combat.
+///
+/// Does nothing if `attacker` and `target` are the same, or are already in combat with each other.
 pub fn handle_enter_combat(
     attacker: Entity,
     target: Entity,
@@ -414,6 +443,10 @@ pub fn handle_enter_combat(
     mut result_builder: ActionResultBuilder,
     world: &mut World,
 ) -> ActionResultBuilder {
+    if attacker == target {
+        return result_builder;
+    }
+
     if !CombatState::get_entities_in_combat_with(attacker, world)
         .keys()
         .contains(&target)
@@ -581,27 +614,39 @@ pub fn check_for_hit(
         .expect("weapon should be a weapon");
     let primary_weapon_stat = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary;
 
-    let (to_hit_result, _) = Stats::check_vs(
-        VsParticipant {
-            entity: attacker,
-            stat: primary_weapon_stat,
-            modifiers: CheckModifiers::modify_value(to_hit_modification),
-        },
-        VsParticipant {
-            entity: target,
-            stat: Skill::Dodge.into(),
-            modifiers: CheckModifiers::none(),
-        },
-        VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
-        world,
-    );
+    let (to_hit_result, _) = if attacker == target {
+        (CheckResult::ExtremeSuccess, CheckResult::ExtremeSuccess)
+    } else {
+        Stats::check_vs(
+            VsParticipant {
+                entity: attacker,
+                stat: primary_weapon_stat,
+                modifiers: CheckModifiers::modify_value(to_hit_modification),
+            },
+            VsParticipant {
+                entity: target,
+                stat: Skill::Dodge.into(),
+                modifiers: CheckModifiers::none(),
+            },
+            VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
+            world,
+        )
+    };
 
     // need to re-borrow this since `check_vs` takes a mutable `World`
     let weapon = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    if let Some(body_part_entity) = BodyPart::random_weighted(target, world) {
+    let body_part_entity = if attacker == target {
+        BodyPart::get(&BodyPartType::Head, target, world)
+            .first()
+            .copied()
+    } else {
+        BodyPart::random_weighted(target, world)
+    };
+
+    if let Some(body_part_entity) = body_part_entity {
         if to_hit_result.succeeded() {
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
             match weapon.calculate_damage(attacker, range, critical, world) {
@@ -645,7 +690,9 @@ pub fn handle_damage<A: AttackType>(
         .expect("target should have vitals");
     let damage_fraction = hit_params.damage as f32 / target_health.get_max();
 
-    let hit_messages_to_choose_from = if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
+    let hit_messages_to_choose_from = if hit_params.target == hit_params.performing_entity {
+        weapon_messages.map(|m| &m.self_hit)
+    } else if damage_fraction >= HIGH_DAMAGE_THRESHOLD {
         weapon_messages.map(|m| &m.major_hit)
     } else if damage_fraction > LOW_DAMAGE_THRESHOLD {
         weapon_messages.map(|m: &crate::WeaponMessages| &m.regular_hit)

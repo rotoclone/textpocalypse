@@ -526,6 +526,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     minor_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.glance/glances} off of ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${target.name} in the ${body_part.plain_name}.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name's} ${weapon.plain_name} ${weapon.wallop/wallops} ${target.name's} ${body_part.plain_name} with a crunch.").expect("message format should be valid")],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:punch/punches} ${attacker.themself} in the ${body_part.plain_name}.").expect("message format should be valid")]
                 },
             },
             InnateWeapon,
@@ -546,12 +547,14 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                     minor_hit: vec![MessageFormat::new("${attacker.Name} barely ${attacker.you:catch/catches} ${target.name's} ${body_part.plain_name} with an uppercut.").expect("message format should be valid")],
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:strike/strikes} ${target.name} in the ${body_part.plain_name} with a solid uppercut.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:send/sends} ${weapon.name} flying upward into ${target.name's} ${body_part.plain_name} with a crunch.").expect("message format should be valid")],
+                    self_hit: Vec::new(), // self hits aren't allowed for this attack type
                 },
                 haymaker_messages: WeaponMessages {
                     miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:stumble/stumbles} as ${target.name} dodges out of the way of what looks like would have been a painful hit from ${weapon.name}.").expect("message format should be valid")],
                     minor_hit: vec![MessageFormat::new("${attacker.Name's} haymaker barely catches ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
                     regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:land/lands} a powerful punch to ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
                     major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:lunge/lunge} forward and ${attacker.you:smash/smashes} ${weapon.name} into ${target.name's} ${body_part.plain_name} with a sickening crunch.").expect("message format should be valid")],
+                    self_hit: Vec::new(), // self hits aren't allowed for this attack type
                 },
             },
         ))

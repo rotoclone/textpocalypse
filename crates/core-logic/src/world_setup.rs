@@ -784,6 +784,7 @@ pub fn spawn_start_building(
                         MessageFormat::new("${attacker.Name} ${attacker.you:wind/winds} up with ${weapon.name} and ${attacker.you:connect/connects} with ${target.name's} ${body_part.plain_name} with a loud crack.").expect("message format should be valid"),
                         MessageFormat::new("${target.Name} ${target.you:scream/screams} as ${attacker.name} ${attacker.you:bash/bashes} ${target.their} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")
                     ],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bash/bashes} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
                 },
             },
             Volume(0.5),
@@ -843,6 +844,7 @@ pub fn spawn_start_building(
                         MessageFormat::new("${attacker.Name} ${attacker.you:heave/heaves} ${weapon.name} into ${target.name's} ${body_part.plain_name} with a loud thunk.").expect("message format should be valid"),
                         MessageFormat::new("${target.Name} nearly ${target.you:fall/falls} over as ${attacker.name} ${attacker.you:smash/smashes} ${target.their} ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")
                     ],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bash/bashes} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
                 },
             },
             Volume(0.5),

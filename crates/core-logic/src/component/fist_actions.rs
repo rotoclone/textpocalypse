@@ -109,10 +109,8 @@ impl Action for UppercutAction {
                 Ok(e) => e,
                 Err(r) => return r,
             };
-        let result_builder = ActionResult::builder();
 
-        let (mut result_builder, range) =
-            handle_begin_attack(performing_entity, target, result_builder, world);
+        let (mut result_builder, range) = handle_begin_attack(performing_entity, target, world);
 
         let weapon = world
             .get::<Weapon>(weapon_entity)
@@ -311,10 +309,8 @@ impl Action for HaymakerAction {
                 Ok(e) => e,
                 Err(r) => return r,
             };
-        let result_builder = ActionResult::builder();
 
-        let (mut result_builder, range) =
-            handle_begin_attack(performing_entity, target, result_builder, world);
+        let (mut result_builder, range) = handle_begin_attack(performing_entity, target, world);
 
         let target_name =
             Description::get_reference_name(self.target, Some(performing_entity), world);
