@@ -2,10 +2,8 @@ use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
-use rand::seq::SliceRandom;
 
 use crate::{
-    body_part::BodyPartType,
     check_for_hit,
     combat_utils::AttackCommandFormats,
     command_format::one_of_literal_part,
@@ -13,21 +11,12 @@ use crate::{
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
-    parse_attack_input,
-    vital_change::{
-        ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
-        VitalType,
-    },
-    ActionTag, AttackType, BeforeActionNotification, BodyPart, ChosenWeapon, DynamicMessage,
-    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    NoTokens, SurroundingsMessageCategory, VerifyActionNotification, WeaponHitMessageTokens,
+    parse_attack_input, ActionTag, AttackType, BeforeActionNotification, ChosenWeapon,
+    InternalMessageCategory, MessageCategory, MessageDelay, VerifyActionNotification,
     WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
-
-/// Multiplier applied to damage done to oneself.
-const SELF_DAMAGE_MULT: f32 = 3.0;
 
 static COMMAND_FORMATS: LazyLock<AttackCommandFormats<AttackAction>> = LazyLock::new(|| {
     AttackCommandFormats::new_can_attack_self(one_of_literal_part(nonempty!["attack", "kill", "k"]))
@@ -77,94 +66,14 @@ impl Action for AttackAction {
             Err(r) => return r,
         };
 
-        if target == performing_entity {
-            if let Some(body_part_entity) =
-                BodyPart::get(&BodyPartType::Head, target, world).first()
-            {
-                let weapon = world
-                    .get::<Weapon>(weapon_entity)
-                    .expect("weapon should be a weapon");
-                /* TODO
-                > wait
-                Player 0 falls to the ground, dead.
-
-                The dead body of Player 0 bashes itself in the head with the baseball bat.
-
-                You wait for a few seconds.
-
-                (the message should use the name of the entity before it died; can probably fix this by just using `handle_damage` instead of all this)
-                 */
-                let hit_message_format = weapon.default_attack_messages.self_hit.choose(&mut rand::thread_rng())
-                    .cloned()
-                    .unwrap_or_else(|| MessageFormat::new("${attacker.Name} ${attacker.you:hit/hits} ${target.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid"));
-                let hit_message_tokens = WeaponHitMessageTokens {
-                    attacker: performing_entity,
-                    target,
-                    weapon: weapon_entity,
-                    body_part: *body_part_entity,
-                };
-
-                let result_builder = ActionResult::builder();
-
-                match weapon.calculate_damage(
-                    performing_entity,
-                    *weapon.ranges.optimal.start(),
-                    true,
-                    world,
-                ) {
-                    Ok(damage) => {
-                        let message = hit_message_format
-                            .interpolate(performing_entity, &hit_message_tokens, world)
-                            .expect("self hit message should interpolate properly");
-                        VitalChange::<NoTokens> {
-                            entity: performing_entity,
-                            vital_type: VitalType::Health,
-                            operation: ValueChangeOperation::Subtract,
-                            amount: damage as f32 * SELF_DAMAGE_MULT,
-                            message_params: vec![(
-                                VitalChangeMessageParams::Direct {
-                                    entity: performing_entity,
-                                    message,
-                                    category: MessageCategory::Internal(
-                                        InternalMessageCategory::Action,
-                                    ),
-                                },
-                                VitalChangeVisualizationType::Full,
-                            )],
-                        }
-                        .apply(world);
-
-                        return result_builder
-                            .with_dynamic_message(
-                                Some(performing_entity),
-                                DynamicMessageLocation::SourceEntity,
-                                DynamicMessage::new_third_person(
-                                    MessageCategory::Surroundings(
-                                        SurroundingsMessageCategory::Action,
-                                    ),
-                                    MessageDelay::Short,
-                                    hit_message_format,
-                                    hit_message_tokens,
-                                ),
-                                world,
-                            )
-                            .build_complete_should_tick(true);
-                    }
-                    Err(e) => {
-                        return handle_weapon_unusable_error(
-                            performing_entity,
-                            target,
-                            weapon_entity,
-                            e,
-                            result_builder,
-                            world,
-                        )
-                    }
-                }
-            }
-        }
-
-        let (mut result_builder, range) = handle_begin_attack(performing_entity, target, world);
+        let (mut result_builder, range) = if target == performing_entity {
+            let weapon = world
+                .get::<Weapon>(weapon_entity)
+                .expect("weapon should be a weapon");
+            (ActionResult::builder(), *weapon.ranges.optimal.start())
+        } else {
+            handle_begin_attack(performing_entity, target, world)
+        };
 
         let weapon = world
             .get::<Weapon>(weapon_entity)

@@ -6,6 +6,7 @@ use itertools::Itertools;
 use nonempty::nonempty;
 use rand::seq::SliceRandom;
 
+use crate::body_part::BodyPartType;
 use crate::command_format::{
     entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
     PartValidationFn,
@@ -613,27 +614,39 @@ pub fn check_for_hit(
         .expect("weapon should be a weapon");
     let primary_weapon_stat = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary;
 
-    let (to_hit_result, _) = Stats::check_vs(
-        VsParticipant {
-            entity: attacker,
-            stat: primary_weapon_stat,
-            modifiers: CheckModifiers::modify_value(to_hit_modification),
-        },
-        VsParticipant {
-            entity: target,
-            stat: Skill::Dodge.into(),
-            modifiers: CheckModifiers::none(),
-        },
-        VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
-        world,
-    );
+    let (to_hit_result, _) = if attacker == target {
+        (CheckResult::ExtremeSuccess, CheckResult::ExtremeSuccess)
+    } else {
+        Stats::check_vs(
+            VsParticipant {
+                entity: attacker,
+                stat: primary_weapon_stat,
+                modifiers: CheckModifiers::modify_value(to_hit_modification),
+            },
+            VsParticipant {
+                entity: target,
+                stat: Skill::Dodge.into(),
+                modifiers: CheckModifiers::none(),
+            },
+            VsCheckParams::second_wins_ties(STANDARD_CHECK_XP),
+            world,
+        )
+    };
 
     // need to re-borrow this since `check_vs` takes a mutable `World`
     let weapon = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
 
-    if let Some(body_part_entity) = BodyPart::random_weighted(target, world) {
+    let body_part_entity = if attacker == target {
+        BodyPart::get(&BodyPartType::Head, target, world)
+            .first()
+            .copied()
+    } else {
+        BodyPart::random_weighted(target, world)
+    };
+
+    if let Some(body_part_entity) = body_part_entity {
         if to_hit_result.succeeded() {
             let critical = to_hit_result == CheckResult::ExtremeSuccess;
             match weapon.calculate_damage(attacker, range, critical, world) {
