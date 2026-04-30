@@ -5,7 +5,7 @@ use log::debug;
 
 use crate::{
     action::Action,
-    component::Player,
+    component::{Attribute, Player, Stats},
     notification::{NotificationType, ReturningNotificationType},
     send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
 };
@@ -310,6 +310,8 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             entities_with_actions.push(entity);
         }
 
+        let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
+
         let mut results = Vec::new();
         for entity in entities_with_actions {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
@@ -364,6 +366,38 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             }
         }
     }
+}
+
+/// Sorts entities that want to take actions by priority.
+/// Entities with higher agility scores have higher priority.
+/// In case of a tie, players are higher priority than non-players, and TODO how to break ties between players
+fn sort_entities_with_actions(mut entities: Vec<Entity>, world: &World) -> Vec<Entity> {
+    entities.sort_by(|a, b| {
+        let agility_a = world
+            .get::<Stats>(*a)
+            .map(|stats| stats.get_attribute_value(&Attribute::Agility).total)
+            .unwrap_or(0.0);
+        let agility_b = world
+            .get::<Stats>(*b)
+            .map(|stats| stats.get_attribute_value(&Attribute::Agility).total)
+            .unwrap_or(0.0);
+
+        agility_a
+            .total_cmp(&agility_b)
+            // reverse so entities with higher agility are at the beginning of the list (and therefore take their actions earlier)
+            .reverse()
+            .then_with(|| {
+                let a_is_player = world.get::<Player>(*a).is_some();
+                let b_is_player = world.get::<Player>(*b).is_some();
+
+                // reverse so players go earlier in case of agility score ties
+                a_is_player.cmp(&b_is_player).reverse()
+            })
+            // fall back to ordering by however `Entity` is sorted
+            .then_with(|| a.cmp(b))
+    });
+
+    entities
 }
 
 /// Determines the next action for the provided entity to perform and sends pre-perform notifications for it, if the next action for the entity to perform passes the provided filter function.

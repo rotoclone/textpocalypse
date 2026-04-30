@@ -473,6 +473,14 @@ pub enum ActionTag {
     Custom(String),
 }
 
+/// Represents a type of combat action
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub enum CombatActionType {
+    RegularAttack,
+    ChangeRange,
+    Custom(String),
+}
+
 pub trait Action: std::fmt::Debug + Send + Sync {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
@@ -486,6 +494,15 @@ pub trait Action: std::fmt::Debug + Send + Sync {
 
     /// Returns the tags of this action, so it can be identified.
     fn get_tags(&self) -> HashSet<ActionTag>;
+
+    /* TODO
+    /// Returns the type of combat action this is, if it's a combat action.
+    fn get_combat_action_type(&self) -> Option<CombatActionType>;
+
+    /// Returns the targets of this action, if there are any.
+    /// Used to determine which actions can interact in combat:
+    fn get_targets(&self) -> Vec<Entity>;
+    */
 
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(
