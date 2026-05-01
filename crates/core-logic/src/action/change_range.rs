@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{any::Any, collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
@@ -245,7 +245,7 @@ pub struct ChangeRangeAction {
 }
 
 /// The direction to change range in.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RangeChangeDirection {
     /// Make the range shorter.
     Decrease,
@@ -459,4 +459,47 @@ pub fn verify_range_can_be_changed(
     }
 
     VerifyResult::valid()
+}
+
+//TODO what about an InteractingAction type, with an interacts_with function that determines whether it should interact, and an interact_with function that handles the interaction with the provided action?
+// the problem is that if it interacts with an action other than itself, you'd have to arbitrarily decide which action to put the interaction on, and the other side would have to claim it doesn't interact...maybe that's fine?
+// but if it interacts with itself, how do you make sure you don't run the interaction twice?
+
+enum ActionInteractionResult {
+    /// The actions interacted and they can both be considered to have been performed
+    Interacted,
+    /// The actions did not interact and therefore have not been performed
+    DidNotInteract,
+}
+
+fn interact_with(
+    itself: ChangeRangeAction,
+    action: &dyn Action,
+    world: &mut World,
+) -> ActionInteractionResult {
+    let action_any = action as &dyn Any;
+
+    if let Some(change_range_action) = action_any.downcast_ref::<ChangeRangeAction>() {
+        if change_range_action.direction == itself.direction {
+            // can just change the range here
+            return ActionInteractionResult::Interacted;
+        }
+    }
+
+    ActionInteractionResult::DidNotInteract
+}
+
+//TODO move to a common place
+pub struct InteractingActions<A: Action, B: Action> {
+    action_1: A,
+    performing_entity_1: Entity,
+    action_2: B,
+    performing_entity_2: Entity,
+}
+
+pub fn change_range_interaction_handler(
+    actions: InteractingActions<ChangeRangeAction, ChangeRangeAction>,
+    world: &mut World,
+) {
+    //TODO
 }

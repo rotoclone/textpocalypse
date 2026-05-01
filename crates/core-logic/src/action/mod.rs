@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::sync::Mutex;
@@ -481,7 +482,7 @@ pub enum CombatActionType {
     Custom(String),
 }
 
-pub trait Action: std::fmt::Debug + Send + Sync {
+pub trait Action: std::fmt::Debug + Send + Sync + Any {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
