@@ -474,14 +474,6 @@ pub enum ActionTag {
     Custom(String),
 }
 
-/// Represents a type of combat action
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub enum CombatActionType {
-    RegularAttack,
-    ChangeRange,
-    Custom(String),
-}
-
 pub trait Action: std::fmt::Debug + Send + Sync + Any {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
@@ -495,15 +487,6 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
 
     /// Returns the tags of this action, so it can be identified.
     fn get_tags(&self) -> HashSet<ActionTag>;
-
-    /* TODO
-    /// Returns the type of combat action this is, if it's a combat action.
-    fn get_combat_action_type(&self) -> Option<CombatActionType>;
-
-    /// Returns the targets of this action, if there are any.
-    /// Used to determine which actions can interact in combat:
-    fn get_targets(&self) -> Vec<Entity>;
-    */
 
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(
@@ -528,6 +511,22 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
 
     /// Sends a notification that this action is done being performed.
     fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World);
+}
+
+/// The result of attempting to have two actions interact.
+enum ActionInteractionResult {
+    /// The actions interacted and they can both be considered to have been performed
+    BothPerformed(ActionResult, ActionResult),
+    /// The actions did not interact and therefore have not been performed
+    NeitherPerformed,
+}
+
+pub trait InteractingAction: Action {
+    /// Returns the entity that could have a queued action that this action could interact with.
+    fn get_interaction_target(&self) -> Option<Entity>;
+
+    /// Attempts to have this action interact with another action and perform both at once.
+    fn interact_with(&self, action: &dyn Action, world: &mut World) -> ActionInteractionResult;
 }
 
 /// Sends notifications about actions.

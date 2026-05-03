@@ -319,6 +319,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
             if let Some(mut action) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
+                //TODO try action interactions here first
                 let mut result = action.perform(entity, world);
                 any_actions_performed = true;
                 send_messages(&result.messages, world);

@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
+    action::{ActionInteractionResult, InteractingAction},
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
@@ -421,6 +422,32 @@ impl Action for ChangeRangeAction {
     }
 }
 
+impl InteractingAction for ChangeRangeAction {
+    fn get_interaction_target(&self) -> Option<Entity> {
+        Some(self.target)
+    }
+
+    fn interact_with(&self, action: &dyn Action, world: &mut World) -> ActionInteractionResult {
+        let action_any = action as &dyn Any;
+
+        let Some(other_change_range_action) = action_any.downcast_ref::<ChangeRangeAction>() else {
+            return ActionInteractionResult::NeitherPerformed;
+        };
+
+        if other_change_range_action.direction == self.direction {
+            // TODO can just change the range here
+            let result_builder_1 = ActionResult::builder();
+            let result_builder_2 = ActionResult::builder();
+            return ActionInteractionResult::BothPerformed(
+                result_builder_1.build_complete_should_tick(true),
+                result_builder_2.build_complete_should_tick(true),
+            );
+        }
+
+        ActionInteractionResult::NeitherPerformed
+    }
+}
+
 /// Verifies that the range can actually be changed in the requested direction.
 pub fn verify_range_can_be_changed(
     notification: &Notification<VerifyActionNotification, ChangeRangeAction>,
@@ -464,30 +491,6 @@ pub fn verify_range_can_be_changed(
 //TODO what about an InteractingAction type, with an interacts_with function that determines whether it should interact, and an interact_with function that handles the interaction with the provided action?
 // the problem is that if it interacts with an action other than itself, you'd have to arbitrarily decide which action to put the interaction on, and the other side would have to claim it doesn't interact...maybe that's fine?
 // but if it interacts with itself, how do you make sure you don't run the interaction twice?
-
-enum ActionInteractionResult {
-    /// The actions interacted and they can both be considered to have been performed
-    Interacted,
-    /// The actions did not interact and therefore have not been performed
-    DidNotInteract,
-}
-
-fn interact_with(
-    itself: ChangeRangeAction,
-    action: &dyn Action,
-    world: &mut World,
-) -> ActionInteractionResult {
-    let action_any = action as &dyn Any;
-
-    if let Some(change_range_action) = action_any.downcast_ref::<ChangeRangeAction>() {
-        if change_range_action.direction == itself.direction {
-            // can just change the range here
-            return ActionInteractionResult::Interacted;
-        }
-    }
-
-    ActionInteractionResult::DidNotInteract
-}
 
 //TODO move to a common place
 pub struct InteractingActions<A: Action, B: Action> {
