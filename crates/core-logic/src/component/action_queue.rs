@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action,
+    action::{Action, ActionResult},
     component::{Attribute, Player, Stats},
     notification::{NotificationType, ReturningNotificationType},
     send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
@@ -317,34 +317,35 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
 
-            if let Some(mut action) = determine_action_to_perform(entity, world, |_| true) {
+            if let Some(action) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
-                //TODO try action interactions here first
-                let mut result = action.perform(entity, world);
+                let results_for_this_action = perform_action(action, entity, world);
                 any_actions_performed = true;
-                send_messages(&result.messages, world);
-                action.send_after_perform_notification(
-                    AfterActionPerformNotification {
-                        performing_entity: entity,
-                        action_complete: result.is_complete,
-                        action_successful: result.was_successful,
-                    },
-                    world,
-                );
-
-                if result.is_complete {
-                    action.send_end_notification(
-                        ActionEndNotification {
+                for (performed_action, mut result) in results_for_this_action {
+                    send_messages(&result.messages, world);
+                    performed_action.send_after_perform_notification(
+                        AfterActionPerformNotification {
                             performing_entity: entity,
-                            action_interrupted: false,
+                            action_complete: result.is_complete,
+                            action_successful: result.was_successful,
                         },
                         world,
                     );
+
+                    if result.is_complete {
+                        performed_action.send_end_notification(
+                            ActionEndNotification {
+                                performing_entity: entity,
+                                action_interrupted: false,
+                            },
+                            world,
+                        );
+                    }
+
+                    result.post_effects.drain(..).for_each(|f| f(world));
+
+                    results.push((entity, performed_action, result));
                 }
-
-                result.post_effects.drain(..).for_each(|f| f(world));
-
-                results.push((entity, action, result));
             }
         }
 
@@ -469,6 +470,17 @@ fn determine_action_to_perform(
             continue;
         }
     }
+}
+
+/// Performs an action, dealing with any interactions it may have.
+fn perform_action(
+    mut action: Box<dyn Action>,
+    performing_entity: Entity,
+    world: &mut World,
+) -> Vec<(Box<dyn Action>, ActionResult)> {
+    //TODO deal with interactions if there are any
+    let result = action.perform(performing_entity, world);
+    vec![(action, result)]
 }
 
 /// Starting at the beginning of the provided entity's action queue, performs actions that don't require a tick until one that does require a tick,
