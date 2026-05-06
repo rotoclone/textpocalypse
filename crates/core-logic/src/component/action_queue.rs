@@ -313,6 +313,9 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
         let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
 
         let mut results = Vec::new();
+
+        //TODO deal with interacting actions
+
         for entity in entities_with_actions {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
@@ -479,6 +482,9 @@ fn perform_action(
     world: &mut World,
 ) -> Vec<(Box<dyn Action>, ActionResult)> {
     //TODO deal with interactions if there are any
+    // things to worry about with interactions:
+    // * make sure each entity only has a max of one action performed (avoid interactions back and forth performing a bunch of actions for the same two entities)
+    // * make sure all the interactions are done first, since one entity might have an action that doesn't interact with anything, but another entity that goes later could have an action that interacts with that one. So if the first entity's action gets performed by itself, the other entity won't have a chance to interact
     let result = action.perform(performing_entity, world);
     vec![(action, result)]
 }

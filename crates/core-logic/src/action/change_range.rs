@@ -436,11 +436,9 @@ impl InteractingAction for ChangeRangeAction {
 
         if other_change_range_action.direction == self.direction {
             // TODO can just change the range here
-            let result_builder_1 = ActionResult::builder();
-            let result_builder_2 = ActionResult::builder();
+            let result_builder = ActionResult::builder();
             return ActionInteractionResult::BothPerformed(
-                result_builder_1.build_complete_should_tick(true),
-                result_builder_2.build_complete_should_tick(true),
+                result_builder.build_complete_should_tick(true),
             );
         }
 

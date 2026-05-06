@@ -516,11 +516,13 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
 /// The result of attempting to have two actions interact.
 enum ActionInteractionResult {
     /// The actions interacted and they can both be considered to have been performed
-    BothPerformed(ActionResult, ActionResult),
+    BothPerformed(ActionResult),
     /// The actions did not interact and therefore have not been performed
     NeitherPerformed,
 }
 
+/// Trait for actions to implement if they can interact with other actions.
+/// TODO make this more dynamic, like a Resource, so mods can add interactions between existing actions
 pub trait InteractingAction: Action {
     /// Returns the entity that could have a queued action that this action could interact with.
     fn get_interaction_target(&self) -> Option<Entity>;
