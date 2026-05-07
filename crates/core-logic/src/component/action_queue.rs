@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use bevy_ecs::prelude::*;
 use log::debug;
@@ -312,43 +312,60 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
         let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
 
+        let mut entity_to_action = HashMap::new();
+        for entity in &entities_with_actions {
+            if let Some(action) = determine_action_to_perform(*entity, world, |_| true) {
+                entity_to_action.insert(*entity, action);
+            }
+        }
+
         let mut results = Vec::new();
+        let mut entities_with_performed_actions = HashSet::new();
 
-        //TODO deal with interacting actions
+        // perform any interacting actions first
+        for (entity, action) in entity_to_action {
+            for target_entity in get_interaction_targets(action, world) {
+                if let Some(other_action) = entity_to_action.get(target_entity) {
+                    if let Some((this_result, other_result)) =
+                        try_interact(entity, action, target_entity, other_action)
+                    {
+                        any_actions_performed = true;
 
-        for entity in entities_with_actions {
+                        handle_action_result(entity, action.as_ref(), this_result, world);
+                        handle_action_result(
+                            target_entity,
+                            other_action.as_ref(),
+                            other_result,
+                            world,
+                        );
+
+                        results.push((entity, action, this_result));
+                        results.push((target_entity, other_action, other_result));
+
+                        entities_with_performed_actions.insert(entity);
+                        entities_with_performed_actions.insert(target_entity);
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        for entity in entities_with_actions
+            .into_iter()
+            .filter(|e| !entities_with_performed_actions.contains(e))
+        {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
 
             if let Some(action) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
-                let results_for_this_action = perform_action(action, entity, world);
+                let result = action.perform(entity, world);
                 any_actions_performed = true;
-                for (performed_action, mut result) in results_for_this_action {
-                    send_messages(&result.messages, world);
-                    performed_action.send_after_perform_notification(
-                        AfterActionPerformNotification {
-                            performing_entity: entity,
-                            action_complete: result.is_complete,
-                            action_successful: result.was_successful,
-                        },
-                        world,
-                    );
 
-                    if result.is_complete {
-                        performed_action.send_end_notification(
-                            ActionEndNotification {
-                                performing_entity: entity,
-                                action_interrupted: false,
-                            },
-                            world,
-                        );
-                    }
+                handle_action_result(entity, action, result, world);
 
-                    result.post_effects.drain(..).for_each(|f| f(world));
-
-                    results.push((entity, performed_action, result));
-                }
+                results.push((entity, action, result));
             }
         }
 
@@ -473,6 +490,41 @@ fn determine_action_to_perform(
             continue;
         }
     }
+}
+
+/// Finds entities that could have actions that could interact with the provided action.
+fn get_interaction_targets(action: &dyn Action, world: &World) -> Vec<Entity> {
+    todo!() //TODO
+}
+
+/// TODO doc
+fn handle_action_result(
+    entity: Entity,
+    action: &dyn Action,
+    mut result: ActionResult,
+    world: &mut World,
+) {
+    send_messages(&result.messages, world);
+    action.send_after_perform_notification(
+        AfterActionPerformNotification {
+            performing_entity: entity,
+            action_complete: result.is_complete,
+            action_successful: result.was_successful,
+        },
+        world,
+    );
+
+    if result.is_complete {
+        action.send_end_notification(
+            ActionEndNotification {
+                performing_entity: entity,
+                action_interrupted: false,
+            },
+            world,
+        );
+    }
+
+    result.post_effects.drain(..).for_each(|f| f(world));
 }
 
 /// Performs an action, dealing with any interactions it may have.
