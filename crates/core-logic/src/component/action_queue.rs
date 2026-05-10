@@ -325,43 +325,57 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
         let mut entities_with_performed_actions = HashSet::new();
 
         // perform any interacting actions first
-        for entity in entities_with_actions {
+        for entity in &entities_with_actions {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
-            perform_tickless_actions(entity, world);
+            perform_tickless_actions(*entity, world);
 
-            let Some((action, state)) =
-                determine_action_to_perform(entity, world, |a| is_interacting_action(a, world))
-            else {
+            let Some((action, state)) = determine_action_to_perform(*entity, world, |a, w| {
+                is_interacting_action(a.as_ref(), w)
+            }) else {
                 continue;
             };
 
-            let Some(target_entity) = get_interaction_target(action, world) else {
+            let Some(target_entity) = get_interaction_target(action.as_ref(), world) else {
                 // put back the action since it's not going to be performed
-                put_action_back_in_queue(action, state, entity, world);
+                put_action_back_in_queue(action, state, *entity, world);
                 continue;
             };
 
             let Some((other_action, other_state)) =
-                determine_action_to_perform(target_entity, world, |_| true)
+                determine_action_to_perform(target_entity, world, |_, _| true)
             else {
                 // put back the action since it's not going to be performed
-                put_action_back_in_queue(action, state, entity, world);
+                put_action_back_in_queue(action, state, *entity, world);
                 continue;
             };
 
-            let Some((this_result, other_result)) =
-                try_interact(entity, action, target_entity, other_action)
-            else {
+            let Some((mut this_result, mut other_result)) = try_interact(
+                *entity,
+                action.as_ref(),
+                target_entity,
+                other_action.as_ref(),
+                world,
+            ) else {
                 // put back the actions since they weren't performed
-                put_action_back_in_queue(action, state, entity, world);
+                put_action_back_in_queue(action, state, *entity, world);
                 put_action_back_in_queue(other_action, other_state, target_entity, world);
                 continue;
             };
 
-            results.push((entity, action, this_result));
+            any_actions_performed = true;
+
+            handle_action_result(*entity, action.as_ref(), &mut this_result, world);
+            handle_action_result(
+                target_entity,
+                other_action.as_ref(),
+                &mut other_result,
+                world,
+            );
+
+            results.push((*entity, action, this_result));
             results.push((target_entity, other_action, other_result));
 
-            entities_with_performed_actions.insert(entity);
+            entities_with_performed_actions.insert(*entity);
             entities_with_performed_actions.insert(target_entity);
         }
 
@@ -416,12 +430,12 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
 
-            if let Some((action, _)) = determine_action_to_perform(entity, world, |_| true) {
+            if let Some((mut action, _)) = determine_action_to_perform(entity, world, |_, _| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
-                let result = action.perform(entity, world);
+                let mut result = action.perform(entity, world);
                 any_actions_performed = true;
 
-                handle_action_result(entity, action, result, world);
+                handle_action_result(entity, action.as_ref(), &mut result, world);
 
                 results.push((entity, action, result));
             }
@@ -481,11 +495,14 @@ fn sort_entities_with_actions(mut entities: Vec<Entity>, world: &World) -> Vec<E
 }
 
 /// Determines the next action for the provided entity to perform and sends pre-perform notifications for it, if the next action for the entity to perform passes the provided filter function.
-fn determine_action_to_perform(
+fn determine_action_to_perform<F>(
     entity: Entity,
     world: &mut World,
-    filter_fn: fn(&Box<dyn Action>) -> bool,
-) -> Option<(Box<dyn Action>, ActionState)> {
+    filter_fn: F,
+) -> Option<(Box<dyn Action>, ActionState)>
+where
+    F: Fn(&Box<dyn Action>, &World) -> bool,
+{
     let mut loops = 0;
     loop {
         if loops >= MAX_ACTION_NOTIFICATION_LOOPS {
@@ -499,7 +516,7 @@ fn determine_action_to_perform(
         if action_queue
             .actions
             .front()
-            .is_none_or(|(action, _)| !filter_fn(action))
+            .is_none_or(|(action, _)| !filter_fn(action, world))
         {
             return None;
         }
@@ -565,8 +582,25 @@ fn put_action_back_in_queue(
     }
 }
 
-/// Finds entities that could have actions that could interact with the provided action.
-fn get_interaction_targets(action: &dyn Action, world: &World) -> Vec<Entity> {
+/// Determines whether an action can interact with other actions.
+fn is_interacting_action(action: &dyn Action, world: &World) -> bool {
+    todo!() //TODO
+}
+
+/// Finds the entity that could have an action that could interact with the provided action.
+fn get_interaction_target(action: &dyn Action, world: &World) -> Option<Entity> {
+    todo!() //TODO
+}
+
+/// Attempts to have the 2 provided actions performed by the 2 provided entities interact.
+/// Returns `Some((action_1_result, action_2_result))` if the actions interacted, `None` otherwise.
+fn try_interact(
+    entity_1: Entity,
+    action_1: &dyn Action,
+    entity_2: Entity,
+    action_2: &dyn Action,
+    world: &mut World,
+) -> Option<(ActionResult, ActionResult)> {
     todo!() //TODO
 }
 
@@ -574,7 +608,7 @@ fn get_interaction_targets(action: &dyn Action, world: &World) -> Vec<Entity> {
 fn handle_action_result(
     entity: Entity,
     action: &dyn Action,
-    mut result: ActionResult,
+    result: &mut ActionResult,
     world: &mut World,
 ) {
     send_messages(&result.messages, world);
@@ -621,8 +655,8 @@ fn perform_action(
 fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
     let mut any_actions_performed = false;
     loop {
-        if let Some(mut action) =
-            determine_action_to_perform(entity, world, |action| !action.may_require_tick())
+        if let Some((mut action, _)) =
+            determine_action_to_perform(entity, world, |action, _| !action.may_require_tick())
         {
             debug!("Entity {entity:?} is performing action {action:?}");
             let mut result = action.perform(entity, world);
