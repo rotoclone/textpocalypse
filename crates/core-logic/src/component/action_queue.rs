@@ -312,20 +312,63 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
         let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
 
+        /* TODO remove
         let mut entity_to_action = HashMap::new();
         for entity in &entities_with_actions {
             if let Some(action) = determine_action_to_perform(*entity, world, |_| true) {
                 entity_to_action.insert(*entity, action);
             }
         }
+        */
 
         let mut results = Vec::new();
         let mut entities_with_performed_actions = HashSet::new();
 
         // perform any interacting actions first
-        for (entity, action) in entity_to_action {
-            for target_entity in get_interaction_targets(action, world) {
-                if let Some(other_action) = entity_to_action.get(target_entity) {
+        for entity in entities_with_actions {
+            // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
+            perform_tickless_actions(entity, world);
+
+            let Some((action, state)) =
+                determine_action_to_perform(entity, world, |a| is_interacting_action(a, world))
+            else {
+                continue;
+            };
+
+            let Some(target_entity) = get_interaction_target(action, world) else {
+                // put back the action since it's not going to be performed
+                put_action_back_in_queue(action, state, entity, world);
+                continue;
+            };
+
+            let Some((other_action, other_state)) =
+                determine_action_to_perform(target_entity, world, |_| true)
+            else {
+                // put back the action since it's not going to be performed
+                put_action_back_in_queue(action, state, entity, world);
+                continue;
+            };
+
+            let Some((this_result, other_result)) =
+                try_interact(entity, action, target_entity, other_action)
+            else {
+                // put back the actions since they weren't performed
+                put_action_back_in_queue(action, state, entity, world);
+                put_action_back_in_queue(other_action, other_state, target_entity, world);
+                continue;
+            };
+
+            results.push((entity, action, this_result));
+            results.push((target_entity, other_action, other_result));
+
+            entities_with_performed_actions.insert(entity);
+            entities_with_performed_actions.insert(target_entity);
+        }
+
+        /* TODO remove
+        for (entity, (action, _)) in entity_to_action {
+            for target_entity in get_interaction_targets(action.as_ref(), world) {
+                if let Some((other_action, _)) = entity_to_action.get(&target_entity) {
                     if let Some((this_result, other_result)) =
                         try_interact(entity, action, target_entity, other_action)
                     {
@@ -351,6 +394,21 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             }
         }
 
+        // put back any actions that didn't get performed due to interactions, so `determine_action_to_perform` below can see the correct ones
+        for (entity, (action, state)) in entity_to_action
+            .into_iter()
+            .filter(|(e, _)| !entities_with_performed_actions.contains(e))
+        {
+            let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) else {
+                // this entity doesn't have an action queue somehow, so I guess just drop the action
+                continue;
+            };
+
+            // `action` came from the front of the queue (via `determine_action_to_perform`), so put it back
+            action_queue.actions.push_front((action, state));
+        }
+        */
+
         for entity in entities_with_actions
             .into_iter()
             .filter(|e| !entities_with_performed_actions.contains(e))
@@ -358,7 +416,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
 
-            if let Some(action) = determine_action_to_perform(entity, world, |_| true) {
+            if let Some((action, _)) = determine_action_to_perform(entity, world, |_| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
                 let result = action.perform(entity, world);
                 any_actions_performed = true;
@@ -427,7 +485,7 @@ fn determine_action_to_perform(
     entity: Entity,
     world: &mut World,
     filter_fn: fn(&Box<dyn Action>) -> bool,
-) -> Option<Box<dyn Action>> {
+) -> Option<(Box<dyn Action>, ActionState)> {
     let mut loops = 0;
     loop {
         if loops >= MAX_ACTION_NOTIFICATION_LOOPS {
@@ -483,12 +541,27 @@ fn determine_action_to_perform(
         }
 
         if is_valid {
-            return Some(action);
+            return Some((action, state));
         } else {
             debug!("action {action:?} is invalid, canceling");
             // don't put the action back, it's invalid so just drop it
             continue;
         }
+    }
+}
+
+/// Puts an action back in the queue of `entity`.
+///
+/// This is for when an action was retrieved from `determine_action_to_perform`, but then it wasn't actually performed.
+fn put_action_back_in_queue(
+    action: Box<dyn Action>,
+    state: ActionState,
+    entity: Entity,
+    world: &mut World,
+) {
+    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+        // `action` came from the front of the queue (via `determine_action_to_perform`)
+        action_queue.actions.push_front((action, state));
     }
 }
 
