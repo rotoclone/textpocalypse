@@ -312,15 +312,6 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
         let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
 
-        /* TODO remove
-        let mut entity_to_action = HashMap::new();
-        for entity in &entities_with_actions {
-            if let Some(action) = determine_action_to_perform(*entity, world, |_| true) {
-                entity_to_action.insert(*entity, action);
-            }
-        }
-        */
-
         let mut results = Vec::new();
         let mut entities_with_performed_actions = HashSet::new();
 
@@ -378,50 +369,6 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             entities_with_performed_actions.insert(*entity);
             entities_with_performed_actions.insert(target_entity);
         }
-
-        /* TODO remove
-        for (entity, (action, _)) in entity_to_action {
-            for target_entity in get_interaction_targets(action.as_ref(), world) {
-                if let Some((other_action, _)) = entity_to_action.get(&target_entity) {
-                    if let Some((this_result, other_result)) =
-                        try_interact(entity, action, target_entity, other_action)
-                    {
-                        any_actions_performed = true;
-
-                        handle_action_result(entity, action.as_ref(), this_result, world);
-                        handle_action_result(
-                            target_entity,
-                            other_action.as_ref(),
-                            other_result,
-                            world,
-                        );
-
-                        results.push((entity, action, this_result));
-                        results.push((target_entity, other_action, other_result));
-
-                        entities_with_performed_actions.insert(entity);
-                        entities_with_performed_actions.insert(target_entity);
-
-                        break;
-                    }
-                }
-            }
-        }
-
-        // put back any actions that didn't get performed due to interactions, so `determine_action_to_perform` below can see the correct ones
-        for (entity, (action, state)) in entity_to_action
-            .into_iter()
-            .filter(|(e, _)| !entities_with_performed_actions.contains(e))
-        {
-            let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) else {
-                // this entity doesn't have an action queue somehow, so I guess just drop the action
-                continue;
-            };
-
-            // `action` came from the front of the queue (via `determine_action_to_perform`), so put it back
-            action_queue.actions.push_front((action, state));
-        }
-        */
 
         for entity in entities_with_actions
             .into_iter()
@@ -513,6 +460,9 @@ where
         let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
         action_queue.update_queue();
 
+        // re-borrow action queue as immutable so the filter fn can take in an immutable world
+        let action_queue = world.get::<ActionQueue>(entity)?;
+
         if action_queue
             .actions
             .front()
@@ -521,6 +471,7 @@ where
             return None;
         }
 
+        let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
         let (action, state) = action_queue.actions.pop_front()?;
 
         action.send_before_notification(

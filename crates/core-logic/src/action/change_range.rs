@@ -4,7 +4,6 @@ use bevy_ecs::prelude::*;
 use nonempty::nonempty;
 
 use crate::{
-    action::{ActionInteractionResult, InteractingAction},
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
@@ -422,6 +421,7 @@ impl Action for ChangeRangeAction {
     }
 }
 
+/* TODO
 impl InteractingAction for ChangeRangeAction {
     fn get_interaction_target(&self) -> Option<Entity> {
         Some(self.target)
@@ -445,6 +445,7 @@ impl InteractingAction for ChangeRangeAction {
         ActionInteractionResult::NeitherPerformed
     }
 }
+    */
 
 /// Verifies that the range can actually be changed in the requested direction.
 pub fn verify_range_can_be_changed(
