@@ -21,7 +21,7 @@ pub struct ActionInteractionContext<T: Action> {
 
 impl<T: Action> ActionInteractionContext<T> {
     /// Casts `action_2` to `O`, if possible.
-    pub fn get_other_action_as<O>(&self) -> Option<&O> {
+    pub fn get_other_action_as<O: 'static>(&self) -> Option<&O> {
         let action_any = &self.action_2 as &dyn Any;
         action_any.downcast_ref()
     }

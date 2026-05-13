@@ -6,6 +6,7 @@ use std::sync::Mutex;
 
 use crate::component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult};
 use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
+use crate::resource::{ActionInteractionHandlers, ActionInteractionResult};
 use crate::{
     combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
@@ -511,6 +512,21 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
 
     /// Sends a notification that this action is done being performed.
     fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World);
+
+    /// Determines whether there are any registered interaction handlers for this type of action.
+    fn has_interaction_handlers(&self, world: &World) -> bool;
+
+    /// Finds the entity that could have an action that could interact with this action.
+    fn get_interaction_target(&self, world: &World) -> Option<Entity>;
+
+    /// Attempts to have this action interact with another action.
+    fn try_interact(
+        &self,
+        performing_entity: Entity,
+        other_performing_entity: Entity,
+        other_action: &dyn Action,
+        world: &mut World,
+    ) -> ActionInteractionResult;
 }
 
 /// Sends notifications about actions.

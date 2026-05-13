@@ -7,6 +7,7 @@ use crate::{
     action::{Action, ActionResult},
     component::{Attribute, Player, Stats},
     notification::{NotificationType, ReturningNotificationType},
+    resource::ActionInteractionResult,
     send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
 };
 
@@ -320,13 +321,13 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(*entity, world);
 
-            let Some((action, state)) = determine_action_to_perform(*entity, world, |a, w| {
-                is_interacting_action(a.as_ref(), w)
-            }) else {
+            let Some((action, state)) =
+                determine_action_to_perform(*entity, world, |a, w| a.has_interaction_handlers(w))
+            else {
                 continue;
             };
 
-            let Some(target_entity) = get_interaction_target(action.as_ref(), world) else {
+            let Some(target_entity) = action.get_interaction_target(world) else {
                 // put back the action since it's not going to be performed
                 put_action_back_in_queue(action, state, *entity, world);
                 continue;
@@ -340,13 +341,9 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
                 continue;
             };
 
-            let Some((mut this_result, mut other_result)) = try_interact(
-                *entity,
-                action.as_ref(),
-                target_entity,
-                other_action.as_ref(),
-                world,
-            ) else {
+            let ActionInteractionResult::Interacted((mut this_result, mut other_result)) =
+                action.try_interact(*entity, target_entity, other_action.as_ref(), world)
+            else {
                 // put back the actions since they weren't performed
                 put_action_back_in_queue(action, state, *entity, world);
                 put_action_back_in_queue(other_action, other_state, target_entity, world);
@@ -531,28 +528,6 @@ fn put_action_back_in_queue(
         // `action` came from the front of the queue (via `determine_action_to_perform`)
         action_queue.actions.push_front((action, state));
     }
-}
-
-/// Determines whether an action can interact with other actions.
-fn is_interacting_action(action: &dyn Action, world: &World) -> bool {
-    todo!() //TODO
-}
-
-/// Finds the entity that could have an action that could interact with the provided action.
-fn get_interaction_target(action: &dyn Action, world: &World) -> Option<Entity> {
-    todo!() //TODO
-}
-
-/// Attempts to have the 2 provided actions performed by the 2 provided entities interact.
-/// Returns `Some((action_1_result, action_2_result))` if the actions interacted, `None` otherwise.
-fn try_interact(
-    entity_1: Entity,
-    action_1: &dyn Action,
-    entity_2: Entity,
-    action_2: &dyn Action,
-    world: &mut World,
-) -> Option<(ActionResult, ActionResult)> {
-    todo!() //TODO
 }
 
 /// TODO doc

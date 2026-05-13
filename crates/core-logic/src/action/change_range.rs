@@ -17,6 +17,7 @@ use crate::{
     },
     input_parser::{InputParseError, InputParser},
     notification::Notification,
+    resource::ActionInteractionHandlers,
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
@@ -418,6 +419,12 @@ impl Action for ChangeRangeAction {
     fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
         self.notification_sender
             .send_end_notification(notification_type, self, world);
+    }
+
+    fn get_interaction_handlers(&self, world: &World) -> Option<UntypedActionInteractionHandlers> {
+        world
+            .get_resource::<ActionInteractionHandlers<Self>>()
+            .map(|handlers| handlers.into())
     }
 }
 
