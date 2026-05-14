@@ -341,7 +341,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
                 continue;
             };
 
-            let ActionInteractionResult::Interacted((mut this_result, mut other_result)) =
+            let ActionInteractionResult::Interacted(mut this_result, mut other_result) =
                 action.try_interact(*entity, target_entity, other_action.as_ref(), world)
             else {
                 // put back the actions since they weren't performed

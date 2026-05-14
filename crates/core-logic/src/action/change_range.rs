@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use nonempty::nonempty;
@@ -17,7 +17,7 @@ use crate::{
     },
     input_parser::{InputParseError, InputParser},
     notification::Notification,
-    resource::ActionInteractionHandlers,
+    resource::{ActionInteractionContext, ActionInteractionHandlers, ActionInteractionResult},
     ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
     DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
     MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
@@ -421,10 +421,45 @@ impl Action for ChangeRangeAction {
             .send_end_notification(notification_type, self, world);
     }
 
-    fn get_interaction_handlers(&self, world: &World) -> Option<UntypedActionInteractionHandlers> {
-        world
+    fn has_interaction_handlers(&self, world: &World) -> bool {
+        world.contains_resource::<ActionInteractionHandlers<Self>>()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
+    }
+
+    fn try_interact(
+        &self,
+        performing_entity: Entity,
+        other_performing_entity: Entity,
+        other_action: &dyn Action,
+        world: &mut World,
+    ) -> ActionInteractionResult {
+        let Some(handlers) = world
             .get_resource::<ActionInteractionHandlers<Self>>()
-            .map(|handlers| handlers.into())
+            .cloned()
+        else {
+            return ActionInteractionResult::DidNotInteract;
+        };
+
+        for handler in handlers.handlers {
+            let result = handler(
+                ActionInteractionContext {
+                    performing_entity_1: performing_entity,
+                    action_1: self,
+                    performing_entity_2: other_performing_entity,
+                    action_2: other_action,
+                },
+                world,
+            );
+
+            if result.interacted() {
+                return result;
+            }
+        }
+
+        ActionInteractionResult::DidNotInteract
     }
 }
 
