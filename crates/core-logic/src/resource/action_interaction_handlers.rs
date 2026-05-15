@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use bevy_ecs::prelude::*;
 
 use crate::action::{Action, ActionResult};
@@ -17,14 +15,6 @@ pub struct ActionInteractionContext<'a, 'b, T: Action> {
     pub performing_entity_2: Entity,
     /// The second action involved in the potential interaction
     pub action_2: &'b dyn Action,
-}
-
-impl<'a, 'b, T: Action> ActionInteractionContext<'a, 'b, T> {
-    /// Casts `action_2` to `O`, if possible.
-    pub fn get_other_action_as<O: 'static>(&self) -> Option<&O> {
-        let action_any = &self.action_2 as &dyn Any;
-        action_any.downcast_ref()
-    }
 }
 
 /// The result of attempting to have two actions interact.
@@ -48,6 +38,7 @@ impl ActionInteractionResult {
 //TODO doc
 #[derive(Resource)]
 pub struct ActionInteractionHandlers<T: Action> {
+    //TODO add IDs so handlers can be removed if needed
     pub handlers: Vec<ActionInteractionHandler<T>>,
 }
 

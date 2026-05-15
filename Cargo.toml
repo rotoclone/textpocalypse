@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["crates/*"]
+members = ["crates/core-logic", "crates/core-logic/core-logic-derive"]
 
 [dependencies]
 core-logic = { path = "crates/core-logic" }

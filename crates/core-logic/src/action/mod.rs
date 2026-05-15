@@ -8,8 +8,8 @@ use crate::component::{ActionEndNotification, AfterActionPerformNotification, Ve
 use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
 use crate::resource::{ActionInteractionHandlers, ActionInteractionResult};
 use crate::{
-    combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
-    MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
+    BeforeActionNotification, DynamicMessage, DynamicMessageLocation, MessageCategory,
+    MessageDelay, MessageTokens, VerifyActionNotification, combat_utils,
 };
 use crate::{GameMessage, World};
 
@@ -475,7 +475,7 @@ pub enum ActionTag {
     Custom(String),
 }
 
-pub trait Action: std::fmt::Debug + Send + Sync + Any {
+pub trait Action: ActionBoilerplate + std::fmt::Debug + Send + Sync + Any {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
 
@@ -489,6 +489,15 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
     /// Returns the tags of this action, so it can be identified.
     fn get_tags(&self) -> HashSet<ActionTag>;
 
+    /* TODO
+
+    /// Finds the entity that could have an action that could interact with this action.
+    fn get_interaction_target(&self, world: &World) -> Option<Entity>;
+     */
+}
+
+//TODO doc
+pub trait ActionBoilerplate {
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(
         &self,
@@ -515,9 +524,6 @@ pub trait Action: std::fmt::Debug + Send + Sync + Any {
 
     /// Determines whether there are any registered interaction handlers for this type of action.
     fn has_interaction_handlers(&self, world: &World) -> bool;
-
-    /// Finds the entity that could have an action that could interact with this action.
-    fn get_interaction_target(&self, world: &World) -> Option<Entity>;
 
     /// Attempts to have this action interact with another action.
     fn try_interact(

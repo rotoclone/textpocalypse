@@ -1,26 +1,24 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{any::Any, collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
+    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, STANDARD_CHECK_XP,
+    SurroundingsMessageCategory, VerifyActionNotification,
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
-        entity_part_builder, literal_part, one_of_literal_part, CommandFormat,
-        CommandFormatParseError, CommandPartId, CommandPartValidateError,
-        CommandPartValidateResult, PartValidatorContext,
+        CommandFormat, CommandFormatParseError, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext, entity_part_builder, literal_part,
+        one_of_literal_part,
     },
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, Attribute, CombatState, Stats,
-        VerifyResult,
-    },
+    component::{Attribute, CombatState, Stats, VerifyResult},
     input_parser::{InputParseError, InputParser},
     notification::Notification,
-    resource::{ActionInteractionContext, ActionInteractionHandlers, ActionInteractionResult},
-    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
-    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
+    resource::{ActionInteractionContext, ActionInteractionResult},
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -238,7 +236,7 @@ fn parse_with_optional_target(
 }
 
 /// Makes an entity attempt to change the range to another entity it's in combat with.
-#[derive(Debug)]
+#[derive(Debug, ActionBoilerplate)]
 pub struct ChangeRangeAction {
     pub target: Entity,
     pub direction: RangeChangeDirection,
@@ -389,78 +387,36 @@ impl Action for ChangeRangeAction {
         [ActionTag::Combat].into()
     }
 
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
-    }
-
-    fn has_interaction_handlers(&self, world: &World) -> bool {
-        world.contains_resource::<ActionInteractionHandlers<Self>>()
-    }
-
+    /* TODO
     fn get_interaction_target(&self, _: &World) -> Option<Entity> {
         Some(self.target)
     }
+    */
+}
 
-    fn try_interact(
-        &self,
-        performing_entity: Entity,
-        other_performing_entity: Entity,
-        other_action: &dyn Action,
-        world: &mut World,
-    ) -> ActionInteractionResult {
-        let Some(handlers) = world
-            .get_resource::<ActionInteractionHandlers<Self>>()
-            .cloned()
-        else {
-            return ActionInteractionResult::DidNotInteract;
-        };
+/// Handles interactions between 2 change range actions.
+///
+/// If both actions are trying to change range in the same direction, they'll just happen without any checks.
+fn change_range_interaction_handler(
+    context: ActionInteractionContext<ChangeRangeAction>,
+    world: &mut World,
+) -> ActionInteractionResult {
+    let action_any = context.action_2 as &dyn Any;
+    let Some(other_change_range_action) = action_any.downcast_ref::<ChangeRangeAction>() else {
+        return ActionInteractionResult::DidNotInteract;
+    };
 
-        for handler in handlers.handlers {
-            let result = handler(
-                ActionInteractionContext {
-                    performing_entity_1: performing_entity,
-                    action_1: self,
-                    performing_entity_2: other_performing_entity,
-                    action_2: other_action,
-                },
-                world,
-            );
-
-            if result.interacted() {
-                return result;
-            }
-        }
-
-        ActionInteractionResult::DidNotInteract
+    if other_change_range_action.direction == context.action_1.direction {
+        // TODO can just change the range here
+        let result_builder_1 = ActionResult::builder();
+        let result_builder_2 = ActionResult::builder();
+        return ActionInteractionResult::Interacted(
+            result_builder_1.build_complete_should_tick(true),
+            result_builder_2.build_complete_should_tick(true),
+        );
     }
+
+    ActionInteractionResult::DidNotInteract
 }
 
 /* TODO
@@ -527,23 +483,4 @@ pub fn verify_range_can_be_changed(
     }
 
     VerifyResult::valid()
-}
-
-//TODO what about an InteractingAction type, with an interacts_with function that determines whether it should interact, and an interact_with function that handles the interaction with the provided action?
-// the problem is that if it interacts with an action other than itself, you'd have to arbitrarily decide which action to put the interaction on, and the other side would have to claim it doesn't interact...maybe that's fine?
-// but if it interacts with itself, how do you make sure you don't run the interaction twice?
-
-//TODO move to a common place
-pub struct InteractingActions<A: Action, B: Action> {
-    action_1: A,
-    performing_entity_1: Entity,
-    action_2: B,
-    performing_entity_2: Entity,
-}
-
-pub fn change_range_interaction_handler(
-    actions: InteractingActions<ChangeRangeAction, ChangeRangeAction>,
-    world: &mut World,
-) {
-    //TODO
 }

@@ -314,13 +314,14 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
         let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
 
         let mut results = Vec::new();
-        let mut entities_with_performed_actions = HashSet::new();
+        let mut entities_with_performed_actions: HashSet<Entity> = HashSet::new();
 
         // perform any interacting actions first
         for entity in &entities_with_actions {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(*entity, world);
 
+            /* TODO uncomment
             let Some((action, state)) =
                 determine_action_to_perform(*entity, world, |a, w| a.has_interaction_handlers(w))
             else {
@@ -365,6 +366,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
             entities_with_performed_actions.insert(*entity);
             entities_with_performed_actions.insert(target_entity);
+            */
         }
 
         for entity in entities_with_actions

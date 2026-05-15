@@ -1,19 +1,19 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
-    check_for_hit,
+    ActionTag, AttackType, ChosenWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
+    WeaponMessages, check_for_hit,
     combat_utils::AttackCommandFormats,
     command_format::one_of_literal_part,
-    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult, Weapon},
+    component::Weapon,
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
-    parse_attack_input, ActionTag, AttackType, BeforeActionNotification, ChosenWeapon,
-    InternalMessageCategory, MessageCategory, MessageDelay, VerifyActionNotification,
-    WeaponMessages,
+    parse_attack_input,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -50,7 +50,7 @@ impl InputParser for AttackParser {
 }
 
 /// Makes an entity attack another entity.
-#[derive(Debug)]
+#[derive(Debug, ActionBoilerplate)]
 pub struct AttackAction {
     pub target: Entity,
     pub weapon: ChosenWeapon,
@@ -90,7 +90,7 @@ impl Action for AttackAction {
                         e,
                         result_builder,
                         world,
-                    )
+                    );
                 }
             };
 
@@ -111,7 +111,7 @@ impl Action for AttackAction {
                     e,
                     result_builder,
                     world,
-                )
+                );
             }
         };
 
@@ -145,38 +145,6 @@ impl Action for AttackAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

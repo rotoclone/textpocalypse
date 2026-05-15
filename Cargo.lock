@@ -317,6 +317,7 @@ name = "core-logic"
 version = "0.1.0"
 dependencies = [
  "bevy_ecs",
+ "core-logic-derive",
  "float-cmp",
  "flume",
  "itertools",
@@ -330,6 +331,14 @@ dependencies = [
  "regex",
  "strum",
  "voca_rs",
+]
+
+[[package]]
+name = "core-logic-derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
