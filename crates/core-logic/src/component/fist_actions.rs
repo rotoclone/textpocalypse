@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::{
@@ -12,12 +13,11 @@ use crate::{
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
     notification::ReturningNotificationHandlers,
-    parse_attack_input, Action, ActionEndNotification, ActionInterruptResult,
-    ActionNotificationSender, ActionResult, ActionTag, AfterActionPerformNotification, AttackType,
-    BasicTokens, BeforeActionNotification, BodyPart, ChosenWeapon, Description, DynamicMessage,
+    parse_attack_input, Action, ActionInterruptResult, ActionNotificationSender, ActionResult,
+    ActionTag, AttackType, BasicTokens, BodyPart, ChosenWeapon, Description, DynamicMessage,
     DynamicMessageLocation, IntegerExtensions, InternalMessageCategory, MessageCategory,
     MessageDelay, MessageFormat, NotificationHandlers, ParseCustomInput,
-    SurroundingsMessageCategory, VerifyActionNotification, VerifyResult, Weapon, WeaponMessages,
+    SurroundingsMessageCategory, Weapon, WeaponMessages,
 };
 
 /// A component that provides special attack actions for fists.
@@ -94,7 +94,7 @@ impl InputParser for UppercutParser {
     }
 }
 
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct UppercutAction {
     target: Entity,
     weapon: ChosenWeapon,
@@ -199,38 +199,6 @@ impl Action for UppercutAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
     }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
-    }
 }
 
 impl AttackType for UppercutAction {
@@ -293,7 +261,7 @@ impl InputParser for HaymakerParser {
     }
 }
 
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct HaymakerAction {
     target: Entity,
     weapon: ChosenWeapon,
@@ -438,38 +406,6 @@ impl Action for HaymakerAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

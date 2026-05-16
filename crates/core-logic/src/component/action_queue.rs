@@ -318,10 +318,13 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
         // perform any interacting actions first
         for entity in &entities_with_actions {
+            if entities_with_performed_actions.contains(entity) {
+                continue;
+            }
+
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(*entity, world);
 
-            /* TODO uncomment
             let Some((action, state)) =
                 determine_action_to_perform(*entity, world, |a, w| a.has_interaction_handlers(w))
             else {
@@ -333,6 +336,12 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
                 put_action_back_in_queue(action, state, *entity, world);
                 continue;
             };
+
+            if entities_with_performed_actions.contains(&target_entity) {
+                // the target entity already had an action performed this tick, so don't want to pull another action off its queue since that action should wait until next tick
+                put_action_back_in_queue(action, state, *entity, world);
+                continue;
+            }
 
             let Some((other_action, other_state)) =
                 determine_action_to_perform(target_entity, world, |_, _| true)
@@ -366,7 +375,6 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
             entities_with_performed_actions.insert(*entity);
             entities_with_performed_actions.insert(target_entity);
-            */
         }
 
         for entity in entities_with_actions
@@ -563,6 +571,7 @@ fn handle_action_result(
 }
 
 /// Performs an action, dealing with any interactions it may have.
+//TODO remove
 fn perform_action(
     mut action: Box<dyn Action>,
     performing_entity: Entity,

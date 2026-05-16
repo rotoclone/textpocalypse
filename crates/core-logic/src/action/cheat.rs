@@ -4,13 +4,13 @@ use bevy_ecs::prelude::*;
 use core_logic_derive::ActionBoilerplate;
 
 use crate::{
-    ActionTag, BasicTokens, CommandTarget, Description, MessageCategory, MessageDelay,
-    MessageFormat, NoTokens, Notification, Stat, Stats, VitalChange, VitalType, World, Xp,
-    XpAwardNotification,
-    command_format::{CommandFormat, CommandPartId, any_text_part, literal_part},
+    command_format::{any_text_part, literal_part, CommandFormat, CommandPartId},
     input_parser::{InputParseError, InputParser},
     resource::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
+    ActionTag, BasicTokens, CommandTarget, Description, MessageCategory, MessageDelay,
+    MessageFormat, NoTokens, Notification, Stat, Stats, VitalChange, VitalType, World, Xp,
+    XpAwardNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -58,7 +58,7 @@ impl InputParser for CheatParser {
 }
 
 /// Lets an entity do something they're not allowed to do.
-#[derive(Debug, ActionBoilerplate)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct CheatAction {
     pub command: String,
     pub args: Vec<String>,

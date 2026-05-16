@@ -5,15 +5,15 @@ use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
-    ActionTag, AttackType, ChosenWeapon, InternalMessageCategory, MessageCategory, MessageDelay,
-    WeaponMessages, check_for_hit,
+    check_for_hit,
     combat_utils::AttackCommandFormats,
     command_format::one_of_literal_part,
     component::Weapon,
     find_weapon, handle_begin_attack, handle_damage, handle_hit_error, handle_miss,
     handle_weapon_unusable_error,
     input_parser::{InputParseError, InputParser},
-    parse_attack_input,
+    parse_attack_input, ActionTag, AttackType, ChosenWeapon, InternalMessageCategory,
+    MessageCategory, MessageDelay, WeaponMessages,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -50,7 +50,7 @@ impl InputParser for AttackParser {
 }
 
 /// Makes an entity attack another entity.
-#[derive(Debug, ActionBoilerplate)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct AttackAction {
     pub target: Entity,
     pub weapon: ChosenWeapon,

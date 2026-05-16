@@ -4,6 +4,7 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use log::debug;
 use nonempty::nonempty;
 use regex::Regex;
@@ -15,15 +16,12 @@ use crate::{
         CommandFormatPart, CommandPartId, CommandPartValidateError, CommandPartValidateResult,
         PartValidatorContext,
     },
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, FluidContainer, FluidType,
-        VerifyResult, Volume,
-    },
+    component::{FluidContainer, FluidType, Volume},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     resource::get_fluid_name,
-    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
-    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -277,7 +275,7 @@ fn parse_pour_amount(input: &str) -> Result<PourAmount, String> {
 }
 
 /// Makes an entity pour some liquid from one fluid container to another.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct PourAction {
     pub source: Entity,
     pub target: Entity,
@@ -394,38 +392,6 @@ impl Action for PourAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

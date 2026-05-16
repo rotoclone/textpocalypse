@@ -6,10 +6,10 @@ use std::sync::Mutex;
 
 use crate::component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult};
 use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
-use crate::resource::{ActionInteractionHandlers, ActionInteractionResult};
+use crate::resource::ActionInteractionResult;
 use crate::{
-    BeforeActionNotification, DynamicMessage, DynamicMessageLocation, MessageCategory,
-    MessageDelay, MessageTokens, VerifyActionNotification, combat_utils,
+    combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
+    MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
 };
 use crate::{GameMessage, World};
 

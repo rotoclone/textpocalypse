@@ -4,6 +4,7 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 
 use crate::{
     checks::{CheckDifficulty, CheckModifiers, CheckResult, VsCheckParams, VsParticipant},
@@ -12,8 +13,8 @@ use crate::{
         CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     component::{
-        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatRange,
-        EquippedItems, Item, Location, Skill, Stats, VerifyResult, Weight,
+        ActionQueue, Attribute, CombatRange, EquippedItems, Item, Location, Skill, Stats,
+        VerifyResult, Weight,
     },
     find_owning_entity, handle_enter_combat,
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
@@ -187,7 +188,7 @@ fn is_strong_enough_to_throw(thrower: Entity, item: Entity, world: &World) -> bo
 }
 
 /// Makes an entity throw an item.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct ThrowAction {
     /// The item to throw
     pub item: Entity,
@@ -355,38 +356,6 @@ impl Action for ThrowAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

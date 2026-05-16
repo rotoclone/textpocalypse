@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
@@ -8,16 +9,13 @@ use crate::{
         entity_part_builder, literal_part, one_of_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, RemoveError, VerifyResult, Wearable,
-        WornItems,
-    },
+    component::{RemoveError, VerifyResult, Wearable, WornItems},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     is_living_entity,
     notification::Notification,
-    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
-    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification,
+    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -72,7 +70,7 @@ impl InputParser for RemoveParser {
 }
 
 /// Makes an entity remove an item it's wearing.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct RemoveAction {
     pub wearing_entity: Entity,
     pub target: Entity,
@@ -176,38 +174,6 @@ impl Action for RemoveAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
@@ -10,15 +11,15 @@ use crate::{
         CommandFormat, CommandPartId, DirectionMatchMode,
     },
     component::{
-        ActionEndNotification, ActionQueue, AfterActionPerformNotification, Attribute, CombatState,
-        Container, Location, Stats, VerifyResult,
+        ActionQueue, AfterActionPerformNotification, Attribute, CombatState, Container, Location,
+        Stats,
     },
     input_parser::{CommandTarget, InputParseError, InputParser},
     move_entity,
     notification::Notification,
-    ActionTag, BasicTokens, BeforeActionNotification, Direction, DynamicMessage,
-    DynamicMessageLocation, InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
-    SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
+    ActionTag, BasicTokens, Direction, DynamicMessage, DynamicMessageLocation,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, STANDARD_CHECK_XP,
 };
 
 use super::{
@@ -86,7 +87,7 @@ impl InputParser for MoveParser {
 }
 
 /// Makes an entity move somewhere.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct MoveAction {
     pub direction: Direction,
     pub notification_sender: ActionNotificationSender<Self>,
@@ -196,38 +197,6 @@ impl Action for MoveAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

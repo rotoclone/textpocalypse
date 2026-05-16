@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
@@ -10,18 +11,15 @@ use crate::{
         CommandFormat, CommandPartId, CommandPartValidateResult, PartParserContext,
         PartValidatorContext,
     },
-    component::{
-        ActionEndNotification, AfterActionPerformNotification, Container, Item, Location,
-        PortionMatched, VerifyResult,
-    },
+    component::{Container, Item, Location, PortionMatched, VerifyResult},
     find_owning_entity,
     found_entities::{FoundEntities, FoundEntitiesInContainer},
     input_parser::{CommandTargetName, InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::Notification,
-    ActionTag, BasicTokens, BeforeActionNotification, Description, DynamicMessage,
-    DynamicMessageLocation, GameMessage, InternalMessageCategory, MessageCategory, MessageDelay,
-    MessageFormat, SurroundingsMessageCategory, VerifyActionNotification, World,
+    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -421,7 +419,7 @@ impl InputParser for PutParser {
 }
 
 /// Makes an entity move an item between containers.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct PutAction {
     /// The item to move.
     pub item: Entity,
@@ -517,38 +515,6 @@ impl Action for PutAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

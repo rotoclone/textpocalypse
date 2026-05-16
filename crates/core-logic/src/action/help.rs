@@ -1,13 +1,12 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 
 use crate::{
     command_format::{literal_part, CommandFormat},
-    component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult},
     input_parser::{InputParseError, InputParser},
-    ActionTag, BeforeActionNotification, GameMessage, HelpDescription, VerifyActionNotification,
-    World,
+    ActionTag, GameMessage, HelpDescription, World,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -40,7 +39,7 @@ impl InputParser for HelpParser {
 }
 
 /// Shows an entity the help screen.
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 struct HelpAction {
     notification_sender: ActionNotificationSender<Self>,
 }
@@ -64,37 +63,5 @@ impl Action for HelpAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }

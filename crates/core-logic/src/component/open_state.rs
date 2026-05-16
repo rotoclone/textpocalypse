@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 
 use crate::{
     action::{
@@ -20,9 +21,8 @@ use crate::{
 };
 
 use super::{
-    description::DescribeAttributes, ActionEndNotification, ActionQueue,
-    AfterActionPerformNotification, AttributeDescriber, AttributeDescription, AttributeDetailLevel,
-    Connection, Container, Description, Location, ParseCustomInput,
+    description::DescribeAttributes, ActionQueue, AttributeDescriber, AttributeDescription,
+    AttributeDetailLevel, Connection, Container, Description, Location, ParseCustomInput,
 };
 
 static TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
@@ -73,7 +73,7 @@ impl InputParser for SlamParser {
     }
 }
 
-#[derive(Debug)]
+#[derive(ActionBoilerplate, Debug)]
 struct SlamAction {
     target: Entity,
     notification_sender: ActionNotificationSender<Self>,
@@ -165,38 +165,6 @@ impl Action for SlamAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
-    }
-
-    fn send_before_notification(
-        &self,
-        notification_type: BeforeActionNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_before_notification(notification_type, self, world);
-    }
-
-    fn send_verify_notification(
-        &self,
-        notification_type: VerifyActionNotification,
-        world: &mut World,
-    ) -> Vec<VerifyResult> {
-        self.notification_sender
-            .send_verify_notification(notification_type, self, world)
-    }
-
-    fn send_after_perform_notification(
-        &self,
-        notification_type: AfterActionPerformNotification,
-        world: &mut World,
-    ) {
-        self.notification_sender
-            .send_after_perform_notification(notification_type, self, world);
-    }
-
-    fn send_end_notification(&self, notification_type: ActionEndNotification, world: &mut World) {
-        self.notification_sender
-            .send_end_notification(notification_type, self, world);
     }
 }
 

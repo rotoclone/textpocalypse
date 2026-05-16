@@ -5,20 +5,20 @@ use core_logic_derive::ActionBoilerplate;
 use nonempty::nonempty;
 
 use crate::{
-    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat, STANDARD_CHECK_XP,
-    SurroundingsMessageCategory, VerifyActionNotification,
     checks::{CheckModifiers, VsCheckParams, VsParticipant},
     combat_utils::is_valid_attack_target,
     command_format::{
-        CommandFormat, CommandFormatParseError, CommandPartId, CommandPartValidateError,
-        CommandPartValidateResult, PartValidatorContext, entity_part_builder, literal_part,
-        one_of_literal_part,
+        entity_part_builder, literal_part, one_of_literal_part, CommandFormat,
+        CommandFormatParseError, CommandPartId, CommandPartValidateError,
+        CommandPartValidateResult, PartValidatorContext,
     },
     component::{Attribute, CombatState, Stats, VerifyResult},
     input_parser::{InputParseError, InputParser},
     notification::Notification,
     resource::{ActionInteractionContext, ActionInteractionResult},
+    ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
+    SurroundingsMessageCategory, VerifyActionNotification, STANDARD_CHECK_XP,
 };
 
 use super::{Action, ActionInterruptResult, ActionNotificationSender, ActionResult};
@@ -236,7 +236,7 @@ fn parse_with_optional_target(
 }
 
 /// Makes an entity attempt to change the range to another entity it's in combat with.
-#[derive(Debug, ActionBoilerplate)]
+#[derive(ActionBoilerplate, Debug)]
 pub struct ChangeRangeAction {
     pub target: Entity,
     pub direction: RangeChangeDirection,
