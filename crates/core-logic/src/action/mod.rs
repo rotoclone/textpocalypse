@@ -489,11 +489,9 @@ pub trait Action: ActionBoilerplate + std::fmt::Debug + Send + Sync + Any {
     /// Returns the tags of this action, so it can be identified.
     fn get_tags(&self) -> HashSet<ActionTag>;
 
-    /* TODO
-
     /// Finds the entity that could have an action that could interact with this action.
+    /// Should return `None` if `may_require_tick` returns false.
     fn get_interaction_target(&self, world: &World) -> Option<Entity>;
-     */
 }
 
 //TODO doc

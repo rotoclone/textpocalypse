@@ -191,6 +191,10 @@ impl Action for SpendSkillPointAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// Spends an attribute point to increase an attribute.
@@ -241,5 +245,9 @@ impl Action for SpendAttributePointAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
     }
 }

@@ -387,11 +387,9 @@ impl Action for ChangeRangeAction {
         [ActionTag::Combat].into()
     }
 
-    /* TODO
     fn get_interaction_target(&self, _: &World) -> Option<Entity> {
         Some(self.target)
     }
-    */
 }
 
 /// Handles interactions between 2 change range actions.

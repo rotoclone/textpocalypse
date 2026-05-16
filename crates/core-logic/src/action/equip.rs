@@ -238,6 +238,10 @@ impl Action for EquipAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// Verifies that the entity trying to equip an item contains it.

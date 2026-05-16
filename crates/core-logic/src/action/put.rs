@@ -516,6 +516,10 @@ impl Action for PutAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 //TODO automatically equip retrieved items (without taking a tick) if the entity picking them up has enough free hands to equip the item?

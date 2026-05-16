@@ -254,6 +254,10 @@ impl Action for LockAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// The ID of an entity that can be used to lock or unlock things.

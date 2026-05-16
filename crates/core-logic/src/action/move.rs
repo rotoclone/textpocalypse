@@ -198,6 +198,10 @@ impl Action for MoveAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// Makes the provided entity try to escape combat by doing one or more stat checks, and adds messages to the result builder.

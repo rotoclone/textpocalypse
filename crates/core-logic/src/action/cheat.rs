@@ -113,6 +113,10 @@ impl Action for CheatAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 fn give_xp(entity: Entity, args: &[String], world: &mut World) -> ActionResult {

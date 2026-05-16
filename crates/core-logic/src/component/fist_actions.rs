@@ -199,6 +199,10 @@ impl Action for UppercutAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
+    }
 }
 
 impl AttackType for UppercutAction {
@@ -406,6 +410,10 @@ impl Action for HaymakerAction {
 
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
     }
 }
 

@@ -393,6 +393,10 @@ impl Action for PourAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// Removes the provided amount of fluid from the provided entity, if it contains any.

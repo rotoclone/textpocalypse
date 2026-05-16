@@ -231,6 +231,10 @@ impl Action for WaitAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
 }
 
 /// Applies filters for messages that shouldn't be sent to waiting entities.

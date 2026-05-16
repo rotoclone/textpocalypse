@@ -146,6 +146,10 @@ impl Action for AttackAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [ActionTag::Combat].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
+    }
 }
 
 impl AttackType for AttackAction {

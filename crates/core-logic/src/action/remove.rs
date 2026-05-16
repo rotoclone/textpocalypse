@@ -175,6 +175,10 @@ impl Action for RemoveAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.wearing_entity)
+    }
 }
 
 /// Prevents removing items from living entities other than the one performing the action.

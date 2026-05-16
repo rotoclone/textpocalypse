@@ -570,21 +570,6 @@ fn handle_action_result(
     result.post_effects.drain(..).for_each(|f| f(world));
 }
 
-/// Performs an action, dealing with any interactions it may have.
-//TODO remove
-fn perform_action(
-    mut action: Box<dyn Action>,
-    performing_entity: Entity,
-    world: &mut World,
-) -> Vec<(Box<dyn Action>, ActionResult)> {
-    //TODO deal with interactions if there are any
-    // things to worry about with interactions:
-    // * make sure each entity only has a max of one action performed (avoid interactions back and forth performing a bunch of actions for the same two entities)
-    // * make sure all the interactions are done first, since one entity might have an action that doesn't interact with anything, but another entity that goes later could have an action that interacts with that one. So if the first entity's action gets performed by itself, the other entity won't have a chance to interact
-    let result = action.perform(performing_entity, world);
-    vec![(action, result)]
-}
-
 /// Starting at the beginning of the provided entity's action queue, performs actions that don't require a tick until one that does require a tick,
 /// or the end of the queue, is reached.
 ///

@@ -357,6 +357,10 @@ impl Action for ThrowAction {
     fn get_tags(&self) -> HashSet<ActionTag> {
         [].into()
     }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
+    }
 }
 
 /// Determines the throw check penalty for throwing the provided item
