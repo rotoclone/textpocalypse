@@ -1,3 +1,6 @@
+use std::marker::PhantomData;
+use std::{collections::HashMap, hash::Hash};
+
 use bevy_ecs::prelude::*;
 
 use crate::action::{Action, ActionResult};
@@ -35,18 +38,72 @@ impl ActionInteractionResult {
     }
 }
 
-//TODO doc
-#[derive(Resource)]
-pub struct ActionInteractionHandlers<T: Action> {
-    //TODO add IDs so handlers can be removed if needed
-    pub handlers: Vec<ActionInteractionHandler<T>>,
+/// An identifier for a registered action interaction handler.
+///
+/// This is only unique to the action type of the interaction handler.
+/// For example, the first handler registered for `MoveAction` and the first one registered for `AttackAction` will both have the same internal
+/// value, just different associated types.
+pub struct ActionInteractionHandlerId<T> {
+    value: u64,
+    _t: PhantomData<fn(T)>,
 }
 
-// manually implementing `Clone` so it's implemented even if `T` isn't `Clone`
-impl<T: Action> Clone for ActionInteractionHandlers<T> {
+// need to manually implement traits due to https://github.com/rust-lang/rust/issues/26925
+impl<T> Clone for ActionInteractionHandlerId<T> {
     fn clone(&self) -> Self {
-        Self {
-            handlers: self.handlers.clone(),
+        *self
+    }
+}
+
+impl<T> Copy for ActionInteractionHandlerId<T> {}
+
+impl<T> PartialEq for ActionInteractionHandlerId<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T> Eq for ActionInteractionHandlerId<T> {}
+
+impl<T> Hash for ActionInteractionHandlerId<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
+impl<T> ActionInteractionHandlerId<T> {
+    /// Creates a new action interaction handler ID with the minimum starting value.
+    fn new() -> ActionInteractionHandlerId<T> {
+        ActionInteractionHandlerId {
+            value: 0,
+            _t: PhantomData,
         }
+    }
+
+    /// Increments this action interaction handler ID's value.
+    fn next(mut self) -> ActionInteractionHandlerId<T> {
+        self.value += 1;
+        self
+    }
+}
+
+/// The set of interaction handlers for a specific action type.
+#[derive(Resource)]
+pub struct ActionInteractionHandlers<T: Action> {
+    /// The ID to be assigned to the next registered handler.
+    next_id: ActionInteractionHandlerId<T>,
+    /// The handlers, keyed by their assigned IDs.
+    handlers: HashMap<ActionInteractionHandlerId<T>, ActionInteractionHandler<T>>,
+}
+
+impl<T: Action> ActionInteractionHandlers<T> {
+    /// Returns true if there are no handlers registered, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.handlers.is_empty()
+    }
+
+    /// Gets all the registered handlers.
+    pub fn get_handlers(&self) -> Vec<ActionInteractionHandler<T>> {
+        self.handlers.values().copied().collect()
     }
 }

@@ -48,7 +48,7 @@ fn impl_action_boilerplate(ast: &syn::DeriveInput) -> TokenStream {
             }
 
             fn has_interaction_handlers(&self, world: &bevy_ecs::world::World) -> bool {
-                world.contains_resource::<crate::resource::ActionInteractionHandlers<Self>>()
+                world.get_resource::<crate::resource::ActionInteractionHandlers<Self>>().map(|h| !h.is_empty()).unwrap_or(false)
             }
 
             fn try_interact(
@@ -58,14 +58,14 @@ fn impl_action_boilerplate(ast: &syn::DeriveInput) -> TokenStream {
                 other_action: &dyn crate::action::Action,
                 world: &mut bevy_ecs::world::World,
             ) -> crate::resource::ActionInteractionResult {
-                let core::option::Option::Some(handlers) = world
+                let core::option::Option::Some(handlers_resource) = world
                     .get_resource::<crate::resource::ActionInteractionHandlers<Self>>()
-                    .cloned()
                 else {
                     return crate::resource::ActionInteractionResult::DidNotInteract;
                 };
 
-                for handler in handlers.handlers {
+                let handlers = handlers_resource.get_handlers();
+                for handler in handlers {
                     let result = handler(
                         crate::resource::ActionInteractionContext {
                             performing_entity_1: performing_entity,
