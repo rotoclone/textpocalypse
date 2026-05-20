@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use crate::component::{ActionEndNotification, AfterActionPerformNotification, VerifyResult};
 use crate::notification::{Notification, NotificationHandlers, ReturningNotificationHandlers};
-use crate::resource::ActionInteractionResult;
+use crate::resource::{ActionInteractionHandlers, ActionInteractionResult};
 use crate::{
     combat_utils, BeforeActionNotification, DynamicMessage, DynamicMessageLocation,
     MessageCategory, MessageDelay, MessageTokens, VerifyActionNotification,
@@ -130,8 +130,9 @@ pub use spend_advacement_point::SpendSkillPointParser;
 mod cheat;
 pub use cheat::CheatParser;
 
-/// Registers notification handlers related to actions.
+/// Registers notification and interaction handlers related to actions.
 pub fn register_action_handlers(world: &mut World) {
+    // notification handlers
     ReturningNotificationHandlers::add_handler(put::verify_item_in_source, world);
     ReturningNotificationHandlers::add_handler(put::verify_item_not_in_destination, world);
     ReturningNotificationHandlers::add_handler(
@@ -175,6 +176,9 @@ pub fn register_action_handlers(world: &mut World) {
     NotificationHandlers::add_handler(combat_utils::cancel_attacks_when_exit_combat, world);
 
     ReturningNotificationHandlers::add_handler(change_range::verify_range_can_be_changed, world);
+
+    // interaction handlers
+    ActionInteractionHandlers::add_handler(change_range::change_range_interaction_handler, world);
 }
 
 pub type PostEffectFn = Box<dyn FnOnce(&mut World)>;

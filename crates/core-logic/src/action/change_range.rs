@@ -255,7 +255,6 @@ pub enum RangeChangeDirection {
 impl Action for ChangeRangeAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target = self.target;
-        let target_name = Description::get_reference_name(target, Some(performing_entity), world);
 
         let (check_result, _) = Stats::check_vs(
             VsParticipant {
@@ -273,6 +272,8 @@ impl Action for ChangeRangeAction {
         );
 
         if !check_result.succeeded() {
+            let target_name =
+                Description::get_reference_name(target, Some(performing_entity), world);
             let movement_phrase = match self.direction {
                 RangeChangeDirection::Decrease => "get closer to",
                 RangeChangeDirection::Increase => "get farther away from",
@@ -302,32 +303,65 @@ impl Action for ChangeRangeAction {
                 .build_complete_should_tick(false);
         }
 
-        // actually change the range
-        let current_range = *CombatState::get_entities_in_combat_with(performing_entity, world)
-            .get(&target)
-            .expect("performing entity should be in combat with target");
-        let new_range = match self.direction {
-            RangeChangeDirection::Decrease => current_range
-                .decreased()
-                .expect("range should not already be shortest"),
-            RangeChangeDirection::Increase => current_range
-                .increased()
-                .expect("range should not already be farthest"),
-        };
-        CombatState::set_in_combat(performing_entity, target, new_range, world);
+        change_range(performing_entity, target, self.direction, world)
+    }
 
-        let (movement_phrase_second_person, movement_phrase_third_person) = match self.direction {
-            RangeChangeDirection::Decrease => (
-                "run forward, getting closer to",
-                "runs forward, getting closer to",
-            ),
-            RangeChangeDirection::Increase => (
-                "jump backward, getting farther away from",
-                "jumps backward, getting farther away from",
-            ),
-        };
+    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::message(
+            performing_entity,
+            "You stop repositioning.".to_string(),
+            MessageCategory::Internal(InternalMessageCategory::Action),
+            MessageDelay::None,
+        )
+    }
 
-        ActionResult::builder()
+    fn may_require_tick(&self) -> bool {
+        true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        [ActionTag::Combat].into()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        Some(self.target)
+    }
+}
+
+/// Actually changes the range between `performing_entity` and `target` and returns a result describing it.
+fn change_range(
+    performing_entity: Entity,
+    target: Entity,
+    direction: RangeChangeDirection,
+    world: &mut World,
+) -> ActionResult {
+    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
+
+    let current_range = *CombatState::get_entities_in_combat_with(performing_entity, world)
+        .get(&target)
+        .expect("performing entity should be in combat with target");
+    let new_range = match direction {
+        RangeChangeDirection::Decrease => current_range
+            .decreased()
+            .expect("range should not already be shortest"),
+        RangeChangeDirection::Increase => current_range
+            .increased()
+            .expect("range should not already be farthest"),
+    };
+    CombatState::set_in_combat(performing_entity, target, new_range, world);
+
+    let (movement_phrase_second_person, movement_phrase_third_person) = match direction {
+        RangeChangeDirection::Decrease => (
+            "run forward, getting closer to",
+            "runs forward, getting closer to",
+        ),
+        RangeChangeDirection::Increase => (
+            "jump backward, getting farther away from",
+            "jumps backward, getting farther away from",
+        ),
+    };
+
+    ActionResult::builder()
             .with_message(
                 performing_entity,
                 format!("You {movement_phrase_second_person} {target_name}. You're now at {new_range} range."),
@@ -368,34 +402,12 @@ impl Action for ChangeRangeAction {
                 world,
             )
             .build_complete_should_tick(true)
-    }
-
-    fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
-        ActionInterruptResult::message(
-            performing_entity,
-            "You stop repositioning.".to_string(),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::None,
-        )
-    }
-
-    fn may_require_tick(&self) -> bool {
-        true
-    }
-
-    fn get_tags(&self) -> HashSet<ActionTag> {
-        [ActionTag::Combat].into()
-    }
-
-    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
-        Some(self.target)
-    }
 }
 
 /// Handles interactions between 2 change range actions.
 ///
 /// If both actions are trying to change range in the same direction, they'll just happen without any checks.
-fn change_range_interaction_handler(
+pub fn change_range_interaction_handler(
     context: ActionInteractionContext<ChangeRangeAction>,
     world: &mut World,
 ) -> ActionInteractionResult {
@@ -404,13 +416,19 @@ fn change_range_interaction_handler(
         return ActionInteractionResult::DidNotInteract;
     };
 
-    if other_change_range_action.direction == context.action_1.direction {
-        // TODO can just change the range here
-        let result_builder_1 = ActionResult::builder();
-        let result_builder_2 = ActionResult::builder();
+    if other_change_range_action.direction == context.action_1.direction
+        && other_change_range_action.target == context.performing_entity_1
+        && context.action_1.target == context.performing_entity_2
+    {
         return ActionInteractionResult::Interacted(
-            result_builder_1.build_complete_should_tick(true),
-            result_builder_2.build_complete_should_tick(true),
+            //TODO use a different message for this?
+            change_range(
+                context.performing_entity_1,
+                context.performing_entity_2,
+                context.action_1.direction,
+                world,
+            ),
+            ActionResult::builder().build_complete_should_tick(true),
         );
     }
 

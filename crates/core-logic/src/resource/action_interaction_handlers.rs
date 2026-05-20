@@ -97,6 +97,14 @@ pub struct ActionInteractionHandlers<T: Action> {
 }
 
 impl<T: Action> ActionInteractionHandlers<T> {
+    /// Creates a new, empty set of handlers.
+    fn new() -> Self {
+        ActionInteractionHandlers {
+            next_id: ActionInteractionHandlerId::new(),
+            handlers: HashMap::new(),
+        }
+    }
+
     /// Returns true if there are no handlers registered, false otherwise.
     pub fn is_empty(&self) -> bool {
         self.handlers.is_empty()
@@ -105,5 +113,47 @@ impl<T: Action> ActionInteractionHandlers<T> {
     /// Gets all the registered handlers.
     pub fn get_handlers(&self) -> Vec<ActionInteractionHandler<T>> {
         self.handlers.values().copied().collect()
+    }
+
+    /// Adds the provided handler to this set of handlers and returns its assigned ID.
+    fn add(&mut self, handle_fn: ActionInteractionHandler<T>) -> ActionInteractionHandlerId<T> {
+        let id = self.next_id;
+        self.handlers.insert(id, handle_fn);
+        self.next_id = self.next_id.next();
+
+        id
+    }
+
+    /// Registers the provided handler function. Returns an ID that can be used to remove the handler later.
+    pub fn add_handler(
+        handler: ActionInteractionHandler<T>,
+        world: &mut World,
+    ) -> ActionInteractionHandlerId<T> {
+        if let Some(mut handlers) = world.get_resource_mut::<ActionInteractionHandlers<T>>() {
+            return handlers.add(handler);
+        }
+
+        let mut handlers = ActionInteractionHandlers::new();
+        let id = handlers.add(handler);
+        world.insert_resource(handlers);
+
+        id
+    }
+
+    /// Removes the handler with the provided ID.
+    #[expect(unused)]
+    pub fn remove_handler(id: ActionInteractionHandlerId<T>, world: &mut World) {
+        let mut remove_resource = false;
+        if let Some(mut handlers) = world.get_resource_mut::<ActionInteractionHandlers<T>>() {
+            handlers.handlers.remove(&id);
+
+            if handlers.handlers.is_empty() {
+                remove_resource = true;
+            }
+        }
+
+        if remove_resource {
+            world.remove_resource::<ActionInteractionHandlers<T>>();
+        }
     }
 }
