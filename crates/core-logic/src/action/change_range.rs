@@ -1,4 +1,8 @@
-use std::{any::Any, collections::HashSet, sync::LazyLock};
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use bevy_ecs::prelude::*;
 use core_logic_derive::ActionBoilerplate;
@@ -12,8 +16,9 @@ use crate::{
         CommandFormatParseError, CommandPartId, CommandPartValidateError,
         CommandPartValidateResult, PartValidatorContext,
     },
-    component::{Attribute, CombatState, Stats, VerifyResult},
+    component::{Attribute, CombatRange, CombatState, Stats, VerifyResult},
     input_parser::{InputParseError, InputParser},
+    message_format::{MessageTokens, TokenName, TokenValue},
     notification::Notification,
     resource::{ActionInteractionContext, ActionInteractionResult},
     ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
@@ -303,7 +308,30 @@ impl Action for ChangeRangeAction {
                 .build_complete_should_tick(false);
         }
 
-        change_range(performing_entity, target, self.direction, world)
+        let base_format_string = match self.direction {
+            RangeChangeDirection::Decrease => "${performing_entity.Name} ${performing_entity.you:run/runs} forward, getting closer to ${target.name}.",
+            RangeChangeDirection::Increase => "${performing_entity.Name} ${performing_entity.you:jump/jumps} backward, getting farther away from ${target.name}."
+        };
+        let involved_entities_format_suffix =
+            "${performing_entity.They} ${performing_entity.are/is} now at ${new_range} range.";
+
+        let involved_entities_format = MessageFormat::new(&format!(
+            "{base_format_string} {involved_entities_format_suffix}"
+        ))
+        .expect("message format should be valid");
+        let uninvolved_entities_format =
+            MessageFormat::new(base_format_string).expect("message format should be valid");
+
+        change_range(
+            performing_entity,
+            target,
+            self.direction,
+            ChangeRangeMessages {
+                involved_entities_format,
+                uninvolved_entities_format,
+            },
+            world,
+        )
     }
 
     fn interrupt(&self, performing_entity: Entity, _: &mut World) -> ActionInterruptResult {
@@ -328,15 +356,50 @@ impl Action for ChangeRangeAction {
     }
 }
 
+/// Tokens for messages about changing range.
+#[derive(Debug)]
+struct ChangeRangeMessageTokens {
+    /// The first entity changing range
+    performing_entity: Entity,
+    /// The second entity changing range
+    target: Entity,
+    /// The range being changed to
+    new_range: CombatRange,
+}
+
+impl MessageTokens for ChangeRangeMessageTokens {
+    fn get_token_map(&self) -> HashMap<TokenName, TokenValue> {
+        [
+            (
+                "performing_entity".into(),
+                TokenValue::Entity(self.performing_entity),
+            ),
+            ("target".into(), TokenValue::Entity(self.target)),
+            (
+                "new_range".into(),
+                TokenValue::String(self.new_range.to_string()),
+            ),
+        ]
+        .into()
+    }
+}
+
+/// Messages to send when entities change ranges.
+struct ChangeRangeMessages {
+    /// The message to send to entities involved in the range change
+    involved_entities_format: MessageFormat<ChangeRangeMessageTokens>,
+    /// The message to send to entities not involved in the range change
+    uninvolved_entities_format: MessageFormat<ChangeRangeMessageTokens>,
+}
+
 /// Actually changes the range between `performing_entity` and `target` and returns a result describing it.
 fn change_range(
     performing_entity: Entity,
     target: Entity,
     direction: RangeChangeDirection,
+    messages: ChangeRangeMessages,
     world: &mut World,
 ) -> ActionResult {
-    let target_name = Description::get_reference_name(target, Some(performing_entity), world);
-
     let current_range = *CombatState::get_entities_in_combat_with(performing_entity, world)
         .get(&target)
         .expect("performing entity should be in combat with target");
@@ -350,58 +413,40 @@ fn change_range(
     };
     CombatState::set_in_combat(performing_entity, target, new_range, world);
 
-    let (movement_phrase_second_person, movement_phrase_third_person) = match direction {
-        RangeChangeDirection::Decrease => (
-            "run forward, getting closer to",
-            "runs forward, getting closer to",
-        ),
-        RangeChangeDirection::Increase => (
-            "jump backward, getting farther away from",
-            "jumps backward, getting farther away from",
-        ),
-    };
-
     ActionResult::builder()
-            .with_message(
-                performing_entity,
-                format!("You {movement_phrase_second_person} {target_name}. You're now at {new_range} range."),
-                MessageCategory::Internal(InternalMessageCategory::Action),
+        .with_dynamic_message(
+            Some(performing_entity),
+            DynamicMessageLocation::SourceEntity,
+            DynamicMessage::new(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
                 MessageDelay::Short,
+                messages.involved_entities_format,
+                ChangeRangeMessageTokens {
+                    performing_entity,
+                    target,
+                    new_range,
+                },
             )
-            .with_dynamic_message(
-                Some(performing_entity),
-                DynamicMessageLocation::SourceEntity,
-                DynamicMessage::new_third_person(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}. ${performing_entity.They} ${performing_entity.are/is} now at ${new_range} range.")
-                            .expect("message format should be valid"),
-                        BasicTokens::new()
-                            .with_entity("performing_entity".into(), performing_entity)
-                            .with_string("movement_phrase".into(), movement_phrase_third_person.to_string())
-                            .with_entity("target".into(), target)
-                            .with_string("new_range".into(), new_range.to_string()),
-                )
-                .only_send_to(target),
-                world,
+            .only_send_to_entities(&[performing_entity, target]),
+            world,
+        )
+        .with_dynamic_message(
+            Some(performing_entity),
+            DynamicMessageLocation::SourceEntity,
+            DynamicMessage::new_third_person(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                MessageDelay::Short,
+                messages.uninvolved_entities_format,
+                ChangeRangeMessageTokens {
+                    performing_entity,
+                    target,
+                    new_range,
+                },
             )
-            .with_dynamic_message(
-                Some(performing_entity),
-                DynamicMessageLocation::SourceEntity,
-                DynamicMessage::new_third_person(
-                    MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                    MessageDelay::Short,
-                    MessageFormat::new("${performing_entity.Name} ${movement_phrase} ${target.name}.")
-                            .expect("message format should be valid"),
-                        BasicTokens::new()
-                            .with_entity("performing_entity".into(), performing_entity)
-                            .with_string("movement_phrase".into(), movement_phrase_third_person.to_string())
-                            .with_entity("target".into(), target),
-                )
-                .do_not_send_to(target),
-                world,
-            )
-            .build_complete_should_tick(true)
+            .do_not_send_to(target),
+            world,
+        )
+        .build_complete_should_tick(true)
 }
 
 /// Handles interactions between 2 change range actions.
@@ -420,12 +465,28 @@ pub fn change_range_interaction_handler(
         && other_change_range_action.target == context.performing_entity_1
         && context.action_1.target == context.performing_entity_2
     {
+        let base_format_string = match context.action_1.direction {
+            RangeChangeDirection::Decrease => "${performing_entity.Name} and ${target.name} run forward, getting closer to each other.",
+            RangeChangeDirection::Increase => "${performing_entity.Name} and ${target.name} jump backward, getting farther away from each other."
+        };
+        let involved_entities_format_suffix = "You are now at ${new_range} range.";
+
+        let involved_entities_format = MessageFormat::new(&format!(
+            "{base_format_string} {involved_entities_format_suffix}"
+        ))
+        .expect("message format should be valid");
+        let uninvolved_entities_format =
+            MessageFormat::new(base_format_string).expect("message format should be valid");
+
         return ActionInteractionResult::Interacted(
-            //TODO use a different message for this?
             change_range(
                 context.performing_entity_1,
                 context.performing_entity_2,
                 context.action_1.direction,
+                ChangeRangeMessages {
+                    involved_entities_format,
+                    uninvolved_entities_format,
+                },
                 world,
             ),
             ActionResult::builder().build_complete_should_tick(true),
@@ -434,32 +495,6 @@ pub fn change_range_interaction_handler(
 
     ActionInteractionResult::DidNotInteract
 }
-
-/* TODO
-impl InteractingAction for ChangeRangeAction {
-    fn get_interaction_target(&self) -> Option<Entity> {
-        Some(self.target)
-    }
-
-    fn interact_with(&self, action: &dyn Action, world: &mut World) -> ActionInteractionResult {
-        let action_any = action as &dyn Any;
-
-        let Some(other_change_range_action) = action_any.downcast_ref::<ChangeRangeAction>() else {
-            return ActionInteractionResult::NeitherPerformed;
-        };
-
-        if other_change_range_action.direction == self.direction {
-            // TODO can just change the range here
-            let result_builder = ActionResult::builder();
-            return ActionInteractionResult::BothPerformed(
-                result_builder.build_complete_should_tick(true),
-            );
-        }
-
-        ActionInteractionResult::NeitherPerformed
-    }
-}
-    */
 
 /// Verifies that the range can actually be changed in the requested direction.
 pub fn verify_range_can_be_changed(
