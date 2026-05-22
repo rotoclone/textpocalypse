@@ -479,6 +479,7 @@ pub enum ActionTag {
     Custom(String),
 }
 
+/// A game action.
 pub trait Action: ActionBoilerplate + std::fmt::Debug + Send + Sync + Any {
     /// Called when the provided entity should perform one tick of the action.
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult;
@@ -498,7 +499,7 @@ pub trait Action: ActionBoilerplate + std::fmt::Debug + Send + Sync + Any {
     fn get_interaction_target(&self, world: &World) -> Option<Entity>;
 }
 
-//TODO doc
+/// Trait for actions to implement that can be auto-derived.
 pub trait ActionBoilerplate {
     /// Sends a notification that this action is about to be performed, if one hasn't already been sent for this action.
     fn send_before_notification(

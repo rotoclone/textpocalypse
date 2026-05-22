@@ -418,7 +418,7 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
 
 /// Sorts entities that want to take actions by priority.
 /// Entities with higher agility scores have higher priority.
-/// In case of a tie, players are higher priority than non-players, and TODO how to break ties between players
+/// In case of a tie, players are higher priority than non-players, and players are sorted by their entity ID.
 fn sort_entities_with_actions(mut entities: Vec<Entity>, world: &World) -> Vec<Entity> {
     entities.sort_by(|a, b| {
         let agility_a = world
@@ -540,7 +540,7 @@ fn put_action_back_in_queue(
     }
 }
 
-/// TODO doc
+/// Sends messages and notifications, and performs post effects for an action result.
 fn handle_action_result(
     entity: Entity,
     action: &dyn Action,
