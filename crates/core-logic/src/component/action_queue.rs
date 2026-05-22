@@ -1,12 +1,13 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use bevy_ecs::prelude::*;
 use log::debug;
 
 use crate::{
-    action::Action,
-    component::Player,
+    action::{Action, ActionResult},
+    component::{Attribute, Player, Stats},
     notification::{NotificationType, ReturningNotificationType},
+    resource::ActionInteractionResult,
     send_messages, tick, GameMessage, GameOptions, InterruptedEntities,
 };
 
@@ -310,36 +311,85 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
             entities_with_actions.push(entity);
         }
 
+        let entities_with_actions = sort_entities_with_actions(entities_with_actions, world);
+
         let mut results = Vec::new();
-        for entity in entities_with_actions {
+        let mut entities_with_performed_actions: HashSet<Entity> = HashSet::new();
+
+        // perform any interacting actions first
+        for entity in &entities_with_actions {
+            if entities_with_performed_actions.contains(entity) {
+                continue;
+            }
+
+            // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
+            perform_tickless_actions(*entity, world);
+
+            let Some((action, state)) =
+                determine_action_to_perform(*entity, world, |a, w| a.has_interaction_handlers(w))
+            else {
+                continue;
+            };
+
+            let Some(target_entity) = action.get_interaction_target(world) else {
+                // put back the action since it's not going to be performed
+                put_action_back_in_queue(action, state, *entity, world);
+                continue;
+            };
+
+            if entities_with_performed_actions.contains(&target_entity) {
+                // the target entity already had an action performed this tick, so don't want to pull another action off its queue since that action should wait until next tick
+                put_action_back_in_queue(action, state, *entity, world);
+                continue;
+            }
+
+            let Some((other_action, other_state)) =
+                determine_action_to_perform(target_entity, world, |_, _| true)
+            else {
+                // put back the action since it's not going to be performed
+                put_action_back_in_queue(action, state, *entity, world);
+                continue;
+            };
+
+            let ActionInteractionResult::Interacted(mut this_result, mut other_result) =
+                action.try_interact(*entity, target_entity, other_action.as_ref(), world)
+            else {
+                // put back the actions since they weren't performed
+                put_action_back_in_queue(action, state, *entity, world);
+                put_action_back_in_queue(other_action, other_state, target_entity, world);
+                continue;
+            };
+
+            any_actions_performed = true;
+
+            handle_action_result(*entity, action.as_ref(), &mut this_result, world);
+            handle_action_result(
+                target_entity,
+                other_action.as_ref(),
+                &mut other_result,
+                world,
+            );
+
+            results.push((*entity, action, this_result));
+            results.push((target_entity, other_action, other_result));
+
+            entities_with_performed_actions.insert(*entity);
+            entities_with_performed_actions.insert(target_entity);
+        }
+
+        for entity in entities_with_actions
+            .into_iter()
+            .filter(|e| !entities_with_performed_actions.contains(e))
+        {
             // new tickless actions may have been queued for this entity due to previously performed actions, so clear 'em out
             perform_tickless_actions(entity, world);
 
-            if let Some(mut action) = determine_action_to_perform(entity, world, |_| true) {
+            if let Some((mut action, _)) = determine_action_to_perform(entity, world, |_, _| true) {
                 debug!("Entity {entity:?} is performing action {action:?}");
                 let mut result = action.perform(entity, world);
                 any_actions_performed = true;
-                send_messages(&result.messages, world);
-                action.send_after_perform_notification(
-                    AfterActionPerformNotification {
-                        performing_entity: entity,
-                        action_complete: result.is_complete,
-                        action_successful: result.was_successful,
-                    },
-                    world,
-                );
 
-                if result.is_complete {
-                    action.send_end_notification(
-                        ActionEndNotification {
-                            performing_entity: entity,
-                            action_interrupted: false,
-                        },
-                        world,
-                    );
-                }
-
-                result.post_effects.drain(..).for_each(|f| f(world));
+                handle_action_result(entity, action.as_ref(), &mut result, world);
 
                 results.push((entity, action, result));
             }
@@ -366,12 +416,47 @@ pub fn try_perform_queued_actions(world: &mut World) -> bool {
     }
 }
 
+/// Sorts entities that want to take actions by priority.
+/// Entities with higher agility scores have higher priority.
+/// In case of a tie, players are higher priority than non-players, and players are sorted by their entity ID.
+fn sort_entities_with_actions(mut entities: Vec<Entity>, world: &World) -> Vec<Entity> {
+    entities.sort_by(|a, b| {
+        let agility_a = world
+            .get::<Stats>(*a)
+            .map(|stats| stats.get_attribute_value(&Attribute::Agility).total)
+            .unwrap_or(0.0);
+        let agility_b = world
+            .get::<Stats>(*b)
+            .map(|stats| stats.get_attribute_value(&Attribute::Agility).total)
+            .unwrap_or(0.0);
+
+        agility_a
+            .total_cmp(&agility_b)
+            // reverse so entities with higher agility are at the beginning of the list (and therefore take their actions earlier)
+            .reverse()
+            .then_with(|| {
+                let a_is_player = world.get::<Player>(*a).is_some();
+                let b_is_player = world.get::<Player>(*b).is_some();
+
+                // reverse so players go earlier in case of agility score ties
+                a_is_player.cmp(&b_is_player).reverse()
+            })
+            // fall back to ordering by however `Entity` is sorted
+            .then_with(|| a.cmp(b))
+    });
+
+    entities
+}
+
 /// Determines the next action for the provided entity to perform and sends pre-perform notifications for it, if the next action for the entity to perform passes the provided filter function.
-fn determine_action_to_perform(
+fn determine_action_to_perform<F>(
     entity: Entity,
     world: &mut World,
-    filter_fn: fn(&Box<dyn Action>) -> bool,
-) -> Option<Box<dyn Action>> {
+    filter_fn: F,
+) -> Option<(Box<dyn Action>, ActionState)>
+where
+    F: Fn(&Box<dyn Action>, &World) -> bool,
+{
     let mut loops = 0;
     loop {
         if loops >= MAX_ACTION_NOTIFICATION_LOOPS {
@@ -382,14 +467,18 @@ fn determine_action_to_perform(
         let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
         action_queue.update_queue();
 
+        // re-borrow action queue as immutable so the filter fn can take in an immutable world
+        let action_queue = world.get::<ActionQueue>(entity)?;
+
         if action_queue
             .actions
             .front()
-            .is_none_or(|(action, _)| !filter_fn(action))
+            .is_none_or(|(action, _)| !filter_fn(action, world))
         {
             return None;
         }
 
+        let mut action_queue = world.get_mut::<ActionQueue>(entity)?;
         let (action, state) = action_queue.actions.pop_front()?;
 
         action.send_before_notification(
@@ -427,13 +516,58 @@ fn determine_action_to_perform(
         }
 
         if is_valid {
-            return Some(action);
+            return Some((action, state));
         } else {
             debug!("action {action:?} is invalid, canceling");
             // don't put the action back, it's invalid so just drop it
             continue;
         }
     }
+}
+
+/// Puts an action back in the queue of `entity`.
+///
+/// This is for when an action was retrieved from `determine_action_to_perform`, but then it wasn't actually performed.
+fn put_action_back_in_queue(
+    action: Box<dyn Action>,
+    state: ActionState,
+    entity: Entity,
+    world: &mut World,
+) {
+    if let Some(mut action_queue) = world.get_mut::<ActionQueue>(entity) {
+        // `action` came from the front of the queue (via `determine_action_to_perform`)
+        action_queue.actions.push_front((action, state));
+    }
+}
+
+/// Sends messages and notifications, and performs post effects for an action result.
+fn handle_action_result(
+    entity: Entity,
+    action: &dyn Action,
+    result: &mut ActionResult,
+    world: &mut World,
+) {
+    send_messages(&result.messages, world);
+    action.send_after_perform_notification(
+        AfterActionPerformNotification {
+            performing_entity: entity,
+            action_complete: result.is_complete,
+            action_successful: result.was_successful,
+        },
+        world,
+    );
+
+    if result.is_complete {
+        action.send_end_notification(
+            ActionEndNotification {
+                performing_entity: entity,
+                action_interrupted: false,
+            },
+            world,
+        );
+    }
+
+    result.post_effects.drain(..).for_each(|f| f(world));
 }
 
 /// Starting at the beginning of the provided entity's action queue, performs actions that don't require a tick until one that does require a tick,
@@ -443,8 +577,8 @@ fn determine_action_to_perform(
 fn perform_tickless_actions(entity: Entity, world: &mut World) -> bool {
     let mut any_actions_performed = false;
     loop {
-        if let Some(mut action) =
-            determine_action_to_perform(entity, world, |action| !action.may_require_tick())
+        if let Some((mut action, _)) =
+            determine_action_to_perform(entity, world, |action, _| !action.may_require_tick())
         {
             debug!("Entity {entity:?} is performing action {action:?}");
             let mut result = action.perform(entity, world);

@@ -41,6 +41,9 @@ pub use weapon_type_name_catalog::WeaponTypeNameCatalog;
 mod body_part_type_name_catalog;
 pub use body_part_type_name_catalog::BodyPartTypeNameCatalog;
 
+mod action_interaction_handlers;
+pub use action_interaction_handlers::*;
+
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
     world.insert_resource(FluidNameCatalog::new());
