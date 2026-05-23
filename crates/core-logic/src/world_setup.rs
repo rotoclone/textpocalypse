@@ -6,10 +6,10 @@ use crate::{
     color::Color,
     component::{
         Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
-        EquippedItems, Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock,
-        OpenState, ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior, SleepState,
-        Stats, Vitals, Volume, WanderBehavior, Weapon, WeaponDamageAdjustment, WeaponRanges,
-        WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
+        EquippedItems, Firearm, Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId,
+        KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior,
+        SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon, WeaponDamageAdjustment,
+        WeaponRanges, WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Attribute, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
@@ -852,6 +852,58 @@ pub fn spawn_start_building(
         ))
         .id();
     move_entity(sledgehammer_id, middle_room_id, world);
+
+    let gun_id = world
+        .spawn((
+            Description {
+                name: "9mm pistol".to_string(),
+                room_name: "9mm pistol".to_string(),
+                plural_name: "9mm pistols".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["pistol".to_string()],
+                description: "A black metal handgun. Careful, it doesn't look like it has a safety."
+                    .to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    Weapon::get_attribute_describer(),
+                    Firearm::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            Weapon {
+                weapon_type: WeaponType::Firearm,
+                base_damage_range: 40..=50,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Short..=CombatRange::Longest,
+                    optimal: CombatRange::Medium..=CombatRange::Medium,
+                    to_hit_penalty: 2,
+                    damage_penalty: 6,
+                },
+                stat_requirements: Vec::new(),
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 10.0..=20.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 10.0..=20.0,
+                    to_hit_bonus_per_stat_point: 1.0,
+                },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:fire/fires} ${weapon.name} at ${target.name}, but the bullet whizzes past with no effect.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:fire/fires} ${weapon.name} at ${target.name}, leaving a gash on ${target.their} ${body_part.plain_name} as the bullet grazes it.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:blast/blasts} ${target.name} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} carefully ${attacker.you:line/lines} up a shot, and ${attacker.you:pull/pulls} the trigger of ${weapon.name}. ${target.Name} ${target.you:scream/screams} as the bullet tears through ${target.their} ${body_part.plain_name}.").expect("message format should be valid")],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:shoot/shoots} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
+                },
+            },
+            Firearm,
+            Volume(0.25),
+            Weight(0.8),
+        ))
+        .id();
+    move_entity(gun_id, middle_room_id, world);
 
     let hidden_thing_id = world
         .spawn((
