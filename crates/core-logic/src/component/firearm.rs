@@ -1,18 +1,24 @@
 use std::sync::LazyLock;
 
 use bevy_ecs::prelude::*;
+use strum::EnumIter;
 
 use crate::{
     command_format::{
         entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
         CommandPartId,
     },
-    component::{AttributeDescriber, DescribeAttributes, ParseCustomInput},
+    component::{
+        description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
+        DescribeAttributes, ParseCustomInput, SectionAttributeDescription,
+    },
     input_parser::InputParser,
+    resource::{AmmoCaliberNameCatalog, CatalogBoilerplate},
+    AttributeDescription, AttributeSection, AttributeSectionName, NonSectionAttributeType,
 };
 
 /// The caliber of ammunition a firearm accepts.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash, Clone, EnumIter)]
 pub enum AmmoCaliber {
     /// 9mm
     NineMm,
@@ -23,7 +29,8 @@ pub enum AmmoCaliber {
 /// Component for entities that are firearms.
 #[derive(Component)]
 pub struct Firearm {
-    pub ammo_caliber: AmmoCaliber,
+    pub caliber: AmmoCaliber,
+    pub magazine: Option<Entity>,
 }
 
 impl ParseCustomInput for Firearm {
@@ -54,10 +61,32 @@ impl AttributeDescriber for FirearmAttributeDescriber {
         &self,
         pov_entity: Entity,
         entity: Entity,
-        detail_level: super::AttributeDetailLevel,
+        detail_level: AttributeDetailLevel,
         world: &World,
-    ) -> Vec<super::AttributeDescription> {
-        todo!() //TODO
+    ) -> Vec<AttributeDescription> {
+        let Some(firearm) = world.get::<Firearm>(entity) else {
+            return Vec::new();
+        };
+
+        let loaded_desc = if let Some(magazine) = firearm.magazine {
+            todo!() //TODO
+        } else {
+            "unloaded".to_string()
+        };
+
+        vec![
+            AttributeDescription::NonSection(NonSectionAttributeDescription {
+                attribute_type: NonSectionAttributeType::Is,
+                description: loaded_desc,
+            }),
+            AttributeDescription::Section(AttributeSection {
+                name: AttributeSectionName::Firearm,
+                attributes: vec![SectionAttributeDescription {
+                    name: "Caliber".to_string(),
+                    description: AmmoCaliberNameCatalog::get_value(&firearm.caliber, world),
+                }],
+            }),
+        ]
     }
 }
 

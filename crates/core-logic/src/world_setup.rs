@@ -863,8 +863,9 @@ pub fn spawn_start_building(
                 article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["pistol".to_string()],
-                description: "A black metal handgun. Careful, it doesn't look like it has a safety."
-                    .to_string(),
+                description:
+                    "A black metal handgun. Careful, it doesn't look like it has a safety."
+                        .to_string(),
                 attribute_describers: vec![
                     Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
@@ -899,11 +900,15 @@ pub fn spawn_start_building(
                     self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:shoot/shoots} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
                 },
             },
-            Firearm { ammo_caliber: AmmoCaliber::NineMm },
+            Firearm {
+                caliber: AmmoCaliber::NineMm,
+                magazine: None,
+            },
             Volume(0.25),
             Weight(0.8),
         ))
         .id();
+    Firearm::register_custom_input_parser(gun_id, world);
     move_entity(gun_id, middle_room_id, world);
 
     let hidden_thing_id = world

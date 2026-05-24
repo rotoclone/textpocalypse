@@ -495,6 +495,7 @@ pub enum AttributeSectionName {
     Wearable,
     Weapon,
     FluidContainer,
+    Firearm,
     Other(String),
 }
 

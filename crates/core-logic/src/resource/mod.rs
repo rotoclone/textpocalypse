@@ -44,6 +44,12 @@ pub use body_part_type_name_catalog::BodyPartTypeNameCatalog;
 mod action_interaction_handlers;
 pub use action_interaction_handlers::*;
 
+mod ammo_caliber_name_catalog;
+pub use ammo_caliber_name_catalog::*;
+
+mod catalog;
+pub use catalog::*;
+
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
     world.insert_resource(FluidNameCatalog::new());
@@ -55,6 +61,7 @@ pub fn insert_resources(world: &mut World) {
     world.insert_resource(WeaponTypeStatCatalog::new());
     world.insert_resource(WeaponTypeNameCatalog::new());
     world.insert_resource(BodyPartTypeNameCatalog::new());
+    world.insert_resource(AmmoCaliberNameCatalog::new());
 }
 
 /// Registers notification handlers related to resources.
