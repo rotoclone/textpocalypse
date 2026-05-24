@@ -5,11 +5,12 @@ use crate::{
     body_part::BodyPartType,
     color::Color,
     component::{
-        Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
-        EquippedItems, Firearm, Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId,
-        KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior,
-        SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon, WeaponDamageAdjustment,
-        WeaponRanges, WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
+        AmmoCaliber, Calories, CombatRange, Connection, Container, DescribeAttributes, Description,
+        Edible, EquippedItems, Firearm, Fluid, FluidContainer, FluidType, GreetBehavior, Item,
+        KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner, Room,
+        SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon,
+        WeaponDamageAdjustment, WeaponRanges, WeaponStatBonuses, WeaponType, Wearable, Weight,
+        WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Attribute, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
@@ -898,7 +899,7 @@ pub fn spawn_start_building(
                     self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:shoot/shoots} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
                 },
             },
-            Firearm,
+            Firearm { ammo_caliber: AmmoCaliber::NineMm },
             Volume(0.25),
             Weight(0.8),
         ))

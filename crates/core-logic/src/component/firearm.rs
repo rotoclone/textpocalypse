@@ -11,9 +11,20 @@ use crate::{
     input_parser::InputParser,
 };
 
+/// The caliber of ammunition a firearm accepts.
+#[derive(PartialEq, Eq)]
+pub enum AmmoCaliber {
+    /// 9mm
+    NineMm,
+    /// A custom caliber
+    Custom(String),
+}
+
 /// Component for entities that are firearms.
 #[derive(Component)]
-pub struct Firearm;
+pub struct Firearm {
+    pub ammo_caliber: AmmoCaliber,
+}
 
 impl ParseCustomInput for Firearm {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
