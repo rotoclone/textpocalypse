@@ -44,11 +44,8 @@ pub use body_part_type_name_catalog::BodyPartTypeNameCatalog;
 mod action_interaction_handlers;
 pub use action_interaction_handlers::*;
 
-mod ammo_caliber_name_catalog;
-pub use ammo_caliber_name_catalog::*;
-
-mod catalog;
-pub use catalog::*;
+pub mod catalog;
+use catalog::*;
 
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {

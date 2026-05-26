@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use core_logic_derive::CatalogBoilerplate;
 
-use crate::{component::AmmoCaliber, resource::Catalog};
+use crate::{component::AmmoCaliber, resource::catalog::Catalog};
 
 /// Map of ammo calibers to their display names.
 #[derive(Resource, CatalogBoilerplate)]

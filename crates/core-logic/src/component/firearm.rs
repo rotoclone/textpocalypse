@@ -13,7 +13,7 @@ use crate::{
         DescribeAttributes, ParseCustomInput, SectionAttributeDescription,
     },
     input_parser::InputParser,
-    resource::{AmmoCaliberNameCatalog, CatalogBoilerplate},
+    resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, NonSectionAttributeType,
 };
 

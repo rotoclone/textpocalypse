@@ -20,7 +20,7 @@ pub fn impl_catalog_boilerplate(ast: &syn::DeriveInput) -> TokenStream {
 
     let name = &ast.ident;
     let generated = quote! {
-        impl crate::resource::CatalogBoilerplate<#thing_type> for #name {
+        impl crate::resource::catalog::CatalogBoilerplate<#thing_type> for #name {
             fn new() -> Self {
                 let standard = <#thing_type as strum::IntoEnumIterator>::iter()
                     .filter_map(|thing| Self::get_default_value(&thing).map(|value| (thing, value)))
