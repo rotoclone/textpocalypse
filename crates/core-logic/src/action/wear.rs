@@ -12,7 +12,7 @@ use crate::{
     component::{Location, VerifyResult, WearError, Wearable, WornItems},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
     notification::Notification,
-    resource::BodyPartTypeNameCatalog,
+    resource::catalog::{BodyPartTypeNameCatalog, CatalogBoilerplate},
     ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, VerifyActionNotification,
@@ -113,7 +113,7 @@ impl Action for WearAction {
             }
             Err(WearError::IncompatibleBodyParts(part_type)) => {
                 let part_type_name_with_article =
-                    BodyPartTypeNameCatalog::get_name(&part_type, world);
+                    BodyPartTypeNameCatalog::get_value(&part_type, world);
                 return ActionResult::builder()
                     .with_error(
                         performing_entity,

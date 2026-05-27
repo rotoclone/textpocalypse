@@ -23,7 +23,7 @@ pub fn impl_catalog_boilerplate(ast: &syn::DeriveInput) -> TokenStream {
         impl crate::resource::catalog::CatalogBoilerplate<#thing_type> for #name {
             fn new() -> Self {
                 let standard = <#thing_type as strum::IntoEnumIterator>::iter()
-                    .filter_map(|thing| Self::get_default_value(&thing).map(|value| (thing, value)))
+                    .filter_map(|thing| <Self as crate::resource::catalog::Catalog<#thing_type>>::get_default_value(&thing).map(|value| (thing, value)))
                     .collect();
 
                 Self {
@@ -49,7 +49,7 @@ pub fn impl_catalog_boilerplate(ast: &syn::DeriveInput) -> TokenStream {
                     _ => self.standard.get(thing),
                 }
                 .cloned()
-                .unwrap_or_else(|| Self::get_not_found_value())
+                .unwrap_or_else(|| <Self as crate::resource::catalog::Catalog<#thing_type>>::get_not_found_value())
             }
         }
     };

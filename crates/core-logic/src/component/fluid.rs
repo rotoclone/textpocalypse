@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 use strum::EnumIter;
 
-use crate::resource::FluidDensityCatalog;
+use crate::resource::catalog::{CatalogBoilerplate, FluidDensityCatalog};
 
 use super::{Volume, Weight};
 

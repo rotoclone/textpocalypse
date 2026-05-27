@@ -4,6 +4,15 @@ use strum::IntoEnumIterator;
 mod ammo_caliber_name_catalog;
 pub use ammo_caliber_name_catalog::*;
 
+mod body_part_type_name_catalog;
+pub use body_part_type_name_catalog::*;
+
+mod fluid_density_catalog;
+pub use fluid_density_catalog::*;
+
+mod fluid_hydration_factor_catalog;
+pub use fluid_hydration_factor_catalog::*;
+
 /// Trait for resources that represent a catalog of things to associates values (such as names).
 // TODO convert existing catalogs to use this
 pub trait Catalog<K>: Resource {

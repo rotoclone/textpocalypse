@@ -3,7 +3,7 @@ use body_part::{BodyPartDamageMultiplier, BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
-use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
+use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -94,6 +94,8 @@ use dynamic_message::*;
 
 mod name_with_article;
 use name_with_article::*;
+
+use crate::resource::catalog::{BodyPartTypeNameCatalog, CatalogBoilerplate};
 
 mod found_entities;
 
@@ -680,7 +682,7 @@ fn spawn_body_part_entity<T: Into<String>>(
     damage_multiplier: BodyPartDamageMultiplier,
     world: &mut World,
 ) -> Entity {
-    let name_with_article = BodyPartTypeNameCatalog::get_name(&part_type, world);
+    let name_with_article = BodyPartTypeNameCatalog::get_value(&part_type, world);
     world
         .spawn((
             BodyPart {
