@@ -11,6 +11,7 @@ use crate::command_format::{
     entity_part_builder, one_of_literal_part, CommandFormatParseError, CommandFormatPart,
     PartValidationFn,
 };
+use crate::resource::catalog::{CatalogBoilerplate, WeaponTypeStatCatalog};
 use crate::{
     body_part::BodyPartDamageMultiplier,
     command_format::{
@@ -18,7 +19,6 @@ use crate::{
         CommandPartValidateResult, PartValidatorContext,
     },
     find_owning_entity, in_same_room, is_living_entity,
-    resource::WeaponTypeStatCatalog,
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     Action, ActionNotificationSender, ActionQueue, ActionResult, ActionResultBuilder, ActionTag,
     AttackType, BasicTokens, BeforeActionNotification, BodyPart, CheckModifiers, CheckResult,
@@ -612,7 +612,7 @@ pub fn check_for_hit(
     let weapon = world
         .get::<Weapon>(weapon_entity)
         .expect("weapon should be a weapon");
-    let primary_weapon_stat = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).primary;
+    let primary_weapon_stat = WeaponTypeStatCatalog::get_value(&weapon.weapon_type, world).primary;
 
     let (to_hit_result, _) = if attacker == target {
         (CheckResult::ExtremeSuccess, CheckResult::ExtremeSuccess)

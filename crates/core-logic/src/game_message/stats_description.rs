@@ -3,7 +3,10 @@ use itertools::Itertools;
 
 use crate::{
     component::Stats,
-    resource::{get_attribute_name, get_base_attribute, get_skill_name},
+    resource::{
+        catalog::{CatalogBoilerplate, SkillBaseAttributeCatalog},
+        get_attribute_name, get_skill_name,
+    },
     AdvancementPoints, StatAdvancement, Xp,
 };
 
@@ -83,7 +86,7 @@ impl SkillDescription {
             .get_all()
             .into_iter()
             .map(|skill| {
-                let base_attribute = get_base_attribute(&skill, world);
+                let base_attribute = SkillBaseAttributeCatalog::get_value(&skill, world);
                 let skill_value = stats.get_skill_value(&skill, world);
                 SkillDescription {
                     name: get_skill_name(&skill, world),

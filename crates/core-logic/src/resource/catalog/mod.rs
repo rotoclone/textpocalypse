@@ -13,6 +13,18 @@ pub use fluid_density_catalog::*;
 mod fluid_hydration_factor_catalog;
 pub use fluid_hydration_factor_catalog::*;
 
+mod fluid_name_catalog;
+pub use fluid_name_catalog::*;
+
+mod skill_base_attribute_catalog;
+pub use skill_base_attribute_catalog::*;
+
+mod weapon_type_name_catalog;
+pub use weapon_type_name_catalog::*;
+
+mod weapon_type_stat_catalog;
+pub use weapon_type_stat_catalog::*;
+
 /// Trait for resources that represent a catalog of things to associates values (such as names).
 // TODO convert existing catalogs to use this
 pub trait Catalog<K>: Resource {

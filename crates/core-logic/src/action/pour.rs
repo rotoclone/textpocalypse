@@ -18,7 +18,7 @@ use crate::{
     },
     component::{FluidContainer, FluidType, Volume},
     input_parser::{input_formats_if_has_component, InputParseError, InputParser},
-    resource::get_fluid_name,
+    resource::catalog::{CatalogBoilerplate, FluidNameCatalog},
     ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation,
     InternalMessageCategory, MessageCategory, MessageDelay, MessageFormat,
     SurroundingsMessageCategory, World,
@@ -341,7 +341,7 @@ impl Action for PourAction {
 
         let fluid_name = if removed_fluids.len() == 1 {
             // unwrap is safe because of the length check
-            get_fluid_name(removed_fluids.iter().next().unwrap().0, world)
+            FluidNameCatalog::get_value(removed_fluids.iter().next().unwrap().0, world)
         } else {
             "fluid".to_string()
         };

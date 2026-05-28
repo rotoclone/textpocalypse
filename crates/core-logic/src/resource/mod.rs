@@ -6,10 +6,6 @@ use crate::Stat;
 mod game_options;
 pub use game_options::GameOptions;
 
-mod fluid_name_catalog;
-pub use fluid_name_catalog::get_fluid_name;
-pub use fluid_name_catalog::FluidNameCatalog;
-
 mod attribute_name_catalog;
 pub use attribute_name_catalog::get_attribute_name;
 pub use attribute_name_catalog::AttributeNameCatalog;
@@ -17,18 +13,6 @@ pub use attribute_name_catalog::AttributeNameCatalog;
 mod skill_name_catalog;
 pub use skill_name_catalog::get_skill_name;
 pub use skill_name_catalog::SkillNameCatalog;
-
-mod skill_base_attribute_catalog;
-pub use skill_base_attribute_catalog::get_base_attribute;
-pub use skill_base_attribute_catalog::SkillBaseAttributeCatalog;
-
-mod weapon_type_stat_catalog;
-pub use weapon_type_stat_catalog::WeaponTypeStatCatalog;
-#[expect(unused)]
-pub use weapon_type_stat_catalog::WeaponTypeStats;
-
-mod weapon_type_name_catalog;
-pub use weapon_type_name_catalog::WeaponTypeNameCatalog;
 
 mod action_interaction_handlers;
 pub use action_interaction_handlers::*;

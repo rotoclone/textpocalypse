@@ -64,8 +64,6 @@ mod vital_change;
 pub use vital_change::VitalChange;
 pub use vital_change::VitalType;
 
-mod swap_tuple;
-
 mod body_part;
 pub use body_part::BodyPart;
 
