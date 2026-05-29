@@ -8,10 +8,7 @@ use crate::{
     component::EquippedItems,
     format_list,
     range_extensions::RangeExtensions,
-    resource::{
-        catalog::{CatalogBoilerplate, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
-        get_stat_name,
-    },
+    resource::catalog::{CatalogBoilerplate, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
     AttributeSection, AttributeSectionName, ChosenWeapon, MessageFormat, MessageTokens,
     SectionAttributeDescription, TokenName, TokenValue,
 };
@@ -190,21 +187,21 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                 },
                 SectionAttributeDescription {
                     name: "Primary stat".to_string(),
-                    description: get_stat_name(&weapon_type_stats.primary, world),
+                    description: weapon_type_stats.primary.get_name(world),
                 },
             ];
 
             if let Some(damage_bonus_stat) = weapon_type_stats.damage_bonus {
                 attributes.push(SectionAttributeDescription {
                     name: "Damage bonus stat".to_string(),
-                    description: get_stat_name(&damage_bonus_stat, world),
+                    description: damage_bonus_stat.get_name(world),
                 });
             }
 
             if let Some(to_hit_bonus_stat) = weapon_type_stats.to_hit_bonus {
                 attributes.push(SectionAttributeDescription {
                     name: "Accuracy bonus stat".to_string(),
-                    description: get_stat_name(&to_hit_bonus_stat, world),
+                    description: to_hit_bonus_stat.get_name(world),
                 });
             }
 
@@ -227,7 +224,7 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                             "{} below {:.1} {}",
                             below_min_behavior,
                             req.min,
-                            get_stat_name(&req.stat, world)
+                            req.stat.get_name(world)
                         )
                     })
                     .collect::<Vec<String>>();

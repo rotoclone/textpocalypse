@@ -6,7 +6,7 @@ use core_logic_derive::ActionBoilerplate;
 use crate::{
     command_format::{any_text_part, literal_part, CommandFormat, CommandPartId},
     input_parser::{InputParseError, InputParser},
-    resource::{AttributeNameCatalog, SkillNameCatalog},
+    resource::catalog::{AttributeNameCatalog, SkillNameCatalog},
     vital_change::{ValueChangeOperation, VitalChangeMessageParams, VitalChangeVisualizationType},
     ActionTag, BasicTokens, CommandTarget, Description, MessageCategory, MessageDelay,
     MessageFormat, NoTokens, Notification, Stat, Stats, VitalChange, VitalType, World, Xp,

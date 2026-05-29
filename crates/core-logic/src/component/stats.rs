@@ -8,9 +8,8 @@ use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
-    resource::{
-        catalog::{CatalogBoilerplate, SkillBaseAttributeCatalog},
-        get_attribute_name, get_skill_name,
+    resource::catalog::{
+        AttributeNameCatalog, CatalogBoilerplate, SkillBaseAttributeCatalog, SkillNameCatalog,
     },
     send_message, GameMessage, IntegerExtensions, Notification, NotificationType,
 };
@@ -483,8 +482,8 @@ impl Stat {
     /// Gets the display name of this stat.
     pub fn get_name(&self, world: &World) -> String {
         match self {
-            Stat::Attribute(attribute) => get_attribute_name(attribute, world).full,
-            Stat::Skill(skill) => get_skill_name(skill, world),
+            Stat::Attribute(attribute) => AttributeNameCatalog::get_value(attribute, world).full,
+            Stat::Skill(skill) => SkillNameCatalog::get_value(skill, world),
         }
     }
 }

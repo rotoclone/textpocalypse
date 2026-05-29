@@ -10,7 +10,7 @@ use crate::{
         CommandPartId, CommandPartValidateError, CommandPartValidateResult, PartValidatorContext,
     },
     input_parser::{InputParseError, InputParser},
-    resource::{AttributeNameCatalog, SkillNameCatalog},
+    resource::catalog::{AttributeNameCatalog, CatalogBoilerplate, SkillNameCatalog},
     ActionTag, Attribute, MessageCategory, MessageDelay, Skill, Stats, World,
 };
 
@@ -164,7 +164,7 @@ impl Action for SpendSkillPointAction {
             let new_value = stats.skills.get_raw(&self.skill) + 1;
             stats.set_skill(&self.skill, new_value);
 
-            let skill_name = SkillNameCatalog::get_name(&self.skill, world);
+            let skill_name = SkillNameCatalog::get_value(&self.skill, world);
             return ActionResult::message(
                 performing_entity,
                 format!("Your base {skill_name} is now {new_value}."),
@@ -219,7 +219,7 @@ impl Action for SpendAttributePointAction {
             let new_value = stats.attributes.get_raw(&self.attribute) + 1;
             stats.set_attribute(&self.attribute, new_value);
 
-            let attribute_name = AttributeNameCatalog::get_name(&self.attribute, world).full;
+            let attribute_name = AttributeNameCatalog::get_value(&self.attribute, world).full;
             return ActionResult::message(
                 performing_entity,
                 format!("Your {attribute_name} is now {new_value}."),
