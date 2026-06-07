@@ -4,15 +4,17 @@ use bevy_ecs::prelude::*;
 use strum::EnumIter;
 
 use crate::{
+    action::Action,
     command_format::{
         entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
         CommandPartId,
     },
     component::{
         description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
-        DescribeAttributes, ParseCustomInput, SectionAttributeDescription,
+        Container, DescribeAttributes, FirearmMagazine, ParseCustomInput,
+        SectionAttributeDescription,
     },
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, NonSectionAttributeType,
 };
@@ -68,8 +70,26 @@ impl AttributeDescriber for FirearmAttributeDescriber {
             return Vec::new();
         };
 
-        let loaded_desc = if let Some(magazine) = firearm.magazine {
-            todo!() //TODO
+        let caliber_name = AmmoCaliberNameCatalog::get_value(&firearm.caliber, world);
+
+        let loaded_desc = if let Some(magazine_entity) = firearm.magazine {
+            let bullets = world
+                .get::<Container>(magazine_entity)
+                .expect("magazine should be a container")
+                .get_entities_including_invisible();
+
+            let magazine_desc = if bullets.is_empty() {
+                "an empty magazine".to_string()
+            } else {
+                let bullet_or_bullets = if bullets.len() == 1 {
+                    "bullet"
+                } else {
+                    "bullets"
+                };
+                format!("{} {} {}", bullets.len(), caliber_name, bullet_or_bullets)
+            };
+
+            format!("loaded with {magazine_desc}")
         } else {
             "unloaded".to_string()
         };
@@ -83,7 +103,7 @@ impl AttributeDescriber for FirearmAttributeDescriber {
                 name: AttributeSectionName::Firearm,
                 attributes: vec![SectionAttributeDescription {
                     name: "Caliber".to_string(),
-                    description: AmmoCaliberNameCatalog::get_value(&firearm.caliber, world),
+                    description: caliber_name,
                 }],
             }),
         ]
@@ -114,7 +134,7 @@ impl InputParser for UnloadParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn crate::action::Action>, crate::input_parser::InputParseError> {
+    ) -> Result<Box<dyn Action>, InputParseError> {
         todo!() //TODO
     }
 
