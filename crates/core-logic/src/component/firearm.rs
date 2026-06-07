@@ -31,7 +31,9 @@ pub enum AmmoCaliber {
 /// Component for entities that are firearms.
 #[derive(Component)]
 pub struct Firearm {
+    /// The caliber of bullet this firearm can shoot
     pub caliber: AmmoCaliber,
+    /// The magazine currently loaded into this firearm, if any
     pub magazine: Option<Entity>,
 }
 
@@ -61,9 +63,9 @@ struct FirearmAttributeDescriber;
 impl AttributeDescriber for FirearmAttributeDescriber {
     fn describe(
         &self,
-        pov_entity: Entity,
+        _: Entity,
         entity: Entity,
-        detail_level: AttributeDetailLevel,
+        _: AttributeDetailLevel,
         world: &World,
     ) -> Vec<AttributeDescription> {
         let Some(firearm) = world.get::<Firearm>(entity) else {

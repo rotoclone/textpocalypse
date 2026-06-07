@@ -183,6 +183,9 @@ pub use firearm::*;
 mod firearm_magazine;
 pub use firearm_magazine::*;
 
+mod bullet;
+pub use bullet::*;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
     register_status_effect_handlers(world);
