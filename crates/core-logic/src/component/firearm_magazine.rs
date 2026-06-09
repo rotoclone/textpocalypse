@@ -74,40 +74,34 @@ fn verify_item_to_put_in_magazine(
     let performing_entity = notification.notification_type.performing_entity;
     let target = notification.contents.destination;
 
-    let Some(target_magazine) = world.get::<FirearmMagazine>(target) else {
+    let Some(magazine) = world.get::<FirearmMagazine>(target) else {
         return VerifyResult::valid();
     };
-
-    let magazine_name = Description::get_reference_name(
-        notification.contents.destination,
-        Some(performing_entity),
-        world,
-    );
 
     let Some(bullet) = world.get::<Bullet>(notification.contents.item) else {
         return VerifyResult::invalid(
             performing_entity,
-            GameMessage::Error(format!("You can only put bullets in {magazine_name}.")),
+            build_incorrect_item_error(target, magazine, performing_entity, world),
         );
     };
 
     let mut errors = Vec::new();
 
-    if bullet.caliber != target_magazine.caliber {
-        let caliber_name = AmmoCaliberNameCatalog::get_value(&target_magazine.caliber, world);
-
-        errors.push(GameMessage::Error(format!(
-            "{magazine_name} can only hold {caliber_name} bullets."
-        )));
+    if bullet.caliber != magazine.caliber {
+        errors.push(build_incorrect_item_error(
+            target,
+            magazine,
+            performing_entity,
+            world,
+        ));
     }
 
     let magazine_container = world
         .get::<Container>(target)
         .expect("target magazine should be a container");
 
-    if magazine_container.get_entities_including_invisible().len()
-        >= target_magazine.max_bullets.into()
-    {
+    if magazine_container.get_entities_including_invisible().len() >= magazine.max_bullets.into() {
+        let magazine_name = Description::get_reference_name(target, Some(performing_entity), world);
         errors.push(GameMessage::Error(format!("{magazine_name} is full.")))
     }
 
@@ -116,4 +110,20 @@ fn verify_item_to_put_in_magazine(
     }
 
     VerifyResult::valid()
+}
+
+/// Creates a `GameMessage` containing the error message for attempting to put the wrong thing in a magazine.
+fn build_incorrect_item_error(
+    magazine_entity: Entity,
+    magazine: &FirearmMagazine,
+    performing_entity: Entity,
+    world: &World,
+) -> GameMessage {
+    let magazine_name =
+        Description::get_reference_name(magazine_entity, Some(performing_entity), world);
+    let caliber_name = AmmoCaliberNameCatalog::get_value(&magazine.caliber, world);
+
+    GameMessage::Error(format!(
+        "{magazine_name} can only hold {caliber_name} bullets."
+    ))
 }

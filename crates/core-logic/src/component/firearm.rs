@@ -11,7 +11,7 @@ use crate::{
     },
     component::{
         description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
-        Container, DescribeAttributes, FirearmMagazine, ParseCustomInput,
+        Container, DescribeAttributes, Description, FirearmMagazine, ParseCustomInput,
         SectionAttributeDescription,
     },
     input_parser::{InputParseError, InputParser},
@@ -72,26 +72,28 @@ impl AttributeDescriber for FirearmAttributeDescriber {
             return Vec::new();
         };
 
-        let caliber_name = AmmoCaliberNameCatalog::get_value(&firearm.caliber, world);
-
         let loaded_desc = if let Some(magazine_entity) = firearm.magazine {
+            let magazine = world
+                .get::<FirearmMagazine>(magazine_entity)
+                .expect("magazine should be a magazine");
             let bullets = world
                 .get::<Container>(magazine_entity)
                 .expect("magazine should be a container")
                 .get_entities_including_invisible();
+            let magazine_name = Description::get_article_reference_name(magazine_entity, world);
 
-            let magazine_desc = if bullets.is_empty() {
-                "an empty magazine".to_string()
+            let bullet_or_bullets = if magazine.max_bullets == 1 {
+                "bullet"
             } else {
-                let bullet_or_bullets = if bullets.len() == 1 {
-                    "bullet"
-                } else {
-                    "bullets"
-                };
-                format!("{} {} {}", bullets.len(), caliber_name, bullet_or_bullets)
+                "bullets"
             };
-
-            format!("loaded with {magazine_desc}")
+            format!(
+                "loaded with {} containing {} of {} {}",
+                magazine_name,
+                bullets.len(),
+                magazine.max_bullets,
+                bullet_or_bullets
+            )
         } else {
             "unloaded".to_string()
         };
@@ -105,7 +107,7 @@ impl AttributeDescriber for FirearmAttributeDescriber {
                 name: AttributeSectionName::Firearm,
                 attributes: vec![SectionAttributeDescription {
                     name: "Caliber".to_string(),
-                    description: caliber_name,
+                    description: AmmoCaliberNameCatalog::get_value(&firearm.caliber, world),
                 }],
             }),
         ]
