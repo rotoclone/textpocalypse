@@ -902,8 +902,8 @@ pub fn spawn_start_building(
             },
             Firearm {
                 caliber: AmmoCaliber::NineMm,
-                magazine: None,
             },
+            Container::new_infinite(),
             Volume(0.25),
             Weight(0.8),
         ))

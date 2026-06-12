@@ -33,8 +33,6 @@ pub enum AmmoCaliber {
 pub struct Firearm {
     /// The caliber of bullet this firearm can shoot
     pub caliber: AmmoCaliber,
-    /// The magazine currently loaded into this firearm, if any
-    pub magazine: Option<Entity>,
 }
 
 impl ParseCustomInput for Firearm {
@@ -72,15 +70,25 @@ impl AttributeDescriber for FirearmAttributeDescriber {
             return Vec::new();
         };
 
-        let loaded_desc = if let Some(magazine_entity) = firearm.magazine {
+        let container = world
+            .get::<Container>(entity)
+            .expect("firearm should be a container");
+
+        let contents = container.get_entities_including_invisible();
+
+        let loaded_desc = if contents.len() == 0 {
+            "unloaded".to_string()
+        } else if contents.len() == 1 {
+            // unwrap is safe due to the length check above
+            let contained = contents.iter().next().unwrap();
             let magazine = world
-                .get::<FirearmMagazine>(magazine_entity)
-                .expect("magazine should be a magazine");
+                .get::<FirearmMagazine>(*contained)
+                .expect("entity in firearm should be a magazine");
             let bullets = world
-                .get::<Container>(magazine_entity)
+                .get::<Container>(*contained)
                 .expect("magazine should be a container")
                 .get_entities_including_invisible();
-            let magazine_name = Description::get_article_reference_name(magazine_entity, world);
+            let magazine_name = Description::get_article_reference_name(*contained, world);
 
             let bullet_or_bullets = if magazine.max_bullets == 1 {
                 "bullet"
@@ -95,7 +103,11 @@ impl AttributeDescriber for FirearmAttributeDescriber {
                 bullet_or_bullets
             )
         } else {
-            "unloaded".to_string()
+            panic!(
+                "{} entities found in firearm {} (expected 1)",
+                contents.len(),
+                entity
+            );
         };
 
         vec![
@@ -113,6 +125,8 @@ impl AttributeDescriber for FirearmAttributeDescriber {
         ]
     }
 }
+
+//TODO add verification handler to only allow putting a single magazine in a gun, similar to the one for magazines with bullets
 
 static UNLOAD_TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
 
