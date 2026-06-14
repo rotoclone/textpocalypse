@@ -1,22 +1,18 @@
-use std::sync::LazyLock;
-
 use bevy_ecs::prelude::*;
 use strum::EnumIter;
 
 use crate::{
-    action::Action,
-    command_format::{
-        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
-        CommandPartId,
-    },
+    action::PutAction,
     component::{
         description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
         Container, DescribeAttributes, Description, FirearmMagazine, ParseCustomInput,
-        SectionAttributeDescription,
+        SectionAttributeDescription, VerifyActionNotification, VerifyResult,
     },
-    input_parser::{InputParseError, InputParser},
+    input_parser::InputParser,
+    notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
-    AttributeDescription, AttributeSection, AttributeSectionName, NonSectionAttributeType,
+    AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
+    NonSectionAttributeType,
 };
 
 /// The caliber of ammunition a firearm accepts.
@@ -37,7 +33,7 @@ pub struct Firearm {
 
 impl ParseCustomInput for Firearm {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
-        vec![Box::new(UnloadParser)]
+        vec![] //TODO add reload action
     }
 }
 
@@ -50,7 +46,7 @@ impl DescribeAttributes for Firearm {
 impl Firearm {
     /// Registers handlers for gun actions.
     pub fn register_handlers(world: &mut World) {
-        //TODO
+        ReturningNotificationHandlers::add_handler(verify_item_to_put_in_firearm, world);
     }
 }
 
@@ -76,7 +72,7 @@ impl AttributeDescriber for FirearmAttributeDescriber {
 
         let contents = container.get_entities_including_invisible();
 
-        let loaded_desc = if contents.len() == 0 {
+        let loaded_desc = if contents.is_empty() {
             "unloaded".to_string()
         } else if contents.len() == 1 {
             // unwrap is safe due to the length check above
@@ -126,46 +122,70 @@ impl AttributeDescriber for FirearmAttributeDescriber {
     }
 }
 
-//TODO add verification handler to only allow putting a single magazine in a gun, similar to the one for magazines with bullets
+/// Prevents putting entities into firearms if they're not magazines of the correct caliber or if the firearm already has a  magazine in it.
+fn verify_item_to_put_in_firearm(
+    notification: &Notification<VerifyActionNotification, PutAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let destination = notification.contents.destination;
 
-static UNLOAD_TARGET_PART_ID: CommandPartId<Entity> = CommandPartId::new("target");
+    let Some(firearm) = world.get::<Firearm>(destination) else {
+        return VerifyResult::valid();
+    };
 
-static UNLOAD_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
-    CommandFormat::new(literal_part("unload"))
-        .then(literal_part(" "))
-        .then(
-            entity_part_builder(UNLOAD_TARGET_PART_ID)
-                .with_validator(|context, world| {
-                    validate_parsed_value_has_component::<Firearm>(context, "unload", world)
-                })
-                .build()
-                .with_if_unparsed("what")
-                .with_placeholder_for_format_string("gun"),
-        )
-});
+    let Some(magazine) = world.get::<FirearmMagazine>(notification.contents.item) else {
+        return VerifyResult::invalid(
+            performing_entity,
+            build_incorrect_item_error(destination, firearm, performing_entity, world),
+        );
+    };
 
-struct UnloadParser;
+    let mut errors = Vec::new();
 
-impl InputParser for UnloadParser {
-    fn parse(
-        &self,
-        input: &str,
-        source_entity: Entity,
-        world: &World,
-    ) -> Result<Box<dyn Action>, InputParseError> {
-        todo!() //TODO
+    if magazine.caliber != firearm.caliber {
+        errors.push(build_incorrect_item_error(
+            destination,
+            firearm,
+            performing_entity,
+            world,
+        ));
     }
 
-    fn get_input_formats(&self) -> Vec<String> {
-        todo!() //TODO
+    let firearm_container = world
+        .get::<Container>(destination)
+        .expect("destination firearm should be a container");
+
+    if !firearm_container
+        .get_entities_including_invisible()
+        .is_empty()
+    {
+        let firearm_name =
+            Description::get_reference_name(destination, Some(performing_entity), world);
+        errors.push(GameMessage::Error(format!(
+            "{firearm_name} is already loaded."
+        )))
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        pov_entity: Entity,
-        world: &World,
-    ) -> Vec<String> {
-        todo!() //TODO
+    if !errors.is_empty() {
+        return VerifyResult::invalid_with_messages([(performing_entity, errors)].into());
     }
+
+    VerifyResult::valid()
+}
+
+/// Creates a `GameMessage` containing the error message for attempting to put the wrong thing in a firearm.
+fn build_incorrect_item_error(
+    firearm_entity: Entity,
+    firearm: &Firearm,
+    performing_entity: Entity,
+    world: &World,
+) -> GameMessage {
+    let firearm_name =
+        Description::get_reference_name(firearm_entity, Some(performing_entity), world);
+    let caliber_name = AmmoCaliberNameCatalog::get_value(&firearm.caliber, world);
+
+    GameMessage::Error(format!(
+        "{firearm_name} can only be loaded with {caliber_name} magazines."
+    ))
 }

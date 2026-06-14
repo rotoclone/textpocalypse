@@ -249,9 +249,7 @@ pub fn register_component_handlers(world: &mut World) {
     );
 
     FistActions::register_handlers(world);
-
     Firearm::register_handlers(world);
-
     FirearmMagazine::register_handlers(world);
 }
 

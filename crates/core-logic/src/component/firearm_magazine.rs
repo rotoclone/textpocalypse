@@ -4,9 +4,10 @@ use crate::{
     action::PutAction,
     component::{
         AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
-        DescribeAttributes, Description, SectionAttributeDescription, VerifyActionNotification,
-        VerifyResult,
+        DescribeAttributes, Description, ParseCustomInput, SectionAttributeDescription,
+        VerifyActionNotification, VerifyResult,
     },
+    input_parser::InputParser,
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
@@ -19,6 +20,12 @@ pub struct FirearmMagazine {
     pub caliber: AmmoCaliber,
     /// The maximum number of bullets this magazine can hold at once
     pub max_bullets: u16,
+}
+
+impl ParseCustomInput for FirearmMagazine {
+    fn get_parsers() -> Vec<Box<dyn InputParser>> {
+        vec![] //TODO add fill action
+    }
 }
 
 impl DescribeAttributes for FirearmMagazine {
@@ -72,16 +79,16 @@ fn verify_item_to_put_in_magazine(
     world: &World,
 ) -> VerifyResult {
     let performing_entity = notification.notification_type.performing_entity;
-    let target = notification.contents.destination;
+    let destination = notification.contents.destination;
 
-    let Some(magazine) = world.get::<FirearmMagazine>(target) else {
+    let Some(magazine) = world.get::<FirearmMagazine>(destination) else {
         return VerifyResult::valid();
     };
 
     let Some(bullet) = world.get::<Bullet>(notification.contents.item) else {
         return VerifyResult::invalid(
             performing_entity,
-            build_incorrect_item_error(target, magazine, performing_entity, world),
+            build_incorrect_item_error(destination, magazine, performing_entity, world),
         );
     };
 
@@ -89,7 +96,7 @@ fn verify_item_to_put_in_magazine(
 
     if bullet.caliber != magazine.caliber {
         errors.push(build_incorrect_item_error(
-            target,
+            destination,
             magazine,
             performing_entity,
             world,
@@ -97,11 +104,12 @@ fn verify_item_to_put_in_magazine(
     }
 
     let magazine_container = world
-        .get::<Container>(target)
-        .expect("target magazine should be a container");
+        .get::<Container>(destination)
+        .expect("destination magazine should be a container");
 
     if magazine_container.get_entities_including_invisible().len() >= magazine.max_bullets.into() {
-        let magazine_name = Description::get_reference_name(target, Some(performing_entity), world);
+        let magazine_name =
+            Description::get_reference_name(destination, Some(performing_entity), world);
         errors.push(GameMessage::Error(format!("{magazine_name} is full.")))
     }
 
