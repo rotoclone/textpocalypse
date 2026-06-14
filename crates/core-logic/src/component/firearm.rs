@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use strum::EnumIter;
 
 use crate::{
-    action::PutAction,
+    action::{AttackAction, PutAction},
     component::{
         description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
         Container, DescribeAttributes, Description, FirearmMagazine, ParseCustomInput,
@@ -47,6 +47,7 @@ impl Firearm {
     /// Registers handlers for gun actions.
     pub fn register_handlers(world: &mut World) {
         ReturningNotificationHandlers::add_handler(verify_item_to_put_in_firearm, world);
+        ReturningNotificationHandlers::add_handler(verify_firearm_loaded, world);
     }
 }
 
@@ -188,4 +189,65 @@ fn build_incorrect_item_error(
     GameMessage::Error(format!(
         "{firearm_name} can only be loaded with {caliber_name} magazines."
     ))
+}
+
+/// Prevents firing a gun if it doesn't have at least one bullet in it.
+fn verify_firearm_loaded(
+    notification: &Notification<VerifyActionNotification, AttackAction>,
+    world: &World,
+) -> VerifyResult {
+    let chosen_weapon = notification.contents.weapon;
+    let attacker = notification.notification_type.performing_entity;
+
+    let Some(weapon_entity) = chosen_weapon.get_entity::<AttackAction>(attacker, world) else {
+        return VerifyResult::valid();
+    };
+
+    if world.get::<Firearm>(weapon_entity).is_none() {
+        return VerifyResult::valid();
+    };
+
+    if let Some(magazine_entity) = get_magazine(weapon_entity, world) {
+        let magazine_container = world
+            .get::<Container>(magazine_entity)
+            .expect("magazine should be a container");
+        if magazine_container
+            .get_entities_including_invisible()
+            .is_empty()
+        {
+            // has an empty magazine
+            return VerifyResult::invalid(
+                attacker,
+                build_unloaded_error(weapon_entity, attacker, world),
+            );
+        }
+    } else {
+        // doesn't have a magazine
+        return VerifyResult::invalid(
+            attacker,
+            build_unloaded_error(weapon_entity, attacker, world),
+        );
+    }
+
+    VerifyResult::valid()
+}
+
+fn build_unloaded_error(firearm: Entity, performing_entity: Entity, world: &World) -> GameMessage {
+    let firearm_name = Description::get_reference_name(firearm, Some(performing_entity), world);
+    GameMessage::Error(format!("{firearm_name} isn't loaded."))
+}
+
+/// Gets the magazine loaded in a firearm, if there is one.
+fn get_magazine(firearm: Entity, world: &World) -> Option<Entity> {
+    let firearm_container = world.get::<Container>(firearm)?;
+
+    let contents = firearm_container.get_entities_including_invisible();
+    if contents.len() > 1 {
+        panic!(
+            "Firearm contains {} entities (expected 0 or 1)",
+            contents.len()
+        );
+    }
+
+    contents.iter().next().copied()
 }

@@ -6,9 +6,9 @@ use crate::{
     color::Color,
     component::{
         AmmoCaliber, Calories, CombatRange, Connection, Container, DescribeAttributes, Description,
-        Edible, EquippedItems, Firearm, Fluid, FluidContainer, FluidType, GreetBehavior, Item,
-        KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner, Room,
-        SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon,
+        Edible, EquippedItems, Firearm, FirearmMagazine, Fluid, FluidContainer, FluidType,
+        GreetBehavior, Item, KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner,
+        Room, SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon,
         WeaponDamageAdjustment, WeaponRanges, WeaponStatBonuses, WeaponType, Wearable, Weight,
         WornItems,
     },
@@ -910,6 +910,38 @@ pub fn spawn_start_building(
         .id();
     Firearm::register_custom_input_parser(gun_id, world);
     move_entity(gun_id, middle_room_id, world);
+
+    let magazine_id = world
+        .spawn((
+            Description {
+                name: "9mm magazine".to_string(),
+                room_name: "9mm magazine".to_string(),
+                plural_name: "9mm magazines".to_string(),
+                article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["magazine".to_string()],
+                description: "A small black metal magazine for a firearm.".to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    FirearmMagazine::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            FirearmMagazine {
+                caliber: AmmoCaliber::NineMm,
+                max_bullets: 12,
+            },
+            Container::new_infinite(),
+            Volume(0.1),
+            Weight(0.1),
+        ))
+        .id();
+    FirearmMagazine::register_custom_input_parser(magazine_id, world);
+    move_entity(magazine_id, middle_room_id, world);
+
+    //TODO add bullets
 
     let hidden_thing_id = world
         .spawn((
