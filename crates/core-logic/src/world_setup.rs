@@ -5,12 +5,12 @@ use crate::{
     body_part::BodyPartType,
     color::Color,
     component::{
-        AmmoCaliber, Calories, CombatRange, Connection, Container, DescribeAttributes, Description,
-        Edible, EquippedItems, Firearm, FirearmMagazine, Fluid, FluidContainer, FluidType,
-        GreetBehavior, Item, KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns, Respawner,
-        Room, SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior, Weapon,
-        WeaponDamageAdjustment, WeaponRanges, WeaponStatBonuses, WeaponType, Wearable, Weight,
-        WornItems,
+        AmmoCaliber, Bullet, Calories, CombatRange, Connection, Container, DescribeAttributes,
+        Description, Edible, EquippedItems, Firearm, FirearmMagazine, Fluid, FluidContainer,
+        FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns,
+        Respawner, Room, SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior,
+        Weapon, WeaponDamageAdjustment, WeaponRanges, WeaponStatBonuses, WeaponType, Wearable,
+        Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Attribute, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
@@ -862,7 +862,7 @@ pub fn spawn_start_building(
                 plural_name: "9mm pistols".to_string(),
                 article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
-                aliases: vec!["pistol".to_string()],
+                aliases: vec!["pistol".to_string(), "gun".to_string()],
                 description:
                     "A black metal handgun. Careful, it doesn't look like it has a safety."
                         .to_string(),
@@ -920,12 +920,13 @@ pub fn spawn_start_building(
                 article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["magazine".to_string()],
-                description: "A small black metal magazine for a firearm.".to_string(),
+                description: "A black metal magazine for a firearm.".to_string(),
                 attribute_describers: vec![
                     Item::get_attribute_describer(),
                     Volume::get_attribute_describer(),
                     Weight::get_attribute_describer(),
                     FirearmMagazine::get_attribute_describer(),
+                    Container::get_attribute_describer(),
                 ],
             },
             Item::new_one_handed(),
@@ -940,6 +941,35 @@ pub fn spawn_start_building(
         .id();
     FirearmMagazine::register_custom_input_parser(magazine_id, world);
     move_entity(magazine_id, middle_room_id, world);
+
+    for _ in 0..12 {
+        let bullet_id = world
+            .spawn((
+                Description {
+                    name: "9mm bullet".to_string(),
+                    room_name: "9mm bullet".to_string(),
+                    plural_name: "9mm bullets".to_string(),
+                    article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
+                    aliases: vec!["bullet".to_string()],
+                    description: "A small 9mm bullet in a brass casing.".to_string(),
+                    attribute_describers: vec![
+                        Item::get_attribute_describer(),
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                        Bullet::get_attribute_describer(),
+                    ],
+                },
+                Item::new_one_handed(),
+                Bullet {
+                    caliber: AmmoCaliber::NineMm,
+                },
+                Volume(0.01),
+                Weight(0.02),
+            ))
+            .id();
+        move_entity(bullet_id, magazine_id, world);
+    }
 
     //TODO add bullets
 

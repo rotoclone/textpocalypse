@@ -73,7 +73,12 @@ impl AttributeDescriber for FirearmAttributeDescriber {
 
         let contents = container.get_entities_including_invisible();
 
+        let num_bullets;
+        let max_bullets;
+
         let loaded_desc = if contents.is_empty() {
+            num_bullets = 0;
+            max_bullets = None;
             "unloaded".to_string()
         } else if contents.len() == 1 {
             // unwrap is safe due to the length check above
@@ -86,6 +91,9 @@ impl AttributeDescriber for FirearmAttributeDescriber {
                 .expect("magazine should be a container")
                 .get_entities_including_invisible();
             let magazine_name = Description::get_article_reference_name(*contained, world);
+
+            num_bullets = bullets.len();
+            max_bullets = Some(magazine.max_bullets);
 
             let bullet_or_bullets = if magazine.max_bullets == 1 {
                 "bullet"
@@ -107,6 +115,12 @@ impl AttributeDescriber for FirearmAttributeDescriber {
             );
         };
 
+        let ammo_desc = if let Some(max_bullets) = max_bullets {
+            format!("{num_bullets}/{max_bullets}")
+        } else {
+            num_bullets.to_string()
+        };
+
         vec![
             AttributeDescription::NonSection(NonSectionAttributeDescription {
                 attribute_type: NonSectionAttributeType::Is,
@@ -114,10 +128,16 @@ impl AttributeDescriber for FirearmAttributeDescriber {
             }),
             AttributeDescription::Section(AttributeSection {
                 name: AttributeSectionName::Firearm,
-                attributes: vec![SectionAttributeDescription {
-                    name: "Caliber".to_string(),
-                    description: AmmoCaliberNameCatalog::get_value(&firearm.caliber, world),
-                }],
+                attributes: vec![
+                    SectionAttributeDescription {
+                        name: "Caliber".to_string(),
+                        description: AmmoCaliberNameCatalog::get_value(&firearm.caliber, world),
+                    },
+                    SectionAttributeDescription {
+                        name: "Ammo".to_string(),
+                        description: ammo_desc,
+                    },
+                ],
             }),
         ]
     }
@@ -236,6 +256,8 @@ fn build_unloaded_error(firearm: Entity, performing_entity: Entity, world: &Worl
     let firearm_name = Description::get_reference_name(firearm, Some(performing_entity), world);
     GameMessage::Error(format!("{firearm_name} isn't loaded."))
 }
+
+//TODO remove a bullet from the magazine when a gun is fired, turn it into an empty casing, and drop it on the ground
 
 /// Gets the magazine loaded in a firearm, if there is one.
 fn get_magazine(firearm: Entity, world: &World) -> Option<Entity> {

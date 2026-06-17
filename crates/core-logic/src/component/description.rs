@@ -497,6 +497,7 @@ pub enum AttributeSectionName {
     FluidContainer,
     Firearm,
     FirearmMagazine,
+    Bullet,
     Other(String),
 }
 
