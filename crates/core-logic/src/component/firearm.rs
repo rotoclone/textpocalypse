@@ -4,12 +4,14 @@ use strum::EnumIter;
 use crate::{
     action::{AttackAction, PutAction},
     component::{
-        description::NonSectionAttributeDescription, AttributeDescriber, AttributeDetailLevel,
-        Container, DescribeAttributes, Description, FirearmMagazine, ParseCustomInput,
-        SectionAttributeDescription, VerifyActionNotification, VerifyResult,
+        description::NonSectionAttributeDescription, AfterActionPerformNotification,
+        AttributeDescriber, AttributeDetailLevel, Bullet, Container, DescribeAttributes,
+        Description, FirearmMagazine, Location, ParseCustomInput, SectionAttributeDescription,
+        VerifyActionNotification, VerifyResult,
     },
+    despawn_entity,
     input_parser::InputParser,
-    notification::{Notification, ReturningNotificationHandlers},
+    notification::{Notification, NotificationHandlers, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
     NonSectionAttributeType,
@@ -48,6 +50,7 @@ impl Firearm {
     pub fn register_handlers(world: &mut World) {
         ReturningNotificationHandlers::add_handler(verify_item_to_put_in_firearm, world);
         ReturningNotificationHandlers::add_handler(verify_firearm_loaded, world);
+        NotificationHandlers::add_handler(use_bullet_on_shoot, world);
     }
 }
 
@@ -257,7 +260,51 @@ fn build_unloaded_error(firearm: Entity, performing_entity: Entity, world: &Worl
     GameMessage::Error(format!("{firearm_name} isn't loaded."))
 }
 
-//TODO remove a bullet from the magazine when a gun is fired, turn it into an empty casing, and drop it on the ground
+/// Removes a bullet from the magazine when a gun is fired, turns it into an empty casing, and drops it on the ground.
+fn use_bullet_on_shoot(
+    notification: &Notification<AfterActionPerformNotification, AttackAction>,
+    world: &mut World,
+) {
+    let chosen_weapon = notification.contents.weapon;
+    let attacker = notification.notification_type.performing_entity;
+
+    let Some(weapon_entity) = chosen_weapon.get_entity::<AttackAction>(attacker, world) else {
+        return;
+    };
+
+    if world.get::<Firearm>(weapon_entity).is_none() {
+        return;
+    };
+
+    let Some(magazine_entity) = get_magazine(weapon_entity, world) else {
+        return;
+    };
+
+    let mut magazine_container = world
+        .get_mut::<Container>(magazine_entity)
+        .expect("magazine should be a container");
+
+    let Some(fired_entity) = magazine_container
+        .get_entities_including_invisible_mut()
+        .back()
+        .copied()
+    else {
+        return;
+    };
+
+    let bullet_caliber = world
+        .get::<Bullet>(fired_entity)
+        .expect("fired entity should be a bullet")
+        .caliber
+        .clone();
+
+    let attacker_location = *world
+        .get::<Location>(attacker)
+        .expect("attacker should have a location");
+
+    spawn_casing(bullet_caliber, attacker_location, world);
+    despawn_entity(fired_entity, world);
+}
 
 /// Gets the magazine loaded in a firearm, if there is one.
 fn get_magazine(firearm: Entity, world: &World) -> Option<Entity> {
@@ -272,4 +319,9 @@ fn get_magazine(firearm: Entity, world: &World) -> Option<Entity> {
     }
 
     contents.iter().next().copied()
+}
+
+/// Spawns a bullet casing in the provided location.
+fn spawn_casing(caliber: AmmoCaliber, location: Location, world: &mut World) {
+    //TODO
 }

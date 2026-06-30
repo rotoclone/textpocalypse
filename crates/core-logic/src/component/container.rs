@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
 use bevy_ecs::prelude::*;
+use linked_hash_set::LinkedHashSet;
 
 use crate::{
     action::PutAction,
@@ -21,7 +20,7 @@ use super::{
 #[derive(Component)]
 pub struct Container {
     /// The contained entities.
-    entities: HashSet<Entity>,
+    entities: LinkedHashSet<Entity>,
     /// The maximum volume of items this container can hold, if it is limited.
     pub volume: Option<Volume>,
     /// The maximum weight of items this container can hold, if it is limited.
@@ -32,7 +31,7 @@ impl Container {
     /// Creates an empty container that can hold an infinite amount of objects.
     pub fn new_infinite() -> Container {
         Container {
-            entities: HashSet::new(),
+            entities: LinkedHashSet::new(),
             volume: None,
             max_weight: None,
         }
@@ -41,7 +40,7 @@ impl Container {
     /// Creates an empty container.
     pub fn new(volume: Option<Volume>, max_weight: Option<Weight>) -> Container {
         Container {
-            entities: HashSet::new(),
+            entities: LinkedHashSet::new(),
             volume,
             max_weight,
         }
@@ -64,7 +63,7 @@ impl Container {
     }
 
     /// Gets all the entities in this container, from the perspective of the provided entity.
-    pub fn get_entities(&self, pov_entity: Entity, world: &World) -> HashSet<Entity> {
+    pub fn get_entities(&self, pov_entity: Entity, world: &World) -> LinkedHashSet<Entity> {
         self.entities
             .iter()
             .copied()
@@ -73,12 +72,12 @@ impl Container {
     }
 
     /// Gets all the entities in this container.
-    pub fn get_entities_including_invisible(&self) -> &HashSet<Entity> {
+    pub fn get_entities_including_invisible(&self) -> &LinkedHashSet<Entity> {
         &self.entities
     }
 
     /// Gets all the entities in this container mutably.
-    pub fn get_entities_including_invisible_mut(&mut self) -> &mut HashSet<Entity> {
+    pub fn get_entities_including_invisible_mut(&mut self) -> &mut LinkedHashSet<Entity> {
         &mut self.entities
     }
 
@@ -184,7 +183,7 @@ impl Container {
     fn find_recursive_internal(
         &self,
         match_fn: impl Fn(Entity) -> bool + Clone,
-        get_entities_fn: &impl Fn(&Container) -> HashSet<Entity>,
+        get_entities_fn: &impl Fn(&Container) -> LinkedHashSet<Entity>,
         world: &World,
         contained_entities: &mut Vec<Entity>,
     ) -> Vec<Entity> {
