@@ -11,6 +11,8 @@ pub use action_interaction_handlers::*;
 pub mod catalog;
 use catalog::*;
 
+pub mod spawner;
+
 /// Inserts all the resources into the world.
 pub fn insert_resources(world: &mut World) {
     world.insert_resource(FluidNameCatalog::new());

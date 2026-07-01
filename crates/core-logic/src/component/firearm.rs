@@ -12,7 +12,10 @@ use crate::{
     despawn_entity,
     input_parser::InputParser,
     notification::{Notification, NotificationHandlers, ReturningNotificationHandlers},
-    resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
+    resource::{
+        catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
+        spawner::BulletCasingSpawner,
+    },
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
     NonSectionAttributeType,
 };
@@ -302,7 +305,7 @@ fn use_bullet_on_shoot(
         .get::<Location>(attacker)
         .expect("attacker should have a location");
 
-    spawn_casing(bullet_caliber, attacker_location, world);
+    BulletCasingSpawner::spawn(bullet_caliber, attacker_location, world);
     despawn_entity(fired_entity, world);
 }
 
@@ -319,9 +322,4 @@ fn get_magazine(firearm: Entity, world: &World) -> Option<Entity> {
     }
 
     contents.iter().next().copied()
-}
-
-/// Spawns a bullet casing in the provided location.
-fn spawn_casing(caliber: AmmoCaliber, location: Location, world: &mut World) {
-    //TODO
 }
