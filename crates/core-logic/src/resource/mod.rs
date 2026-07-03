@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use crate::notification::NotificationHandlers;
+use crate::{notification::NotificationHandlers, resource::spawner::register_spawners};
 
 mod game_options;
 pub use game_options::GameOptions;
@@ -25,6 +25,8 @@ pub fn insert_resources(world: &mut World) {
     world.insert_resource(WeaponTypeNameCatalog::new());
     world.insert_resource(BodyPartTypeNameCatalog::new());
     world.insert_resource(AmmoCaliberNameCatalog::new());
+
+    register_spawners(world);
 }
 
 /// Registers notification handlers related to resources.

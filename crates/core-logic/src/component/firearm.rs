@@ -14,7 +14,7 @@ use crate::{
     notification::{Notification, NotificationHandlers, ReturningNotificationHandlers},
     resource::{
         catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
-        spawner::BulletCasingSpawner,
+        spawner::{BulletCasingSpawner, Spawner},
     },
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
     NonSectionAttributeType,
@@ -305,7 +305,7 @@ fn use_bullet_on_shoot(
         .get::<Location>(attacker)
         .expect("attacker should have a location");
 
-    BulletCasingSpawner::spawn(bullet_caliber, attacker_location, world);
+    BulletCasingSpawner::spawn(bullet_caliber, attacker_location.id, world);
     despawn_entity(fired_entity, world);
 }
 

@@ -851,6 +851,9 @@ impl NotificationType for EntityMovedNotification {}
 /// Moves an entity to a container.
 ///
 /// This is the only way entities should be moved, to ensure the proper entity movement notifications are sent.
+///
+/// # Panics
+/// Panics if `destination_entity` isn't a container.
 fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
     let mut source_entity = None;
 
