@@ -1,7 +1,18 @@
+use std::{collections::HashSet, sync::LazyLock};
+
 use bevy_ecs::prelude::*;
 
+use core_logic_derive::ActionBoilerplate;
+use nonempty::nonempty;
+
 use crate::{
-    action::PutAction,
+    action::{
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag, PutAction,
+    },
+    command_format::{
+        entity_part_builder, literal_part, one_of_literal_part,
+        validate_parsed_value_has_component, CommandFormat, CommandPartId,
+    },
     component::{
         AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
         DescribeAttributes, Description, ParseCustomInput, SectionAttributeDescription,
@@ -11,6 +22,7 @@ use crate::{
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay,
 };
 
 /// Component for entities that can be loaded into firearms.
@@ -24,7 +36,7 @@ pub struct FirearmMagazine {
 
 impl ParseCustomInput for FirearmMagazine {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
-        vec![] //TODO add fill action
+        vec![Box::new(FillMagazineParser)]
     }
 }
 
@@ -70,6 +82,107 @@ impl AttributeDescriber for FirearmMagazineAttributeDescriber {
                 },
             ],
         })]
+    }
+}
+
+static MAG_PART_ID: CommandPartId<Entity> = CommandPartId::new("magazine");
+static BULLET_PART_ID: CommandPartId<Entity> = CommandPartId::new("bullet");
+
+static FILL_MAG_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(one_of_literal_part(nonempty!["fill", "load"]))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(MAG_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<FirearmMagazine>(
+                        context,
+                        "load bullets into",
+                        world,
+                    )
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("magazine"),
+        )
+        .then(literal_part(" "))
+        .then(literal_part("with"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(BULLET_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Bullet>(
+                        context,
+                        "load a magazine with",
+                        world,
+                    )
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("bullet"),
+        )
+});
+
+struct FillMagazineParser;
+
+impl InputParser for FillMagazineParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn crate::action::Action>, crate::input_parser::InputParseError> {
+        todo!() //TODO
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        vec![FILL_MAG_FORMAT.get_format_description().to_string()]
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        todo!() //TODO
+    }
+}
+
+/// Makes an entity fill a magazine with bullets.
+#[derive(ActionBoilerplate, Debug)]
+pub struct FillMagazineAction {
+    pub magazine: Entity,
+    pub bullet: Entity,
+    pub notification_sender: ActionNotificationSender<Self>,
+}
+
+impl Action for FillMagazineAction {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        todo!() //TODO
+    }
+
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
+        let magazine_name =
+            Description::get_reference_name(self.magazine, Some(performing_entity), world);
+
+        ActionInterruptResult::message(
+            performing_entity,
+            format!("You stop putting bullets in {magazine_name}."),
+            MessageCategory::Internal(InternalMessageCategory::Action),
+            MessageDelay::None,
+        )
+    }
+
+    fn may_require_tick(&self) -> bool {
+        true
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        HashSet::new()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
     }
 }
 

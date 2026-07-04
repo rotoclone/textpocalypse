@@ -971,8 +971,6 @@ pub fn spawn_start_building(
         move_entity(bullet_id, magazine_id, world);
     }
 
-    //TODO add bullets
-
     let hidden_thing_id = world
         .spawn((
             Description {
