@@ -131,20 +131,33 @@ impl InputParser for FillMagazineParser {
         source_entity: Entity,
         world: &World,
     ) -> Result<Box<dyn crate::action::Action>, crate::input_parser::InputParseError> {
-        todo!() //TODO
+        let parsed = FILL_MAG_FORMAT.parse(input, source_entity, world)?;
+
+        Ok(Box::new(FillMagazineAction {
+            magazine: parsed.get(MAG_PART_ID),
+            bullet: parsed.get(BULLET_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
         vec![FILL_MAG_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        pov_entity: Entity,
-        world: &World,
-    ) -> Vec<String> {
-        todo!() //TODO
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        if world.get::<FirearmMagazine>(entity).is_some() {
+            vec![FILL_MAG_FORMAT
+                .get_format_description()
+                .with_targeted_entity(MAG_PART_ID, entity, world)
+                .to_string()]
+        } else if world.get::<Bullet>(entity).is_some() {
+            vec![FILL_MAG_FORMAT
+                .get_format_description()
+                .with_targeted_entity(BULLET_PART_ID, entity, world)
+                .to_string()]
+        } else {
+            Vec::new()
+        }
     }
 }
 
