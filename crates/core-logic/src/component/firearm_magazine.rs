@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, result, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 
@@ -7,18 +7,20 @@ use nonempty::nonempty;
 
 use crate::{
     action::{
-        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag, PutAction,
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
+        ActionTag, PutAction,
     },
     command_format::{
         entity_part_builder, literal_part, one_of_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
-        AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
-        DescribeAttributes, Description, ParseCustomInput, SectionAttributeDescription,
+        ActionQueue, AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
+        DescribeAttributes, Description, Location, ParseCustomInput, SectionAttributeDescription,
         VerifyActionNotification, VerifyResult,
     },
-    input_parser::InputParser,
+    input_parser::{find_entities_in_presence_of, InputParser},
+    move_entity,
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
@@ -31,7 +33,7 @@ pub struct FirearmMagazine {
     /// The caliber of bullet that fits in this magazine
     pub caliber: AmmoCaliber,
     /// The maximum number of bullets this magazine can hold at once
-    pub max_bullets: u16,
+    pub max_bullets: usize,
 }
 
 impl ParseCustomInput for FirearmMagazine {
@@ -136,6 +138,7 @@ impl InputParser for FillMagazineParser {
         Ok(Box::new(FillMagazineAction {
             magazine: parsed.get(MAG_PART_ID),
             bullet: parsed.get(BULLET_PART_ID),
+            loaded_any: false,
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -164,14 +167,96 @@ impl InputParser for FillMagazineParser {
 /// Makes an entity fill a magazine with bullets.
 #[derive(ActionBoilerplate, Debug)]
 pub struct FillMagazineAction {
+    /// The magazine to fill
     pub magazine: Entity,
+    /// The first bullet to put in the magazine
     pub bullet: Entity,
+    /// Whether any bullets have been loaded yet. Should start false.
+    pub loaded_any: bool,
+    /// The notification sender
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for FillMagazineAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        todo!() //TODO
+        let source_bullet_name = Description::get_name(self.bullet, world);
+        let source_bullet_caliber = &world
+            .get::<Bullet>(self.bullet)
+            .expect("bullet should be a bullet")
+            .caliber;
+
+        let magazine = world
+            .get::<FirearmMagazine>(self.magazine)
+            .expect("magazine should be a magazine");
+
+        let magazine_container = world
+            .get::<Container>(self.magazine)
+            .expect("magazine should be a container");
+
+        let starting_num_bullets_loaded =
+            magazine_container.get_entities_including_invisible().len();
+        let max_bullets = magazine.max_bullets;
+
+        if starting_num_bullets_loaded >= max_bullets {
+            let magazine_name =
+                Description::get_reference_name(self.magazine, Some(performing_entity), world);
+            return ActionResult::error(performing_entity, format!("{magazine_name} is full."));
+        }
+
+        let candidate_entities = find_entities_in_presence_of(performing_entity, world);
+        let mut candidate_bullets = candidate_entities
+            .iter()
+            .copied()
+            .filter(|e| {
+                *e == self.bullet
+                    || (Description::get_name(*e, world) == source_bullet_name
+                        && world
+                            .get::<Bullet>(*e)
+                            .is_some_and(|b| b.caliber == *source_bullet_caliber))
+            })
+            .collect::<Vec<Entity>>();
+        //TODO load multiple bullets at a time?
+        let Some(bullet) = candidate_bullets.pop() else {
+            let message = if self.loaded_any {
+                "No more matching bullets found.".to_string()
+            } else {
+                "No matching bullets found.".to_string()
+            };
+
+            return ActionResult::error(performing_entity, message);
+        };
+
+        let result_builder = ActionResult::builder();
+
+        move_entity(bullet, self.magazine, world);
+        self.loaded_any = true;
+        //TODO add message about bullet getting put in magazine
+
+        if starting_num_bullets_loaded + 1 == max_bullets {
+            // this was the last bullet the magazine can hold
+            let magazine_name =
+                Description::get_reference_name(self.magazine, Some(performing_entity), world);
+            return result_builder
+                .with_message(
+                    performing_entity,
+                    format!("{magazine_name} is now full."),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
+                    MessageDelay::None,
+                )
+                .build_complete_should_tick(true);
+        } else if candidate_bullets.is_empty() {
+            // this was the last bullet available to be loaded
+            return result_builder
+                .with_message(
+                    performing_entity,
+                    "That was the last bullet you could find.".to_string(),
+                    MessageCategory::Internal(InternalMessageCategory::Misc),
+                    MessageDelay::None,
+                )
+                .build_complete_should_tick(true);
+        }
+
+        ActionResult::builder().build_incomplete(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
@@ -198,6 +283,12 @@ impl Action for FillMagazineAction {
         None
     }
 }
+
+//TODO verify performing entity has access to the mag to fill and the bullet
+
+//TODO verify fill action has bullet and mag of matching caliber
+
+//TODO verify fill action has non-full mag
 
 /// Prevents putting entities into magazines if they're not bullets of the correct caliber or if the magazine is already full.
 fn verify_item_to_put_in_magazine(
