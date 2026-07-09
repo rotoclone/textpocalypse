@@ -1,4 +1,4 @@
-use std::{collections::HashSet, result, sync::LazyLock};
+use std::{collections::HashSet, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 
@@ -7,24 +7,25 @@ use nonempty::nonempty;
 
 use crate::{
     action::{
-        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionResultBuilder,
-        ActionTag, PutAction,
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag, PutAction,
     },
     command_format::{
         entity_part_builder, literal_part, one_of_literal_part,
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
-        ActionQueue, AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
-        DescribeAttributes, Description, Location, ParseCustomInput, SectionAttributeDescription,
+        AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
+        DescribeAttributes, Description, ParseCustomInput, SectionAttributeDescription,
         VerifyActionNotification, VerifyResult,
     },
+    dynamic_message::{DynamicMessage, DynamicMessageLocation},
     input_parser::{find_entities_in_presence_of, InputParser},
+    message_format::{BasicTokens, MessageFormat},
     move_entity,
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
-    AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay,
+    send_message, AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
+    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
 };
 
 /// Component for entities that can be loaded into firearms.
@@ -215,7 +216,6 @@ impl Action for FillMagazineAction {
                             .is_some_and(|b| b.caliber == *source_bullet_caliber))
             })
             .collect::<Vec<Entity>>();
-        //TODO load multiple bullets at a time?
         let Some(bullet) = candidate_bullets.pop() else {
             let message = if self.loaded_any {
                 "No more matching bullets found.".to_string()
@@ -226,11 +226,28 @@ impl Action for FillMagazineAction {
             return ActionResult::error(performing_entity, message);
         };
 
-        let result_builder = ActionResult::builder();
+        let mut result_builder = ActionResult::builder();
 
         move_entity(bullet, self.magazine, world);
         self.loaded_any = true;
-        //TODO add message about bullet getting put in magazine
+        //TODO this message only gets sent once for some reason, even if multiple bullets are loaded
+        result_builder = result_builder.with_dynamic_message(
+            Some(performing_entity),
+            DynamicMessageLocation::SourceEntity,
+            DynamicMessage::new(
+                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
+                MessageDelay::Short,
+                MessageFormat::new(
+                    "${entity.Name} ${entity.you:put/puts} ${bullet.a} ${bullet.plain_name} into ${magazine.name}.",
+                )
+                .expect("message format should be valid"),
+                BasicTokens::new()
+                    .with_entity("entity".into(), performing_entity)
+                    .with_entity("magazine".into(), self.magazine)
+                    .with_entity("bullet".into(), bullet),
+            ),
+            world,
+        );
 
         if starting_num_bullets_loaded + 1 == max_bullets {
             // this was the last bullet the magazine can hold
@@ -324,7 +341,7 @@ fn verify_item_to_put_in_magazine(
         .get::<Container>(destination)
         .expect("destination magazine should be a container");
 
-    if magazine_container.get_entities_including_invisible().len() >= magazine.max_bullets.into() {
+    if magazine_container.get_entities_including_invisible().len() >= magazine.max_bullets {
         let magazine_name =
             Description::get_reference_name(destination, Some(performing_entity), world);
         errors.push(GameMessage::Error(format!("{magazine_name} is full.")))

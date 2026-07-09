@@ -271,7 +271,7 @@ fn living_entities_to_string(entities: &[(&RoomLivingEntityDescription, usize)])
         let entity_name;
         if *count == 1 {
             article = entity
-                .article
+                .indefinite_article
                 .as_ref()
                 .map(|a| format!("{a} "))
                 .unwrap_or_else(|| "".to_string());
@@ -313,7 +313,7 @@ fn object_entities_to_string(entities: &[(&RoomObjectDescription, usize)]) -> Op
             let entity_name;
             if *count == 1 {
                 article = entity
-                    .article
+                    .indefinite_article
                     .as_ref()
                     .map(|a| format!("{a} "))
                     .unwrap_or_else(|| "".to_string());
@@ -339,7 +339,7 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
     for (i, entity) in entities.iter().enumerate() {
         let name = if i == 0 {
             // capitalize the article if there is one, otherwise capitalize the name
-            if let Some(article) = &entity.article {
+            if let Some(article) = &entity.indefinite_article {
                 format!("{} {}", article._capitalize(false), entity.name)
             } else {
                 entity.name._capitalize(false)
@@ -348,7 +348,7 @@ fn connection_entities_to_string(entities: &[&RoomConnectionEntityDescription]) 
             format!(
                 "{}{}",
                 entity
-                    .article
+                    .indefinite_article
                     .as_ref()
                     .map(|a| format!("{a} "))
                     .unwrap_or_else(|| "".to_string()),

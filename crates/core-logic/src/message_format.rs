@@ -107,6 +107,7 @@ impl<T: MessageTokens> MessageFormat<T> {
     ///   * `plain_name`: just the entity's name, with no article
     ///   * `name's`: the possessive version of the entity's name, which will be either "your", or the entity's name followed by "'s", depending on if the entity is the POV entity, including an article like "your" or "the"
     ///   * `plain_name's`: the possessive version of the entity's name, as above, but with no article
+    ///   * `a`: the entity's indefinite article (usually "a" or "an", defaults to "a" if the entity doesn't have an indefinite article)
     ///   * `they`: the entity's personal subject pronoun
     ///   * `them`: the entity's personal object pronoun
     ///   * `theirs`: the entity's possessive pronoun
@@ -167,6 +168,8 @@ enum TokenType {
         with_article: bool,
         possessive: bool,
     },
+    //TODO add tests for this
+    IndefiniteArticle,
     PersonalSubjectPronoun,
     PersonalObjectPronoun,
     PossessivePronoun,
@@ -265,6 +268,7 @@ fn parse_token_type(input: &str) -> IResult<&str, (TokenType, bool)> {
             with_article: false,
             possessive: true,
         },
+        "a" | "A" => TokenType::IndefiniteArticle,
         "they" | "They" => TokenType::PersonalSubjectPronoun,
         "them" | "Them" => TokenType::PersonalObjectPronoun,
         "theirs" | "Theirs" => TokenType::PossessivePronoun,
@@ -435,6 +439,10 @@ impl TokenType {
                     }
                 }
             }
+            TokenType::IndefiniteArticle => world
+                .get::<Description>(entity)
+                .and_then(|d| d.indefinite_article.clone())
+                .unwrap_or_else(|| "a".to_string()),
             TokenType::PersonalSubjectPronoun => {
                 Pronouns::get_personal_subject(entity, Some(pov_entity), world)
             }
@@ -480,7 +488,7 @@ mod tests {
             name: "some entity".to_string(),
             room_name: "some entity room name".to_string(),
             plural_name: "some entities".to_string(),
-            article: Some("a".to_string()),
+            indefinite_article: Some("a".to_string()),
             pronouns: Pronouns::it(),
             aliases: vec![],
             description: "it's an entity wow".to_string(),
@@ -756,7 +764,7 @@ mod tests {
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world
             .spawn(Description {
-                article: None,
+                indefinite_article: None,
                 ..build_entity_1_description()
             })
             .id();
@@ -776,7 +784,7 @@ mod tests {
         let pov_entity = world.spawn_empty().id();
         let entity_1 = world
             .spawn(Description {
-                article: None,
+                indefinite_article: None,
                 ..build_entity_1_description()
             })
             .id();
@@ -795,7 +803,7 @@ mod tests {
         let mut world = World::new();
         let entity_1 = world
             .spawn(Description {
-                article: None,
+                indefinite_article: None,
                 ..build_entity_1_description()
             })
             .id();
@@ -814,7 +822,7 @@ mod tests {
         let mut world = World::new();
         let entity_1 = world
             .spawn(Description {
-                article: None,
+                indefinite_article: None,
                 ..build_entity_1_description()
             })
             .id();
@@ -1333,7 +1341,7 @@ mod tests {
                 name: "some other entity".to_string(),
                 room_name: "some other entity room name".to_string(),
                 plural_name: "some other entities".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::they(),
                 aliases: vec![],
                 description: "it's a different entity wow".to_string(),
@@ -1364,7 +1372,7 @@ mod tests {
                 name: "some other entity".to_string(),
                 room_name: "some other entity room name".to_string(),
                 plural_name: "some other entities".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::they(),
                 aliases: vec![],
                 description: "it's a different entity wow".to_string(),
@@ -1395,7 +1403,7 @@ mod tests {
                 name: "some other entity".to_string(),
                 room_name: "some other entity room name".to_string(),
                 plural_name: "some other entities".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::they(),
                 aliases: vec![],
                 description: "it's a different entity wow".to_string(),
@@ -1427,7 +1435,7 @@ mod tests {
                 name: "some other entity".to_string(),
                 room_name: "some other entity room name".to_string(),
                 plural_name: "some other entities".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::they(),
                 aliases: vec![],
                 description: "it's a different entity wow".to_string(),

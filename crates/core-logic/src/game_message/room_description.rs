@@ -31,8 +31,8 @@ pub struct RoomObjectDescription {
     pub name: String,
     /// The plural name of the entity.
     pub plural_name: String,
-    /// The article to use when referring to the entity (usually "a" or "an")
-    pub article: Option<String>,
+    /// The indefinite article to use when referring to the entity (usually "a" or "an")
+    pub indefinite_article: Option<String>,
 }
 
 /// A description of a living thing as part of a room description.
@@ -42,8 +42,8 @@ pub struct RoomLivingEntityDescription {
     pub name: String,
     /// The plural name of the entity.
     pub plural_name: String,
-    /// The article to use when referring to the entity (usually "a" or "an")
-    pub article: Option<String>,
+    /// The indefinite article to use when referring to the entity (usually "a" or "an")
+    pub indefinite_article: Option<String>,
 }
 
 /// A description of a connection to another room as part of a room description.
@@ -51,8 +51,8 @@ pub struct RoomLivingEntityDescription {
 pub struct RoomConnectionEntityDescription {
     /// The name of the entity.
     pub name: String,
-    /// The article to use when referring to the entity (usually "a" or "an")
-    pub article: Option<String>,
+    /// The indefinite article to use when referring to the entity (usually "a" or "an")
+    pub indefinite_article: Option<String>,
     /// The direction the connection is in.
     pub direction: Direction,
 }
@@ -99,13 +99,13 @@ impl RoomEntityDescription {
                 Some(RoomEntityDescription::Living(RoomLivingEntityDescription {
                     name: desc.room_name.clone(),
                     plural_name: desc.plural_name.clone(),
-                    article: desc.article.clone(),
+                    indefinite_article: desc.indefinite_article.clone(),
                 }))
             } else if let Some(connection) = world.get::<Connection>(entity) {
                 Some(RoomEntityDescription::Connection(
                     RoomConnectionEntityDescription {
                         name: desc.room_name.clone(),
-                        article: desc.article.clone(),
+                        indefinite_article: desc.indefinite_article.clone(),
                         direction: connection.direction,
                     },
                 ))
@@ -113,7 +113,7 @@ impl RoomEntityDescription {
                 Some(RoomEntityDescription::Object(RoomObjectDescription {
                     name: desc.room_name.clone(),
                     plural_name: desc.plural_name.clone(),
-                    article: desc.article.clone(),
+                    indefinite_article: desc.indefinite_article.clone(),
                 }))
             }
         } else {

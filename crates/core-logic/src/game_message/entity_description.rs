@@ -16,8 +16,8 @@ pub struct EntityDescription {
     pub name: String,
     /// Other names for the entity.
     pub aliases: Vec<String>,
-    /// The article to use when referring to the entity (usually "a" or "an").
-    pub article: Option<String>,
+    /// The indefinite article to use when referring to the entity (usually "a" or "an").
+    pub indefinite_article: Option<String>,
     /// The pronouns to use when referring to the entity.
     pub pronouns: Pronouns,
     /// The description of the entity.
@@ -87,7 +87,7 @@ impl EntityDescription {
         EntityDescription {
             name: desc.name.clone(),
             aliases: build_aliases(desc),
-            article: desc.article.clone(),
+            indefinite_article: desc.indefinite_article.clone(),
             pronouns,
             description: desc.description.clone(),
             attributes,

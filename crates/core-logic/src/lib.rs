@@ -240,7 +240,7 @@ impl Game {
                     name: "medium thing".to_string(),
                     room_name: "medium thing".to_string(),
                     plural_name: "medium things".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
@@ -263,7 +263,7 @@ impl Game {
                     name: "heavy thing".to_string(),
                     room_name: "heavy thing".to_string(),
                     plural_name: "heavy things".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
@@ -286,7 +286,7 @@ impl Game {
                     name: "water bottle".to_string(),
                     room_name: "water bottle".to_string(),
                     plural_name: "water bottles".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["bottle".to_string()],
                     description: "A disposable plastic water bottle.".to_string(),
@@ -433,7 +433,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         name: name.clone(),
         room_name: name,
         plural_name: "people".to_string(),
-        article: None,
+        indefinite_article: None,
         pronouns: Pronouns::they(),
         aliases: Vec::new(),
         description: "A human-shaped person-type thing.".to_string(),
@@ -533,7 +533,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 name: "fist".to_string(),
                 room_name: "fist".to_string(),
                 plural_name: "fists".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec![],
                 description: "a fleshy bundle of fingers".to_string(),
@@ -691,7 +691,7 @@ fn spawn_body_part_entity<T: Into<String>>(
                 name: name_with_article.name.clone(),
                 room_name: name_with_article.name,
                 plural_name: plural_name.into(),
-                article: Some(name_with_article.article.to_string()),
+                indefinite_article: Some(name_with_article.article.to_string()),
                 pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: description.into(),
@@ -804,6 +804,7 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
 
 /// Sends multiple messages.
 fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World) {
+    dbg!("sending messages"); //TODO
     for (entity_id, messages) in messages_map {
         for message in messages {
             send_message(world, *entity_id, message.clone());
@@ -957,7 +958,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
             name: format!("dead body of {}", desc.name),
             room_name: format!("dead body of {}", desc.room_name),
             plural_name: format!("dead bodies of {}", desc.room_name),
-            article: Some("the".to_string()),
+            indefinite_article: Some("the".to_string()),
             pronouns: Pronouns::it(),
             aliases,
             description: desc.description,

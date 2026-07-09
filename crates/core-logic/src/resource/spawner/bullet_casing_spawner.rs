@@ -35,7 +35,7 @@ fn default_spawn_fn(caliber: AmmoCaliber, location: Entity, world: &mut World) {
                 name: format!("{caliber_name} casing"),
                 room_name: format!("{caliber_name} casing"),
                 plural_name: format!("{caliber_name} casings"),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["casing".to_string()],
                 description: format!("A empty brass casing for a {caliber_name} bullet."),
