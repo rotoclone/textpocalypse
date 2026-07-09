@@ -804,7 +804,6 @@ fn handle_input(world: &Arc<RwLock<World>>, input: String, entity: Entity) {
 
 /// Sends multiple messages.
 fn send_messages(messages_map: &HashMap<Entity, Vec<GameMessage>>, world: &World) {
-    dbg!("sending messages"); //TODO
     for (entity_id, messages) in messages_map {
         for message in messages {
             send_message(world, *entity_id, message.clone());

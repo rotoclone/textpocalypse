@@ -24,7 +24,7 @@ use crate::{
     move_entity,
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
-    send_message, AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
+    AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
     InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
 };
 
@@ -226,12 +226,10 @@ impl Action for FillMagazineAction {
             return ActionResult::error(performing_entity, message);
         };
 
-        let mut result_builder = ActionResult::builder();
-
         move_entity(bullet, self.magazine, world);
         self.loaded_any = true;
-        //TODO this message only gets sent once for some reason, even if multiple bullets are loaded
-        result_builder = result_builder.with_dynamic_message(
+
+        let result_builder = ActionResult::builder().with_dynamic_message(
             Some(performing_entity),
             DynamicMessageLocation::SourceEntity,
             DynamicMessage::new(
@@ -273,7 +271,7 @@ impl Action for FillMagazineAction {
                 .build_complete_should_tick(true);
         }
 
-        ActionResult::builder().build_incomplete(true)
+        result_builder.build_incomplete(true)
     }
 
     fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
