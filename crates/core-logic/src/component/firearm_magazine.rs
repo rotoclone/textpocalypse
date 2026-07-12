@@ -52,6 +52,7 @@ impl DescribeAttributes for FirearmMagazine {
 impl FirearmMagazine {
     /// Registers handlers for magazine actions.
     pub fn register_handlers(world: &mut World) {
+        ReturningNotificationHandlers::add_handler(verify_item_to_fill_magazine_with, world);
         ReturningNotificationHandlers::add_handler(verify_item_to_put_in_magazine, world);
     }
 }
@@ -170,7 +171,7 @@ impl InputParser for FillMagazineParser {
 pub struct FillMagazineAction {
     /// The magazine to fill
     pub magazine: Entity,
-    /// The first bullet to put in the magazine
+    /// The example bullet to put in the magazine
     pub bullet: Entity,
     /// Whether any bullets have been loaded yet. Should start false.
     pub loaded_any: bool,
@@ -301,9 +302,48 @@ impl Action for FillMagazineAction {
 
 //TODO verify performing entity has access to the mag to fill and the bullet
 
-//TODO verify fill action has bullet and mag of matching caliber
+/// Verifies fill actions have a bullet and magazine of matching caliber, and the magazine isn't already full.
+fn verify_item_to_fill_magazine_with(
+    notification: &Notification<VerifyActionNotification, FillMagazineAction>,
+    world: &World,
+) -> VerifyResult {
+    let magazine_entity = notification.contents.magazine;
+    let performing_entity = notification.notification_type.performing_entity;
 
-//TODO verify fill action has non-full mag
+    let bullet = world
+        .get::<Bullet>(notification.contents.bullet)
+        .expect("bullet should be a bullet");
+    let magazine = world
+        .get::<FirearmMagazine>(magazine_entity)
+        .expect("magazine should be a magazine");
+
+    let mut errors = Vec::new();
+
+    if bullet.caliber != magazine.caliber {
+        errors.push(build_incorrect_item_error(
+            magazine_entity,
+            magazine,
+            performing_entity,
+            world,
+        ));
+    }
+
+    let magazine_container = world
+        .get::<Container>(magazine_entity)
+        .expect("magazine should be a container");
+
+    if magazine_container.get_entities_including_invisible().len() >= magazine.max_bullets {
+        let magazine_name =
+            Description::get_reference_name(magazine_entity, Some(performing_entity), world);
+        errors.push(GameMessage::Error(format!("{magazine_name} is full.")))
+    }
+
+    if !errors.is_empty() {
+        return VerifyResult::invalid_with_messages([(performing_entity, errors)].into());
+    }
+
+    VerifyResult::valid()
+}
 
 /// Prevents putting entities into magazines if they're not bullets of the correct caliber or if the magazine is already full.
 fn verify_item_to_put_in_magazine(
