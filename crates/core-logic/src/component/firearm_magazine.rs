@@ -52,6 +52,7 @@ impl DescribeAttributes for FirearmMagazine {
 impl FirearmMagazine {
     /// Registers handlers for magazine actions.
     pub fn register_handlers(world: &mut World) {
+        ReturningNotificationHandlers::add_handler(verify_access_to_magazine, world);
         ReturningNotificationHandlers::add_handler(verify_item_to_fill_magazine_with, world);
         ReturningNotificationHandlers::add_handler(verify_item_to_put_in_magazine, world);
     }
@@ -171,7 +172,8 @@ impl InputParser for FillMagazineParser {
 pub struct FillMagazineAction {
     /// The magazine to fill
     pub magazine: Entity,
-    /// The example bullet to put in the magazine
+    /// The example bullet to use to find bullets to put in the magazine.
+    /// Matching bullets have the same name and caliber.
     pub bullet: Entity,
     /// Whether any bullets have been loaded yet. Should start false.
     pub loaded_any: bool,
@@ -210,11 +212,10 @@ impl Action for FillMagazineAction {
             .iter()
             .copied()
             .filter(|e| {
-                *e == self.bullet
-                    || (Description::get_name(*e, world) == source_bullet_name
-                        && world
-                            .get::<Bullet>(*e)
-                            .is_some_and(|b| b.caliber == *source_bullet_caliber))
+                Description::get_name(*e, world) == source_bullet_name
+                    && world
+                        .get::<Bullet>(*e)
+                        .is_some_and(|b| b.caliber == *source_bullet_caliber)
             })
             .collect::<Vec<Entity>>();
         let Some(bullet) = candidate_bullets.pop() else {
@@ -300,7 +301,25 @@ impl Action for FillMagazineAction {
     }
 }
 
-//TODO verify performing entity has access to the mag to fill and the bullet
+/// Verifies the performing entity has access to the magazine to fill.
+fn verify_access_to_magazine(
+    notification: &Notification<VerifyActionNotification, FillMagazineAction>,
+    world: &World,
+) -> VerifyResult {
+    let magazine = notification.contents.magazine;
+    let performing_entity = notification.notification_type.performing_entity;
+
+    if !find_entities_in_presence_of(performing_entity, world).contains(&magazine) {
+        let magazine_name =
+            Description::get_reference_name(magazine, Some(performing_entity), world);
+        return VerifyResult::invalid(
+            performing_entity,
+            GameMessage::Error(format!("There's no {magazine_name} here.")),
+        );
+    }
+
+    VerifyResult::valid()
+}
 
 /// Verifies fill actions have a bullet and magazine of matching caliber, and the magazine isn't already full.
 fn verify_item_to_fill_magazine_with(
