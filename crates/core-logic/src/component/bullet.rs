@@ -10,7 +10,6 @@ use crate::{
 };
 
 /// Component for bullets that can be fired by firearms.
-/// TODO rename to Projectile?
 #[derive(Component)]
 pub struct Bullet {
     /// The caliber of the bullet

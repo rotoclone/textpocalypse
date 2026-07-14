@@ -168,7 +168,6 @@ enum TokenType {
         with_article: bool,
         possessive: bool,
     },
-    //TODO add tests for this
     IndefiniteArticle,
     PersonalSubjectPronoun,
     PersonalObjectPronoun,
@@ -992,6 +991,91 @@ mod tests {
 
         assert_eq!(
             "your",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_indefinite_article() {
+        let format = MessageFormat::new("${entity1.a}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "a",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_indefinite_article_capitalized() {
+        let format = MessageFormat::new("${entity1.A}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn(build_entity_1_description()).id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "A",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_indefinite_article_non_default() {
+        let format = MessageFormat::new("${entity1.a}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                indefinite_article: Some("blorb".to_string()),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "blorb",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_indefinite_article_non_default_capitalized() {
+        let format = MessageFormat::new("${entity1.A}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world
+            .spawn(Description {
+                indefinite_article: Some("blorb".to_string()),
+                ..build_entity_1_description()
+            })
+            .id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "Blorb",
+            format.interpolate(pov_entity, &tokens, &world).unwrap()
+        );
+    }
+
+    #[test]
+    fn interpolate_indefinite_article_no_indefinite_article() {
+        let format = MessageFormat::new("${entity1.a}").unwrap();
+
+        let mut world = World::new();
+        let pov_entity = world.spawn_empty().id();
+        let entity_1 = world.spawn_empty().id();
+        let tokens = BasicTokens::new().with_entity("entity1".into(), entity_1);
+
+        assert_eq!(
+            "a",
             format.interpolate(pov_entity, &tokens, &world).unwrap()
         );
     }
