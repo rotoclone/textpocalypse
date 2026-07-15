@@ -275,7 +275,7 @@ impl ActionResultBuilder {
         self.result
     }
 
-    /// Builds the `ActionResult`, denoting that the action has not been completed.
+    /// Builds the `ActionResult`, denoting that the action has not been completed and a tick should happen.
     pub fn build_incomplete(mut self, was_successful: bool) -> ActionResult {
         self.result.should_tick = true;
         self.result.is_complete = false;

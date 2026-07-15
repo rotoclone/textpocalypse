@@ -1,8 +1,9 @@
 use bevy_ecs::prelude::*;
+use core_logic_derive::ActionBoilerplate;
 use strum::EnumIter;
 
 use crate::{
-    action::{AttackAction, PutAction},
+    action::{Action, ActionNotificationSender, AttackAction, PutAction},
     component::{
         description::NonSectionAttributeDescription, AfterActionPerformNotification,
         AttributeDescriber, AttributeDetailLevel, Bullet, Container, DescribeAttributes,
@@ -38,7 +39,7 @@ pub struct Firearm {
 
 impl ParseCustomInput for Firearm {
     fn get_parsers() -> Vec<Box<dyn InputParser>> {
-        vec![] //TODO add reload action
+        vec![Box::new(ReloadFirearmParser)]
     }
 }
 
@@ -146,6 +147,74 @@ impl AttributeDescriber for FirearmAttributeDescriber {
                 ],
             }),
         ]
+    }
+}
+
+struct ReloadFirearmParser;
+
+impl InputParser for ReloadFirearmParser {
+    fn parse(
+        &self,
+        input: &str,
+        source_entity: Entity,
+        world: &World,
+    ) -> Result<Box<dyn crate::action::Action>, crate::input_parser::InputParseError> {
+        todo!() //TODO
+    }
+
+    fn get_input_formats(&self) -> Vec<String> {
+        todo!() //TODO
+    }
+
+    fn get_input_formats_for(
+        &self,
+        entity: Entity,
+        pov_entity: Entity,
+        world: &World,
+    ) -> Vec<String> {
+        todo!() //TODO
+    }
+}
+
+/// Makes an entity reload a firearm.
+#[derive(ActionBoilerplate, Debug)]
+pub struct ReloadFirearmAction {
+    /// The firearm to reload
+    pub firearm: Entity,
+    /// The new magazine to load into the firearm.
+    /// If not provided, a suitable magazine will be automatically chosen.
+    pub magazine: Option<Entity>,
+    /// The notification sender
+    pub notification_sender: ActionNotificationSender<Self>,
+}
+
+impl Action for ReloadFirearmAction {
+    fn perform(
+        &mut self,
+        performing_entity: Entity,
+        world: &mut World,
+    ) -> crate::action::ActionResult {
+        todo!() //TODO
+    }
+
+    fn interrupt(
+        &self,
+        performing_entity: Entity,
+        world: &mut World,
+    ) -> crate::action::ActionInterruptResult {
+        todo!() //TODO
+    }
+
+    fn may_require_tick(&self) -> bool {
+        todo!() //TODO
+    }
+
+    fn get_tags(&self) -> std::collections::HashSet<crate::action::ActionTag> {
+        todo!() //TODO
+    }
+
+    fn get_interaction_target(&self, world: &World) -> Option<Entity> {
+        todo!() //TODO
     }
 }
 

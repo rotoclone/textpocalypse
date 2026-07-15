@@ -14,18 +14,15 @@ use crate::{
         validate_parsed_value_has_component, CommandFormat, CommandPartId,
     },
     component::{
-        AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
-        DescribeAttributes, Description, ParseCustomInput, SectionAttributeDescription,
+        ActionQueue, AmmoCaliber, AttributeDescriber, AttributeDetailLevel, Bullet, Container,
+        DescribeAttributes, Description, Location, ParseCustomInput, SectionAttributeDescription,
         VerifyActionNotification, VerifyResult,
     },
-    dynamic_message::{DynamicMessage, DynamicMessageLocation},
     input_parser::{find_entities_in_presence_of, InputParser},
-    message_format::{BasicTokens, MessageFormat},
-    move_entity,
     notification::{Notification, ReturningNotificationHandlers},
     resource::catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
     AttributeDescription, AttributeSection, AttributeSectionName, GameMessage,
-    InternalMessageCategory, MessageCategory, MessageDelay, SurroundingsMessageCategory,
+    InternalMessageCategory, MessageCategory, MessageDelay,
 };
 
 /// Component for entities that can be loaded into firearms.
@@ -141,7 +138,6 @@ impl InputParser for FillMagazineParser {
         Ok(Box::new(FillMagazineAction {
             magazine: parsed.get(MAG_PART_ID),
             bullet: parsed.get(BULLET_PART_ID),
-            loaded_any: false,
             notification_sender: ActionNotificationSender::new(),
         }))
     }
@@ -175,8 +171,6 @@ pub struct FillMagazineAction {
     /// The example bullet to use to find bullets to put in the magazine.
     /// Matching bullets have the same name and caliber.
     pub bullet: Entity,
-    /// Whether any bullets have been loaded yet. Should start false.
-    pub loaded_any: bool,
     /// The notification sender
     pub notification_sender: ActionNotificationSender<Self>,
 }
@@ -207,8 +201,10 @@ impl Action for FillMagazineAction {
             return ActionResult::error(performing_entity, format!("{magazine_name} is full."));
         }
 
+        let num_bullets_to_load = max_bullets - starting_num_bullets_loaded;
+
         let candidate_entities = find_entities_in_presence_of(performing_entity, world);
-        let mut candidate_bullets = candidate_entities
+        let bullets_to_load = candidate_entities
             .iter()
             .copied()
             .filter(|e| {
@@ -217,79 +213,114 @@ impl Action for FillMagazineAction {
                         .get::<Bullet>(*e)
                         .is_some_and(|b| b.caliber == *source_bullet_caliber)
             })
+            .take(num_bullets_to_load)
             .collect::<Vec<Entity>>();
-        let Some(bullet) = candidate_bullets.pop() else {
-            let message = if self.loaded_any {
-                "No more matching bullets found.".to_string()
-            } else {
-                "No matching bullets found.".to_string()
-            };
-
-            return ActionResult::error(performing_entity, message);
+        if bullets_to_load.is_empty() {
+            return ActionResult::error(
+                performing_entity,
+                "No matching bullets found.".to_string(),
+            );
         };
 
-        move_entity(bullet, self.magazine, world);
-        self.loaded_any = true;
-
-        let result_builder = ActionResult::builder().with_dynamic_message(
-            Some(performing_entity),
-            DynamicMessageLocation::SourceEntity,
-            DynamicMessage::new(
-                MessageCategory::Surroundings(SurroundingsMessageCategory::Action),
-                MessageDelay::Short,
-                MessageFormat::new(
-                    "${entity.Name} ${entity.you:put/puts} ${bullet.a} ${bullet.plain_name} into ${magazine.name}.",
-                )
-                .expect("message format should be valid"),
-                BasicTokens::new()
-                    .with_entity("entity".into(), performing_entity)
-                    .with_entity("magazine".into(), self.magazine)
-                    .with_entity("bullet".into(), bullet),
-            ),
+        // queue the finish action first so it ends up being performed after all the put actions
+        ActionQueue::queue_first(
             world,
+            performing_entity,
+            Box::new(FinishFillMagazineAction {
+                magazine: self.magazine,
+                notification_sender: ActionNotificationSender::new(),
+            }),
         );
 
-        if starting_num_bullets_loaded + 1 == max_bullets {
-            // this was the last bullet the magazine can hold
+        for bullet in bullets_to_load {
+            let bullet_location = world
+                .get::<Location>(bullet)
+                .expect("bullet should have a location");
+            ActionQueue::queue_first(
+                world,
+                performing_entity,
+                Box::new(PutAction {
+                    item: bullet,
+                    source: bullet_location.id,
+                    destination: self.magazine,
+                    notification_sender: ActionNotificationSender::new(),
+                }),
+            );
+        }
+
+        ActionResult::builder().build_complete_should_tick(true)
+    }
+
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
+    }
+
+    fn may_require_tick(&self) -> bool {
+        false
+    }
+
+    fn get_tags(&self) -> HashSet<ActionTag> {
+        HashSet::new()
+    }
+
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
+    }
+}
+
+/// Action to send a message that a magazine is done being filled.
+#[derive(ActionBoilerplate, Debug)]
+struct FinishFillMagazineAction {
+    /// The filled magazine
+    pub magazine: Entity,
+    /// The notification sender
+    pub notification_sender: ActionNotificationSender<Self>,
+}
+
+impl Action for FinishFillMagazineAction {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
+        let magazine = world
+            .get::<FirearmMagazine>(self.magazine)
+            .expect("magazine should be a magazine");
+
+        let magazine_container = world
+            .get::<Container>(self.magazine)
+            .expect("magazine should be a container");
+
+        let num_bullets_in_mag = magazine_container.get_entities_including_invisible().len();
+        let max_bullets = magazine.max_bullets;
+
+        if num_bullets_in_mag == max_bullets {
+            // the magazine got completely filled
             let magazine_name =
                 Description::get_reference_name(self.magazine, Some(performing_entity), world);
-            return result_builder
+            ActionResult::builder()
                 .with_message(
                     performing_entity,
                     format!("{magazine_name} is now full."),
                     MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::None,
                 )
-                .build_complete_should_tick(true);
-        } else if candidate_bullets.is_empty() {
-            // this was the last bullet available to be loaded
-            return result_builder
+                .build_complete_no_tick(true)
+        } else {
+            // ran out of bullets before the magazine was full
+            ActionResult::builder()
                 .with_message(
                     performing_entity,
                     "That was the last bullet you could find.".to_string(),
                     MessageCategory::Internal(InternalMessageCategory::Misc),
                     MessageDelay::None,
                 )
-                .build_complete_should_tick(true);
+                .build_complete_no_tick(true)
         }
-
-        result_builder.build_incomplete(true)
     }
 
-    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
-        let magazine_name =
-            Description::get_reference_name(self.magazine, Some(performing_entity), world);
-
-        ActionInterruptResult::message(
-            performing_entity,
-            format!("You stop putting bullets in {magazine_name}."),
-            MessageCategory::Internal(InternalMessageCategory::Action),
-            MessageDelay::None,
-        )
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
     }
 
     fn may_require_tick(&self) -> bool {
-        true
+        false
     }
 
     fn get_tags(&self) -> HashSet<ActionTag> {
