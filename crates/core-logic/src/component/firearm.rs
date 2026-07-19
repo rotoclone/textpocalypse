@@ -1,9 +1,18 @@
+use std::{collections::HashSet, sync::LazyLock};
+
 use bevy_ecs::prelude::*;
 use core_logic_derive::ActionBoilerplate;
 use strum::EnumIter;
 
 use crate::{
-    action::{Action, ActionNotificationSender, AttackAction, PutAction},
+    action::{
+        Action, ActionInterruptResult, ActionNotificationSender, ActionResult, ActionTag,
+        AttackAction, PutAction,
+    },
+    command_format::{
+        entity_part_builder, literal_part, validate_parsed_value_has_component, CommandFormat,
+        CommandPartId,
+    },
     component::{
         description::NonSectionAttributeDescription, AfterActionPerformNotification,
         AttributeDescriber, AttributeDetailLevel, Bullet, Container, DescribeAttributes,
@@ -150,6 +159,39 @@ impl AttributeDescriber for FirearmAttributeDescriber {
     }
 }
 
+static FIREARM_PART_ID: CommandPartId<Entity> = CommandPartId::new("firearm");
+static MAG_PART_ID: CommandPartId<Entity> = CommandPartId::new("magazine");
+
+static RELOAD_FIREARM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
+    CommandFormat::new(literal_part("reload"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(FIREARM_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<Firearm>(context, "reload", world)
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("firearm"),
+        )
+        .then(literal_part(" "))
+        .then(literal_part("with"))
+        .then(literal_part(" "))
+        .then(
+            entity_part_builder(MAG_PART_ID)
+                .with_validator(|context, world| {
+                    validate_parsed_value_has_component::<FirearmMagazine>(
+                        context,
+                        "reload with",
+                        world,
+                    )
+                })
+                .build()
+                .with_if_unparsed("what")
+                .with_placeholder_for_format_string("magazine"),
+        )
+});
+
 struct ReloadFirearmParser;
 
 impl InputParser for ReloadFirearmParser {
@@ -189,27 +231,19 @@ pub struct ReloadFirearmAction {
 }
 
 impl Action for ReloadFirearmAction {
-    fn perform(
-        &mut self,
-        performing_entity: Entity,
-        world: &mut World,
-    ) -> crate::action::ActionResult {
+    fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         todo!() //TODO
     }
 
-    fn interrupt(
-        &self,
-        performing_entity: Entity,
-        world: &mut World,
-    ) -> crate::action::ActionInterruptResult {
-        todo!() //TODO
+    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
+        ActionInterruptResult::none()
     }
 
     fn may_require_tick(&self) -> bool {
-        todo!() //TODO
+        false
     }
 
-    fn get_tags(&self) -> std::collections::HashSet<crate::action::ActionTag> {
+    fn get_tags(&self) -> HashSet<ActionTag> {
         todo!() //TODO
     }
 

@@ -353,6 +353,7 @@ fn verify_access_to_magazine(
 }
 
 /// Verifies fill actions have a bullet and magazine of matching caliber, and the magazine isn't already full.
+/// TODO verify matching caliber in command format instead
 fn verify_item_to_fill_magazine_with(
     notification: &Notification<VerifyActionNotification, FillMagazineAction>,
     world: &World,
