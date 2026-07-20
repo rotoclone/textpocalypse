@@ -14,13 +14,13 @@ use crate::{
         CommandPartId,
     },
     component::{
-        description::NonSectionAttributeDescription, AfterActionPerformNotification,
+        description::NonSectionAttributeDescription, ActionQueue, AfterActionPerformNotification,
         AttributeDescriber, AttributeDetailLevel, Bullet, Container, DescribeAttributes,
         Description, FirearmMagazine, Location, ParseCustomInput, SectionAttributeDescription,
         VerifyActionNotification, VerifyResult,
     },
     despawn_entity,
-    input_parser::InputParser,
+    input_parser::{InputParseError, InputParser},
     notification::{Notification, NotificationHandlers, ReturningNotificationHandlers},
     resource::{
         catalog::{AmmoCaliberNameCatalog, CatalogBoilerplate},
@@ -180,6 +180,7 @@ static RELOAD_FIREARM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             entity_part_builder(MAG_PART_ID)
                 .with_validator(|context, world| {
+                    //TODO verify the magazine is the same caliber as the firearm
                     validate_parsed_value_has_component::<FirearmMagazine>(
                         context,
                         "reload with",
@@ -200,21 +201,34 @@ impl InputParser for ReloadFirearmParser {
         input: &str,
         source_entity: Entity,
         world: &World,
-    ) -> Result<Box<dyn crate::action::Action>, crate::input_parser::InputParseError> {
-        todo!() //TODO
+    ) -> Result<Box<dyn Action>, InputParseError> {
+        let parsed = RELOAD_FIREARM_FORMAT.parse(input, source_entity, world)?;
+
+        Ok(Box::new(ReloadFirearmAction {
+            firearm: parsed.get(FIREARM_PART_ID),
+            magazine: parsed.get(MAG_PART_ID),
+            notification_sender: ActionNotificationSender::new(),
+        }))
     }
 
     fn get_input_formats(&self) -> Vec<String> {
-        todo!() //TODO
+        vec![RELOAD_FIREARM_FORMAT.get_format_description().to_string()]
     }
 
-    fn get_input_formats_for(
-        &self,
-        entity: Entity,
-        pov_entity: Entity,
-        world: &World,
-    ) -> Vec<String> {
-        todo!() //TODO
+    fn get_input_formats_for(&self, entity: Entity, _: Entity, world: &World) -> Vec<String> {
+        if world.get::<Firearm>(entity).is_some() {
+            vec![RELOAD_FIREARM_FORMAT
+                .get_format_description()
+                .with_targeted_entity(FIREARM_PART_ID, entity, world)
+                .to_string()]
+        } else if world.get::<FirearmMagazine>(entity).is_some() {
+            vec![RELOAD_FIREARM_FORMAT
+                .get_format_description()
+                .with_targeted_entity(MAG_PART_ID, entity, world)
+                .to_string()]
+        } else {
+            Vec::new()
+        }
     }
 }
 
@@ -224,18 +238,64 @@ pub struct ReloadFirearmAction {
     /// The firearm to reload
     pub firearm: Entity,
     /// The new magazine to load into the firearm.
-    /// If not provided, a suitable magazine will be automatically chosen.
-    pub magazine: Option<Entity>,
+    pub magazine: Entity,
     /// The notification sender
     pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for ReloadFirearmAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
-        todo!() //TODO
+        let magazine_location = world
+            .get::<Location>(self.magazine)
+            .expect("magazine should have a location");
+
+        // queue actions backwards so they end up being performed in the correct order
+
+        // put the new mag in the firearm
+        ActionQueue::queue_first(
+            world,
+            performing_entity,
+            Box::new(PutAction {
+                item: self.magazine,
+                source: magazine_location.id,
+                destination: self.firearm,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
+
+        // take the old mag out of the firearm
+        let firearm_container = world
+            .get::<Container>(self.firearm)
+            .expect("firearm should be a container");
+        let firearm_contents = firearm_container.get_entities_including_invisible();
+        if firearm_contents.is_empty() {
+            return ActionResult::none();
+        }
+
+        if firearm_contents.len() > 1 {
+            panic!(
+                "Expected 1 item in firearm, but found {}",
+                firearm_contents.len()
+            );
+        }
+
+        // unwrap is safe due to length check above
+        let old_mag = firearm_contents.iter().next().unwrap();
+        ActionQueue::queue_first(
+            world,
+            performing_entity,
+            Box::new(PutAction {
+                item: *old_mag,
+                source: self.firearm,
+                destination: performing_entity,
+                notification_sender: ActionNotificationSender::new(),
+            }),
+        );
+
+        ActionResult::none()
     }
 
-    fn interrupt(&self, performing_entity: Entity, world: &mut World) -> ActionInterruptResult {
+    fn interrupt(&self, _: Entity, _: &mut World) -> ActionInterruptResult {
         ActionInterruptResult::none()
     }
 
@@ -244,11 +304,11 @@ impl Action for ReloadFirearmAction {
     }
 
     fn get_tags(&self) -> HashSet<ActionTag> {
-        todo!() //TODO
+        HashSet::new()
     }
 
-    fn get_interaction_target(&self, world: &World) -> Option<Entity> {
-        todo!() //TODO
+    fn get_interaction_target(&self, _: &World) -> Option<Entity> {
+        None
     }
 }
 
