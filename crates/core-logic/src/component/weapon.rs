@@ -8,7 +8,7 @@ use crate::{
     component::EquippedItems,
     format_list,
     range_extensions::RangeExtensions,
-    resource::{get_stat_name, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
+    resource::catalog::{CatalogBoilerplate, WeaponTypeNameCatalog, WeaponTypeStatCatalog},
     AttributeSection, AttributeSectionName, ChosenWeapon, MessageFormat, MessageTokens,
     SectionAttributeDescription, TokenName, TokenValue,
 };
@@ -178,30 +178,30 @@ impl AttributeDescriber for WeaponAttributeDescriber {
         world: &World,
     ) -> Vec<AttributeDescription> {
         if let Some(weapon) = world.get::<Weapon>(entity) {
-            let weapon_type_stats = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world);
+            let weapon_type_stats = WeaponTypeStatCatalog::get_value(&weapon.weapon_type, world);
 
             let mut attributes = vec![
                 SectionAttributeDescription {
                     name: "Type".to_string(),
-                    description: WeaponTypeNameCatalog::get_name(&weapon.weapon_type, world),
+                    description: WeaponTypeNameCatalog::get_value(&weapon.weapon_type, world),
                 },
                 SectionAttributeDescription {
                     name: "Primary stat".to_string(),
-                    description: get_stat_name(&weapon_type_stats.primary, world),
+                    description: weapon_type_stats.primary.get_name(world),
                 },
             ];
 
             if let Some(damage_bonus_stat) = weapon_type_stats.damage_bonus {
                 attributes.push(SectionAttributeDescription {
                     name: "Damage bonus stat".to_string(),
-                    description: get_stat_name(&damage_bonus_stat, world),
+                    description: damage_bonus_stat.get_name(world),
                 });
             }
 
             if let Some(to_hit_bonus_stat) = weapon_type_stats.to_hit_bonus {
                 attributes.push(SectionAttributeDescription {
                     name: "Accuracy bonus stat".to_string(),
-                    description: get_stat_name(&to_hit_bonus_stat, world),
+                    description: to_hit_bonus_stat.get_name(world),
                 });
             }
 
@@ -224,7 +224,7 @@ impl AttributeDescriber for WeaponAttributeDescriber {
                             "{} below {:.1} {}",
                             below_min_behavior,
                             req.min,
-                            get_stat_name(&req.stat, world)
+                            req.stat.get_name(world)
                         )
                     })
                     .collect::<Vec<String>>();
@@ -418,7 +418,7 @@ impl Weapon {
         entity: Entity,
         world: &World,
     ) -> Result<i16, WeaponUnusableError> {
-        let stat = WeaponTypeStatCatalog::get_stats(&self.weapon_type, world).primary;
+        let stat = WeaponTypeStatCatalog::get_value(&self.weapon_type, world).primary;
         let base_to_hit = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let stat_bonus = get_stat_to_hit_bonus(self, entity, world);
         let mut modified_to_hit = base_to_hit + stat_bonus;
@@ -547,7 +547,7 @@ impl Weapon {
 
 /// Gets the bonus to damage the provided entity does with the provided weapon based on their stats.
 fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
-    if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).damage_bonus {
+    if let Some(stat) = WeaponTypeStatCatalog::get_value(&weapon.weapon_type, world).damage_bonus {
         let stat_value = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.damage_bonus_stat_range.end());
@@ -561,7 +561,7 @@ fn get_stat_bonus_damage(weapon: &Weapon, entity: Entity, world: &World) -> f32 
 
 /// Gets the to-hit bonus the provided entity has with the provided weapon based on their stats.
 fn get_stat_to_hit_bonus(weapon: &Weapon, entity: Entity, world: &World) -> f32 {
-    if let Some(stat) = WeaponTypeStatCatalog::get_stats(&weapon.weapon_type, world).to_hit_bonus {
+    if let Some(stat) = WeaponTypeStatCatalog::get_value(&weapon.weapon_type, world).to_hit_bonus {
         let stat_value = stat.get_entity_total(entity, world).unwrap_or(0.0);
         let effective_stat_value =
             stat_value.min(*weapon.stat_bonuses.to_hit_bonus_stat_range.end());

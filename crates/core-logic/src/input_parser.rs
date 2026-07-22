@@ -1,7 +1,8 @@
-use std::{collections::HashSet, fmt::Display, sync::LazyLock};
+use std::{fmt::Display, sync::LazyLock};
 
 use bevy_ecs::prelude::*;
 use itertools::Itertools;
+use linked_hash_set::LinkedHashSet;
 use log::debug;
 use regex::Regex;
 
@@ -54,7 +55,6 @@ pub fn find_parsers_relevant_for(
 ///
 /// Entities in `entity`'s inventory will appear first, then entities in `entity`'s location, then the location itself.
 /// Within those groupings the entities will be sorted in their natural order for consistency.
-/// TODO this is used to find valid entities to target for commands, so how will it work for a command like "get thing from box"?
 pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity> {
     let location_id = world
         .get::<Location>(entity)
@@ -72,7 +72,7 @@ pub fn find_entities_in_presence_of(entity: Entity, world: &World) -> Vec<Entity
     let inventory_entities = if let Some(inventory) = world.get::<Container>(entity) {
         inventory.get_entities(entity, world)
     } else {
-        HashSet::new()
+        LinkedHashSet::new()
     };
 
     let mut entities = Vec::with_capacity(inventory_entities.len() + location_entities.len() + 1);

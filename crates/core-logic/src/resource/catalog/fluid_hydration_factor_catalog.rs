@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
-use strum::IntoEnumIterator;
+use core_logic_derive::CatalogBoilerplate;
 
 use crate::{
     action::DrinkAction,
     component::{AfterActionPerformNotification, FluidType},
     notification::Notification,
-    swap_tuple::swapped,
+    resource::catalog::{Catalog, CatalogBoilerplate},
     vital_change::{
         ValueChangeOperation, VitalChange, VitalChangeMessageParams, VitalChangeVisualizationType,
         VitalType,
@@ -15,57 +15,31 @@ use crate::{
     InternalMessageCategory, MessageCategory, NoTokens,
 };
 
-/// The amount of hydration gain per liter of water drank.
-const HYDRATION_GAIN_PER_LITER_OF_WATER: f32 = 50.0;
+/// The amount of hydration gain per liter of fluid drank that the hydration factors are in relation to.
+const BASE_HYDRATION_GAIN_PER_LITER: f32 = 50.0;
 
 /// Map of fluids to the amount of hydration drinking that fluid provides, compared to pure water.
-#[derive(Resource)]
+#[derive(Resource, CatalogBoilerplate)]
+#[catalog_type(FluidType)]
 pub struct FluidHydrationFactorCatalog {
     standard: HashMap<FluidType, f32>,
     custom: HashMap<String, f32>,
 }
 
-impl FluidHydrationFactorCatalog {
-    /// Creates the default catalog of hydration factors.
-    pub fn new() -> FluidHydrationFactorCatalog {
-        FluidHydrationFactorCatalog {
-            standard: build_standard_hydration_factors(),
-            custom: HashMap::new(),
+impl Catalog<FluidType> for FluidHydrationFactorCatalog {
+    type V = f32;
+
+    fn get_default_value(thing: &FluidType) -> Option<Self::V> {
+        match thing {
+            FluidType::Water => Some(1.0),
+            FluidType::DirtyWater => Some(0.9),
+            FluidType::Alcohol => Some(0.5),
+            FluidType::Custom(_) => None,
         }
     }
 
-    /// Sets the hydration factor of the provided fluid type.
-    #[expect(unused)]
-    pub fn set(&mut self, fluid_type: &FluidType, factor: f32) {
-        match fluid_type {
-            FluidType::Custom(id) => self.custom.insert(id.clone(), factor),
-            _ => self.standard.insert(fluid_type.clone(), factor),
-        };
-    }
-
-    /// Determines the hydration factor for the provided fluid type.
-    pub fn get(&self, fluid_type: &FluidType) -> f32 {
-        match fluid_type {
-            FluidType::Custom(id) => *self.custom.get(id).unwrap_or(&0.0),
-            _ => *self.standard.get(fluid_type).unwrap_or(&0.0),
-        }
-    }
-}
-
-/// Builds the default hydration factors of standard fluid types.
-fn build_standard_hydration_factors() -> HashMap<FluidType, f32> {
-    FluidType::iter()
-        .map(|fluid_type| swapped(get_default_hydration_factor(&fluid_type), fluid_type))
-        .collect()
-}
-
-/// Gets the default hydration factor of a fluid type.
-fn get_default_hydration_factor(fluid_type: &FluidType) -> f32 {
-    match fluid_type {
-        FluidType::Water => 1.0,
-        FluidType::DirtyWater => 0.9,
-        FluidType::Alcohol => 0.5,
-        FluidType::Custom(_) => 0.0,
+    fn get_not_found_value() -> Self::V {
+        0.0
     }
 }
 
@@ -86,7 +60,7 @@ pub fn increase_hydration_on_drink(
                     .resource::<FluidHydrationFactorCatalog>()
                     .get(fluid_type);
 
-                volume.0 * HYDRATION_GAIN_PER_LITER_OF_WATER * hydration_factor
+                volume.0 * BASE_HYDRATION_GAIN_PER_LITER * hydration_factor
             })
             .sum::<f32>();
 

@@ -8,7 +8,9 @@ use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
-    resource::{get_attribute_name, get_base_attribute, get_skill_name},
+    resource::catalog::{
+        AttributeNameCatalog, CatalogBoilerplate, SkillBaseAttributeCatalog, SkillNameCatalog,
+    },
     send_message, GameMessage, IntegerExtensions, Notification, NotificationType,
 };
 
@@ -145,7 +147,7 @@ impl Stats {
 
     /// Determines the bonus to apply to the provided skill based on the value of its base attribute.
     fn get_attribute_bonus(&self, skill: &Skill, world: &World) -> f32 {
-        let attribute = get_base_attribute(skill, world);
+        let attribute = SkillBaseAttributeCatalog::get_value(skill, world);
         let attribute_total = self.get_attribute_value(&attribute).total;
 
         attribute_total / 2.0
@@ -480,8 +482,8 @@ impl Stat {
     /// Gets the display name of this stat.
     pub fn get_name(&self, world: &World) -> String {
         match self {
-            Stat::Attribute(attribute) => get_attribute_name(attribute, world).full,
-            Stat::Skill(skill) => get_skill_name(skill, world),
+            Stat::Attribute(attribute) => AttributeNameCatalog::get_value(attribute, world).full,
+            Stat::Skill(skill) => SkillNameCatalog::get_value(skill, world),
         }
     }
 }

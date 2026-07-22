@@ -17,8 +17,8 @@ pub struct Description {
     pub room_name: String,
     /// The name to use when referring to multiple instances of the entity.
     pub plural_name: String,
-    /// The article to use when referring to the entity (usually "a" or "an").
-    pub article: Option<String>,
+    /// The indefinite article to use when referring to the entity (usually "a" or "an").
+    pub indefinite_article: Option<String>,
     /// The pronouns to use when referring to the entity.
     pub pronouns: Pronouns,
     /// The alternate names of the entity.
@@ -330,7 +330,7 @@ impl Description {
 
         if world
             .get::<Description>(entity)
-            .map(|d| d.article.is_none())
+            .map(|d| d.indefinite_article.is_none())
             .unwrap_or(false)
         {
             return None;
@@ -343,7 +343,7 @@ impl Description {
     /// For example, if the entity is named "book" and has its article set to "a", this will return "a book".
     pub fn get_article_reference_name(entity: Entity, world: &World) -> String {
         if let Some(desc) = world.get::<Description>(entity) {
-            if let Some(article) = &desc.article {
+            if let Some(article) = &desc.indefinite_article {
                 format!("{} {}", article, desc.name)
             } else {
                 desc.name.clone()
@@ -495,6 +495,9 @@ pub enum AttributeSectionName {
     Wearable,
     Weapon,
     FluidContainer,
+    Firearm,
+    FirearmMagazine,
+    Bullet,
     Other(String),
 }
 
@@ -520,7 +523,7 @@ pub trait DescribeAttributes {
                 name: "".to_string(),
                 room_name: "".to_string(),
                 plural_name: "".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: "".to_string(),

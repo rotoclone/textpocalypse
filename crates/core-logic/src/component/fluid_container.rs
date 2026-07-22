@@ -7,7 +7,7 @@ use crate::{
     action::{PourAction, PourAmount},
     component::VerifyResult,
     notification::Notification,
-    resource::FluidNameCatalog,
+    resource::catalog::{CatalogBoilerplate, FluidNameCatalog},
     AttributeDescription, Description, GameMessage,
 };
 

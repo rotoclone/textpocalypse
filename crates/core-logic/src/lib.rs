@@ -3,7 +3,7 @@ use body_part::{BodyPartDamageMultiplier, BodyPartType, BodyParts};
 use flume::{Receiver, Sender};
 use input_parser::InputParser;
 use log::debug;
-use resource::{insert_resources, register_resource_handlers, BodyPartTypeNameCatalog};
+use resource::{insert_resources, register_resource_handlers};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
@@ -64,8 +64,6 @@ mod vital_change;
 pub use vital_change::VitalChange;
 pub use vital_change::VitalType;
 
-mod swap_tuple;
-
 mod body_part;
 pub use body_part::BodyPart;
 
@@ -94,6 +92,8 @@ use dynamic_message::*;
 
 mod name_with_article;
 use name_with_article::*;
+
+use crate::resource::catalog::{BodyPartTypeNameCatalog, CatalogBoilerplate};
 
 mod found_entities;
 
@@ -204,7 +204,6 @@ impl Game {
         register_action_handlers(&mut world);
         register_resource_handlers(&mut world);
         register_component_handlers(&mut world);
-        FistActions::register_handlers(&mut world);
 
         let game = Game {
             world: Arc::new(RwLock::new(world)),
@@ -241,7 +240,7 @@ impl Game {
                     name: "medium thing".to_string(),
                     room_name: "medium thing".to_string(),
                     plural_name: "medium things".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of medium-sized thing.".to_string(),
@@ -264,7 +263,7 @@ impl Game {
                     name: "heavy thing".to_string(),
                     room_name: "heavy thing".to_string(),
                     plural_name: "heavy things".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["thing".to_string()],
                     description: "Some kind of heavy thing.".to_string(),
@@ -287,7 +286,7 @@ impl Game {
                     name: "water bottle".to_string(),
                     room_name: "water bottle".to_string(),
                     plural_name: "water bottles".to_string(),
-                    article: Some("a".to_string()),
+                    indefinite_article: Some("a".to_string()),
                     pronouns: Pronouns::it(),
                     aliases: vec!["bottle".to_string()],
                     description: "A disposable plastic water bottle.".to_string(),
@@ -434,7 +433,7 @@ fn spawn_player(name: String, player: Player, spawn_room: Entity, world: &mut Wo
         name: name.clone(),
         room_name: name,
         plural_name: "people".to_string(),
-        article: None,
+        indefinite_article: None,
         pronouns: Pronouns::they(),
         aliases: Vec::new(),
         description: "A human-shaped person-type thing.".to_string(),
@@ -534,7 +533,7 @@ fn add_human_innate_weapon(entity: Entity, world: &mut World) {
                 name: "fist".to_string(),
                 room_name: "fist".to_string(),
                 plural_name: "fists".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec![],
                 description: "a fleshy bundle of fingers".to_string(),
@@ -681,7 +680,7 @@ fn spawn_body_part_entity<T: Into<String>>(
     damage_multiplier: BodyPartDamageMultiplier,
     world: &mut World,
 ) -> Entity {
-    let name_with_article = BodyPartTypeNameCatalog::get_name(&part_type, world);
+    let name_with_article = BodyPartTypeNameCatalog::get_value(&part_type, world);
     world
         .spawn((
             BodyPart {
@@ -692,7 +691,7 @@ fn spawn_body_part_entity<T: Into<String>>(
                 name: name_with_article.name.clone(),
                 room_name: name_with_article.name,
                 plural_name: plural_name.into(),
-                article: Some(name_with_article.article.to_string()),
+                indefinite_article: Some(name_with_article.article.to_string()),
                 pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: description.into(),
@@ -852,6 +851,9 @@ impl NotificationType for EntityMovedNotification {}
 /// Moves an entity to a container.
 ///
 /// This is the only way entities should be moved, to ensure the proper entity movement notifications are sent.
+///
+/// # Panics
+/// Panics if `destination_entity` isn't a container.
 fn move_entity(moving_entity: Entity, destination_entity: Entity, world: &mut World) {
     let mut source_entity = None;
 
@@ -955,7 +957,7 @@ fn kill_entity(entity: Entity, world: &mut World) {
             name: format!("dead body of {}", desc.name),
             room_name: format!("dead body of {}", desc.room_name),
             plural_name: format!("dead bodies of {}", desc.room_name),
-            article: Some("the".to_string()),
+            indefinite_article: Some("the".to_string()),
             pronouns: Pronouns::it(),
             aliases,
             description: desc.description,

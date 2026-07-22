@@ -427,7 +427,8 @@ pub struct PutAction {
     pub source: Entity,
     /// Where the item should be.
     pub destination: Entity,
-    notification_sender: ActionNotificationSender<Self>,
+    /// The notification sender
+    pub notification_sender: ActionNotificationSender<Self>,
 }
 
 impl Action for PutAction {

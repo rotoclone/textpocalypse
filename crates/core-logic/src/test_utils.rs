@@ -31,7 +31,7 @@ pub fn build_entity_description(id: &str) -> Description {
         name: format!("entity {id} name"),
         room_name: format!("entity {id} room name"),
         plural_name: format!("entity {id} plural name"),
-        article: Some("an".to_string()),
+        indefinite_article: Some("an".to_string()),
         pronouns: Pronouns::it(),
         aliases: vec![
             format!("entity {id} alias 1"),

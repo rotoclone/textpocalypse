@@ -5,11 +5,12 @@ use crate::{
     body_part::BodyPartType,
     color::Color,
     component::{
-        Calories, CombatRange, Connection, Container, DescribeAttributes, Description, Edible,
-        EquippedItems, Fluid, FluidContainer, FluidType, GreetBehavior, Item, KeyId, KeyedLock,
-        OpenState, ParseCustomInput, Pronouns, Respawner, Room, SelfDefenseBehavior, SleepState,
-        Stats, Vitals, Volume, WanderBehavior, Weapon, WeaponDamageAdjustment, WeaponRanges,
-        WeaponStatBonuses, WeaponType, Wearable, Weight, WornItems,
+        AmmoCaliber, Bullet, Calories, CombatRange, Connection, Container, DescribeAttributes,
+        Description, Edible, EquippedItems, Firearm, FirearmMagazine, Fluid, FluidContainer,
+        FluidType, GreetBehavior, Item, KeyId, KeyedLock, OpenState, ParseCustomInput, Pronouns,
+        Respawner, Room, SelfDefenseBehavior, SleepState, Stats, Vitals, Volume, WanderBehavior,
+        Weapon, WeaponDamageAdjustment, WeaponRanges, WeaponStatBonuses, WeaponType, Wearable,
+        Weight, WornItems,
     },
     game_map::{Coordinates, GameMap, MapIcon},
     move_entity, Attribute, ConstrainedValue, Direction, Invisible, MessageFormat, StartingStats,
@@ -174,7 +175,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 name: "Some Guy".to_string(),
                 room_name: "Some Guy".to_string(),
                 plural_name: "Some Guys".to_string(),
-                article: None,
+                indefinite_article: None,
                 pronouns: Pronouns::he(),
                 aliases: vec!["guy".to_string()],
                 //TODO add some way to specify a separate description for if the entity is dead
@@ -219,7 +220,7 @@ pub fn set_up_world(world: &mut World) -> Coordinates {
                 name: "cool shirt".to_string(),
                 room_name: "cool shirt".to_string(),
                 plural_name: "cool shirts".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["shirt".to_string()],
                 description: "A pretty cool t-shirt.".to_string(),
@@ -343,7 +344,7 @@ pub fn spawn_start_building(
                 name: "fancy door to the north".to_string(),
                 room_name: "fancy door".to_string(),
                 plural_name: "fancy doors".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["door".to_string(), "north".to_string(), "n".to_string()],
                 description: "A fancy-looking door.".to_string(),
@@ -374,7 +375,7 @@ pub fn spawn_start_building(
             name: "fancy door to the south".to_string(),
             room_name: "fancy door".to_string(),
             plural_name: "fancy doors".to_string(),
-            article: Some("a".to_string()),
+            indefinite_article: Some("a".to_string()),
             pronouns: Pronouns::it(),
             aliases: vec!["door".to_string(), "south".to_string(), "s".to_string()],
             description: "A fancy-looking door.".to_string(),
@@ -412,7 +413,7 @@ pub fn spawn_start_building(
                 name: "candy bar".to_string(),
                 room_name: "candy bar".to_string(),
                 plural_name: "candy bars".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["candy".to_string(), "bar".to_string()],
                 description: "A small candy bar. According to the packaging, it's bursting with chocolatey flavor.".to_string(),
@@ -438,7 +439,7 @@ pub fn spawn_start_building(
                 name: "large thing".to_string(),
                 room_name: "large thing".to_string(),
                 plural_name: "large things".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["thing".to_string()],
                 description: "Some kind of largeish thing.".to_string(),
@@ -461,7 +462,7 @@ pub fn spawn_start_building(
                 name: "fancy key".to_string(),
                 room_name: "fancy key".to_string(),
                 plural_name: "fancy keys".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["key".to_string()],
                 description: "A fancy-looking key.".to_string(),
@@ -485,7 +486,7 @@ pub fn spawn_start_building(
                 name: "duffel bag".to_string(),
                 room_name: "duffel bag".to_string(),
                 plural_name: "duffel bags".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["duffel".to_string(), "bag".to_string()],
                 description: "A large duffel bag.".to_string(),
@@ -510,7 +511,7 @@ pub fn spawn_start_building(
                 name: "lead weight".to_string(),
                 room_name: "lead weight".to_string(),
                 plural_name: "lead weights".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
@@ -533,7 +534,7 @@ pub fn spawn_start_building(
                 name: "lead weight".to_string(),
                 room_name: "lead weight".to_string(),
                 plural_name: "lead weights".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["weight".to_string()],
                 description: "A very compact, yet very heavy chunk of lead.".to_string(),
@@ -556,7 +557,7 @@ pub fn spawn_start_building(
                 name: "water jug".to_string(),
                 room_name: "water jug".to_string(),
                 plural_name: "water jugs".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["jug".to_string()],
                 description: "A large jug made for holding water.".to_string(),
@@ -586,7 +587,7 @@ pub fn spawn_start_building(
                 name: "red shirt".to_string(),
                 room_name: "red shirt".to_string(),
                 plural_name: "red shirts".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["shirt".to_string()],
                 description: "A bright red t-shirt.".to_string(),
@@ -619,7 +620,7 @@ pub fn spawn_start_building(
                 name: "green shirt".to_string(),
                 room_name: "green shirt".to_string(),
                 plural_name: "green shirts".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["shirt".to_string()],
                 description: "A bright green t-shirt.".to_string(),
@@ -652,7 +653,7 @@ pub fn spawn_start_building(
                 name: "blue shirt".to_string(),
                 room_name: "blue shirt".to_string(),
                 plural_name: "blue shirts".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["shirt".to_string()],
                 description: "A bright blue t-shirt.".to_string(),
@@ -685,7 +686,7 @@ pub fn spawn_start_building(
                 name: "pair of pink fluffy footie pajamas".to_string(),
                 room_name: "pair of footie pajamas".to_string(),
                 plural_name: "pairs of footie pajamas".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["pajamas".to_string(), "pjs".to_string()],
                 description: "A pair of bright pink footie pajamas. Looks comfy.".to_string(),
@@ -722,7 +723,7 @@ pub fn spawn_start_building(
                 name: "thing in bag".to_string(),
                 room_name: "thing in bag".to_string(),
                 plural_name: "thing in bags".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: "A thing with a very confusing name.".to_string(),
@@ -745,7 +746,7 @@ pub fn spawn_start_building(
                 name: "baseball bat".to_string(),
                 room_name: "baseball bat".to_string(),
                 plural_name: "baseball bats".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["bat".to_string()],
                 description:
@@ -799,7 +800,7 @@ pub fn spawn_start_building(
                 name: "sledgehammer".to_string(),
                 room_name: "sledgehammer".to_string(),
                 plural_name: "sledgehammers".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: vec!["hammer".to_string()],
                 description:
@@ -853,13 +854,130 @@ pub fn spawn_start_building(
         .id();
     move_entity(sledgehammer_id, middle_room_id, world);
 
+    let gun_id = world
+        .spawn((
+            Description {
+                name: "9mm pistol".to_string(),
+                room_name: "9mm pistol".to_string(),
+                plural_name: "9mm pistols".to_string(),
+                indefinite_article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["pistol".to_string(), "gun".to_string()],
+                description:
+                    "A black metal handgun. Careful, it doesn't look like it has a safety."
+                        .to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    Weapon::get_attribute_describer(),
+                    Firearm::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            Weapon {
+                weapon_type: WeaponType::Firearm,
+                base_damage_range: 40..=50,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Short..=CombatRange::Longest,
+                    optimal: CombatRange::Medium..=CombatRange::Medium,
+                    to_hit_penalty: 2,
+                    damage_penalty: 6,
+                },
+                stat_requirements: Vec::new(),
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 10.0..=20.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 10.0..=20.0,
+                    to_hit_bonus_per_stat_point: 1.0,
+                },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:fire/fires} ${weapon.name} at ${target.name}, but the bullet whizzes past with no effect.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:fire/fires} ${weapon.name} at ${target.name}, leaving a gash on ${target.their} ${body_part.plain_name} as the bullet grazes it.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:blast/blasts} ${target.name} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} carefully ${attacker.you:line/lines} up a shot, and ${attacker.you:pull/pulls} the trigger of ${weapon.name}. ${target.Name} ${target.you:scream/screams} as the bullet tears through ${target.their} ${body_part.plain_name}.").expect("message format should be valid")],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:shoot/shoots} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
+                },
+            },
+            Firearm {
+                caliber: AmmoCaliber::NineMm,
+            },
+            Container::new_infinite(),
+            Volume(0.25),
+            Weight(0.8),
+        ))
+        .id();
+    Firearm::register_custom_input_parser(gun_id, world);
+    move_entity(gun_id, middle_room_id, world);
+
+    let magazine_id = world
+        .spawn((
+            Description {
+                name: "9mm magazine".to_string(),
+                room_name: "9mm magazine".to_string(),
+                plural_name: "9mm magazines".to_string(),
+                indefinite_article: Some("a".to_string()),
+                pronouns: Pronouns::it(),
+                aliases: vec!["magazine".to_string()],
+                description: "A black metal magazine for a firearm.".to_string(),
+                attribute_describers: vec![
+                    Item::get_attribute_describer(),
+                    Volume::get_attribute_describer(),
+                    Weight::get_attribute_describer(),
+                    FirearmMagazine::get_attribute_describer(),
+                    Container::get_attribute_describer(),
+                ],
+            },
+            Item::new_one_handed(),
+            FirearmMagazine {
+                caliber: AmmoCaliber::NineMm,
+                max_bullets: 12,
+            },
+            Container::new_infinite(),
+            Volume(0.1),
+            Weight(0.1),
+        ))
+        .id();
+    FirearmMagazine::register_custom_input_parser(magazine_id, world);
+    move_entity(magazine_id, middle_room_id, world);
+
+    for _ in 0..12 {
+        let bullet_id = world
+            .spawn((
+                Description {
+                    name: "9mm bullet".to_string(),
+                    room_name: "9mm bullet".to_string(),
+                    plural_name: "9mm bullets".to_string(),
+                    indefinite_article: Some("a".to_string()),
+                    pronouns: Pronouns::it(),
+                    aliases: vec!["bullet".to_string()],
+                    description: "A small 9mm bullet in a brass casing.".to_string(),
+                    attribute_describers: vec![
+                        Item::get_attribute_describer(),
+                        Volume::get_attribute_describer(),
+                        Weight::get_attribute_describer(),
+                        Bullet::get_attribute_describer(),
+                    ],
+                },
+                Item::new_one_handed(),
+                Bullet {
+                    caliber: AmmoCaliber::NineMm,
+                },
+                Volume(0.01),
+                Weight(0.02),
+            ))
+            .id();
+        move_entity(bullet_id, magazine_id, world);
+    }
+
     let hidden_thing_id = world
         .spawn((
             Description {
                 name: "YOU SHOULD NOT BE ABLE TO SEE THIS".to_string(),
                 room_name: "YOU SHOULD NOT BE ABLE TO SEE THIS".to_string(),
                 plural_name: "YOU SHOULD NOT BE ABLE TO SEE THISES".to_string(),
-                article: Some("a".to_string()),
+                indefinite_article: Some("a".to_string()),
                 pronouns: Pronouns::it(),
                 aliases: Vec::new(),
                 description: "HOW CAN YOU SEE THIS".to_string(),

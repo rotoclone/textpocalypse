@@ -4,7 +4,10 @@ use bevy_ecs::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    body_part::BodyPartType, format_list, resource::BodyPartTypeNameCatalog, AttributeDescription,
+    body_part::BodyPartType,
+    format_list,
+    resource::catalog::{BodyPartTypeNameCatalog, CatalogBoilerplate},
+    AttributeDescription,
 };
 
 use super::{
@@ -41,7 +44,7 @@ impl AttributeDescriber for WearableAttributeDescriber {
                     (
                         // include type for sorting purposes
                         part_type,
-                        BodyPartTypeNameCatalog::get_name(part_type, world).name,
+                        BodyPartTypeNameCatalog::get_value(part_type, world).name,
                     )
                 })
                 .sorted()

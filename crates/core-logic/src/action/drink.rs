@@ -92,15 +92,9 @@ impl Action for DrinkAction {
     fn perform(&mut self, performing_entity: Entity, world: &mut World) -> ActionResult {
         let target_name =
             Description::get_reference_name(self.target, Some(performing_entity), world);
-        let mut container = match world.get_mut::<FluidContainer>(self.target) {
-            Some(s) => s,
-            None => {
-                return ActionResult::error(
-                    performing_entity,
-                    format!("You can't drink from {target_name}."),
-                );
-            }
-        };
+        let mut container = world
+            .get_mut::<FluidContainer>(self.target)
+            .expect("target should be a fluid container");
 
         let used_volume = container.contents.get_total_volume();
         if used_volume <= Volume(0.0) {

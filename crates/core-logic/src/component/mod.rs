@@ -177,6 +177,15 @@ pub use check_history::CheckHistory;
 mod status_effect;
 pub use status_effect::*;
 
+mod firearm;
+pub use firearm::*;
+
+mod firearm_magazine;
+pub use firearm_magazine::*;
+
+mod bullet;
+pub use bullet::*;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
     register_status_effect_handlers(world);
@@ -238,6 +247,10 @@ pub fn register_component_handlers(world: &mut World) {
         stats::increase_xp_and_advancement_points_on_xp_awarded,
         world,
     );
+
+    FistActions::register_handlers(world);
+    Firearm::register_handlers(world);
+    FirearmMagazine::register_handlers(world);
 }
 
 /// Removes a component from an entity when it dies.
