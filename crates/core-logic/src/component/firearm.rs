@@ -61,6 +61,7 @@ impl DescribeAttributes for Firearm {
 impl Firearm {
     /// Registers handlers for gun actions.
     pub fn register_handlers(world: &mut World) {
+        ReturningNotificationHandlers::add_handler(verify_magazine_to_reload_with, world);
         ReturningNotificationHandlers::add_handler(verify_item_to_put_in_firearm, world);
         ReturningNotificationHandlers::add_handler(verify_firearm_loaded, world);
         NotificationHandlers::add_handler(use_bullet_on_shoot, world);
@@ -180,7 +181,6 @@ static RELOAD_FIREARM_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         .then(
             entity_part_builder(MAG_PART_ID)
                 .with_validator(|context, world| {
-                    //TODO verify the magazine is the same caliber as the firearm
                     validate_parsed_value_has_component::<FirearmMagazine>(
                         context,
                         "reload with",
@@ -310,6 +310,32 @@ impl Action for ReloadFirearmAction {
     fn get_interaction_target(&self, _: &World) -> Option<Entity> {
         None
     }
+}
+
+/// Verifies that the magazine to reload with has the same caliber as the firearm.
+fn verify_magazine_to_reload_with(
+    notification: &Notification<VerifyActionNotification, ReloadFirearmAction>,
+    world: &World,
+) -> VerifyResult {
+    let performing_entity = notification.notification_type.performing_entity;
+    let firearm_entity = notification.contents.firearm;
+
+    let Some(magazine) = world.get::<FirearmMagazine>(notification.contents.magazine) else {
+        return VerifyResult::valid();
+    };
+
+    let Some(firearm) = world.get::<Firearm>(firearm_entity) else {
+        return VerifyResult::valid();
+    };
+
+    if magazine.caliber != firearm.caliber {
+        return VerifyResult::invalid(
+            performing_entity,
+            build_incorrect_item_error(firearm_entity, firearm, performing_entity, world),
+        );
+    }
+
+    VerifyResult::valid()
 }
 
 /// Prevents putting entities into firearms if they're not magazines of the correct caliber or if the firearm already has a  magazine in it.
