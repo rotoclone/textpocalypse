@@ -53,6 +53,8 @@ pub struct ContainerEntityDescription {
     pub category: ContainerEntityCategory,
     /// The name of the item.
     pub name: String,
+    /// The plural name of the item.
+    pub plural_name: String,
     /// The volume of the item.
     pub volume: Volume,
     /// The weight of the item.
@@ -77,6 +79,7 @@ impl ContainerEntityDescription {
         Some(ContainerEntityDescription {
             category: ContainerEntityCategory::from_entity(entity, world),
             name: desc.name.clone(),
+            plural_name: desc.plural_name.clone(),
             volume,
             weight,
             is_being_worn,

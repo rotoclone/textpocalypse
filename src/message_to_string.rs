@@ -1,6 +1,7 @@
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
 use crossterm::{style::style, style::Stylize};
 use itertools::Itertools;
+use log::warn;
 use std::{cmp::Ordering, collections::HashMap, fmt::Display, hash::Hash};
 use voca_rs::Voca;
 
@@ -754,21 +755,45 @@ fn build_container_category_string(
     items: &[ContainerEntityDescription],
 ) -> String {
     let label = format!("{INDENT}{category}:\n");
-    let items_string = items
+    let grouped_items = items.iter().into_group_map_by(|item| item.name.clone());
+    let items_string = grouped_items
         .iter()
-        .map(|item| format!("{INDENT}{INDENT}{}", container_entity_to_string(item)))
+        // sort by name before numbers are added
+        .sorted_by(|a, b| a.0.cmp(b.0))
+        .map(|(_, items)| {
+            format!(
+                "{INDENT}{INDENT}{}",
+                container_entity_group_to_string(items)
+            )
+        })
         .join("\n");
 
     format!("{label}{items_string}")
 }
 
-/// Transforms the provided container entity description into a string for display.
-fn container_entity_to_string(entity: &ContainerEntityDescription) -> String {
-    let volume_and_weight = format!("[{:.2}L] [{:.2}kg]", entity.volume, entity.weight);
+/// Transforms the provided group of container entity description into a string for display.
+/// All the items in the group should have the same name.
+fn container_entity_group_to_string(items: &[&ContainerEntityDescription]) -> String {
+    if items.is_empty() {
+        // shouldn't be possible
+        warn!("Empty list passed to container_entity_group_to_string");
+        return "".to_string();
+    }
+
+    let total_volume = items.iter().map(|item| item.volume).sum::<Volume>();
+    let total_weight = items.iter().map(|item| item.weight).sum::<Weight>();
+    let volume_and_weight = format!("[{total_volume:.2}L] [{total_weight:.2}kg]");
+
+    let name = if items.len() == 1 {
+        items[0].name.clone()
+    } else {
+        // `items` is guaranteed to be non-empty due to the check at the beginning of this function
+        format!("{} {}", items.len(), items[0].plural_name)
+    };
 
     format!(
         "{} {}",
-        style(entity.name.clone()).bold(),
+        style(name).bold(),
         style(volume_and_weight).dark_grey(),
     )
 }
