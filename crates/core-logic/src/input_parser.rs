@@ -5,6 +5,7 @@ use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
 use log::debug;
 use regex::Regex;
+use voca_rs::Voca;
 
 use crate::{
     action::Action,
@@ -17,6 +18,8 @@ use crate::{
 static SELF_TARGET_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(me|myself|self)$").unwrap());
 static HERE_TARGET_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(here)$").unwrap());
+/// String used to denote that what follows is the container to search for an entity in. For example, "thing in bag"
+static CONTAINER_IDENTIFIER: &str = " in ";
 
 /// Parses the provided string to an `Action`.
 pub fn parse_input(
@@ -117,10 +120,17 @@ impl<'n> CommandTarget<'n> {
             return CommandTarget::Direction(dir);
         }
 
-        CommandTarget::Named(CommandTargetName {
-            name: input,
-            location_chain: Vec::new(), //TODO populate this
-        })
+        if let Some((name, container)) = input.rsplit_once(CONTAINER_IDENTIFIER) {
+            CommandTarget::Named(CommandTargetName {
+                name,
+                container: Some(container),
+            })
+        } else {
+            CommandTarget::Named(CommandTargetName {
+                name: input,
+                container: None,
+            })
+        }
     }
 
     /// Finds the entity best described by this target, if it exists from the perspective of the looking entity.
@@ -183,15 +193,15 @@ impl<'n> CommandTarget<'n> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommandTargetName<'n> {
+    /// The name of the targeted entity
     pub name: &'n str,
-    //TODO actually this should be restricted probably, since multiply-nested containers is annoying to deal with
-    //TODO or just remove altogether?
-    pub location_chain: Vec<String>,
+    /// THe name of the container to look for the entity in
+    pub container: Option<&'n str>,
 }
 
 impl<'n> Display for CommandTargetName<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO include location chain
+        //TODO include container
         self.name.fmt(f)
     }
 }
@@ -203,7 +213,7 @@ impl<'n> CommandTargetName<'n> {
         looking_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        //TODO take location chain into account
+        //TODO take container into account
 
         let mut found_entities = FoundEntities::new();
 
@@ -231,6 +241,7 @@ impl<'n> CommandTargetName<'n> {
     }
 
     /// Finds all the entities described by this target, if any exist in the provided container.
+    /// TODO remove this and just search the container if the `container` field is `Some`
     pub fn find_target_entities_in_container(
         &self,
         containing_entity: Entity,
