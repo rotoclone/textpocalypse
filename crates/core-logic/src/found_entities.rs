@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use itertools::Itertools;
 
 /// Describes the entities found when searching for entities
 #[derive(Default)]
@@ -7,6 +8,24 @@ pub struct FoundEntities<T: Ord> {
     pub exact_matches: Vec<Entity>,
     /// Any entities that partially matched the search
     pub partial_matches: Vec<PartialMatchingEntity<T>>,
+    /// The specific container that was searched, if any
+    pub container: Option<Entity>,
+}
+
+impl<T: Ord> FoundEntities<T> {
+    /// Gets the found entities, sorted by any exact matches first, then any partial matches with the best matches first.
+    pub fn get_sorted_matches(&self) -> Vec<Entity> {
+        self.exact_matches
+            .iter()
+            .copied()
+            .chain(
+                self.partial_matches
+                    .iter()
+                    .sorted()
+                    .map(|partial_match| partial_match.entity),
+            )
+            .collect()
+    }
 }
 
 /// An entity that partially matched a search
@@ -32,19 +51,30 @@ impl<T: Ord> Ord for PartialMatchingEntity<T> {
 }
 
 impl<T: Ord> FoundEntities<T> {
-    /// Creates a new `FoundEntities` with no matches.
-    pub fn new() -> FoundEntities<T> {
+    /// Creates a new `FoundEntities` with no matches and no specific container that was searched.
+    pub fn new_without_container() -> FoundEntities<T> {
         FoundEntities {
             exact_matches: Vec::new(),
             partial_matches: Vec::new(),
+            container: None,
         }
     }
 
-    /// Creates a `FoundEntities` with a single exact match.
+    /// Creates a new `FoundEntities` with no matches and a specific container that was searched.
+    pub fn new_with_container(container: Entity) -> FoundEntities<T> {
+        FoundEntities {
+            exact_matches: Vec::new(),
+            partial_matches: Vec::new(),
+            container: Some(container),
+        }
+    }
+
+    /// Creates a `FoundEntities` with a single exact match and no specific container that was searched.
     pub fn new_single_exact(entity: Entity) -> FoundEntities<T> {
         FoundEntities {
             exact_matches: vec![entity],
             partial_matches: Vec::new(),
+            container: None,
         }
     }
 
@@ -53,12 +83,4 @@ impl<T: Ord> FoundEntities<T> {
         self.exact_matches.extend(other.exact_matches);
         self.partial_matches.extend(other.partial_matches);
     }
-}
-
-/// Described the result of searching for entities in a container
-pub struct FoundEntitiesInContainer<T: Ord> {
-    /// The found entities
-    pub found_entities: FoundEntities<T>,
-    /// The container that was searched
-    pub searched_container: Option<Entity>,
 }

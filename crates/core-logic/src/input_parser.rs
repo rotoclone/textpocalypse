@@ -5,13 +5,12 @@ use itertools::Itertools;
 use linked_hash_set::LinkedHashSet;
 use log::debug;
 use regex::Regex;
-use voca_rs::Voca;
 
 use crate::{
     action::Action,
     command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
     component::{Container, CustomInputParser, Location, PortionMatched},
-    found_entities::{FoundEntities, FoundEntitiesInContainer},
+    found_entities::FoundEntities,
     Direction, GameMessage, StandardInputParsers,
 };
 
@@ -181,7 +180,7 @@ impl<'n> CommandTarget<'n> {
                 {
                     FoundEntities::new_single_exact(connecting_entity)
                 } else {
-                    FoundEntities::new()
+                    FoundEntities::new_without_container()
                 }
             }
             CommandTarget::Named(target_name) => {
@@ -213,9 +212,30 @@ impl<'n> CommandTargetName<'n> {
         looking_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        //TODO take container into account
+        if let Some(container_name) = self.container {
+            let potential_containers = CommandTargetName {
+                name: container_name,
+                container: None,
+            }
+            .find_target_entities(looking_entity, world);
+            let Some(container_entity) = potential_containers.get_sorted_matches().first().copied()
+            else {
+                return FoundEntities::new_without_container();
+            };
+            let Some(container_to_search) = world.get::<Container>(container_entity) else {
+                return FoundEntities::new_without_container();
+            };
 
-        let mut found_entities = FoundEntities::new();
+            let mut found_entities = FoundEntities::new_with_container(container_entity);
+            found_entities.extend(container_to_search.find_entities_by_name(
+                self.name,
+                looking_entity,
+                world,
+            ));
+            return found_entities;
+        }
+
+        let mut found_entities = FoundEntities::new_without_container();
 
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first
@@ -238,29 +258,6 @@ impl<'n> CommandTargetName<'n> {
         found_entities.extend(location.find_entities_by_name(self.name, looking_entity, world));
 
         found_entities
-    }
-
-    /// Finds all the entities described by this target, if any exist in the provided container.
-    /// TODO remove this and just search the container if the `container` field is `Some`
-    pub fn find_target_entities_in_container(
-        &self,
-        containing_entity: Entity,
-        looking_entity: Entity,
-        world: &World,
-    ) -> FoundEntitiesInContainer<PortionMatched> {
-        //TODO take location chain into account
-
-        if let Some(container) = world.get::<Container>(containing_entity) {
-            return FoundEntitiesInContainer {
-                found_entities: container.find_entities_by_name(self.name, looking_entity, world),
-                searched_container: Some(containing_entity),
-            };
-        }
-
-        FoundEntitiesInContainer {
-            found_entities: FoundEntities::new(),
-            searched_container: None,
-        }
     }
 }
 

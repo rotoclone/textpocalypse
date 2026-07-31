@@ -46,15 +46,7 @@ pub fn parse_entity(
     let found_entities = target_finder_fn(&context, world);
     let potential_targets = found_entities.found_entities;
 
-    let sorted_targets = potential_targets.exact_matches.iter().copied().chain(
-        potential_targets
-            .partial_matches
-            .iter()
-            .sorted()
-            .map(|partial_match| partial_match.entity),
-    );
-
-    for entity in sorted_targets {
+    for entity in potential_targets.get_sorted_matches() {
         if let CommandPartValidateResult::Invalid(_) = validator
             .as_ref()
             .map(|v| {
