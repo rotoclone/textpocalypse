@@ -112,7 +112,8 @@ impl Container {
         pov_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        let mut found_entities = FoundEntities::new();
+        // TODO should this use `new_with_container` instead?
+        let mut found_entities = FoundEntities::new_without_container();
         for entity in self.get_entities(pov_entity, world) {
             match world
                 .get::<Description>(entity)

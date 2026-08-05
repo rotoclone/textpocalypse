@@ -13,8 +13,8 @@ use crate::{
     },
     component::{Container, Item, Location, PortionMatched, VerifyResult},
     find_owning_entity,
-    found_entities::{FoundEntities, FoundEntitiesInContainer},
-    input_parser::{CommandTargetName, InputParseError, InputParser},
+    found_entities::FoundEntities,
+    input_parser::{InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::Notification,
     ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
@@ -133,19 +133,16 @@ fn validate_target_container(
 fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
-) -> FoundEntitiesInContainer<PortionMatched> {
-    let Some(container) = context.get_parsed_value(CONTAINER_PART_ID) else {
-        return FoundEntitiesInContainer {
-            found_entities: FoundEntities::new(),
-            searched_container: None,
-        };
+) -> FoundEntities<PortionMatched> {
+    let Some(container_entity) = context.get_parsed_value(CONTAINER_PART_ID) else {
+        return FoundEntities::new_without_container();
     };
 
-    CommandTargetName {
-        name: &context.input,
-        location_chain: Vec::new(),
-    }
-    .find_target_entities_in_container(container, context.entering_entity, world)
+    let container = world
+        .get::<Container>(container_entity)
+        .expect("container should be a container");
+
+    container.find_entities_by_name(&context.input, context.entering_entity, world)
 }
 
 pub struct GetParser;

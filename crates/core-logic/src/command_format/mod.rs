@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use nonempty::NonEmpty;
 
 use crate::component::PortionMatched;
-use crate::found_entities::FoundEntitiesInContainer;
+use crate::found_entities::FoundEntities;
 use crate::{Direction, GameMessage};
 
 mod command_format_string;
@@ -320,8 +320,7 @@ pub enum DirectionMatchMode {
     OnlyValidDirections,
 }
 
-type EntityTargetFinderFn =
-    fn(&PartParserContext, &World) -> FoundEntitiesInContainer<PortionMatched>;
+type EntityTargetFinderFn = fn(&PartParserContext, &World) -> FoundEntities<PortionMatched>;
 
 pub type PartValidationFn<T> = fn(&PartValidatorContext<T>, &World) -> CommandPartValidateResult;
 
