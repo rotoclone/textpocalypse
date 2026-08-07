@@ -8,6 +8,8 @@ pub struct FoundEntities<T: Ord> {
     pub exact_matches: Vec<Entity>,
     /// Any entities that partially matched the search
     pub partial_matches: Vec<PartialMatchingEntity<T>>,
+    /// The input that was used to find the entities, without the name of the container to search in
+    pub searched_name: Option<String>,
     /// The specific container that was searched, if any
     pub container: Option<Entity>,
 }
@@ -52,28 +54,41 @@ impl<T: Ord> Ord for PartialMatchingEntity<T> {
 
 impl<T: Ord> FoundEntities<T> {
     /// Creates a new `FoundEntities` with no matches and no specific container that was searched.
-    pub fn new_without_container() -> FoundEntities<T> {
+    pub fn new_without_container(searched_name: String) -> FoundEntities<T> {
         FoundEntities {
             exact_matches: Vec::new(),
             partial_matches: Vec::new(),
+            searched_name: Some(searched_name),
+            container: None,
+        }
+    }
+
+    /// Creates a new `FoundEntities` with no matches and no specific input used or container that was searched.
+    pub fn new_without_input_or_container() -> FoundEntities<T> {
+        FoundEntities {
+            exact_matches: Vec::new(),
+            partial_matches: Vec::new(),
+            searched_name: None,
             container: None,
         }
     }
 
     /// Creates a new `FoundEntities` with no matches and a specific container that was searched.
-    pub fn new_with_container(container: Entity) -> FoundEntities<T> {
+    pub fn new_with_container(searched_name: String, container: Entity) -> FoundEntities<T> {
         FoundEntities {
             exact_matches: Vec::new(),
             partial_matches: Vec::new(),
+            searched_name: Some(searched_name),
             container: Some(container),
         }
     }
 
-    /// Creates a `FoundEntities` with a single exact match and no specific container that was searched.
+    /// Creates a `FoundEntities` with a single exact match and no specific input used or container that was searched.
     pub fn new_single_exact(entity: Entity) -> FoundEntities<T> {
         FoundEntities {
             exact_matches: vec![entity],
             partial_matches: Vec::new(),
+            searched_name: None,
             container: None,
         }
     }

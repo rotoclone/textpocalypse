@@ -180,7 +180,7 @@ impl<'n> CommandTarget<'n> {
                 {
                     FoundEntities::new_single_exact(connecting_entity)
                 } else {
-                    FoundEntities::new_without_container()
+                    FoundEntities::new_without_input_or_container()
                 }
             }
             CommandTarget::Named(target_name) => {
@@ -220,13 +220,14 @@ impl<'n> CommandTargetName<'n> {
             .find_target_entities(looking_entity, world);
             let Some(container_entity) = potential_containers.get_sorted_matches().first().copied()
             else {
-                return FoundEntities::new_without_container();
+                return FoundEntities::new_without_container(self.name.to_string());
             };
             let Some(container_to_search) = world.get::<Container>(container_entity) else {
-                return FoundEntities::new_without_container();
+                return FoundEntities::new_without_container(self.name.to_string());
             };
 
-            let mut found_entities = FoundEntities::new_with_container(container_entity);
+            let mut found_entities =
+                FoundEntities::new_with_container(self.name.to_string(), container_entity);
             found_entities.extend(container_to_search.find_entities_by_name(
                 self.name,
                 looking_entity,
@@ -235,7 +236,7 @@ impl<'n> CommandTargetName<'n> {
             return found_entities;
         }
 
-        let mut found_entities = FoundEntities::new_without_container();
+        let mut found_entities = FoundEntities::new_without_container(self.name.to_string());
 
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first

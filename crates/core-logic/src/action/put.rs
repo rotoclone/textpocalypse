@@ -135,7 +135,7 @@ fn find_entities_in_target_container(
     world: &World,
 ) -> FoundEntities<PortionMatched> {
     let Some(container_entity) = context.get_parsed_value(CONTAINER_PART_ID) else {
-        return FoundEntities::new_without_container();
+        return FoundEntities::new_without_container(context.input.clone());
     };
 
     let container = world

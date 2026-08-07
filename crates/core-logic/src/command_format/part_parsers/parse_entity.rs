@@ -73,6 +73,7 @@ pub fn parse_entity(
         CommandPartParseResult::Success(ParsedValue::Entity(*entity))
     } else {
         // matched no targets
+        let searched_name_part = potential_targets.searched_name.unwrap_or(context.input);
         let searched_container_name_part = potential_targets
             .container
             .map(|e| {
@@ -83,15 +84,8 @@ pub fn parse_entity(
             })
             .unwrap_or_else(|| "here".to_string());
         CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
-            /* TODO
-            > l blorp in bag
-            Look at what? (There's no 'blorp in bag' in the duffel bag.)
-
-            The "in bag" part should be omitted
-            */
             details: Some(format!(
-                "There's no '{}' {}.",
-                context.input, searched_container_name_part
+                "There's no '{searched_name_part}' {searched_container_name_part}."
             )),
         })
     }
@@ -231,6 +225,7 @@ mod tests {
 
         let target_finder: EntityTargetFinderFn = |context, _| {
             FoundEntities::new_with_container(
+                "thingy".to_string(),
                 context
                     .get_parsed_value(CONTAINER_PART_ID)
                     .expect("container part was provided"),
@@ -238,7 +233,7 @@ mod tests {
         };
 
         let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
-            details: Some("There's no 'entity 12 name' in the entity container name.".to_string()),
+            details: Some("There's no 'thingy' in the entity container name.".to_string()),
         });
 
         assert_eq!(
