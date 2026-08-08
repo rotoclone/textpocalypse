@@ -194,14 +194,17 @@ impl<'n> CommandTarget<'n> {
 pub struct CommandTargetName<'n> {
     /// The name of the targeted entity
     pub name: &'n str,
-    /// THe name of the container to look for the entity in
+    /// The name of the container to look for the entity in
     pub container: Option<&'n str>,
 }
 
 impl<'n> Display for CommandTargetName<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO include container
-        self.name.fmt(f)
+        if let Some(container) = self.container {
+            format!("{} in {}", self.name, container).fmt(f)
+        } else {
+            self.name.fmt(f)
+        }
     }
 }
 

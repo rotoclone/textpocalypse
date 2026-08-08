@@ -35,7 +35,13 @@ pub fn validate_parsed_value_has_component<T: Component>(
     if world.get::<T>(context.parsed_value).is_some() {
         CommandPartValidateResult::Valid
     } else {
-        build_invalid_result(context, verb_name, None, world)
+        build_invalid_result(
+            context.parsed_value,
+            context.performing_entity,
+            verb_name,
+            None,
+            world,
+        )
     }
 }
 
@@ -50,26 +56,29 @@ pub fn validate_parsed_value_has_component_with_suffix<T: Component>(
     if world.get::<T>(context.parsed_value).is_some() {
         CommandPartValidateResult::Valid
     } else {
-        build_invalid_result(context, verb_name, Some(suffix), world)
+        build_invalid_result(
+            context.parsed_value,
+            context.performing_entity,
+            verb_name,
+            Some(suffix),
+            world,
+        )
     }
 }
 
 /// Builds a `CommandPartValidateResult::Invalid` with error details in the format `"You can't {verb_name} {parsed_value_reference_name}."`.,
 /// or `"You can't {verb_name} {parsed_value_reference_name} {suffix}."` if a suffix is provided.
 pub fn build_invalid_result(
-    context: &PartValidatorContext<Entity>,
+    target_entity: Entity,
+    performing_entity: Entity,
     verb_name: &str,
     suffix: Option<&str>,
     world: &World,
 ) -> CommandPartValidateResult {
-    let target_name = if context.parsed_value == context.performing_entity {
+    let target_name = if target_entity == performing_entity {
         "yourself".to_string()
     } else {
-        Description::get_reference_name(
-            context.parsed_value,
-            Some(context.performing_entity),
-            world,
-        )
+        Description::get_reference_name(target_entity, Some(performing_entity), world)
     };
 
     let suffix = suffix.map(|s| format!(" {s}")).unwrap_or_default();
