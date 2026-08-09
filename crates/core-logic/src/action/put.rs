@@ -146,11 +146,12 @@ fn find_entities_in_target_container(
         return FoundEntities::new_without_container(context.input.clone());
     };
 
-    let container = world
-        .get::<Container>(container_entity)
-        .expect("container should be a container");
-
-    container.find_entities_by_name(&context.input, context.entering_entity, world)
+    Container::find_entities_by_name_in(
+        container_entity,
+        &context.input,
+        context.entering_entity,
+        world,
+    )
 }
 
 pub struct GetParser;

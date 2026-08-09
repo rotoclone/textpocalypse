@@ -225,41 +225,37 @@ impl<'n> CommandTargetName<'n> {
             else {
                 return FoundEntities::new_without_container(self.name.to_string());
             };
-            let Some(container_to_search) = world.get::<Container>(container_entity) else {
-                return FoundEntities::new_without_container(self.name.to_string());
-            };
 
-            let mut found_entities =
-                FoundEntities::new_with_container(self.name.to_string(), container_entity);
-            found_entities.extend(container_to_search.find_entities_by_name(
+            return Container::find_entities_by_name_in(
+                container_entity,
                 self.name,
                 looking_entity,
                 world,
-            ));
-            return found_entities;
+            );
         }
 
         let mut found_entities = FoundEntities::new_without_container(self.name.to_string());
 
         // search the looking entity's inventory
         // TODO allow callers to define whether inventory or location should be searched first
-        if let Some(container) = world.get::<Container>(looking_entity) {
-            found_entities.extend(container.find_entities_by_name(
-                self.name,
-                looking_entity,
-                world,
-            ));
-        }
+        found_entities.extend(Container::find_entities_by_name_in(
+            looking_entity,
+            self.name,
+            looking_entity,
+            world,
+        ));
 
         // search the looking entity's location
         let location_id = world
             .get::<Location>(looking_entity)
             .expect("Looking entity should have a location")
             .id;
-        let location = world
-            .get::<Container>(location_id)
-            .expect("Looking entity's location should be a container");
-        found_entities.extend(location.find_entities_by_name(self.name, looking_entity, world));
+        found_entities.extend(Container::find_entities_by_name_in(
+            location_id,
+            self.name,
+            looking_entity,
+            world,
+        ));
 
         found_entities
     }
