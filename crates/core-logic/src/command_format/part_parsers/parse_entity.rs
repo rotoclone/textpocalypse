@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::*;
-use itertools::Itertools;
 
 use crate::{
     command_format::{
@@ -8,7 +7,7 @@ use crate::{
         EntityTargetFinderFn, PartValidationFn,
     },
     component::{Description, PortionMatched},
-    found_entities::FoundEntitiesInContainer,
+    found_entities::FoundEntities,
     input_parser::CommandTarget,
 };
 
@@ -18,12 +17,8 @@ use super::{CommandPartParseError, CommandPartParseResult, PartParserContext};
 pub fn default_entity_target_finder(
     context: &PartParserContext,
     world: &World,
-) -> FoundEntitiesInContainer<PortionMatched> {
-    FoundEntitiesInContainer {
-        found_entities: CommandTarget::parse(&context.input)
-            .find_target_entities(context.entering_entity, world),
-        searched_container: None,
-    }
+) -> FoundEntities<PortionMatched> {
+    CommandTarget::parse(&context.input).find_target_entities(context.entering_entity, world)
 }
 
 /// Parses an entity from the provided context.
@@ -43,18 +38,9 @@ pub fn parse_entity(
         });
     }
 
-    let found_entities = target_finder_fn(&context, world);
-    let potential_targets = found_entities.found_entities;
+    let potential_targets = target_finder_fn(&context, world);
 
-    let sorted_targets = potential_targets.exact_matches.iter().copied().chain(
-        potential_targets
-            .partial_matches
-            .iter()
-            .sorted()
-            .map(|partial_match| partial_match.entity),
-    );
-
-    for entity in sorted_targets {
+    for entity in potential_targets.get_sorted_matches() {
         if let CommandPartValidateResult::Invalid(_) = validator
             .as_ref()
             .map(|v| {
@@ -87,8 +73,9 @@ pub fn parse_entity(
         CommandPartParseResult::Success(ParsedValue::Entity(*entity))
     } else {
         // matched no targets
-        let searched_container_name_part = found_entities
-            .searched_container
+        let searched_name_part = potential_targets.searched_name.unwrap_or(context.input);
+        let searched_container_name_part = potential_targets
+            .container
             .map(|e| {
                 format!(
                     "in {}",
@@ -98,8 +85,7 @@ pub fn parse_entity(
             .unwrap_or_else(|| "here".to_string());
         CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
             details: Some(format!(
-                "There's no '{}' {}.",
-                context.input, searched_container_name_part
+                "There's no '{searched_name_part}' {searched_container_name_part}."
             )),
         })
     }
@@ -237,13 +223,17 @@ mod tests {
             .into(),
         };
 
-        let target_finder: EntityTargetFinderFn = |context, _| FoundEntitiesInContainer {
-            found_entities: FoundEntities::new(),
-            searched_container: context.get_parsed_value(CONTAINER_PART_ID),
+        let target_finder: EntityTargetFinderFn = |context, _| {
+            FoundEntities::new_with_container(
+                "thingy".to_string(),
+                context
+                    .get_parsed_value(CONTAINER_PART_ID)
+                    .expect("container part was provided"),
+            )
         };
 
         let expected = CommandPartParseResult::Failure(CommandPartParseError::Unparseable {
-            details: Some("There's no 'entity 12 name' in the entity container name.".to_string()),
+            details: Some("There's no 'thingy' in the entity container name.".to_string()),
         });
 
         assert_eq!(

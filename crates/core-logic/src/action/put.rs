@@ -13,8 +13,8 @@ use crate::{
     },
     component::{Container, Item, Location, PortionMatched, VerifyResult},
     find_owning_entity,
-    found_entities::{FoundEntities, FoundEntitiesInContainer},
-    input_parser::{CommandTargetName, InputParseError, InputParser},
+    found_entities::FoundEntities,
+    input_parser::{InputParseError, InputParser},
     is_living_entity, move_entity,
     notification::Notification,
     ActionTag, BasicTokens, Description, DynamicMessage, DynamicMessageLocation, GameMessage,
@@ -111,7 +111,7 @@ static PUT_FORMAT: LazyLock<CommandFormat> = LazyLock::new(|| {
         )
 });
 
-/// Validates that the target is a container and isn't a living entity
+/// Validates that the target is a container and isn't a living entity or owned by a different living entity than the one performing the action.
 fn validate_target_container(
     context: &PartValidatorContext<Entity>,
     verb_name: &str,
@@ -122,8 +122,16 @@ fn validate_target_container(
         CommandPartValidateResult::Valid => (),
     };
 
-    if is_living_entity(context.parsed_value, world) {
-        return build_invalid_result(context, verb_name, None, world);
+    let other_owning_entity =
+        find_owning_entity(context.parsed_value, world).filter(|e| *e != context.performing_entity);
+    if is_living_entity(context.parsed_value, world) || other_owning_entity.is_some() {
+        return build_invalid_result(
+            other_owning_entity.unwrap_or(context.parsed_value),
+            context.performing_entity,
+            verb_name,
+            None,
+            world,
+        );
     }
 
     CommandPartValidateResult::Valid
@@ -133,19 +141,17 @@ fn validate_target_container(
 fn find_entities_in_target_container(
     context: &PartParserContext,
     world: &World,
-) -> FoundEntitiesInContainer<PortionMatched> {
-    let Some(container) = context.get_parsed_value(CONTAINER_PART_ID) else {
-        return FoundEntitiesInContainer {
-            found_entities: FoundEntities::new(),
-            searched_container: None,
-        };
+) -> FoundEntities<PortionMatched> {
+    let Some(container_entity) = context.get_parsed_value(CONTAINER_PART_ID) else {
+        return FoundEntities::new_without_container(context.input.clone());
     };
 
-    CommandTargetName {
-        name: &context.input,
-        location_chain: Vec::new(),
-    }
-    .find_target_entities_in_container(container, context.entering_entity, world)
+    Container::find_entities_by_name_in(
+        container_entity,
+        &context.input,
+        context.entering_entity,
+        world,
+    )
 }
 
 pub struct GetParser;
@@ -292,13 +298,17 @@ impl InputParser for GetFromParser {
         /* this is checked in a verify handler, but it needs to also be checked here so you don't get a different error message depending on if the
            other entity actually has the thing you're trying to get
         */
-        let source_owned_by_other_living_entity = find_owning_entity(source, world)
-            .map(|h| h != entity)
-            .unwrap_or(false);
+        let owning_entity = find_owning_entity(source, world);
+        let source_owned_by_other_living_entity =
+            owning_entity.map(|h| h != entity).unwrap_or(false);
         if source_owned_by_other_living_entity
             || (source != entity && is_living_entity(source, world))
         {
-            let source_name = Description::get_reference_name(source, Some(entity), world);
+            let source_name = Description::get_reference_name(
+                owning_entity.unwrap_or(source),
+                Some(entity),
+                world,
+            );
             return Err(InputParseError::PostFormatParse(format!(
                 "You can't get anything from {source_name}."
             )));
@@ -598,13 +608,18 @@ pub fn verify_source_not_owned_by_other_living_entity(
     let performing_entity = notification.notification_type.performing_entity;
     let source = notification.contents.source;
 
-    let source_owned_by_other_living_entity = find_owning_entity(source, world)
+    let owning_entity = find_owning_entity(source, world);
+    let source_owned_by_other_living_entity = owning_entity
         .map(|h| h != performing_entity)
         .unwrap_or(false);
     if source_owned_by_other_living_entity
         || (source != performing_entity && is_living_entity(source, world))
     {
-        let source_name = Description::get_reference_name(source, Some(performing_entity), world);
+        let source_name = Description::get_reference_name(
+            owning_entity.unwrap_or(source),
+            Some(performing_entity),
+            world,
+        );
         return VerifyResult::invalid(
             performing_entity,
             GameMessage::Error(format!("You can't get anything from {source_name}.")),
@@ -1058,10 +1073,35 @@ mod tests {
             &mut game.get_world_mut(),
         );
 
-        // this only fails because nested targets like this aren't supported, not because there's anything inherently invalid about the command
-        test_error(
+        test_success(
             "get entity item name from entity nested_container name in entity container name",
-            "get what from where? (There's no 'entity nested_container name in entity container name' here.)",
+            "You get the entity item name from the entity nested_container name.",
+            None,
+            &game,
+        );
+    }
+
+    #[test]
+    fn get_nested_target_multiple_players() {
+        let mut game = set_up_game(NumPlayers::Two);
+        let nested_container_entity = spawn_entity_in_location(
+            "nested_container",
+            game.container_entity,
+            &mut game.get_world_mut(),
+        );
+        game.get_world_mut()
+            .entity_mut(nested_container_entity)
+            .insert((Container::new_infinite(), Item::new_one_handed()));
+        move_entity(
+            game.item_entity,
+            nested_container_entity,
+            &mut game.get_world_mut(),
+        );
+
+        test_success(
+            "get entity item name from entity nested_container name in entity container name",
+            "You get the entity item name from the entity nested_container name.",
+            Some("Player 1 gets the entity item name from the entity nested_container name."),
             &game,
         );
     }
@@ -1104,9 +1144,10 @@ mod tests {
             &mut game.get_world_mut(),
         );
 
+        // this should always produce the same error as the test above to avoid leaking contents of players' inventories
         test_error(
             "get entity item_in_container name from entity container name in player 2",
-            "get what from where? (There's no 'entity container name in player 2' here.)",
+            "get what from where? (You can't get anything from player 2.)",
             &game,
         );
     }

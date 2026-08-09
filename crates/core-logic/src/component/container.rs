@@ -105,14 +105,30 @@ impl Container {
             .collect()
     }
 
-    /// Finds the entities with the provided name, if any exist in this container from the perspective of the provided entity.
-    pub fn find_entities_by_name(
-        &self,
+    /// Finds the entities with the provided name in the provided container, if `container_entity` is a container and they exist in there from the perspective of the provided entity.
+    pub fn find_entities_by_name_in(
+        container_entity: Entity,
         entity_name: &str,
         pov_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        let mut found_entities = FoundEntities::new();
+        let Some(container) = world.get::<Container>(container_entity) else {
+            return FoundEntities::new_with_container(entity_name.to_string(), container_entity);
+        };
+
+        container.find_entities_by_name(container_entity, entity_name, pov_entity, world)
+    }
+
+    /// Finds the entities with the provided name, if any exist in this container from the perspective of the provided entity.
+    pub fn find_entities_by_name(
+        &self,
+        container_entity: Entity,
+        entity_name: &str,
+        pov_entity: Entity,
+        world: &World,
+    ) -> FoundEntities<PortionMatched> {
+        let mut found_entities =
+            FoundEntities::new_with_container(entity_name.to_string(), container_entity);
         for entity in self.get_entities(pov_entity, world) {
             match world
                 .get::<Description>(entity)

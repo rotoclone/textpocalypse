@@ -10,13 +10,15 @@ use crate::{
     action::Action,
     command_format::{CommandFormatDescription, CommandFormatParseError, PartParserContext},
     component::{Container, CustomInputParser, Location, PortionMatched},
-    found_entities::{FoundEntities, FoundEntitiesInContainer},
+    found_entities::FoundEntities,
     Direction, GameMessage, StandardInputParsers,
 };
 
 static SELF_TARGET_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^(me|myself|self)$").unwrap());
 static HERE_TARGET_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new("^(here)$").unwrap());
+/// String used to denote that what follows is the container to search for an entity in. For example, "thing in bag"
+static CONTAINER_IDENTIFIER: &str = " in ";
 
 /// Parses the provided string to an `Action`.
 pub fn parse_input(
@@ -117,10 +119,17 @@ impl<'n> CommandTarget<'n> {
             return CommandTarget::Direction(dir);
         }
 
-        CommandTarget::Named(CommandTargetName {
-            name: input,
-            location_chain: Vec::new(), //TODO populate this
-        })
+        if let Some((name, container)) = input.rsplit_once(CONTAINER_IDENTIFIER) {
+            CommandTarget::Named(CommandTargetName {
+                name,
+                container: Some(container),
+            })
+        } else {
+            CommandTarget::Named(CommandTargetName {
+                name: input,
+                container: None,
+            })
+        }
     }
 
     /// Finds the entity best described by this target, if it exists from the perspective of the looking entity.
@@ -171,7 +180,7 @@ impl<'n> CommandTarget<'n> {
                 {
                     FoundEntities::new_single_exact(connecting_entity)
                 } else {
-                    FoundEntities::new()
+                    FoundEntities::new_without_input_or_container()
                 }
             }
             CommandTarget::Named(target_name) => {
@@ -183,16 +192,19 @@ impl<'n> CommandTarget<'n> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommandTargetName<'n> {
+    /// The name of the targeted entity
     pub name: &'n str,
-    //TODO actually this should be restricted probably, since multiply-nested containers is annoying to deal with
-    //TODO or just remove altogether?
-    pub location_chain: Vec<String>,
+    /// The name of the container to look for the entity in
+    pub container: Option<&'n str>,
 }
 
 impl<'n> Display for CommandTargetName<'n> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO include location chain
-        self.name.fmt(f)
+        if let Some(container) = self.container {
+            format!("{} in {}", self.name, container).fmt(f)
+        } else {
+            self.name.fmt(f)
+        }
     }
 }
 
@@ -203,53 +215,49 @@ impl<'n> CommandTargetName<'n> {
         looking_entity: Entity,
         world: &World,
     ) -> FoundEntities<PortionMatched> {
-        //TODO take location chain into account
+        if let Some(container_name) = self.container {
+            let potential_containers = CommandTargetName {
+                name: container_name,
+                container: None,
+            }
+            .find_target_entities(looking_entity, world);
+            let Some(container_entity) = potential_containers.get_sorted_matches().first().copied()
+            else {
+                return FoundEntities::new_without_container(self.name.to_string());
+            };
 
-        let mut found_entities = FoundEntities::new();
-
-        // search the looking entity's inventory
-        // TODO allow callers to define whether inventory or location should be searched first
-        if let Some(container) = world.get::<Container>(looking_entity) {
-            found_entities.extend(container.find_entities_by_name(
+            return Container::find_entities_by_name_in(
+                container_entity,
                 self.name,
                 looking_entity,
                 world,
-            ));
+            );
         }
+
+        let mut found_entities = FoundEntities::new_without_container(self.name.to_string());
+
+        // search the looking entity's inventory
+        // TODO allow callers to define whether inventory or location should be searched first
+        found_entities.extend(Container::find_entities_by_name_in(
+            looking_entity,
+            self.name,
+            looking_entity,
+            world,
+        ));
 
         // search the looking entity's location
         let location_id = world
             .get::<Location>(looking_entity)
             .expect("Looking entity should have a location")
             .id;
-        let location = world
-            .get::<Container>(location_id)
-            .expect("Looking entity's location should be a container");
-        found_entities.extend(location.find_entities_by_name(self.name, looking_entity, world));
+        found_entities.extend(Container::find_entities_by_name_in(
+            location_id,
+            self.name,
+            looking_entity,
+            world,
+        ));
 
         found_entities
-    }
-
-    /// Finds all the entities described by this target, if any exist in the provided container.
-    pub fn find_target_entities_in_container(
-        &self,
-        containing_entity: Entity,
-        looking_entity: Entity,
-        world: &World,
-    ) -> FoundEntitiesInContainer<PortionMatched> {
-        //TODO take location chain into account
-
-        if let Some(container) = world.get::<Container>(containing_entity) {
-            return FoundEntitiesInContainer {
-                found_entities: container.find_entities_by_name(self.name, looking_entity, world),
-                searched_container: Some(containing_entity),
-            };
-        }
-
-        FoundEntitiesInContainer {
-            found_entities: FoundEntities::new(),
-            searched_container: None,
-        }
     }
 }
 
