@@ -99,6 +99,8 @@ use crate::resource::catalog::{BodyPartTypeNameCatalog, CatalogBoilerplate};
 
 mod found_entities;
 
+mod crafting_recipe;
+
 const CHEATS_ENABLED: bool = true;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {
