@@ -11,11 +11,18 @@ pub struct CraftingRecipe {
 pub struct CraftingRecipeComponent {
     required: bool,
     amount: CraftingComponentAmount,
-    required_tags: HashSet<dyn CraftingTag>,
-    //TODO instead of just disallowing tags, should this be either a set of allowed or a set of disallowed tags? for example, if you want to allow just small and medium items, it's annoying to have to disallow every other size specifically
-    disallowed_tags: HashSet<CraftingTag>,
-    required_tag_categories: HashSet<CraftingTagCategory>,
-    disallowed_tag_categories: HashSet<CraftingTagCategory>,
+    tags: Vec<TagBounds>,
+}
+
+pub enum TagBounds {
+    OneOf(HashSet<TagDescriptor>),
+    AllOf(HashSet<TagDescriptor>),
+    NotAnyOf(HashSet<TagDescriptor>),
+}
+
+pub enum TagDescriptor {
+    Category(CraftingTagCategory),
+    TagId(CraftingTagId),
 }
 
 /// The amount of a component needed for a crafting recipe.
@@ -36,19 +43,32 @@ pub enum CraftingTagCategory {
     Material,
     Sharpness,
     Concentration,
+    Custom(String),
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct CraftingTagId(&'static str);
 
 //TODO this should also go isomewhere else
-pub trait CraftingTag: Component + PartialEq + Eq {
+pub trait CraftingTag: Component {
+    /// Gets the ID of this tag
+    fn get_id() -> CraftingTagId;
+
     /// Gets the category of this tag
-    fn get_category(&self) -> CraftingTagCategory;
+    fn get_category() -> CraftingTagCategory;
 }
 
-#[derive(Component, PartialEq, Eq)]
+static SIZE_SMALL_ID: CraftingTagId = CraftingTagId("size_small");
+
+#[derive(Component)]
 pub struct SizeSmall;
 
 impl CraftingTag for SizeSmall {
-    fn get_category(&self) -> CraftingTagCategory {
+    fn get_id() -> CraftingTagId {
+        SIZE_SMALL_ID
+    }
+
+    fn get_category() -> CraftingTagCategory {
         CraftingTagCategory::Size
     }
 }
