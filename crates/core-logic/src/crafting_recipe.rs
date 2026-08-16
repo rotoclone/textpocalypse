@@ -44,7 +44,12 @@ pub enum TagDescriptor {
 impl TagDescriptor {
     /// Determines whether the provided entity has a tag matching this descriptor
     fn matches(&self, entity: Entity, world: &World) -> bool {
-        todo!() //TODO
+        match self {
+            TagDescriptor::Category(category) => {
+                CraftingTags::has_tag_with_category(entity, category, world)
+            }
+            TagDescriptor::Tag(tag) => CraftingTags::has_tag(entity, tag.as_ref(), world),
+        }
     }
 }
 
@@ -73,13 +78,61 @@ pub enum TagCategory {
 #[derive(Component)]
 pub struct CraftingTags(HashSet<Box<dyn CraftingTag>>);
 
+impl CraftingTags {
+    /// Adds a tag to an entity.
+    pub fn add_to<T: CraftingTag>(entity: Entity, tag: T, world: &mut World) {
+        todo!() //TODO
+    }
+
+    /// Adds multiple tags to an entity.
+    pub fn add_all_to(entity: Entity, tags: &[Box<dyn CraftingTag>], world: &mut World) {
+        todo!() //TODO
+    }
+
+    /// Removes a tag from an entity.
+    pub fn remove_from<T: CraftingTag>(entity: Entity, tag: T, world: &mut World) {
+        todo!() //TODO
+    }
+
+    /// Removes multiple tags from an entity.
+    pub fn remove_all_from(entity: Entity, tags: &[Box<dyn CraftingTag>], world: &mut World) {
+        todo!() //TODO
+    }
+
+    /// Adds a tag.
+    pub fn add<T: CraftingTag>(&mut self, tag: T) {
+        self.0.insert(Box::new(tag));
+    }
+
+    /// Determines whether the provided entity has the provided tag.
+    pub fn has_tag(entity: Entity, tag: &dyn CraftingTag, world: &World) -> bool {
+        world
+            .get::<CraftingTags>(entity)
+            .is_some_and(|tags| tags.0.contains(tag))
+    }
+
+    /// Determines whether the provided entity has any tag with the provided category.
+    pub fn has_tag_with_category(entity: Entity, category: &TagCategory, world: &World) -> bool {
+        world.get::<CraftingTags>(entity).is_some_and(|tags| {
+            tags.0
+                .iter()
+                .any(|tag| tag.category().as_ref() == Some(category))
+        })
+    }
+
+    /// Removes a tag.
+    pub fn remove(&mut self, tag: &dyn CraftingTag) {
+        self.0.remove(tag);
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CraftingTagId(&'static str);
 
 //TODO this should also go isomewhere else
 /// Trait for crafting tags.
 /// Equality is based solely on types, so crafting tag structs should not have any fields.
-pub trait CraftingTag: AsAny + Send + Sync {
+pub trait CraftingTag: AsAny + Send + Sync + 'static {
     /// Gets the category of this tag, if it has one
     fn category(&self) -> Option<TagCategory>;
 }
