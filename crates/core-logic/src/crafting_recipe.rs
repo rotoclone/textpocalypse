@@ -75,33 +75,52 @@ pub enum TagCategory {
     Custom(String),
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct CraftingTags(HashSet<Box<dyn CraftingTag>>);
 
 impl CraftingTags {
     /// Adds a tag to an entity.
     pub fn add_to<T: CraftingTag>(entity: Entity, tag: T, world: &mut World) {
-        todo!() //TODO
+        ensure_has_component_and::<CraftingTags>(entity, |c| c.add(tag), world);
     }
 
     /// Adds multiple tags to an entity.
-    pub fn add_all_to(entity: Entity, tags: &[Box<dyn CraftingTag>], world: &mut World) {
-        todo!() //TODO
+    pub fn add_all_to(entity: Entity, tags: HashSet<Box<dyn CraftingTag>>, world: &mut World) {
+        ensure_has_component_and::<CraftingTags>(
+            entity,
+            |c| {
+                c.0.extend(tags);
+            },
+            world,
+        );
     }
 
     /// Removes a tag from an entity.
-    pub fn remove_from<T: CraftingTag>(entity: Entity, tag: T, world: &mut World) {
-        todo!() //TODO
+    pub fn remove_from<T: CraftingTag>(entity: Entity, tag: &dyn CraftingTag, world: &mut World) {
+        ensure_has_component_and::<CraftingTags>(entity, |c| c.remove(tag), world);
     }
 
     /// Removes multiple tags from an entity.
-    pub fn remove_all_from(entity: Entity, tags: &[Box<dyn CraftingTag>], world: &mut World) {
-        todo!() //TODO
+    pub fn remove_all_from(entity: Entity, tags: &[&dyn CraftingTag], world: &mut World) {
+        ensure_has_component_and::<CraftingTags>(
+            entity,
+            |c| {
+                for tag in tags {
+                    c.remove(*tag);
+                }
+            },
+            world,
+        );
     }
 
     /// Adds a tag.
     pub fn add<T: CraftingTag>(&mut self, tag: T) {
         self.0.insert(Box::new(tag));
+    }
+
+    /// Removes a tag.
+    pub fn remove(&mut self, tag: &dyn CraftingTag) {
+        self.0.remove(tag);
     }
 
     /// Determines whether the provided entity has the provided tag.
@@ -119,10 +138,21 @@ impl CraftingTags {
                 .any(|tag| tag.category().as_ref() == Some(category))
         })
     }
+}
 
-    /// Removes a tag.
-    pub fn remove(&mut self, tag: &dyn CraftingTag) {
-        self.0.remove(tag);
+// TODO move this to a common place
+/// If the entity has the component, passes it to `f`. Otherwise, makes a new default version of the component, passes it to `f`, and adds it to the entity.
+fn ensure_has_component_and<C: Component + Default>(
+    entity: Entity,
+    f: impl FnOnce(&mut C),
+    world: &mut World,
+) {
+    if let Some(mut component) = world.get_mut::<C>(entity) {
+        f(&mut component)
+    } else {
+        let mut component = C::default();
+        f(&mut component);
+        world.entity_mut(entity).insert(component);
     }
 }
 
