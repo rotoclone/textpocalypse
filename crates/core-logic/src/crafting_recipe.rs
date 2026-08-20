@@ -1,12 +1,12 @@
 use std::{
-    any::{Any, TypeId},
-    collections::{HashMap, HashSet},
+    any::Any,
+    collections::HashSet,
     hash::{Hash, Hasher},
 };
 
 use bevy_ecs::prelude::*;
 
-use crate::{Volume, Weight};
+use crate::{component::Fluid, Volume, Weight};
 
 pub struct CraftingRecipe {
     name: String,
@@ -21,24 +21,46 @@ pub struct CraftingRecipeIngredient {
     tags: Vec<TagBounds>,
 }
 
+impl CraftingRecipeIngredient {
+    /// Determines whether the provided entity can be used as this ingredient.
+    fn matches(&self, entity: Entity, world: &World) -> bool {
+        self.amount.matches(entity, world)
+            && self
+                .tags
+                .iter()
+                .all(|tag_bounds| tag_bounds.matches(entity, world))
+    }
+}
+
+/// Describes the tags to check for on an entity.
 pub enum TagBounds {
+    /// At least this tag must be present
     Just(TagDescriptor),
+    /// At least one of these tags must be present
     OneOf(HashSet<TagDescriptor>),
+    /// All of these tags must be present
     AllOf(HashSet<TagDescriptor>),
-    NotAnyOf(HashSet<TagDescriptor>),
+    /// None of these tags can be present
+    NoneOf(HashSet<TagDescriptor>),
 }
 
 impl TagBounds {
     /// Determines whether the provided entity is within these bounds.
     fn matches(&self, entity: Entity, world: &World) -> bool {
-        todo!() //TODO
+        match self {
+            TagBounds::Just(d) => d.matches(entity, world),
+            TagBounds::OneOf(descriptors) => descriptors.iter().any(|d| d.matches(entity, world)),
+            TagBounds::AllOf(descriptors) => descriptors.iter().all(|d| d.matches(entity, world)),
+            TagBounds::NoneOf(descriptors) => !descriptors.iter().any(|d| d.matches(entity, world)),
+        }
     }
 }
 
+/// References a specific tag or tag category.
 #[derive(Hash)]
 pub enum TagDescriptor {
     Category(TagCategory),
-    Tag(Box<dyn CraftingTag>),
+    Tag(Box<dyn ItemTag>),
 }
 
 impl TagDescriptor {
@@ -46,9 +68,9 @@ impl TagDescriptor {
     fn matches(&self, entity: Entity, world: &World) -> bool {
         match self {
             TagDescriptor::Category(category) => {
-                CraftingTags::has_tag_with_category(entity, category, world)
+                ItemTags::has_tag_with_category(entity, category, world)
             }
-            TagDescriptor::Tag(tag) => CraftingTags::has_tag(entity, tag.as_ref(), world),
+            TagDescriptor::Tag(tag) => ItemTags::has_tag(entity, tag.as_ref(), world),
         }
     }
 }
@@ -61,6 +83,19 @@ pub enum CraftingIngredientAmount {
     Weight(Weight),
     /// A volume of fluid (e.g. 3 L of water)
     Fluid(Volume),
+}
+
+impl CraftingIngredientAmount {
+    /// Determines whether the provided entity has at least this amount.
+    fn matches(&self, entity: Entity, world: &World) -> bool {
+        match self {
+            CraftingIngredientAmount::Items(n) => *n == 1, //TODO handle multiple items
+            CraftingIngredientAmount::Weight(w) => *w == Weight::get(entity, world),
+            CraftingIngredientAmount::Fluid(v) => {
+                *v == Volume::get(entity, world) && world.get::<Fluid>(entity).is_some()
+            }
+        }
+    }
 }
 
 // TODO this should go somewhere else probably
@@ -76,17 +111,17 @@ pub enum TagCategory {
 }
 
 #[derive(Component, Default)]
-pub struct CraftingTags(HashSet<Box<dyn CraftingTag>>);
+pub struct ItemTags(HashSet<Box<dyn ItemTag>>);
 
-impl CraftingTags {
+impl ItemTags {
     /// Adds a tag to an entity.
-    pub fn add_to<T: CraftingTag>(entity: Entity, tag: T, world: &mut World) {
-        ensure_has_component_and::<CraftingTags>(entity, |c| c.add(tag), world);
+    pub fn add_to<T: ItemTag>(entity: Entity, tag: T, world: &mut World) {
+        ensure_has_component_and::<ItemTags>(entity, |c| c.add(tag), world);
     }
 
     /// Adds multiple tags to an entity.
-    pub fn add_all_to(entity: Entity, tags: HashSet<Box<dyn CraftingTag>>, world: &mut World) {
-        ensure_has_component_and::<CraftingTags>(
+    pub fn add_all_to(entity: Entity, tags: HashSet<Box<dyn ItemTag>>, world: &mut World) {
+        ensure_has_component_and::<ItemTags>(
             entity,
             |c| {
                 c.0.extend(tags);
@@ -96,13 +131,13 @@ impl CraftingTags {
     }
 
     /// Removes a tag from an entity.
-    pub fn remove_from<T: CraftingTag>(entity: Entity, tag: &dyn CraftingTag, world: &mut World) {
-        ensure_has_component_and::<CraftingTags>(entity, |c| c.remove(tag), world);
+    pub fn remove_from<T: ItemTag>(entity: Entity, tag: &dyn ItemTag, world: &mut World) {
+        ensure_has_component_and::<ItemTags>(entity, |c| c.remove(tag), world);
     }
 
     /// Removes multiple tags from an entity.
-    pub fn remove_all_from(entity: Entity, tags: &[&dyn CraftingTag], world: &mut World) {
-        ensure_has_component_and::<CraftingTags>(
+    pub fn remove_all_from(entity: Entity, tags: &[&dyn ItemTag], world: &mut World) {
+        ensure_has_component_and::<ItemTags>(
             entity,
             |c| {
                 for tag in tags {
@@ -114,25 +149,25 @@ impl CraftingTags {
     }
 
     /// Adds a tag.
-    pub fn add<T: CraftingTag>(&mut self, tag: T) {
+    pub fn add<T: ItemTag>(&mut self, tag: T) {
         self.0.insert(Box::new(tag));
     }
 
     /// Removes a tag.
-    pub fn remove(&mut self, tag: &dyn CraftingTag) {
+    pub fn remove(&mut self, tag: &dyn ItemTag) {
         self.0.remove(tag);
     }
 
     /// Determines whether the provided entity has the provided tag.
-    pub fn has_tag(entity: Entity, tag: &dyn CraftingTag, world: &World) -> bool {
+    pub fn has_tag(entity: Entity, tag: &dyn ItemTag, world: &World) -> bool {
         world
-            .get::<CraftingTags>(entity)
+            .get::<ItemTags>(entity)
             .is_some_and(|tags| tags.0.contains(tag))
     }
 
     /// Determines whether the provided entity has any tag with the provided category.
     pub fn has_tag_with_category(entity: Entity, category: &TagCategory, world: &World) -> bool {
-        world.get::<CraftingTags>(entity).is_some_and(|tags| {
+        world.get::<ItemTags>(entity).is_some_and(|tags| {
             tags.0
                 .iter()
                 .any(|tag| tag.category().as_ref() == Some(category))
@@ -156,28 +191,25 @@ fn ensure_has_component_and<C: Component + Default>(
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CraftingTagId(&'static str);
-
 //TODO this should also go isomewhere else
-/// Trait for crafting tags.
-/// Equality is based solely on types, so crafting tag structs should not have any fields.
-pub trait CraftingTag: AsAny + Send + Sync + 'static {
+/// Trait for item tags.
+/// Equality is based solely on types, so item tag structs should not have any fields.
+pub trait ItemTag: AsAny + Send + Sync + 'static {
     /// Gets the category of this tag, if it has one
     fn category(&self) -> Option<TagCategory>;
 }
 
-impl Hash for dyn CraftingTag {
+impl Hash for dyn ItemTag {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.dyn_hash(state);
     }
 }
-impl PartialEq for dyn CraftingTag {
-    fn eq(&self, other: &dyn CraftingTag) -> bool {
+impl PartialEq for dyn ItemTag {
+    fn eq(&self, other: &dyn ItemTag) -> bool {
         self.as_any().type_id() == other.as_any().type_id()
     }
 }
-impl Eq for dyn CraftingTag {}
+impl Eq for dyn ItemTag {}
 
 pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
@@ -202,7 +234,7 @@ impl<H: Hash + ?Sized> DynHash for H {
 pub struct SizeSmall;
 
 //TODO make a proc macro to auto-derive this
-impl CraftingTag for SizeSmall {
+impl ItemTag for SizeSmall {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Size)
     }
@@ -210,7 +242,7 @@ impl CraftingTag for SizeSmall {
 
 pub struct SizeMedium;
 
-impl CraftingTag for SizeMedium {
+impl ItemTag for SizeMedium {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Size)
     }
@@ -218,7 +250,7 @@ impl CraftingTag for SizeMedium {
 
 pub struct SizeLarge;
 
-impl CraftingTag for SizeLarge {
+impl ItemTag for SizeLarge {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Size)
     }
@@ -226,7 +258,7 @@ impl CraftingTag for SizeLarge {
 
 pub struct ShapeRod;
 
-impl CraftingTag for ShapeRod {
+impl ItemTag for ShapeRod {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Shape)
     }
@@ -234,7 +266,7 @@ impl CraftingTag for ShapeRod {
 
 pub struct ShapeRope;
 
-impl CraftingTag for ShapeRope {
+impl ItemTag for ShapeRope {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Shape)
     }
