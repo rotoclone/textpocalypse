@@ -10,13 +10,25 @@ use crate::{component::Fluid, Volume, Weight};
 
 pub struct CraftingRecipe {
     name: String,
-    ingredients: Vec<CraftingRecipeIngredient>,
+    ingredients: Vec<CraftingRecipeIngredientBounds>,
+}
+
+/// Describes one or more ingredients used to fulfill part of a crafting recipe
+enum CraftingRecipeIngredientBounds {
+    /// One specific ingredient
+    Just {
+        required: bool,
+        ingredient: CraftingRecipeIngredient,
+    },
+    /// One of many possible ingredients
+    OneOf {
+        required: bool,
+        ingredients: Vec<CraftingRecipeIngredient>,
+    },
 }
 
 pub struct CraftingRecipeIngredient {
     name: String,
-    //TODO allow grouping ingredients, i.e. "you have to provide at least one of these but not all of them"
-    required: bool,
     amount: CraftingIngredientAmount,
     tags: Vec<TagBounds>,
 }
@@ -32,7 +44,7 @@ impl CraftingRecipeIngredient {
     }
 }
 
-/// Describes the tags to check for on an entity.
+/// Describes one or more tags an entity should or should not have.
 pub enum TagBounds {
     /// At least this tag must be present
     Just(TagDescriptor),
@@ -256,6 +268,7 @@ impl ItemTag for SizeLarge {
     }
 }
 
+/// An item in the shape of a rod (long, rigid)
 pub struct ShapeRod;
 
 impl ItemTag for ShapeRod {
@@ -264,11 +277,21 @@ impl ItemTag for ShapeRod {
     }
 }
 
+/// An item in the shape of rope (long, thin, flexible)
 pub struct ShapeRope;
 
 impl ItemTag for ShapeRope {
     fn category(&self) -> Option<TagCategory> {
         Some(TagCategory::Shape)
+    }
+}
+
+/// An item that is an adhesive, like glue
+pub struct Adhesive;
+
+impl ItemTag for Adhesive {
+    fn category(&self) -> Option<TagCategory> {
+        None
     }
 }
 
@@ -278,44 +301,46 @@ fn build_test_recipe() -> CraftingRecipe {
     CraftingRecipe {
         name: "Axe".to_string(),
         ingredients: vec![
-            CraftingRecipeIngredient {
-                name: "handle".to_string(),
+            CraftingRecipeIngredientBounds::Just {
                 required: true,
-                amount: CraftingIngredientAmount::Items(1),
-                tags: vec![
-                    TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
-                    TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRod))),
-                ],
+                ingredient: CraftingRecipeIngredient {
+                    name: "handle".to_string(),
+                    amount: CraftingIngredientAmount::Items(1),
+                    tags: vec![
+                        TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
+                        TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRod))),
+                    ],
+                },
             },
-            CraftingRecipeIngredient {
-                name: "head".to_string(),
+            CraftingRecipeIngredientBounds::Just {
                 required: true,
-                amount: CraftingIngredientAmount::Items(1),
-                tags: vec![
-                    TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
-                    TagBounds::Just(TagDescriptor::Category(TagCategory::Sharpness)),
-                ],
+                ingredient: CraftingRecipeIngredient {
+                    name: "head".to_string(),
+                    amount: CraftingIngredientAmount::Items(1),
+                    tags: vec![
+                        TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
+                        TagBounds::Just(TagDescriptor::Category(TagCategory::Sharpness)),
+                    ],
+                },
             },
-            CraftingRecipeIngredient {
-                name: "rope".to_string(),
+            CraftingRecipeIngredientBounds::OneOf {
                 required: true,
-                amount: CraftingIngredientAmount::Items(1),
-                tags: vec![
-                    TagBounds::Just(TagDescriptor::Tag(Box::new(SizeSmall))),
-                    TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRope))),
+                ingredients: vec![
+                    CraftingRecipeIngredient {
+                        name: "rope".to_string(),
+                        amount: CraftingIngredientAmount::Items(1),
+                        tags: vec![
+                            TagBounds::Just(TagDescriptor::Tag(Box::new(SizeSmall))),
+                            TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRope))),
+                        ],
+                    },
+                    CraftingRecipeIngredient {
+                        name: "adhesive".to_string(),
+                        amount: CraftingIngredientAmount::Items(1),
+                        tags: vec![TagBounds::Just(TagDescriptor::Tag(Box::new(Adhesive)))],
+                    },
                 ],
             },
         ],
     }
-}
-
-fn entity_valid_for_ingredient(
-    entity: Entity,
-    ingredient: CraftingRecipeIngredient,
-    world: &World,
-) -> bool {
-    ingredient
-        .tags
-        .iter()
-        .all(|tag_bounds| tag_bounds.matches(entity, world))
 }
