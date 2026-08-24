@@ -1,17 +1,65 @@
 use std::{
     any::Any,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
 };
 
 use bevy_ecs::prelude::*;
 
-use crate::{component::Fluid, Volume, Weight};
+use crate::{
+    component::{Description, Fluid},
+    Pronouns, Volume, Weight,
+};
+
+static EMPTY_VEC: Vec<Entity> = Vec::new();
 
 pub struct CraftingRecipe {
     name: String,
-    ingredients: Vec<CraftingRecipeIngredientBounds>,
+    ingredients: Vec<(CraftingRecipeIngredientId, CraftingRecipeIngredientBounds)>,
+    output_spawner: fn(CraftingRecipeOutputContext, &mut World),
 }
+
+pub struct CraftingRecipeOutputContext {
+    crafting_entity: Entity,
+    ingredients: HashMap<CraftingRecipeIngredientId, CraftingRecipeIngredientBounds>,
+    used_ingredients: HashMap<CraftingRecipeIngredientId, Vec<Entity>>,
+}
+
+impl CraftingRecipeOutputContext {
+    /// Gets the entity or entities used for an ingredient.
+    pub fn get_used(&self, id: CraftingRecipeIngredientId) -> &Vec<Entity> {
+        self.used_ingredients.get(&id).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Gets the entity used for an ingredient, if any.
+    ///
+    /// # Panics
+    /// Panics if more than one entity was used for the ingredient.
+    pub fn get_used_single(&self, id: CraftingRecipeIngredientId) -> Option<Entity> {
+        let entities = self.get_used(id);
+        if entities.len() > 1 {
+            panic!(
+                "Expected no more than 1 entity to be used for {:?}, but found {}",
+                id,
+                entities.len()
+            );
+        }
+
+        entities.first().copied()
+    }
+
+    /// Gets the entity used for an ingredient.
+    ///
+    /// # Panics
+    /// Panics if no entity was used for the ingredient.
+    pub fn get_used_single_required(&self, id: CraftingRecipeIngredientId) -> Entity {
+        self.get_used_single(id)
+            .unwrap_or_else(|| panic!("{id:?} should have an entity used for it"))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct CraftingRecipeIngredientId(&'static str);
 
 /// Describes one or more ingredients used to fulfill part of a crafting recipe
 enum CraftingRecipeIngredientBounds {
@@ -295,52 +343,100 @@ impl ItemTag for Adhesive {
     }
 }
 
+static HANDLE_INGREDIENT_ID: CraftingRecipeIngredientId = CraftingRecipeIngredientId("handle");
+static HEAD_INGREDIENT_ID: CraftingRecipeIngredientId = CraftingRecipeIngredientId("head");
+static CONNECTOR_INGREDIENT_ID: CraftingRecipeIngredientId =
+    CraftingRecipeIngredientId("connector");
+
 //TODO remove
 #[allow(unused)]
 fn build_test_recipe() -> CraftingRecipe {
     CraftingRecipe {
         name: "Axe".to_string(),
         ingredients: vec![
-            CraftingRecipeIngredientBounds::Just {
-                required: true,
-                ingredient: CraftingRecipeIngredient {
-                    name: "handle".to_string(),
-                    amount: CraftingIngredientAmount::Items(1),
-                    tags: vec![
-                        TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
-                        TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRod))),
-                    ],
-                },
-            },
-            CraftingRecipeIngredientBounds::Just {
-                required: true,
-                ingredient: CraftingRecipeIngredient {
-                    name: "head".to_string(),
-                    amount: CraftingIngredientAmount::Items(1),
-                    tags: vec![
-                        TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
-                        TagBounds::Just(TagDescriptor::Category(TagCategory::Sharpness)),
-                    ],
-                },
-            },
-            CraftingRecipeIngredientBounds::OneOf {
-                required: true,
-                ingredients: vec![
-                    CraftingRecipeIngredient {
-                        name: "rope".to_string(),
+            (
+                HANDLE_INGREDIENT_ID,
+                CraftingRecipeIngredientBounds::Just {
+                    required: true,
+                    ingredient: CraftingRecipeIngredient {
+                        name: "handle".to_string(),
                         amount: CraftingIngredientAmount::Items(1),
                         tags: vec![
-                            TagBounds::Just(TagDescriptor::Tag(Box::new(SizeSmall))),
-                            TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRope))),
+                            TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
+                            TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRod))),
                         ],
                     },
-                    CraftingRecipeIngredient {
-                        name: "adhesive".to_string(),
+                },
+            ),
+            (
+                HEAD_INGREDIENT_ID,
+                CraftingRecipeIngredientBounds::Just {
+                    required: true,
+                    ingredient: CraftingRecipeIngredient {
+                        name: "head".to_string(),
                         amount: CraftingIngredientAmount::Items(1),
-                        tags: vec![TagBounds::Just(TagDescriptor::Tag(Box::new(Adhesive)))],
+                        tags: vec![
+                            TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
+                            TagBounds::Just(TagDescriptor::Category(TagCategory::Sharpness)),
+                        ],
                     },
-                ],
-            },
+                },
+            ),
+            (
+                CONNECTOR_INGREDIENT_ID,
+                CraftingRecipeIngredientBounds::OneOf {
+                    required: true,
+                    ingredients: vec![
+                        CraftingRecipeIngredient {
+                            name: "rope".to_string(),
+                            amount: CraftingIngredientAmount::Items(1),
+                            tags: vec![
+                                TagBounds::Just(TagDescriptor::Tag(Box::new(SizeSmall))),
+                                TagBounds::Just(TagDescriptor::Tag(Box::new(ShapeRope))),
+                            ],
+                        },
+                        CraftingRecipeIngredient {
+                            name: "adhesive".to_string(),
+                            amount: CraftingIngredientAmount::Items(1),
+                            tags: vec![TagBounds::Just(TagDescriptor::Tag(Box::new(Adhesive)))],
+                        },
+                    ],
+                },
+            ),
         ],
+        output_spawner: spawn_crafted_axe,
     }
+}
+
+fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
+    let handle_entity = context.get_used_single_required(HANDLE_INGREDIENT_ID);
+    let head_entity = context.get_used_single_required(HEAD_INGREDIENT_ID);
+    let connector_entity = context.get_used_single_required(CONNECTOR_INGREDIENT_ID);
+
+    let name = Description::get_name(head_entity, world)
+        .map_or_else(|| "axe".to_string(), |head_name| format!("{head_name} axe"));
+
+    let head_description = world.get::<Description>(head_entity);
+
+    world.spawn(
+        (Description {
+            name: name.clone(),
+            room_name: name.clone(),
+            plural_name: format!("{name} axes"),
+            indefinite_article: Some(
+                head_description
+                    .and_then(|d| d.indefinite_article.clone())
+                    .unwrap_or_else(|| "an".to_string()),
+            ),
+            pronouns: Pronouns::it(),
+            aliases: vec!["axe".to_string()],
+            description: format!(
+                "An axe with {} as its head attached to {} with {}.",
+                Description::get_article_reference_name(head_entity, world),
+                Description::get_article_reference_name(handle_entity, world),
+                Description::get_article_reference_name(connector_entity, world)
+            ),
+            attribute_describers: vec![], //TODO
+        }),
+    );
 }
