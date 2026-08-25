@@ -7,7 +7,11 @@ use std::{
 use bevy_ecs::prelude::*;
 
 use crate::{
-    component::{Description, Fluid},
+    component::{
+        CombatRange, DescribeAttributes, Description, Fluid, Item, Weapon, WeaponDamageAdjustment,
+        WeaponMessages, WeaponRanges, WeaponStatBonuses, WeaponType,
+    },
+    message_format::MessageFormat,
     Pronouns, Volume, Weight,
 };
 
@@ -418,8 +422,8 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
 
     let head_description = world.get::<Description>(head_entity);
 
-    world.spawn(
-        (Description {
+    world.spawn((
+        Description {
             name: name.clone(),
             room_name: name.clone(),
             plural_name: format!("{name} axes"),
@@ -436,7 +440,40 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
                 Description::get_article_reference_name(handle_entity, world),
                 Description::get_article_reference_name(connector_entity, world)
             ),
-            attribute_describers: vec![], //TODO
-        }),
-    );
+            attribute_describers: vec![
+                Item::get_attribute_describer(),
+                Volume::get_attribute_describer(),
+                Weight::get_attribute_describer(),
+                Weapon::get_attribute_describer(),
+            ],
+        },
+        Item::new_two_handed(),
+        Weapon {
+                weapon_type: WeaponType::Blade,
+                base_damage_range: 10..=15,
+                critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
+                ranges: WeaponRanges {
+                    usable: CombatRange::Shortest..=CombatRange::Short,
+                    optimal: CombatRange::Short..=CombatRange::Short,
+                    to_hit_penalty: 1,
+                    damage_penalty: 4,
+                },
+                stat_requirements: Vec::new(),
+                stat_bonuses: WeaponStatBonuses {
+                    damage_bonus_stat_range: 10.0..=20.0,
+                    damage_bonus_per_stat_point: 1.0,
+                    to_hit_bonus_stat_range: 10.0..=20.0,
+                    to_hit_bonus_per_stat_point: 1.0,
+                },
+                default_attack_messages: WeaponMessages {
+                    miss: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} wide of ${target.name}.").expect("message format should be valid")],
+                    minor_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:swing/swings} ${weapon.name} near ${target.name}, and ${attacker.you:nick/nicks} ${target.them} in the ${body_part.plain_name}.").expect("message format should be valid")],
+                    regular_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:catch/catches} ${target.name} on the ${body_part.plain_name} with the blade of ${weapon.name}.").expect("message format should be valid")],
+                    major_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:bury/buries} the head of ${weapon.name} into ${target.name's} ${body_part.plain_name}.").expect("message format should be valid")],
+                    self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:slice/slices} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
+                },
+            },
+        Volume(0.5),
+        Weight(2.0)
+    ));
 }
