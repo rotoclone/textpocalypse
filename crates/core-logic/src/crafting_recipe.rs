@@ -17,10 +17,31 @@ use crate::{
 
 static EMPTY_VEC: Vec<Entity> = Vec::new();
 
+/// The crafting recipes known by an entity.
+#[derive(Component)]
+pub struct KnownCraftingRecipes(Vec<CraftingRecipe>);
+
+/// A recipe used to craft something.
 pub struct CraftingRecipe {
+    /// The display name of the recipe
     name: String,
+    /// The category of thing the recipe makes
+    category: CraftingRecipeCategory,
+    /// The ingredients of the recipe
     ingredients: Vec<(CraftingRecipeIngredientId, CraftingRecipeIngredientBounds)>,
+    /// Function to spawn the crafted item
     output_spawner: fn(CraftingRecipeOutputContext, &mut World),
+}
+
+/// TODO just use ContainerEntityCategory instead?
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum CraftingRecipeCategory {
+    Weapon,
+    Wearable,
+    Consumable,
+    Container,
+    Other,
+    Custom(String),
 }
 
 pub struct CraftingRecipeOutputContext {
@@ -79,9 +100,15 @@ enum CraftingRecipeIngredientBounds {
     },
 }
 
+/// An ingredient in a crafting recipe.
 pub struct CraftingRecipeIngredient {
+    /// The display name of the ingredient
     name: String,
+    /// Whether the ingredient is consumed when the recipe is crafted
+    consumed: bool,
+    /// The amount of the ingredient needed
     amount: CraftingIngredientAmount,
+    /// The tags describing the ingredient
     tags: Vec<TagBounds>,
 }
 
@@ -357,6 +384,7 @@ static CONNECTOR_INGREDIENT_ID: CraftingRecipeIngredientId =
 fn build_test_recipe() -> CraftingRecipe {
     CraftingRecipe {
         name: "Axe".to_string(),
+        category: CraftingRecipeCategory::Weapon,
         ingredients: vec![
             (
                 HANDLE_INGREDIENT_ID,
@@ -364,6 +392,7 @@ fn build_test_recipe() -> CraftingRecipe {
                     required: true,
                     ingredient: CraftingRecipeIngredient {
                         name: "handle".to_string(),
+                        consumed: true,
                         amount: CraftingIngredientAmount::Items(1),
                         tags: vec![
                             TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
@@ -378,6 +407,7 @@ fn build_test_recipe() -> CraftingRecipe {
                     required: true,
                     ingredient: CraftingRecipeIngredient {
                         name: "head".to_string(),
+                        consumed: true,
                         amount: CraftingIngredientAmount::Items(1),
                         tags: vec![
                             TagBounds::Just(TagDescriptor::Tag(Box::new(SizeMedium))),
@@ -393,6 +423,7 @@ fn build_test_recipe() -> CraftingRecipe {
                     ingredients: vec![
                         CraftingRecipeIngredient {
                             name: "rope".to_string(),
+                            consumed: true,
                             amount: CraftingIngredientAmount::Items(1),
                             tags: vec![
                                 TagBounds::Just(TagDescriptor::Tag(Box::new(SizeSmall))),
@@ -401,6 +432,7 @@ fn build_test_recipe() -> CraftingRecipe {
                         },
                         CraftingRecipeIngredient {
                             name: "adhesive".to_string(),
+                            consumed: true,
                             amount: CraftingIngredientAmount::Items(1),
                             tags: vec![TagBounds::Just(TagDescriptor::Tag(Box::new(Adhesive)))],
                         },
