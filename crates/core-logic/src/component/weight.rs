@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign, Div, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 use bevy_ecs::prelude::*;
@@ -32,11 +32,19 @@ impl AddAssign for Weight {
     }
 }
 
-impl Div for Weight {
-    type Output = f32;
+impl Div<f32> for Weight {
+    type Output = Weight;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        self.0 / rhs.0
+    fn div(self, rhs: f32) -> Self::Output {
+        Weight(self.0 / rhs)
+    }
+}
+
+impl Mul<f32> for Weight {
+    type Output = Weight;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Weight(self.0 * rhs)
     }
 }
 

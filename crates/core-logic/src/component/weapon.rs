@@ -19,6 +19,7 @@ use super::{
 };
 
 /// An entity that can deal damage.
+/// TODO add a way to add flat modifiers to the to-hit, like for weapons that got crafted crappily
 #[derive(Component)]
 pub struct Weapon {
     /// The type of weapon this is.

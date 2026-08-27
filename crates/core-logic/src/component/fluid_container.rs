@@ -100,7 +100,7 @@ impl AttributeDescriber for FluidContainerAttributeDescriber {
             } else {
                 let fluid_names_to_fractions = fluid_names_to_volumes
                     .into_iter()
-                    .map(|(n, v)| (n, v / used_volume))
+                    .map(|(n, v)| (n, v.0 / used_volume.0))
                     .collect::<HashMap<String, f32>>();
 
                 let fluid_description = fluid_names_to_fractions

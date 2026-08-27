@@ -47,7 +47,7 @@ impl Fluid {
             .map(|(fluid_type, volume)| {
                 let amount = FluidTypeAmount {
                     volume: *volume,
-                    fraction: *volume / total_volume,
+                    fraction: volume.0 / total_volume.0,
                 };
                 (fluid_type.clone(), amount)
             })

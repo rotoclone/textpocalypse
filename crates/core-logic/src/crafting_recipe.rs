@@ -5,11 +5,14 @@ use std::{
 };
 
 use bevy_ecs::prelude::*;
+use rand_distr::num_traits::ToPrimitive;
 
 use crate::{
     component::{
-        CombatRange, DescribeAttributes, Description, Fluid, Item, Weapon, WeaponDamageAdjustment,
-        WeaponMessages, WeaponRanges, WeaponStatBonuses, WeaponType,
+        Attribute, CombatRange, DescribeAttributes, Description, Fluid, Item, Stat, Weapon,
+        WeaponDamageAdjustment, WeaponMessages, WeaponPerformanceAdjustment, WeaponRanges,
+        WeaponStatBonuses, WeaponStatRequirement, WeaponStatRequirementNotMetBehavior,
+        WeaponToHitAdjustment, WeaponType,
     },
     message_format::MessageFormat,
     Pronouns, Volume, Weight,
@@ -453,6 +456,32 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
         .map_or_else(|| "axe".to_string(), |head_name| format!("{head_name} axe"));
 
     let head_description = world.get::<Description>(head_entity);
+    let head_weight = Weight::get(head_entity, world);
+
+    let volume = Volume::get(handle_entity, world) + Volume::get(head_entity, world);
+    let weight =
+        Weight::get(handle_entity, world) + head_weight + Weight::get(connector_entity, world);
+
+    let stat_requirements = if head_weight < Weight(2.0) {
+        Vec::new()
+    } else {
+        vec![WeaponStatRequirement {
+            stat: Stat::Attribute(Attribute::Strength),
+            min: head_weight.0 * 4.0,
+            below_min_behavior: WeaponStatRequirementNotMetBehavior::AdjustmentsPerPointBelowMin(
+                vec![WeaponPerformanceAdjustment::ToHit(
+                    WeaponToHitAdjustment::Add(-1),
+                )],
+            ),
+        }]
+    };
+
+    let low_damage_bound = (head_weight.0 * 5.0)
+        .to_u32()
+        .expect("low damage bound should be convertable to u32");
+    let high_damage_bound = (head_weight.0 * 7.0)
+        .to_u32()
+        .expect("high damage bound should be convertable to u32");
 
     world.spawn((
         Description {
@@ -482,7 +511,7 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
         Item::new_two_handed(),
         Weapon {
                 weapon_type: WeaponType::Blade,
-                base_damage_range: 10..=15,
+                base_damage_range: low_damage_bound..=high_damage_bound,
                 critical_damage_behavior: WeaponDamageAdjustment::Multiply(2.0),
                 ranges: WeaponRanges {
                     usable: CombatRange::Shortest..=CombatRange::Short,
@@ -490,7 +519,7 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
                     to_hit_penalty: 1,
                     damage_penalty: 4,
                 },
-                stat_requirements: Vec::new(),
+                stat_requirements,
                 stat_bonuses: WeaponStatBonuses {
                     damage_bonus_stat_range: 10.0..=20.0,
                     damage_bonus_per_stat_point: 1.0,
@@ -505,7 +534,7 @@ fn spawn_crafted_axe(context: CraftingRecipeOutputContext, world: &mut World) {
                     self_hit: vec![MessageFormat::new("${attacker.Name} ${attacker.you:slice/slices} ${attacker.themself} in the ${body_part.plain_name} with ${weapon.name}.").expect("message format should be valid")]
                 },
             },
-        Volume(0.5),
-        Weight(2.0)
+        volume,
+        weight,
     ));
 }

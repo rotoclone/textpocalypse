@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     iter::Sum,
-    ops::{Add, AddAssign, Div, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 use bevy_ecs::prelude::*;
@@ -31,11 +31,19 @@ impl AddAssign for Volume {
     }
 }
 
-impl Div for Volume {
-    type Output = f32;
+impl Div<f32> for Volume {
+    type Output = Volume;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        self.0 / rhs.0
+    fn div(self, rhs: f32) -> Self::Output {
+        Volume(self.0 / rhs)
+    }
+}
+
+impl Mul<f32> for Volume {
+    type Output = Volume;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Volume(self.0 * rhs)
     }
 }
 
