@@ -101,6 +101,8 @@ mod found_entities;
 
 mod crafting_recipe;
 
+mod item_tag;
+
 const CHEATS_ENABLED: bool = true;
 
 pub const AFTERLIFE_ROOM_COORDINATES: Coordinates = Coordinates {

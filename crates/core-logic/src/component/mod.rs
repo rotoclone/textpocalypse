@@ -186,6 +186,12 @@ pub use firearm_magazine::*;
 mod bullet;
 pub use bullet::*;
 
+mod known_crafting_recipes;
+pub use known_crafting_recipes::*;
+
+mod item_tags;
+pub use item_tags::*;
+
 /// Registers notification handlers related to components.
 pub fn register_component_handlers(world: &mut World) {
     register_status_effect_handlers(world);
